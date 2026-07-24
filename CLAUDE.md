@@ -40,10 +40,17 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
 7. **Un gasto son dos asientos:** devengo al cargar, pago al pagar.
    No los mezcles en una sola operación.
 
-8. **La imputación de pagos nunca se decide sola.**
-   Si un equipo tiene deuda en más de un torneo, se llama a
-   `sugerir_imputacion()`, se muestra la propuesta y el operador confirma.
-   `imputar_pago_automatico()` está deprecada.
+8. **Los asientos se crean solo con `crear_asiento()`.**
+   Nunca `insert into asiento` directo. La función resuelve el período,
+   valida las líneas y garantiza el balance.
+
+9. **Un movimiento de efectivo necesita `predio_id`.**
+   El arqueo es por jornada + predio; sin predio no se puede cuadrar caja.
+
+10. **La imputación de pagos nunca se decide sola.**
+    Si un equipo tiene deuda en más de un torneo, se llama a
+    `sugerir_imputacion()`, se muestra la propuesta y el operador confirma.
+    `imputar_pago_automatico()` está deprecada.
 
 ## Los 5 conceptos
 
@@ -113,8 +120,10 @@ No reimplementar esto en TypeScript:
 
 | Función | Qué hace |
 |---|---|
-| `crear_asiento(lineas jsonb)` | Crea asiento + líneas, valida balance |
-| `anular_asiento(id, motivo)` | Contraasiento |
+| `crear_asiento(fecha, origen, desc, lineas, [torneo], [jornada], [predio], [origen_id])` | Única vía de escritura en el diario |
+| `anular_asiento(id, motivo, [fecha])` | Contraasiento. El original queda marcado |
+| `periodo_de_fecha(fecha)` | Resuelve el período; lo crea si no existe |
+| `saldo_cuenta(codigo, [hasta], [torneo])` | Saldo según naturaleza de la cuenta |
 | `sugerir_imputacion(pago_id)` | Propone reparto de un pago (no escribe) |
 | `imputar_pago(pago_id, imputaciones)` | Imputa lo que eligió el operador |
 | `aplicar_anticipo(tercero, cuota, monto)` | Usa saldo a favor |
@@ -134,6 +143,8 @@ No reimplementar esto en TypeScript:
 | `v_comparador_torneos` | Contribución por equipo entre torneos |
 | `v_calendario_pagos` | Compromisos con criticidad |
 | `v_anticipo_saldo` | Saldo a favor disponible |
+| `v_libro_diario` | Cabecera de asientos con totales |
+| `v_asiento_detalle` | Líneas de un asiento, con nombres |
 
 ## Invariantes en la base
 
