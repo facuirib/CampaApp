@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
 
@@ -49,7 +50,11 @@ export default async function CobranzaPage() {
                     vencida > 0 ? 'bg-red-50' : ''
                   }`}
                 >
-                  <td className="py-2 pr-4">{fila.equipo}</td>
+                  <td className="py-2 pr-4">
+                    <Link href={`/cobranza/${fila.tercero_id}`} className="text-blue-600 hover:underline">
+                      {fila.equipo}
+                    </Link>
+                  </td>
                   <td className="py-2 pr-4">{fila.email}</td>
                   <td className="py-2 pr-4">{fila.torneos_con_deuda}</td>
                   <td className="py-2 pr-4">{formatMoney(fila.deuda_total ?? 0)}</td>
