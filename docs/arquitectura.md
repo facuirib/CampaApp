@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 8 · alineado con migraciones 001-003 · julio 2026
+**Versión:** Draft 10 · julio 2026 · módulo calendario asentado; jornada reconciliada de fecha×predio a fecha×género; hito_calendario→hito_jornada_id
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -50,7 +50,7 @@ Las dos primeras son la misma pregunta —cuándo entra la plata— y la cobranz
 
 ## 1. Principios de diseño
 
-**a. La Fecha es la unidad operativa central, no el mes.** Cada jornada (`Fecha 9 · 14-jun · Tirolesa`) es la unidad contra la que se cargan ingresos de equipos y egresos operativos. El mes es una vista derivada, no la unidad de trabajo.
+**a. La Fecha es la unidad operativa central, no el mes.** Cada jornada (`Fecha 9 · Masculino · 14-jun`) es la unidad contra la que se cargan ingresos de equipos y egresos operativos. El mes es una vista derivada, no la unidad de trabajo.
 
 **b. El ingreso se reconoce por devengo.** Armar la ficha de un equipo factura la deuda completa del torneo: `Deudores` al debe, `Ingresos` al haber. Cada pago posterior **solo cancela Deudores** — `Ingresos` no se vuelve a tocar. El P&L muestra devengado; la caja, percibido; la diferencia son cuentas por cobrar y se etiqueta como tal, nunca se presenta como un error de cuadratura.
 
@@ -107,12 +107,16 @@ create table ejercicio (
 
 create table torneo (
   id            uuid primary key default gen_random_uuid(),
-  ejercicio_id  uuid not null references ejercicio(id),
+  ejercicio_id  uuid references ejercicio(id),    -- nullable — un ejercicio contiene varios torneos (Apertura+Clausura); un torneo puede sembrarse sin ejercicio asignado
   nombre        text not null,                    -- 'Apertura 2026'
+  temporada     temporada not null,               -- apertura | clausura
+  anio          smallint not null,                -- 2026
+  activo        boolean not null default true,    -- el torneo en curso
   fecha_desde   date,
   fecha_hasta   date,
   cant_fechas   int  not null default 10,
-  estado        text not null default 'planificado' -- planificado | en_curso | cerrado
+  estado        text not null default 'planificado', -- planificado | en_curso | cerrado
+  unique (temporada, anio)                        -- un solo Apertura por año
 );
 
 create table periodo (
@@ -161,6 +165,8 @@ create table asiento_linea (
   check ((debe > 0 and haber = 0) or (haber > 0 and debe = 0))
 );
 ```
+
+**Ejercicio — nota de diseño.** El ejercicio se mantiene como columna vertebral contable (`periodo`, resultado y presupuesto dependen de él). Por decisión operativa actual no se cargan ejercicios con fechas fiscales manualmente; los cierres se hacen mensuales sobre año calendario derivados de la fecha del asiento. La creación formal de ejercicios con fechas se activa cuando el estudio contable externo lo requiera. Por eso `torneo.ejercicio_id` es nullable: un torneo puede vivir sin ejercicio asignado hasta entonces.
 
 **Invariantes que deben forzarse en base, no en la app:**
 
@@ -325,7 +331,9 @@ from cuota c;
 
 No se usan tramos de antigüedad 30/60/90: el vencimiento lo define la modalidad de pago del equipo, así que la antigüedad genérica no significa nada acá.
 
-### 3.5 Calendario
+### 3.5 Calendario del torneo · `jornada` (capa transaccional, motor de cashflow)
+
+Define qué día se juega cada fecha del torneo. Es el motor del cashflow: mover o suspender una jornada recalcula ingresos y costos de esa fecha; los costos fijos mensuales no se tocan.
 
 ```sql
 create table predio (
@@ -336,18 +344,35 @@ create table predio (
 );
 
 create table jornada (
-  id          uuid primary key default gen_random_uuid(),
-  torneo_id   uuid not null references torneo(id) on delete cascade,
-  numero      int not null,
-  fecha       date not null,
-  predio_id   uuid not null references predio(id),
-  estado      text not null default 'programada',  -- programada | jugada | suspendida | reprogramada
-  reprograma_a uuid references jornada(id),
-  unique (torneo_id, numero, predio_id)
+  id                uuid primary key default gen_random_uuid(),
+  torneo_id         uuid not null references torneo(id) on delete cascade,
+  genero            genero not null,               -- cada género corre su calendario
+  numero            smallint,                      -- fecha de liga (null en playoff)
+  instancia         text,                          -- 'cuartos' | 'semi' | 'final' (playoff)
+  es_playoff        boolean not null default false,
+  fecha             date,                          -- null hasta programar
+  estado            text not null default 'programada', -- programada | jugada | suspendida | reprogramada
+  reprograma_a      uuid references jornada(id),   -- rastro de reprogramación
+  cantidad_esperada smallint,                      -- base de estimación de ingreso
+  unique (torneo_id, genero, numero),              -- identidad: fecha × género
+  check (
+    (es_playoff and instancia is not null and numero is null)
+    or (not es_playoff and numero is not null and instancia is null)
+  )
 );
 ```
 
-Una jornada suspendida y no reprogramada sale del presupuesto y del flujo proyectado de esa semana. Es el punto donde el calendario deja de ser informativo y pasa a ser el motor de la previsión.
+**`jornada` reconciliada — eje fecha × género** (antes era fecha × predio). La identidad es `(torneo, genero, numero)`: cada género corre su calendario propio (masc 1–15, fem 1–13). **El predio no es atributo de la jornada:** se decide por equipo semana a semana y vive en las tablas de movimiento (`asiento`, `pago`, `gasto`, `arqueo`), que llevan su propio `predio_id`. Un arqueo es por jornada + predio — dos arqueos la misma fecha si hubo dos canchas.
+
+**Estado y reprogramación.** `estado` (programada/jugada/suspendida/reprogramada) + `reprograma_a` (rastro de la reprogramación). Suspender una jornada la saca de la proyección y del presupuesto de esa semana; reprogramar mueve el vencimiento atado. Es el punto donde el calendario deja de ser informativo y pasa a ser el motor de la previsión.
+
+**Playoffs = jornadas especiales (Opción A).** Misma tabla, flag `es_playoff`, campo `instancia` (cuartos/semi/final) en lugar de `numero`. No se autogeneran —cantidad y fecha se desconocen hasta terminar la liga—: se agregan a mano.
+
+**Estimación de ingreso automática.** Cada jornada proyecta ingreso estimado = arancel del tarifario (por género + regla) × `cantidad_esperada`. Vale igual para liga no jugada y para playoffs. El estimado se reemplaza por lo comprometido cuando se arman las fichas. Coherente con el principio (c) —una sola fuente de verdad, el libro diario— y con la proyección de caja por niveles de certeza (comprometido/estimado, §3.16).
+
+**Grilla vacía.** `generar_grilla_liga(torneo_id)` siembra 28 filas (15 + 13) fecha × género, sin fecha ni predio. Idempotente. La fecha se carga al programar; el predio se resuelve en la asignación semanal de equipos.
+
+**Puente con el tarifario.** El placeholder `hito_calendario` (texto) fue reemplazado por el FK real `plan_tarifa_linea.hito_jornada_id → jornada(id)`. Cada línea `fecha_fija` apunta a la jornada que define su vencimiento; reprogramar la jornada recalcula el vencimiento.
 
 ### 3.6 Caja, arqueo y conciliación
 
@@ -595,6 +620,37 @@ Prioridad dos, e insumo principal de la proyección. Indicadores en `v_cobranza_
 | Cartera vencida | Riesgo real de incobrable |
 
 Si históricamente cobran el 92% de lo devengado, el escenario base debe usar 92, no 100. Eso es lo que separa un pronóstico de una expectativa.
+
+### 3.18 Tarifario · `plan_tarifa` (capa de catálogos)
+
+Modela las modalidades de pago del torneo. **Versionado por torneo:** cada torneo clona su tarifario y edita valores/reglas sin tocar código. Reemplaza el hardcodeo de precios.
+
+Es una **capa de catálogos / plantilla**, no data entry contable. El devengo no vive acá: cuando se arma la ficha del equipo (`equipo_torneo`), el tarifario es la fuente de la que salen `total_facturado` y las `cuota` (ver §3.4 y principio b). `plan_tarifa` no toca asientos.
+
+**Tablas:** `plan_tarifa` (torneo + género + concepto + opción) → `plan_tarifa_linea` (los renglones). Se llama `plan_tarifa` y no `plan_pago` porque este último ya lo ocupa la moratoria de deuda (§3.14).
+
+Dos conceptos independientes por género, cada uno con opciones alternativas; el equipo elige **una opción por concepto** en su ficha:
+
+| Concepto | Opción 1 | Opción 2 |
+|---|---|---|
+| Inscripción | Pago único (seña + restante) | Cuotas |
+| Partidos | Pago por fecha | Cuotas |
+
+**Precio diferenciado Efectivo / Transferencia** en cada línea (nunca declarable/no declarable — principio e).
+
+**Tres reglas de vencimiento** (`regla` en la línea, no en la opción — dentro de "Pago por fecha" conviven las tres):
+
+| Regla | Qué modela |
+|---|---|
+| `fecha_fija` | Importe fijo que vence en una fecha resuelta contra el calendario del torneo. La línea apunta con `hito_jornada_id` (FK → `jornada`) a la fecha que define su vencimiento, más `fecha_referencia` (snapshot informativo); no una fecha plana. Reprogramar la jornada recalcula el vencimiento (ver §3.5). |
+| `por_partido` | Arancel unitario devengado por partido jugado (fechas 1–10, playoffs). Total = arancel × cantidad (decisión 8). |
+| `bloque_adelantado` | Rango de fechas cobrado de una vez por adelantado (Masc fechas 11–15, Fem 11–13). El importe cargado **es** el total del bloque. |
+
+**Flag `es_playoff`** en la línea: eliminación directa, sin rango de fechas de liga, máx 3 partidos (cuartos/semi/final).
+
+**Asimetría de bloque entre géneros** (confirmada): en ambos el importe es el total del bloque, pero Masculino nace de 460k/520k × 5 fechas = 2.300k/2.600k, mientras Femenino es 435k/510k como total directo de las 3 fechas.
+
+**Válido para todas las categorías del género** — ninguna categoría tiene tarifa propia, por eso el plan lleva `genero` y no `categoria_id` (principio d, decisión 3).
 
 ## 4. Navegación
 
