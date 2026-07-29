@@ -7,19 +7,22 @@ agregar acá la fecha y la razón del cambio.
 
 ## Contables
 
-**1 · Devengo progresivo por vencimiento** *(actualizada en el Draft 11)*
-Armar la ficha crea todas las cuotas pero no factura nada. Cada cuota se devenga
-al vencer: Deudores al debe, Ingresos al haber, por el monto de esa cuota. Cada
-pago solo cancela Deudores; Ingresos no se vuelve a tocar.
-**La deuda de un equipo es su mora:** cuotas vencidas e impagas. El cashflow sale
-de la estructura de vencimientos, no de sumar fichas.
-*Por qué:* sin devengo no se puede proyectar caja — no se sabe qué falta cobrar.
-Progresivo y no total porque en la cobranza solo se reclama lo vencido, y devengar
-el torneo entero al armar las fichas distorsionaba el P&L sin aportar información
-de caja.
-*Reemplaza:* la Opción A (deuda total al armar la ficha), vigente hasta el Draft 10.
-Razonamiento completo en `arquitectura.md` §8 → Decisiones reemplazadas.
-*Abierto:* qué dispara el asiento al vencer la cuota — `arquitectura.md` §3.4.
+**1 · Ingresos por percibido puro** *(actualizada en el Draft 12)*
+El ingreso se reconoce al cobrar: Caja al debe, la cuenta de Ingresos que
+corresponda al haber. Las cuotas **no generan ningún asiento** — son términos de
+pago: cronograma, mora y base del cashflow. La cuota hereda el concepto
+(inscripción / partidos) de la línea del plan, y de ahí sale a qué cuenta de
+ingreso se imputa el cobro.
+**La deuda de un equipo es su mora:** cuotas vencidas e impagas. Es cifra
+operativa para reclamar, no un saldo contable. `DEUDORES` no interviene.
+**Asimetría — leer con cuidado:** esto vale para ingresos. **Los gastos siguen
+por devengo**, con dos asientos (ver decisión 12). No unificar los dos lados.
+*Por qué:* la fecha de vencimiento de las cuotas es arbitraria —se fija por
+comodidad del cliente, no por un hecho económico— y el torneo se evalúa por
+semestre, no por mes. Devengar no aportaba verdad y sí complejidad.
+*Reemplaza:* el devengo progresivo del Draft 11, que a su vez había reemplazado
+a la Opción A (deuda total al armar la ficha). Las dos vueltas, con su
+razonamiento, en `arquitectura.md` §8 → Decisiones reemplazadas.
 
 **2 · Fuente única: el libro diario**
 Todo número deriva de `asiento_linea`. Ninguna pantalla calcula el suyo.

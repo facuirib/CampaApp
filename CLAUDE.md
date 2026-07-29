@@ -66,40 +66,60 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
 
 ## Los 5 conceptos
 
-### 1. Devengo progresivo vs. percibido
+### 1. Percibido (ingresos) vs. devengado (gastos)
 
-Armar la ficha **no** factura el torneo completo. Las cuotas se crean todas
-juntas —el plan de pago queda cerrado desde el inicio— pero cada una se
-devenga recién **al vencer**:
+**Los dos lados del resultado no se reconocen igual. No los unifiques.**
+
+**Ingresos — al cobrar.** El único evento que genera ingreso contable es el
+pago:
 
 ```
-Al vencer la cuota 3 de 10:
+Al registrar un pago de $525.000 por transferencia:
 
-Deudores          debe     $525.000
-  Ingresos               haber    $525.000
+Caja Transferencia       debe     $525.000
+  Ingresos por partidos          haber    $525.000
 ```
 
-Cada pago posterior **solo cancela Deudores**. `Ingresos` no se vuelve a tocar.
+Las `cuota` **no generan ningún asiento**. Son términos de pago: cronograma,
+mora y base del cashflow. No hay `Deudores` en juego — lo que un equipo debe
+no está en el libro diario, está en `cuota`.
 
-Lo que todavía no venció no es deuda ni es ingreso: es compromiso futuro.
-Vive en `cuota` con su `vence_at`, y de ahí sale el cashflow — **de la
-estructura de vencimientos, nunca de sumar fichas**.
+La cuota hereda de la línea del plan el concepto (inscripción / partidos), y
+de ahí sale a qué cuenta de ingreso se imputa el cobro.
 
-**La deuda de un equipo es su mora**: cuotas vencidas e impagas. Si tiene 10
-cuotas y venció una sola, debe esa, no las diez. Al preguntarte "cuánto debe
-este equipo", la respuesta nunca es `total_facturado`.
+**La deuda de un equipo es su mora**: cuotas vencidas e impagas. Es una cifra
+operativa, para reclamar — **no un saldo contable**. Al preguntarte "cuánto
+debe este equipo", la respuesta nunca es `total_facturado`.
 
-El P&L muestra lo devengado hasta hoy; la caja, lo cobrado. La diferencia son
-cuentas por cobrar — no es un error de cuadratura.
+**Gastos — al cargar. Esto NO cambió.** Un gasto sigue generando dos
+asientos: devengo al cargar (`Gasto` / `Proveedores a pagar`) y pago al pagar
+(`Proveedores a pagar` / `Caja`). Ver regla 7.
 
-> Reemplaza la decisión anterior (deuda total al armar la ficha, "Opción A"),
-> vigente hasta el Draft 10. El razonamiento del cambio está en
-> `docs/arquitectura.md` §8; el principio, en §1.b.
+Consecuencia de la asimetría: para **ingresos**, P&L y caja muestran lo
+mismo. Para **gastos**, siguen contando cosas distintas. Es deliberado.
 
-### 2. Fuente única
+> Reemplaza al devengo progresivo del Draft 11, que a su vez había
+> reemplazado a la "Opción A" (deuda total al armar la ficha). Las dos
+> vueltas están registradas en `docs/arquitectura.md` §8; el principio, en
+> §1.b.
 
-Todo número deriva de `asiento_linea`. Ninguna pantalla calcula el suyo.
-Es lo que impide que dos pantallas muestren totales distintos.
+### 2. Fuente única — dos dominios, una fuente en cada uno
+
+Ninguna pantalla calcula el suyo: todo sale de una vista. De cuál, depende de
+qué clase de número es.
+
+**Contable** —resultado, P&L, caja, saldos— deriva de `asiento_linea`, sin
+excepción.
+
+**Operativo** —mora, cronograma, cartera por vencer, tasa de cobranza,
+cashflow— deriva de `cuota`. Es planificación, no contabilidad, y con ingresos
+por percibido la cuota no genera asiento: buscarlo en el diario sería buscarlo
+donde no está.
+
+No es una excepción. **Cada dominio tiene una fuente y solo una, y no se
+cruzan:** un número contable jamás sale de `cuota`, uno operativo jamás se
+reconstruye desde el diario. Lo que estaría mal es que un mismo número tuviera
+dos orígenes posibles.
 
 ### 3. Empresa vs. torneo
 
