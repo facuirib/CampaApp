@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 12 · julio 2026 · ingresos por percibido puro (asiento al cobrar); gastos siguen por devengo; diseño del circuito de cobro asentado (§3.4)
+**Versión:** Draft 13 · julio 2026 · estructura del torneo (categoría → serie) y diseño de la ficha de equipo; el género pasa a ser atributo de la categoría
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,22 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 12
+
+**Capa nueva en el modelo: `categoria` → `serie`.** Catálogos por torneo, clonados del anterior al crear uno nuevo. La jerarquía pasa a ser `torneo → categoria → serie → equipo_torneo`. **El género es atributo de la categoría**, no del equipo ni del tercero: Libre/+30/+40 son masculinas, Femenino/Flex femeninas.
+
+**`equipo_torneo.categoria` deja de ser texto libre.** El `'+40 A'` de string suelto se reemplaza por `serie_id`, FK al nivel más específico; categoría y género se derivan subiendo. Sale también `modalidad` —su `CHECK` quedó de un modelo anterior al tarifario y no alcanza para expresar las dos elecciones que exige el plan—, reemplazada por una FK a `plan_tarifa` por concepto.
+
+**Traducción de tarifario a cuotas, definida.** El motor de generación mira la **regla** de cada línea, no el concepto: `fecha_fija` → 1 cuota con fecha propia, `por_partido` de liga → una cuota por fecha atada a la jornada, `bloque_adelantado` → 1 cuota con el total, playoffs → ninguna. El concepto solo se usa después, para rutear el asiento del cobro.
+
+**La cobranza queda atada al calendario.** Las cuotas `por_partido` vencen con su jornada y se mueven si se reprograma. Mover una jornada recalcula el cashflow proyectado y los vencimientos de equipo desde la misma fuente — principio (i) alcanzando a la cobranza.
+
+**El monto se copia, no se lee.** El tarifario es el molde; la cuota, la pieza ya fundida. Editar el tarifario no recalcula cuotas ya generadas, y una cuota puntual se puede ajustar a mano sin marca especial.
+
+Todo esto está en §3.4. **Es diseño asentado, pendiente de implementar**: no hay migración ni código. El orden de construcción es estructura → ficha (B0) → cobro, y cada bloque necesita al anterior.
+
+---
 
 ## Qué cambió desde el Draft 11
 
@@ -314,6 +330,51 @@ Separarlos permite que el P&L y la caja cuenten cosas distintas sin contradecirs
 
 Equipos, sponsors y socios comparten la misma mecánica: débitos, créditos, saldo. Se modelan como un solo tipo con discriminante.
 
+#### Estructura del torneo · categoría y serie
+
+*Diseño asentado, pendiente de implementar.*
+
+Capa de catálogos **por torneo**, igual que el tarifario: cada torneo tiene la suya y se clona del anterior al crearlo.
+
+```
+torneo → categoria → serie → equipo_torneo (la ficha)
+```
+
+**`categoria`** es la división que corre el equipo: Libre, +30, +40, Femenino, Flex.
+
+**El género es atributo de la categoría** — no del equipo ni del tercero. Libre, +30 y +40 son masculinas; Femenino y Flex, femeninas. Un club que presenta equipo en Libre y otro en Femenino tiene dos fichas, cada una en su categoría, y el género de cada una sale de ahí. Ponerlo en `tercero` sería incorrecto: el mismo club juega en ambos.
+
+**`serie`** es el nivel dentro de la categoría: A, B, C. **Cuelga de la categoría, no del torneo**: la "Serie A de Libre" y la "Serie A de +30" son filas distintas y no comparables. Las series crecen con el tiempo —una categoría que arranca con A y B puede sumar C—, por eso son datos y no un enum.
+
+```sql
+create table categoria (
+  id        uuid primary key default gen_random_uuid(),
+  torneo_id uuid not null references torneo(id) on delete cascade,
+  nombre    text not null,              -- 'Libre', '+30', '+40', 'Femenino', 'Flex'
+  genero    genero not null,            -- lo heredan las fichas, subiendo desde la serie
+  orden     smallint,
+  unique (torneo_id, nombre)
+);
+
+create table serie (
+  id           uuid primary key default gen_random_uuid(),
+  categoria_id uuid not null references categoria(id) on delete cascade,
+  nombre       text not null,           -- 'A', 'B', 'C'
+  orden        smallint,
+  unique (categoria_id, nombre)
+);
+```
+
+**Un equipo está en exactamente una categoría y una serie.** La ficha apunta a la **serie**, que es el nivel más específico; categoría y género se derivan subiendo por las FKs. No se duplican en `equipo_torneo`: si estuvieran, podrían contradecir a la serie.
+
+**Se clonan al crear el torneo**, junto con el padrón y el tarifario (§5). El torneo nuevo arranca con la estructura del anterior y se ajusta: se agregan series, se mueven equipos.
+
+**Ascensos y descensos no se modelan como evento.** Un equipo que sube de B a A en el torneo siguiente simplemente tiene otra ficha, en otro torneo, apuntando a otra serie. El historial queda por acumulación: se reconstruye el recorrido de un equipo leyendo sus `equipo_torneo` ordenados por torneo. No hace falta tabla de movimientos ni registro de ascensos.
+
+> **Ojo con la palabra "categoría".** En este documento nombra dos cosas sin relación: la **categoría del torneo** (esta sección, la división que corre el equipo) y la **categoría de gasto** (`cat_gasto`, §3.3, el eje naturaleza/área). El prefijo de tabla las distingue; en prosa hay que leer el contexto.
+
+#### Terceros, fichas y cuotas
+
 ```sql
 create table tercero (
   id          uuid primary key default gen_random_uuid(),
@@ -328,11 +389,12 @@ create table equipo_torneo (              -- la "ficha" del equipo en un torneo
   id             uuid primary key default gen_random_uuid(),
   tercero_id     uuid not null references tercero(id),
   torneo_id      uuid not null references torneo(id),
-  categoria      text not null,          -- '+40 A', 'Libre B', 'Femenino'
-  modalidad      text not null,          -- cuotas | unitario | cinco_fechas
+  serie_id       uuid not null references serie(id),  -- categoría y género se derivan subiendo
+  plan_inscripcion_id uuid not null references plan_tarifa(id),  -- opción elegida, concepto='inscripcion'
+  plan_partidos_id    uuid not null references plan_tarifa(id),  -- opción elegida, concepto='partidos'
+  medio_previsto medio_pago not null,           -- congela precio_efectivo o precio_transferencia
   responsable_id uuid references auth.users(id),
-  total_facturado numeric(16,2) not null,       -- suma de las cuotas (trigger); NO es la deuda
-  asiento_id     uuid references asiento(id),   -- sin uso: con percibido puro el asiento cuelga del pago
+  total_facturado numeric(16,2) not null default 0,  -- suma de las cuotas (trigger); NO es la deuda
   unique (tercero_id, torneo_id)
 );
 
@@ -368,6 +430,48 @@ from cuota c;
 ```
 
 No se usan tramos de antigüedad 30/60/90: el vencimiento lo define la modalidad de pago del equipo, así que la antigüedad genérica no significa nada acá.
+
+#### De línea del tarifario a cuota · B0
+
+*Diseño asentado, pendiente de implementar.*
+
+Armar la ficha genera todas sus cuotas, traduciendo las líneas de las dos opciones elegidas (`plan_inscripcion_id` y `plan_partidos_id`).
+
+**El motor de generación mira la `regla` de la línea, no el concepto.** Es el principio que ordena toda la traducción:
+
+| `regla` de la línea | `es_playoff` | Genera | Vencimiento |
+|---|---|---|---|
+| `fecha_fija` | — | **1 cuota por línea** | Fecha propia de la línea (`hito_jornada_id` / `fecha_referencia`), **independiente del calendario de juego** |
+| `por_partido` | `false` | **1 cuota por fecha** del rango `fecha_desde`..`fecha_hasta` — 10 fechas, 10 cuotas del arancel unitario | **Atado a la jornada**: cada cuota vence con su fecha del calendario y **se mueve si la jornada se reprograma** |
+| `bloque_adelantado` | — | **1 cuota** con el total del bloque (el importe cargado ya es el total, no unitario) | Fecha del bloque |
+| `por_partido` | `true` | **ninguna** | — |
+
+**Una línea `fecha_fija` de partidos se comporta igual que una de inscripción.** Las tres cuotas de "Partidos · Opción 2 · Cuotas" son `fecha_fija`: vencen en su fecha propia y **no** se atan a ninguna jornada, aunque sean de partidos. El vencimiento atado a jornada aplica **solo** a las líneas `por_partido`.
+
+**El concepto no participa de la generación.** `inscripcion` / `partidos` se usa después, y para otra cosa: rutear el asiento del cobro a su cuenta de ingreso (decisión 31). Son dos responsabilidades separadas, y confundirlas lleva a atar al calendario cuotas que tienen fecha propia.
+
+**Playoffs no generan cuota al armar la ficha.** Si el equipo clasifica no se sabe, y `cantidad_esperada = 3` es un máximo teórico —cuartos, semi, final—, no un hecho. Se cobran aparte cuando el equipo clasifica.
+
+**Los dos orígenes de vencimiento**, que es lo que conecta cobranza con el calendario:
+
+| Origen | Qué lo fija | Se mueve si… |
+|---|---|---|
+| **Fecha propia** (`fecha_fija`, `bloque_adelantado`) | la línea del tarifario | nunca: es compromiso de calendario, independiente del juego |
+| **Jornada** (`por_partido` de liga) | `jornada.fecha` | se reprograma la jornada |
+
+Mover una jornada recalcula el cashflow proyectado **y** los vencimientos de las cuotas de equipo, desde la misma fuente. Es el principio (i) —el calendario es el motor de la previsión— alcanzando también a la cobranza.
+
+*Consecuencia de modelo:* una cuota `por_partido` tiene que saber de qué jornada depende, así que `cuota` gana una FK a `jornada`, nullable —las de fecha propia no la usan—. Cómo se mantiene `vence_at` sincronizado al reprogramarse la jornada se resuelve al implementar; hay precedente de triggers de sincronización (`sync_total_facturado`, `sync_cuota_pagada`).
+
+**El monto se copia, y desde ahí la cuota es autónoma.** Cada línea tiene `precio_efectivo` y `precio_transferencia`; la cuota tiene un solo `monto`. Al generarla se copia el que corresponde al `medio_previsto` de la ficha, y ahí termina el vínculo de importe: `cuota.monto` es un valor propio, no una lectura del tarifario.
+
+**El tarifario es el molde; la cuota, la pieza ya fundida.** Tres consecuencias, todas deliberadas:
+
+- **Editar el tarifario no recalcula cuotas ya generadas.** Corregir un precio afecta solo a las fichas que se armen después. Las cuotas vivas no se mueven — un equipo no se entera de que le cambiaron el precio a mitad de torneo.
+- **Que el equipo pague por otro medio no reabre el importe.** El precio se fijó al armar la ficha; el medio de pago real, al cobrar, es otra cosa.
+- **Una cuota puntual se puede ajustar a mano.** Es caso raro y no lleva marca especial: con editar `monto` alcanza. No hace falta ni un flag de "ajustada" ni una tabla de excepciones — el monto de la cuota ya es la fuente de verdad de lo que ese equipo debe pagar.
+
+Esto es lo que permite que `total_facturado` —suma de las cuotas por trigger— siga siendo correcto después de un ajuste manual: se recalcula solo, sin consultar el tarifario.
 
 **Nota de nomenclatura — tres cosas parecidas que no se mezclan.**
 
@@ -420,7 +524,15 @@ Por eso el anticipo prácticamente no ocurre: el excedente se absorbe en el cron
 
 *Dependencia de implementación.* La regla exige que `imputar_pago()` pueda imputar a cuotas **no vencidas**: cuando el excedente baja la cuota siguiente, esa cuota normalmente todavía no venció. Hoy la función no filtra por vencimiento, pero hay que confirmarlo contra el resto del circuito y ajustar al construir `registrar_cobro()`.
 
-**5 · La ficha antes que el cobro.** B0 (`crear_equipo_torneo`) va primero: sin fichas ni cuotas no hay nada que cobrar, y la FK de la decisión 1 tiene que existir **antes** de que se escriba la primera cuota. Agregarla después obligaría a reconstruir a mano de qué línea del tarifario salió cada cuota ya cargada.
+**5 · Orden de construcción: estructura → ficha → cobro.**
+
+| # | Bloque | Qué incluye |
+|---|---|---|
+| **a** | **Catálogos de estructura** | `categoria` y `serie` por torneo, más el clonado al crear un torneo nuevo (§5) |
+| **b** | **Ficha · B0 `crear_equipo_torneo`** | FK `cuota → plan_tarifa_linea` (decisión 1), generación de cuotas según la regla de cada línea, precio congelado por `medio_previsto` |
+| **c** | **Cobro · `registrar_cobro()`** | pago + imputación + asiento |
+
+El orden no es preferencia: cada bloque necesita al anterior. Sin `serie` la ficha no tiene a qué apuntar ni de dónde derivar el género, y sin género no se encuentra el tarifario. Sin fichas ni cuotas no hay nada que cobrar. Y la FK de la decisión 1 tiene que existir **antes** de que se escriba la primera cuota: agregarla después obligaría a reconstruir a mano de qué línea del tarifario salió cada una.
 
 ### 3.5 Calendario del torneo · `jornada` (capa transaccional, motor de cashflow)
 
@@ -741,7 +853,7 @@ Dos conceptos independientes por género, cada uno con opciones alternativas; el
 
 **Asimetría de bloque entre géneros** (confirmada): en ambos el importe es el total del bloque, pero Masculino nace de 460k/520k × 5 fechas = 2.300k/2.600k, mientras Femenino es 435k/510k como total directo de las 3 fechas.
 
-**Válido para todas las categorías del género** — ninguna categoría tiene tarifa propia, por eso el plan lleva `genero` y no `categoria_id` (principio d, decisión 3).
+**Válido para todas las categorías del género** — ninguna categoría tiene tarifa propia, por eso el plan lleva `genero` y no `categoria_id` (principio d, decisión 3). Con la estructura de §3.4 esto se resuelve solo: el género es atributo de la `categoria`, así que la ficha llega a su tarifario subiendo serie → categoría → género.
 
 ## 4. Navegación
 
@@ -775,7 +887,8 @@ El problema: 168 equipos, dos torneos por año. Cargarlos de a uno es motivo suf
 
 | Se copia | No se copia |
 |---|---|
-| Padrón de equipos y categorías | **Deuda pendiente** |
+| Padrón de equipos | **Deuda pendiente** |
+| Estructura: categorías y series (§3.4) | |
 | Tarifario | Pagos |
 | Catálogo de categorías y conceptos | Asientos |
 

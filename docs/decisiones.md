@@ -208,11 +208,79 @@ anticipo después no genera asiento.
 —la cuota siguiente normalmente no venció—. Hoy no filtra por vencimiento; a
 confirmar y ajustar al construir `registrar_cobro()`.
 
-**33 · La ficha antes que el cobro**
-B0 (`crear_equipo_torneo`) se implementa antes que `registrar_cobro()`.
-*Por qué:* sin fichas no hay nada que cobrar, y la FK de la decisión 29 tiene
-que existir antes de que se escriba la primera cuota. Agregarla después
-obligaría a reconstruir a mano el origen de cada cuota ya cargada.
+**33 · Orden de construcción: estructura → ficha → cobro**
+Primero los catálogos `categoria`/`serie`, después B0 (`crear_equipo_torneo`),
+después `registrar_cobro()`.
+*Por qué:* cada bloque necesita al anterior. Sin serie la ficha no tiene a qué
+apuntar ni de dónde derivar el género, y sin género no se encuentra el
+tarifario. Y la FK de la decisión 29 tiene que existir antes de la primera
+cuota: agregarla después obligaría a reconstruir a mano el origen de cada una.
+
+**34 · Estructura del torneo: categoría → serie, por torneo**
+Catálogos versionados por torneo, clonados del anterior al crear uno nuevo.
+Jerarquía: `torneo → categoria → serie → equipo_torneo`. La serie cuelga de la
+categoría, no del torneo: la "Serie A de Libre" y la "Serie A de +30" son
+filas distintas.
+*Por qué:* las series crecen con el tiempo, así que son datos y no un enum. Y
+colgarlas del torneo perdería a qué categoría pertenecen.
+
+**35 · El género es atributo de la categoría**
+No del equipo ni del tercero. Libre / +30 / +40 son masculinas; Femenino y
+Flex, femeninas. La ficha lo deriva subiendo: serie → categoría → género.
+*Por qué:* el mismo club presenta equipos en Libre y en Femenino. En `tercero`
+sería directamente incorrecto. Además es lo que permite encontrar el tarifario,
+que se busca por `(torneo, genero, concepto, opcion)`.
+
+**36 · La ficha apunta a la serie; `categoria` texto libre se elimina**
+`equipo_torneo.serie_id` reemplaza al `categoria text` con valores tipo
+`'+40 A'`. Categoría y género no se duplican en la ficha.
+*Por qué:* duplicarlos permitiría que contradigan a la serie. Sale también
+`modalidad`, cuyo CHECK quedó de un modelo anterior al tarifario y no alcanza
+para expresar las dos elecciones (una opción de inscripción y otra de
+partidos) que el plan exige.
+
+**37 · Ascensos y descensos no se modelan como evento**
+Un equipo que sube de B a A tiene otra ficha, en otro torneo, apuntando a otra
+serie.
+*Por qué:* el historial queda por acumulación de fichas y se reconstruye
+leyéndolas por torneo. Una tabla de movimientos sería un segundo origen para
+un dato que ya está.
+
+**38 · La generación de cuotas se rige por la regla de la línea, no por el concepto**
+`fecha_fija` → 1 cuota con fecha propia. `por_partido` de liga → una cuota por
+fecha, atada a la jornada. `bloque_adelantado` → 1 cuota con el total del
+bloque. `por_partido` + `es_playoff` → ninguna al armar la ficha.
+*Por qué:* una línea `fecha_fija` de partidos (Opción 2, cuotas) se comporta
+igual que una de inscripción: fecha propia, no atada a jornada. Regir la
+generación por el concepto ataría al calendario cuotas que tienen fecha fija.
+El concepto se usa después y para otra cosa: rutear el asiento del cobro
+(decisión 31). Son dos responsabilidades separadas.
+
+**39 · El vencimiento de las cuotas de liga sigue a la jornada**
+Las cuotas `por_partido` vencen con su fecha del calendario y se mueven si la
+jornada se reprograma. `cuota` gana una FK nullable a `jornada`.
+*Por qué:* es el principio (i) alcanzando a la cobranza. Mover una jornada
+recalcula el cashflow proyectado y los vencimientos de equipo desde la misma
+fuente, sin que puedan discrepar.
+
+**40 · El precio se congela al armar la ficha**
+`equipo_torneo.medio_previsto` define si la cuota toma `precio_efectivo` o
+`precio_transferencia`. Pagar después por otro medio no reabre el importe.
+*Por qué:* la cuota tiene un solo `monto` y la línea tiene dos precios. Alguien
+tiene que elegir, y el momento natural es el alta de la ficha.
+
+**41 · El monto se copia del tarifario; la cuota es autónoma**
+Al generar la cuota se copia el precio según el `medio_previsto` de la ficha.
+Desde ahí `cuota.monto` es valor propio, no una lectura del tarifario. **El
+tarifario es el molde; la cuota, la pieza ya fundida.**
+*Consecuencias:* editar el tarifario **no** recalcula cuotas ya generadas, solo
+afecta a las fichas que se armen después; y una cuota puntual se puede ajustar
+a mano —caso raro— editando su `monto`, sin marca especial ni tabla de
+excepciones.
+*Por qué:* un equipo no puede enterarse a mitad de torneo de que le cambiaron
+el precio. Y como `total_facturado` se recalcula por trigger desde las cuotas
+(decisión 27), sigue siendo correcto después de un ajuste manual sin tener que
+consultar el tarifario.
 
 ---
 
