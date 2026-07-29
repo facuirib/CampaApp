@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 12 · julio 2026 · ingresos por percibido puro (asiento al cobrar); gastos siguen por devengo
+**Versión:** Draft 12 · julio 2026 · ingresos por percibido puro (asiento al cobrar); gastos siguen por devengo; diseño del circuito de cobro asentado (§3.4)
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -369,7 +369,58 @@ from cuota c;
 
 No se usan tramos de antigüedad 30/60/90: el vencimiento lo define la modalidad de pago del equipo, así que la antigüedad genérica no significa nada acá.
 
+**Nota de nomenclatura — tres cosas parecidas que no se mezclan.**
+
+| Tabla | Qué es | Sentido | Contraparte |
+|---|---|---|---|
+| `cuota` | Cronograma de pago de un equipo en un torneo | **cobrar** | el equipo |
+| `compromiso` + `plan_pago` | Moratoria de Campa con un organismo | **pagar** | municipalidad, rentas |
+| `plan_tarifa` | Catálogo de precios del torneo (§3.18) | — | ninguna: es plantilla |
+
+Se parecen de nombre y no tienen relación. `generar_cuotas_plan()` genera **compromisos**, no cuotas, pese a cómo se llama; y `compromiso.tipo` admite el valor `'cuota_plan'`, que tampoco es una `cuota`.
+
+**El modelo ya lo impide por estructura, no por convención.** `cuota.equipo_torneo_id` es `NOT NULL` con FK a `equipo_torneo`: toda fila de `cuota` cuelga de la ficha de un equipo en un torneo. Una moratoria no tiene ficha —`plan_pago` ni siquiera tiene `tercero_id`, tiene `organismo`—, así que no puede entrar. Y las vistas de cobranza llegan a `cuota` únicamente a través de `equipo_torneo`, con lo cual tampoco podrían contarla si estuviera.
+
+No hay nada que refactorizar. Esta nota existe para que el parecido de los nombres no haga dudar de una separación que ya es correcta.
+
 **El asiento lo dispara el pago, y nada más.** Armar la ficha, crear las cuotas y vencer una cuota no escriben en el libro diario. Quien implemente B0 (`crear_equipo_torneo`) no emite ningún asiento: la función arma la ficha y su cronograma, y ahí termina su responsabilidad contable.
+
+#### El circuito de cobro — decisiones tomadas, pendientes de implementar
+
+Ninguna de las cinco está construida. Se asientan para que quien implemente no las vuelva a discutir.
+
+**1 · `cuota.plan_tarifa_linea_id`, FK `NOT NULL`.** Toda cuota de equipo nace de una línea del tarifario y hereda de ella el concepto (`inscripcion` / `partidos`), el precio y la regla de vencimiento. Es lo que resuelve a qué cuenta de ingreso se imputa el cobro.
+
+`NOT NULL`, no opcional: **no existen cuotas de equipo sin tarifario**. Las cuotas de moratoria —que sí carecen de él— no viven en `cuota` sino en `compromiso` (ver la nota de nomenclatura al final de la sección), así que el caso que justificaría una FK nullable no existe.
+
+Se prefiere la FK a copiar el enum dentro de `cuota`: mantiene fuente única y da acceso también al precio y a la regla, no solo al concepto.
+
+**2 · `registrar_cobro()` atómica.** Una sola función registra el pago, imputa y asienta, en una transacción. El asiento **no** se cablea dentro de `imputar_pago()`, que hoy recibe un pago ya insertado: eso dejaría el registro y el asiento en dos pasos separables, y si el segundo falla queda plata registrada sin movimiento en el diario. `registrar_cobro()` reutiliza `imputar_pago()` tal como está, sin modificarla.
+
+**3 · El asiento se deriva de la imputación**, no del pago en bruto. Cada imputación aporta una línea al haber, ruteada por el concepto de su cuota:
+
+| Concepto de la cuota | Cuenta al haber |
+|---|---|
+| `inscripcion` | `ING_INSCRIPCIONES` |
+| `partidos` | `ING_PARTIDOS` |
+
+El debe es una sola línea, por el total del pago, en la caja del medio:
+
+| `medio_pago` | Cuenta al debe |
+|---|---|
+| `efectivo` | `CAJA_EFECTIVO` — exige `predio_id` (principio: el arqueo es por predio) |
+| `transferencia` | `CAJA_TRANSFERENCIA` |
+| `cheque` | `VALORES_A_DEPOSITAR` |
+
+Un pago repartido entre cuotas de conceptos distintos produce **un asiento con varias líneas al haber**, no varios asientos.
+
+**4 · El excedente se imputa a la cuota siguiente.** Si un equipo paga más que la cuota corriente, el excedente reduce la próxima: paga 520 sobre una cuota de 500 y la siguiente baja 20. **No es un anticipo: es imputación normal**, resuelta por `imputar_pago()` tal como ya existe. La plata siempre tiene concepto —el de la cuota a la que se aplica—, y de ahí sale su cuenta de ingreso (decisión 3).
+
+Por eso el anticipo prácticamente no ocurre: el excedente se absorbe en el cronograma. Un sobrante sin concepto solo aparecería si un pago excediera el total de **todas** las cuotas del equipo. Para ese borde: `ING_INSCRIPCIONES`, **por convención explícita para un caso improbable, no como mecanismo principal**. Si empezara a aparecer seguido, la regla está mal y hay que revisarla, no ampliarla. En ese caso raro el ingreso se reconoce al entrar, y aplicar el anticipo después **no genera asiento** —ya se reconoció—; `anticipo` y `anticipo_uso` siguen llevando el seguimiento operativo del saldo a favor.
+
+*Dependencia de implementación.* La regla exige que `imputar_pago()` pueda imputar a cuotas **no vencidas**: cuando el excedente baja la cuota siguiente, esa cuota normalmente todavía no venció. Hoy la función no filtra por vencimiento, pero hay que confirmarlo contra el resto del circuito y ajustar al construir `registrar_cobro()`.
+
+**5 · La ficha antes que el cobro.** B0 (`crear_equipo_torneo`) va primero: sin fichas ni cuotas no hay nada que cobrar, y la FK de la decisión 1 tiene que existir **antes** de que se escriba la primera cuota. Agregarla después obligaría a reconstruir a mano de qué línea del tarifario salió cada cuota ya cargada.
 
 ### 3.5 Calendario del torneo · `jornada` (capa transaccional, motor de cashflow)
 

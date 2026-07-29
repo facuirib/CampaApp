@@ -161,6 +161,61 @@ No se escribe. Se elimina cuando el bloque 3 (Cobranza) esté terminado.
 
 ---
 
+## Diseño del cobro
+
+Tomadas, **pendientes de implementar**. Ninguna existe todavía en la base.
+Detalle y razonamiento en `arquitectura.md` §3.4 → El circuito de cobro.
+
+**29 · `cuota.plan_tarifa_linea_id`, FK NOT NULL**
+Toda cuota de equipo hereda de su línea del tarifario el concepto
+(inscripción / partidos), el precio y la regla de vencimiento. El concepto es
+lo que resuelve a qué cuenta de ingreso va el cobro.
+*Por qué NOT NULL:* no existen cuotas de equipo sin tarifario. Las de
+moratoria viven en `compromiso`, nunca en `cuota` (ver decisión 33).
+*Por qué FK y no copiar el enum:* fuente única, y da acceso al precio y a la
+regla además del concepto.
+
+**30 · `registrar_cobro()` atómica**
+Una función registra el pago, imputa y asienta en una transacción. Reutiliza
+`imputar_pago()` sin modificarla.
+*Por qué:* cablear el asiento dentro de `imputar_pago()` —que recibe un pago
+ya insertado— dejaría registro y asiento en dos pasos separables. Si el
+segundo falla, queda plata registrada sin movimiento en el diario.
+
+**31 · El asiento se deriva de la imputación**
+Cada imputación aporta una línea al haber, ruteada por el concepto de su
+cuota (`inscripcion` → `ING_INSCRIPCIONES`, `partidos` → `ING_PARTIDOS`). El
+debe es una línea única por el total, según el medio: efectivo →
+`CAJA_EFECTIVO`, transferencia → `CAJA_TRANSFERENCIA`, cheque →
+`VALORES_A_DEPOSITAR`.
+*Por qué:* el pago en bruto no sabe de qué concepto es; la imputación sí. Un
+pago repartido entre conceptos distintos da un asiento con varias líneas al
+haber, no varios asientos.
+
+**32 · El excedente se imputa a la cuota siguiente**
+Si un equipo paga de más, el excedente reduce la próxima cuota: paga 520 sobre
+una cuota de 500 y la siguiente baja 20. No es un anticipo — es imputación
+normal, que `imputar_pago()` ya resuelve.
+*Por qué:* la plata siempre tiene concepto, el de la cuota a la que se aplica,
+y de ahí sale su cuenta de ingreso (decisión 31). Así el anticipo casi no
+ocurre: el excedente se absorbe en el cronograma.
+*Borde:* un sobrante sin concepto solo aparece si un pago excede el total de
+**todas** las cuotas del equipo. Ahí va a `ING_INSCRIPCIONES` por convención
+explícita, no como mecanismo principal; si empieza a aparecer seguido, la
+regla está mal. En ese caso el ingreso se reconoce al entrar y aplicar el
+anticipo después no genera asiento.
+*Dependencia:* exige que `imputar_pago()` pueda imputar a cuotas no vencidas
+—la cuota siguiente normalmente no venció—. Hoy no filtra por vencimiento; a
+confirmar y ajustar al construir `registrar_cobro()`.
+
+**33 · La ficha antes que el cobro**
+B0 (`crear_equipo_torneo`) se implementa antes que `registrar_cobro()`.
+*Por qué:* sin fichas no hay nada que cobrar, y la FK de la decisión 29 tiene
+que existir antes de que se escriba la primera cuota. Agregarla después
+obligaría a reconstruir a mano el origen de cada cuota ya cargada.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
