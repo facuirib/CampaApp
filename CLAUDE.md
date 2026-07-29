@@ -66,19 +66,35 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
 
 ## Los 5 conceptos
 
-### 1. Devengo vs. percibido
+### 1. Devengo progresivo vs. percibido
 
-Armar la ficha de un equipo factura la deuda completa del torneo:
+Armar la ficha **no** factura el torneo completo. Las cuotas se crean todas
+juntas —el plan de pago queda cerrado desde el inicio— pero cada una se
+devenga recién **al vencer**:
 
 ```
-Deudores          debe   $5.250.000
-  Ingresos               haber  $5.250.000
+Al vencer la cuota 3 de 10:
+
+Deudores          debe     $525.000
+  Ingresos               haber    $525.000
 ```
 
 Cada pago posterior **solo cancela Deudores**. `Ingresos` no se vuelve a tocar.
 
-El P&L muestra lo facturado; la caja, lo cobrado. La diferencia son cuentas
-por cobrar — no es un error de cuadratura.
+Lo que todavía no venció no es deuda ni es ingreso: es compromiso futuro.
+Vive en `cuota` con su `vence_at`, y de ahí sale el cashflow — **de la
+estructura de vencimientos, nunca de sumar fichas**.
+
+**La deuda de un equipo es su mora**: cuotas vencidas e impagas. Si tiene 10
+cuotas y venció una sola, debe esa, no las diez. Al preguntarte "cuánto debe
+este equipo", la respuesta nunca es `total_facturado`.
+
+El P&L muestra lo devengado hasta hoy; la caja, lo cobrado. La diferencia son
+cuentas por cobrar — no es un error de cuadratura.
+
+> Reemplaza la decisión anterior (deuda total al armar la ficha, "Opción A"),
+> vigente hasta el Draft 10. El razonamiento del cambio está en
+> `docs/arquitectura.md` §8; el principio, en §1.b.
 
 ### 2. Fuente única
 

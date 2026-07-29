@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 10 · julio 2026 · módulo calendario asentado; jornada reconciliada de fecha×predio a fecha×género; hito_calendario→hito_jornada_id
+**Versión:** Draft 11 · julio 2026 · devengo progresivo por vencimiento reemplaza a la Opción A (deuda total al armar la ficha)
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,16 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 10
+
+**Devengo progresivo por vencimiento (Camino 2).** Reemplaza a la Opción A, que facturaba el torneo completo al armar la ficha. Ahora las cuotas se siguen creando todas juntas —el plan de pago queda cerrado desde el inicio— pero cada una se devenga al vencer. **La deuda de un equipo es su mora**: cuotas vencidas e impagas. El cashflow se deriva de la estructura de vencimientos, no de sumar fichas. Toca el principio (b), §3.4, §3.18, §5 y la decisión cerrada 1. El razonamiento del cambio, y qué decía la decisión anterior, quedan registrados en §8 → Decisiones reemplazadas.
+
+**Abierto: qué dispara el asiento de devengo** (§3.4). El principio dice que cada cuota se devenga al vencer, pero no qué genera ese asiento. Tres opciones —proceso agendado, devengo perezoso, devengo por jornada— con un trade-off que toca el principio (c). **Hay que definirlo antes de implementar B0.**
+
+Nada de esto está implementado todavía: es cambio de documentación. El código y las vistas siguen calculando como en el Draft 10.
+
+---
 
 ## Qué cambió desde el Draft 7
 
@@ -52,7 +62,7 @@ Las dos primeras son la misma pregunta —cuándo entra la plata— y la cobranz
 
 **a. La Fecha es la unidad operativa central, no el mes.** Cada jornada (`Fecha 9 · Masculino · 14-jun`) es la unidad contra la que se cargan ingresos de equipos y egresos operativos. El mes es una vista derivada, no la unidad de trabajo.
 
-**b. El ingreso se reconoce por devengo.** Armar la ficha de un equipo factura la deuda completa del torneo: `Deudores` al debe, `Ingresos` al haber. Cada pago posterior **solo cancela Deudores** — `Ingresos` no se vuelve a tocar. El P&L muestra devengado; la caja, percibido; la diferencia son cuentas por cobrar y se etiqueta como tal, nunca se presenta como un error de cuadratura.
+**b. El ingreso se reconoce por devengo progresivo.** Armar la ficha fija el plan de pago completo —todas las `cuota` se crean juntas, con su `vence_at`— pero **no** factura el torneo entero. Cada cuota se devenga al vencer: `Deudores` al debe, `Ingresos` al haber, por el monto de esa cuota. Cada pago posterior **solo cancela Deudores** — `Ingresos` no se vuelve a tocar. Lo que aún no venció no es deuda ni ingreso: es compromiso futuro, y de ahí —de la estructura de vencimientos, no de la suma de fichas— sale la previsión de caja (§3.10). **La deuda de un equipo es su mora**: cuotas vencidas e impagas. El P&L muestra lo devengado a la fecha; la caja, lo percibido; la diferencia son cuentas por cobrar y se etiqueta como tal, nunca se presenta como un error de cuadratura. *Reemplaza la Opción A (deuda total al armar la ficha), vigente hasta el Draft 10 — el razonamiento del cambio está en §8.*
 
 **c. Una sola fuente de verdad: el libro diario.** Ninguna pantalla calcula su propio número. Toda cifra visible se deriva de `asiento_linea`. Es la regla más importante de la arquitectura: es lo que hace que el sistema no reproduzca el problema del Excel, donde cada planilla llegaba a un total distinto.
 
@@ -299,8 +309,8 @@ create table equipo_torneo (              -- la "ficha" del equipo en un torneo
   categoria      text not null,          -- '+40 A', 'Libre B', 'Femenino'
   modalidad      text not null,          -- cuotas | unitario | cinco_fechas
   responsable_id uuid references auth.users(id),
-  total_facturado numeric(16,2) not null,
-  asiento_id     uuid references asiento(id),   -- el devengo de la deuda completa
+  total_facturado numeric(16,2) not null,       -- suma de las cuotas (trigger); NO es la deuda
+  asiento_id     uuid references asiento(id),   -- ver nota: con devengo progresivo ya no es único
   unique (tercero_id, torneo_id)
 );
 
@@ -314,6 +324,10 @@ create table cuota (
   unique (equipo_torneo_id, numero)
 );
 ```
+
+**`total_facturado` no es la deuda.** Es la suma de las cuotas, mantenida por trigger (`sync_total_facturado`, decisión 27). Con devengo progresivo mide el tamaño del plan de pago, no lo que el equipo debe hoy. **La deuda es la mora**: cuotas con `vence_at < current_date` y sin cancelar. Es el número que se reclama.
+
+**`equipo_torneo.asiento_id` quedó desalineado.** Nació para apuntar al asiento único del devengo total. Con devengo progresivo hay un asiento por cuota, así que una FK en la ficha ya no lo representa: la referencia al asiento correspondería a `cuota`. La columna se mantiene por ahora —nada la escribe todavía, B0 no está implementado— y se resuelve junto con el disparador del devengo, acá abajo.
 
 **Estado de cobranza — calculado, no almacenado:**
 
@@ -330,6 +344,18 @@ from cuota c;
 ```
 
 No se usan tramos de antigüedad 30/60/90: el vencimiento lo define la modalidad de pago del equipo, así que la antigüedad genérica no significa nada acá.
+
+**⚠ ABIERTO — qué dispara el asiento de devengo.** El principio (b) dice que cada cuota se devenga al vencer, pero **no está definido qué genera ese asiento**. No es un detalle de implementación: las tres opciones tienen consecuencias distintas sobre el principio (c).
+
+| Opción | A favor | En contra |
+|---|---|---|
+| **Proceso agendado** (cron diario) | Genera asientos reales; respeta el principio (c) —el diario es la fuente única— y mantiene la deuda al día sola | Hay que montar un proceso programado (`pg_cron` o scheduled function) y monitorearlo |
+| **Devengo perezoso** (calculado al leer) | El más simple de programar; sin infraestructura nueva | **Choca con el principio (c):** no genera asiento real, así que el movimiento no existe en el libro diario. El P&L y el diario dejarían de coincidir |
+| **Al confirmarse la jornada** | Ata el devengo al calendario, que ya es el motor de la previsión (§3.5) | Encaja solo parcialmente: la deuda nace del **vencimiento de pago**, no de la jornada jugada. Las dos fechas no coinciden |
+
+**Hay que definirlo antes de implementar B0 (`crear_equipo_torneo`)**, que es la función que arma la ficha y sus cuotas. Es el punto exacto donde la pregunta aparece: quien escriba B0 va a tener que decidir si emite un asiento, varios, o ninguno. Definirlo después obliga a reescribir el devengo ya cargado.
+
+De paso se resuelve dónde vive la referencia al asiento (ver arriba, `equipo_torneo.asiento_id`).
 
 ### 3.5 Calendario del torneo · `jornada` (capa transaccional, motor de cashflow)
 
@@ -625,7 +651,7 @@ Si históricamente cobran el 92% de lo devengado, el escenario base debe usar 92
 
 Modela las modalidades de pago del torneo. **Versionado por torneo:** cada torneo clona su tarifario y edita valores/reglas sin tocar código. Reemplaza el hardcodeo de precios.
 
-Es una **capa de catálogos / plantilla**, no data entry contable. El devengo no vive acá: cuando se arma la ficha del equipo (`equipo_torneo`), el tarifario es la fuente de la que salen `total_facturado` y las `cuota` (ver §3.4 y principio b). `plan_tarifa` no toca asientos.
+Es una **capa de catálogos / plantilla**, no data entry contable. El devengo no vive acá: cuando se arma la ficha del equipo (`equipo_torneo`), el tarifario es la fuente de la que salen las `cuota` con sus importes y vencimientos —y, derivado de ellas, `total_facturado`—. Armar la ficha no devenga nada: cada cuota se devenga al vencer (ver §3.4 y principio b). `plan_tarifa` no toca asientos.
 
 **Tablas:** `plan_tarifa` (torneo + género + concepto + opción) → `plan_tarifa_linea` (los renglones). Se llama `plan_tarifa` y no `plan_pago` porque este último ya lo ocupa la moratoria de deuda (§3.14).
 
@@ -690,7 +716,7 @@ El problema: 168 equipos, dos torneos por año. Cargarlos de a uno es motivo suf
 
 Se presenta solo la excepción: ascensos, descensos, bajas y altas nuevas. Los equipos que siguen igual no se muestran.
 
-**La deuda no se arrastra.** Si un equipo debe de Apertura, esa deuda sigue viva en su cuenta corriente pero imputada al torneo donde nació. Arrastrarla contaminaría el resultado del torneo nuevo.
+**La deuda no se arrastra.** Si un equipo quedó en mora en Apertura, esa mora sigue viva en su cuenta corriente pero imputada al torneo donde nació. Arrastrarla contaminaría el resultado del torneo nuevo. Con devengo progresivo lo que se arrastra es siempre deuda vencida: al cerrar un torneo, sus cuotas ya vencieron todas, así que no queda devengo pendiente colgando de un torneo terminado.
 
 ## 6. Orden de implementación
 
@@ -727,7 +753,7 @@ Se presenta solo la excepción: ascensos, descensos, bajas y altas nuevas. Los e
 
 No reabrir sin motivo nuevo:
 
-1. Devengo (Opción A) para reconocer ingresos.
+1. Devengo **progresivo por vencimiento de cuota** para reconocer ingresos. Reemplaza a la Opción A desde el Draft 11 — ver la nota al pie de esta sección.
 2. Fuente única: todo deriva del libro diario.
 3. Sin rentabilidad por predio ni por categoría.
 4. Efectivo / Transferencia como única terminología.
@@ -747,6 +773,24 @@ No reabrir sin motivo nuevo:
 18. Fondo de inversión sin saldo en Campa: solo rescates y colocaciones.
 19. Bar es área del torneo, no unidad de negocio separada.
 20. Campa es gestión financiera; la contabilidad formal es del estudio externo.
+
+### Decisiones reemplazadas
+
+Se registran acá con su razonamiento. Una decisión derogada sin explicación es una trampa: el que venga después vuelve a proponerla, o peor, la reimplementa sin saber que ya se descartó.
+
+**Opción A — deuda total al armar la ficha** · vigente Drafts 1–10 · reemplazada en el Draft 11.
+
+*Qué decía.* Armar la ficha de un equipo facturaba el torneo completo de una vez: `Deudores` al debe e `Ingresos` al haber por el total, contra `equipo_torneo.asiento_id`. Desde ese momento el equipo "debía" todo el torneo, y cada pago solo cancelaba `Deudores`.
+
+*Por qué se reemplazó.* Tres razones, en orden de peso:
+
+1. **En la cobranza solo interesa la mora.** Lo que se reclama es lo vencido e impago. Un equipo con diez cuotas y una sola vencida no debe diez cuotas: debe una. Mostrar el total facturado como deuda infla la cartera y vuelve inservible la pantalla de deudores, que es prioridad del dueño.
+2. **El cashflow se deriva de la estructura del torneo, no de sumar fichas.** El calendario y el tarifario ya dicen cuánto entra y cuándo (§3.5, §3.18). Devengar todo al inicio no aportaba información de caja —la fecha de cobro sale del vencimiento igual— y a cambio distorsionaba el P&L, cargando el ingreso de un torneo entero al mes en que se armaron las fichas.
+3. **Alinea la letra con lo que ya decía el tarifario.** La regla `por_partido` (§3.18) se define como "arancel unitario **devengado por partido jugado**", pero la Opción A lo cobraba todo por adelantado. La contradicción estaba escrita desde antes; el devengo progresivo la resuelve en lugar de sostenerla.
+
+*Qué NO cambió.* Las cuotas se siguen creando todas al armar la ficha (Camino 2): el plan de pago queda cerrado desde el inicio y con eso alcanza para proyectar caja. Lo que cambió es cuándo se reconoce el ingreso, no cuándo se conoce el compromiso.
+
+*Qué quedó abierto.* Qué dispara el asiento de cada cuota al vencer — ver §3.4.
 
 ## 9. Abierto
 

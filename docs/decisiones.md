@@ -7,10 +7,19 @@ agregar acá la fecha y la razón del cambio.
 
 ## Contables
 
-**1 · Devengo (no percibido)**
-Armar la ficha de un equipo factura la deuda completa del torneo. Cada pago solo
-cancela Deudores; Ingresos no se vuelve a tocar.
+**1 · Devengo progresivo por vencimiento** *(actualizada en el Draft 11)*
+Armar la ficha crea todas las cuotas pero no factura nada. Cada cuota se devenga
+al vencer: Deudores al debe, Ingresos al haber, por el monto de esa cuota. Cada
+pago solo cancela Deudores; Ingresos no se vuelve a tocar.
+**La deuda de un equipo es su mora:** cuotas vencidas e impagas. El cashflow sale
+de la estructura de vencimientos, no de sumar fichas.
 *Por qué:* sin devengo no se puede proyectar caja — no se sabe qué falta cobrar.
+Progresivo y no total porque en la cobranza solo se reclama lo vencido, y devengar
+el torneo entero al armar las fichas distorsionaba el P&L sin aportar información
+de caja.
+*Reemplaza:* la Opción A (deuda total al armar la ficha), vigente hasta el Draft 10.
+Razonamiento completo en `arquitectura.md` §8 → Decisiones reemplazadas.
+*Abierto:* qué dispara el asiento al vencer la cuota — `arquitectura.md` §3.4.
 
 **2 · Fuente única: el libro diario**
 Todo número deriva de `asiento_linea`. Ninguna pantalla calcula el suyo.
