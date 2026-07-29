@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/db/server'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDate } from '@/lib/format'
 
 export default async function CuentaCorrientePage({
   params,
@@ -40,7 +40,8 @@ export default async function CuentaCorrientePage({
 
       {!error &&
         fichas?.map((ficha) => {
-          const cuotasTorneo = cuotas?.filter((c) => c.torneo === ficha.torneo) ?? []
+          const cuotasTorneo =
+            cuotas?.filter((c) => c.equipo_torneo_id === ficha.equipo_torneo_id) ?? []
 
           return (
             <section key={ficha.equipo_torneo_id} className="mb-8">
@@ -95,7 +96,7 @@ export default async function CuentaCorrientePage({
                           className={`border-b border-gray-100 ${vencida ? 'bg-red-50' : ''}`}
                         >
                           <td className="py-2 pr-4">{cuota.cuota_numero}</td>
-                          <td className="py-2 pr-4">{cuota.vence_at}</td>
+                          <td className="py-2 pr-4">{formatDate(cuota.vence_at)}</td>
                           <td className="py-2 pr-4">{formatMoney(cuota.monto ?? 0)}</td>
                           <td className="py-2 pr-4">{formatMoney(cuota.pagado ?? 0)}</td>
                           <td className="py-2 pr-4">{formatMoney(cuota.saldo ?? 0)}</td>

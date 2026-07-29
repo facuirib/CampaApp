@@ -52,6 +52,18 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
     `sugerir_imputacion()`, se muestra la propuesta y el operador confirma.
     `imputar_pago_automatico()` está deprecada.
 
+11. **No se aplican migraciones sobre la base hosted sin confirmación previa.**
+    La base de Supabase es compartida por los dos desarrolladores. Escribir el
+    archivo de migración es libre; **aplicarlo** —por CLI, por MCP o desde el
+    panel— se avisa y se confirma antes. Vale también para lo que parece
+    inofensivo: un `create or replace view` aditivo sobre una base vacía es
+    seguro, pero la base no siempre va a estar vacía, y quien aplica no
+    siempre sabe qué está corriendo el otro en ese momento.
+
+    Esto incluye el caso de regenerar tipos: `supabase gen types` necesita el
+    schema aplicado en algún lado. Si no hay entorno local, la regeneración
+    implica tocar la base compartida — o sea que también se confirma antes.
+
 ## Los 5 conceptos
 
 ### 1. Devengo vs. percibido

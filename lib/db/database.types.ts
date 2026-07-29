@@ -108,6 +108,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "amortizacion_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "amortizacion_periodo_id_fkey"
             columns: ["periodo_id"]
             isOneToOne: false
@@ -151,6 +158,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anticipo_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "anticipo_pago_id_fkey"
@@ -230,6 +244,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "anticipo_uso_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "anticipo_uso_cuota_id_fkey"
             columns: ["cuota_id"]
             isOneToOne: false
@@ -293,6 +314,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arqueo_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "arqueo_jornada_id_fkey"
@@ -360,6 +388,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asiento_anulado_por_fkey"
+            columns: ["anulado_por"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "asiento_jornada_id_fkey"
@@ -437,6 +472,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "asiento_linea_cuenta_id_fkey"
@@ -636,11 +678,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cheque_asiento_alta_id_fkey"
+            columns: ["asiento_alta_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "cheque_asiento_cierre_id_fkey"
             columns: ["asiento_cierre_id"]
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_asiento_cierre_id_fkey"
+            columns: ["asiento_cierre_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "cheque_tercero_id_fkey"
@@ -731,6 +787,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compromiso_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "compromiso_cheque_id_fkey"
@@ -935,6 +998,13 @@ export type Database = {
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["equipo_torneo_id"]
           },
+          {
+            foreignKeyName: "cuota_equipo_torneo_id_fkey"
+            columns: ["equipo_torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["equipo_torneo_id"]
+          },
         ]
       }
       ejercicio: {
@@ -1058,6 +1128,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "equipo_torneo_tercero_id_fkey"
@@ -1225,11 +1302,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gasto_asiento_dev_id_fkey"
+            columns: ["asiento_dev_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "gasto_asiento_pag_id_fkey"
             columns: ["asiento_pag_id"]
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_asiento_pag_id_fkey"
+            columns: ["asiento_pag_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "gasto_cat_gasto_id_fkey"
@@ -1284,40 +1375,42 @@ export type Database = {
       }
       jornada: {
         Row: {
+          cantidad_esperada: number | null
+          es_playoff: boolean
           estado: string
-          fecha: string
+          fecha: string | null
+          genero: Database["public"]["Enums"]["genero"]
           id: string
-          numero: number
-          predio_id: string
+          instancia: string | null
+          numero: number | null
           reprograma_a: string | null
           torneo_id: string
         }
         Insert: {
+          cantidad_esperada?: number | null
+          es_playoff?: boolean
           estado?: string
-          fecha: string
+          fecha?: string | null
+          genero: Database["public"]["Enums"]["genero"]
           id?: string
-          numero: number
-          predio_id: string
+          instancia?: string | null
+          numero?: number | null
           reprograma_a?: string | null
           torneo_id: string
         }
         Update: {
+          cantidad_esperada?: number | null
+          es_playoff?: boolean
           estado?: string
-          fecha?: string
+          fecha?: string | null
+          genero?: Database["public"]["Enums"]["genero"]
           id?: string
-          numero?: number
-          predio_id?: string
+          instancia?: string | null
+          numero?: number | null
           reprograma_a?: string | null
           torneo_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "jornada_predio_id_fkey"
-            columns: ["predio_id"]
-            isOneToOne: false
-            referencedRelation: "predio"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "jornada_reprograma_a_fkey"
             columns: ["reprograma_a"]
@@ -1392,6 +1485,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimiento_fondo_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "movimiento_fondo_caja_id_fkey"
@@ -1477,6 +1577,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asiento"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pago_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
           {
             foreignKeyName: "pago_cuota_id_fkey"
@@ -1667,6 +1774,130 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_tarifa: {
+        Row: {
+          activo: boolean
+          concepto: Database["public"]["Enums"]["concepto_pago"]
+          created_at: string
+          genero: Database["public"]["Enums"]["genero"]
+          id: string
+          opcion_nombre: string
+          opcion_orden: number
+          torneo_id: string
+        }
+        Insert: {
+          activo?: boolean
+          concepto: Database["public"]["Enums"]["concepto_pago"]
+          created_at?: string
+          genero: Database["public"]["Enums"]["genero"]
+          id?: string
+          opcion_nombre: string
+          opcion_orden: number
+          torneo_id: string
+        }
+        Update: {
+          activo?: boolean
+          concepto?: Database["public"]["Enums"]["concepto_pago"]
+          created_at?: string
+          genero?: Database["public"]["Enums"]["genero"]
+          id?: string
+          opcion_nombre?: string
+          opcion_orden?: number
+          torneo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
+      plan_tarifa_linea: {
+        Row: {
+          cantidad_esperada: number | null
+          concepto_label: string
+          created_at: string
+          es_playoff: boolean
+          fecha_desde: number | null
+          fecha_hasta: number | null
+          fecha_referencia: string | null
+          hito_jornada_id: string | null
+          id: string
+          linea_orden: number
+          observacion: string | null
+          plan_tarifa_id: string
+          precio_efectivo: number
+          precio_transferencia: number
+          regla: Database["public"]["Enums"]["regla_vencimiento"]
+        }
+        Insert: {
+          cantidad_esperada?: number | null
+          concepto_label: string
+          created_at?: string
+          es_playoff?: boolean
+          fecha_desde?: number | null
+          fecha_hasta?: number | null
+          fecha_referencia?: string | null
+          hito_jornada_id?: string | null
+          id?: string
+          linea_orden: number
+          observacion?: string | null
+          plan_tarifa_id: string
+          precio_efectivo: number
+          precio_transferencia: number
+          regla: Database["public"]["Enums"]["regla_vencimiento"]
+        }
+        Update: {
+          cantidad_esperada?: number | null
+          concepto_label?: string
+          created_at?: string
+          es_playoff?: boolean
+          fecha_desde?: number | null
+          fecha_hasta?: number | null
+          fecha_referencia?: string | null
+          hito_jornada_id?: string | null
+          id?: string
+          linea_orden?: number
+          observacion?: string | null
+          plan_tarifa_id?: string
+          precio_efectivo?: number
+          precio_transferencia?: number
+          regla?: Database["public"]["Enums"]["regla_vencimiento"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_tarifa_linea_hito_jornada_id_fkey"
+            columns: ["hito_jornada_id"]
+            isOneToOne: false
+            referencedRelation: "jornada"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_linea_plan_tarifa_id_fkey"
+            columns: ["plan_tarifa_id"]
+            isOneToOne: false
+            referencedRelation: "plan_tarifa"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plantilla_mail: {
         Row: {
           asunto: string
@@ -1840,31 +2071,40 @@ export type Database = {
       }
       torneo: {
         Row: {
+          activo: boolean
+          anio: number
           cant_fechas: number
-          ejercicio_id: string
+          ejercicio_id: string | null
           estado: string
           fecha_desde: string | null
           fecha_hasta: string | null
           id: string
           nombre: string
+          temporada: Database["public"]["Enums"]["temporada"]
         }
         Insert: {
+          activo?: boolean
+          anio: number
           cant_fechas?: number
-          ejercicio_id: string
+          ejercicio_id?: string | null
           estado?: string
           fecha_desde?: string | null
           fecha_hasta?: string | null
           id?: string
           nombre: string
+          temporada: Database["public"]["Enums"]["temporada"]
         }
         Update: {
+          activo?: boolean
+          anio?: number
           cant_fechas?: number
-          ejercicio_id?: string
+          ejercicio_id?: string | null
           estado?: string
           fecha_desde?: string | null
           fecha_hasta?: string | null
           id?: string
           nombre?: string
+          temporada?: Database["public"]["Enums"]["temporada"]
         }
         Relationships: [
           {
@@ -1915,6 +2155,13 @@ export type Database = {
             referencedRelation: "asiento"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "usd_operacion_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
         ]
       }
     }
@@ -1955,6 +2202,35 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_equipo"
             referencedColumns: ["tercero_id"]
+          },
+        ]
+      }
+      v_asiento_detalle: {
+        Row: {
+          asiento: string | null
+          asiento_id: string | null
+          cuenta: string | null
+          cuenta_codigo: string | null
+          cuenta_tipo: string | null
+          debe: number | null
+          fecha: string | null
+          haber: number | null
+          tercero: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asiento_linea_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
           },
         ]
       }
@@ -2029,6 +2305,7 @@ export type Database = {
           cuota_numero: number | null
           dias_atraso: number | null
           equipo: string | null
+          equipo_torneo_id: string | null
           estado: string | null
           monto: number | null
           pagado: number | null
@@ -2083,7 +2360,35 @@ export type Database = {
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["equipo_torneo_id"]
           },
+          {
+            foreignKeyName: "cuota_equipo_torneo_id_fkey"
+            columns: ["equipo_torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["equipo_torneo_id"]
+          },
         ]
+      }
+      v_libro_diario: {
+        Row: {
+          anio: number | null
+          anulado: boolean | null
+          asiento_id: string | null
+          created_at: string | null
+          descripcion: string | null
+          fecha: string | null
+          jornada: number | null
+          lineas: number | null
+          mes: number | null
+          origen: string | null
+          origen_id: string | null
+          periodo_estado: string | null
+          predio: string | null
+          torneo: string | null
+          total_debe: number | null
+          total_haber: number | null
+        }
+        Relationships: []
       }
       v_presupuesto_total: {
         Row: {
@@ -2181,16 +2486,43 @@ export type Database = {
       }
     }
     Functions: {
+      anular_asiento: {
+        Args: { p_asiento_id: string; p_fecha?: string; p_motivo: string }
+        Returns: string
+      }
       aplicar_anticipo: {
         Args: { p_cuota_id: string; p_monto: number; p_tercero_id: string }
         Returns: number
       }
+      crear_asiento: {
+        Args: {
+          p_created_by?: string
+          p_descripcion: string
+          p_fecha: string
+          p_jornada_id?: string
+          p_lineas: Json
+          p_origen: string
+          p_origen_id?: string
+          p_predio_id?: string
+          p_torneo_id?: string
+        }
+        Returns: string
+      }
       generar_cuotas_plan: { Args: { p_plan_id: string }; Returns: number }
+      generar_grilla_liga: {
+        Args: {
+          p_fechas_fem?: number
+          p_fechas_masc?: number
+          p_torneo_id: string
+        }
+        Returns: number
+      }
       imputar_pago: {
         Args: { p_imputaciones: Json; p_pago_id: string }
         Returns: number
       }
       imputar_pago_automatico: { Args: { p_pago_id: string }; Returns: number }
+      periodo_de_fecha: { Args: { p_fecha: string }; Returns: string }
       proponer_amortizaciones: {
         Args: { p_periodo_id: string }
         Returns: {
@@ -2201,10 +2533,18 @@ export type Database = {
           nombre: string
         }[]
       }
+      saldo_cuenta: {
+        Args: { p_codigo: string; p_hasta?: string; p_torneo_id?: string }
+        Returns: number
+      }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      concepto_pago: "inscripcion" | "partidos"
+      genero: "masculino" | "femenino"
+      medio_pago: "efectivo" | "transferencia"
+      regla_vencimiento: "fecha_fija" | "por_partido" | "bloque_adelantado"
+      temporada: "apertura" | "clausura"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2331,6 +2671,12 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      concepto_pago: ["inscripcion", "partidos"],
+      genero: ["masculino", "femenino"],
+      medio_pago: ["efectivo", "transferencia"],
+      regla_vencimiento: ["fecha_fija", "por_partido", "bloque_adelantado"],
+      temporada: ["apertura", "clausura"],
+    },
   },
 } as const
