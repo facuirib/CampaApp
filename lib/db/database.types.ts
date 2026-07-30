@@ -620,6 +620,52 @@ export type Database = {
           },
         ]
       }
+      categoria: {
+        Row: {
+          genero: Database["public"]["Enums"]["genero"]
+          id: string
+          nombre: string
+          orden: number | null
+          torneo_id: string
+        }
+        Insert: {
+          genero: Database["public"]["Enums"]["genero"]
+          id?: string
+          nombre: string
+          orden?: number | null
+          torneo_id: string
+        }
+        Update: {
+          genero?: Database["public"]["Enums"]["genero"]
+          id?: string
+          nombre?: string
+          orden?: number | null
+          torneo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
       cheque: {
         Row: {
           asiento_alta_id: string | null
@@ -962,25 +1008,31 @@ export type Database = {
         Row: {
           equipo_torneo_id: string
           id: string
+          jornada_id: string | null
           monto: number
           numero: number
           pagado_at: string | null
+          plan_tarifa_linea_id: string
           vence_at: string
         }
         Insert: {
           equipo_torneo_id: string
           id?: string
+          jornada_id?: string | null
           monto: number
           numero: number
           pagado_at?: string | null
+          plan_tarifa_linea_id: string
           vence_at: string
         }
         Update: {
           equipo_torneo_id?: string
           id?: string
+          jornada_id?: string | null
           monto?: number
           numero?: number
           pagado_at?: string | null
+          plan_tarifa_linea_id?: string
           vence_at?: string
         }
         Relationships: [
@@ -1004,6 +1056,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["equipo_torneo_id"]
+          },
+          {
+            foreignKeyName: "cuota_jornada_id_fkey"
+            columns: ["jornada_id"]
+            isOneToOne: false
+            referencedRelation: "jornada"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuota_plan_tarifa_linea_id_fkey"
+            columns: ["plan_tarifa_linea_id"]
+            isOneToOne: false
+            referencedRelation: "plan_tarifa_linea"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1092,49 +1158,59 @@ export type Database = {
       }
       equipo_torneo: {
         Row: {
-          asiento_id: string | null
-          categoria: string
           id: string
-          modalidad: string
+          medio_previsto: Database["public"]["Enums"]["medio_pago"]
+          plan_inscripcion_id: string
+          plan_partidos_id: string
           responsable_id: string | null
+          serie_id: string
           tercero_id: string
           torneo_id: string
           total_facturado: number
         }
         Insert: {
-          asiento_id?: string | null
-          categoria: string
           id?: string
-          modalidad: string
+          medio_previsto: Database["public"]["Enums"]["medio_pago"]
+          plan_inscripcion_id: string
+          plan_partidos_id: string
           responsable_id?: string | null
+          serie_id: string
           tercero_id: string
           torneo_id: string
-          total_facturado: number
+          total_facturado?: number
         }
         Update: {
-          asiento_id?: string | null
-          categoria?: string
           id?: string
-          modalidad?: string
+          medio_previsto?: Database["public"]["Enums"]["medio_pago"]
+          plan_inscripcion_id?: string
+          plan_partidos_id?: string
           responsable_id?: string | null
+          serie_id?: string
           tercero_id?: string
           torneo_id?: string
           total_facturado?: number
         }
         Relationships: [
           {
-            foreignKeyName: "equipo_torneo_asiento_id_fkey"
-            columns: ["asiento_id"]
+            foreignKeyName: "equipo_torneo_plan_inscripcion_id_fkey"
+            columns: ["plan_inscripcion_id"]
             isOneToOne: false
-            referencedRelation: "asiento"
+            referencedRelation: "plan_tarifa"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "equipo_torneo_asiento_id_fkey"
-            columns: ["asiento_id"]
+            foreignKeyName: "equipo_torneo_plan_partidos_id_fkey"
+            columns: ["plan_partidos_id"]
             isOneToOne: false
-            referencedRelation: "v_libro_diario"
-            referencedColumns: ["asiento_id"]
+            referencedRelation: "plan_tarifa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_serie_id_fkey"
+            columns: ["serie_id"]
+            isOneToOne: false
+            referencedRelation: "serie"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "equipo_torneo_tercero_id_fkey"
@@ -2042,6 +2118,35 @@ export type Database = {
           },
         ]
       }
+      serie: {
+        Row: {
+          categoria_id: string
+          id: string
+          nombre: string
+          orden: number | null
+        }
+        Insert: {
+          categoria_id: string
+          id?: string
+          nombre: string
+          orden?: number | null
+        }
+        Update: {
+          categoria_id?: string
+          id?: string
+          nombre?: string
+          orden?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "serie_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categoria"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tercero: {
         Row: {
           activo: boolean
@@ -2279,9 +2384,10 @@ export type Database = {
           cuotas_total: number | null
           equipo: string | null
           equipo_torneo_id: string | null
-          modalidad: string | null
+          genero: Database["public"]["Enums"]["genero"] | null
           proximo_vencimiento: string | null
           saldo: number | null
+          serie: string | null
           tercero_id: string | null
           torneo: string | null
           total_facturado: number | null
@@ -2307,11 +2413,13 @@ export type Database = {
           equipo: string | null
           equipo_torneo_id: string | null
           estado: string | null
+          genero: Database["public"]["Enums"]["genero"] | null
           monto: number | null
           pagado: number | null
           pagado_at: string | null
           pagado_con_anticipo: number | null
           saldo: number | null
+          serie: string | null
           tercero_id: string | null
           torneo: string | null
           torneo_estado: string | null

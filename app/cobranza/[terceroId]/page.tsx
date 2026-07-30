@@ -48,7 +48,7 @@ export default async function CuentaCorrientePage({
               <div className="border border-gray-200 rounded p-4 mb-2">
                 <h2 className="text-lg font-semibold">{ficha.torneo}</h2>
                 <p className="text-sm text-gray-500 mb-3">
-                  {ficha.categoria} · {ficha.modalidad}
+                  {ficha.categoria} · {ficha.serie}
                 </p>
                 <div className="flex flex-wrap gap-6 text-sm">
                   <div>
