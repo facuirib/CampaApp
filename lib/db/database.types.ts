@@ -2652,6 +2652,18 @@ export type Database = {
           nombre: string
         }[]
       }
+      registrar_cobro: {
+        Args: {
+          p_fecha: string
+          p_imputaciones: Json
+          p_medio: string
+          p_monto: number
+          p_predio_id?: string
+          p_responsable_id?: string
+          p_tercero_id: string
+        }
+        Returns: string
+      }
       saldo_cuenta: {
         Args: { p_codigo: string; p_hasta?: string; p_torneo_id?: string }
         Returns: number
