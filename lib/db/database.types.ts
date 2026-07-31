@@ -2616,6 +2616,17 @@ export type Database = {
         }
         Returns: string
       }
+      crear_equipo_torneo: {
+        Args: {
+          p_medio_previsto: Database["public"]["Enums"]["medio_pago"]
+          p_plan_inscripcion_id: string
+          p_plan_partidos_id: string
+          p_responsable_id?: string
+          p_serie_id: string
+          p_tercero_id: string
+        }
+        Returns: string
+      }
       generar_cuotas_plan: { Args: { p_plan_id: string }; Returns: number }
       generar_grilla_liga: {
         Args: {
