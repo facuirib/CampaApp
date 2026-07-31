@@ -292,3 +292,27 @@ Pendientes de definir con el cliente. **No inventar la respuesta:**
 - Umbral de activación de bienes (lo definen con el estudio contable)
 - Proveedor de mail y dominio de envío
 - Formato del recibo: si necesita numeración formal
+
+### Técnicas
+
+No dependen del cliente; se resuelven entre nosotros.
+
+**Política de ejercicios futuros.** Hoy el ejercicio se carga a mano: hay un
+seed para 2026 (`supabase/seeds/00_ejercicio_2026.sql`) y nada más.
+
+`periodo_de_fecha()` crea los períodos mensuales bajo demanda, pero **aborta
+si no encuentra un ejercicio que contenga la fecha**. Como `crear_asiento()`
+lo llama, y con percibido puro todo cobro emite asiento, sin ejercicio no se
+puede cobrar. Es un bloqueo duro, no una advertencia.
+
+Hay que decidir entre:
+
+- **Un seed por año**, cargado a mano. Explícito y auditable, pero alguien
+  tiene que acordarse antes del primer movimiento del año.
+- **Autocrearlo** en `periodo_de_fecha`, derivando el año calendario de la
+  fecha. Nunca bloquea, pero toca una función del núcleo contable y crea
+  ejercicios sin que nadie lo haya pedido.
+
+*Cuándo:* antes de que aparezca el primer movimiento con fecha de 2027. No es
+urgente, pero el síntoma si se olvida es un cobro que falla en producción con
+un mensaje que habla de ejercicios, no de cobranza.
