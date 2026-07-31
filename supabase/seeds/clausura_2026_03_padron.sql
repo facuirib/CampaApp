@@ -1,0 +1,378 @@
+-- ============================================================================
+-- CAMPA · Seed de PRODUCCIÓN · Clausura 2026 · 3/3 · Padrón de equipos
+--
+-- 304 equipos. Solo nombre y tipo: los datos de contacto (teléfono, email,
+-- delegado) NO se cargan todavía — esperan a RLS (K15).
+--
+-- La categoría y la serie NO se guardan acá: `tercero` no las tiene. La
+-- relación equipo↔serie vive en la ficha (`equipo_torneo.serie_id`), que se
+-- crea con crear_equipo_torneo(). Van como encabezados de sección para que el
+-- archivo documente a qué serie corresponde cada equipo cuando se armen.
+--
+-- Idempotente por `where not exists` sobre el nombre, no por `on conflict`:
+-- `tercero` no tiene unique en `nombre`, solo PK en `id`.
+--
+-- ── Tres nombres desambiguados ──────────────────────────────────────────────
+-- El padrón traía tres nombres repetidos en dos categorías cada uno. Se
+-- confirmó que son equipos distintos, y se les agregó sufijo siguiendo la
+-- convención del propio padrón (Escalera FC / Escalera FC +30 / Escalera Fem):
+--
+--   'Graduados' en +30 B  →  'Graduados +30'
+--   'Delirio FC' en Femenino A  →  'Delirio FC Fem'
+--   'Tercer Tiempo FC' en Femenino D  →  'Tercer Tiempo FC Fem'
+--
+-- Importa porque `equipo_torneo` tiene unique (tercero_id, torneo_id): un
+-- tercero solo puede tener UNA ficha por torneo. Sin desambiguar, el segundo
+-- equipo de cada par no habría podido tener ficha.
+-- ============================================================================
+
+insert into tercero (tipo, nombre)
+select 'equipo', v.nombre
+from (values
+  -- Libre · Serie A  (16 equipos)
+  ('El Ciclon'),
+  ('Escalera FC'),
+  ('La Sociedad'),
+  ('Promesa'),
+  ('Saprissa'),
+  ('Vieja Escuela'),
+  ('Bazinga'),
+  ('Borregos'),
+  ('La Docta'),
+  ('Los Titos'),
+  ('Papsiss'),
+  ('Sangrion'),
+  ('Farsa'),
+  ('Código'),
+  ('Defensa'),
+  ('Kikines'),
+  -- Libre · Serie B  (16 equipos)
+  ('Atl. Laboulaye'),
+  ('La Masía'),
+  ('All Dogs'),
+  ('Barrilete Cósmico'),
+  ('Calcio'),
+  ('El Fortin'),
+  ('El Pasaje'),
+  ('La Bocha'),
+  ('Recreativo'),
+  ('El Veni'),
+  ('Graduados'),
+  ('La Aldea'),
+  ('La Rabona'),
+  ('Refinería del Centro'),
+  ('Imperial FC'),
+  ('La Trampa'),
+  -- Libre · Serie C  (16 equipos)
+  ('Chalchaleros'),
+  ('Dep. Cristal'),
+  ('La Castilla'),
+  ('La Colonia Libre'),
+  ('El Ajuste'),
+  ('San Lorenzo'),
+  ('Corralito'),
+  ('Børder'),
+  ('Dep. Cuota Fija'),
+  ('La Vuelta'),
+  ('Vodka Juniors'),
+  ('Yeri'),
+  ('Azzurri FC'),
+  ('Per Saltum FC'),
+  ('Bartolo Libre'),
+  ('Consejo'),
+  -- Libre · Serie D  (16 equipos)
+  ('La Unión'),
+  ('Edinburg'),
+  ('OCB Premium'),
+  ('Detenidos'),
+  ('Fratelli'),
+  ('Los Magios'),
+  ('Que Broncon'),
+  ('Acme'),
+  ('Pope'),
+  ('Man Blue FC'),
+  ('Santos FC'),
+  ('Triángulo FC'),
+  ('Siglo 21'),
+  ('Capricho FC'),
+  ('Medio Pulmón FC'),
+  ('Tercer Tiempo FC'),
+  -- Libre · Serie E  (16 equipos)
+  ('Catena FC'),
+  ('Alberdianos'),
+  ('Cordoba'),
+  ('Torino'),
+  ('Palito'),
+  ('Brancas'),
+  ('Cidecor'),
+  ('Laboral FC'),
+  ('Los Lopez'),
+  ('Poncho Negro Libre'),
+  ('Severino'),
+  ('Wasabi'),
+  ('Imperio FC'),
+  ('Fenix FC'),
+  ('Mala Junta'),
+  ('Marea'),
+  -- Libre · Serie F  (16 equipos)
+  ('Chaya'),
+  ('La Sede'),
+  ('Los Isotopos'),
+  ('La Viejoneta FC'),
+  ('Delirio FC'),
+  ('Doña Tota FC'),
+  ('Faisán FC'),
+  ('Granate Mecánico'),
+  ('Celta'),
+  ('Pastilla Vieja'),
+  ('La Mezcla'),
+  ('Inter FC'),
+  ('Lisboa 464'),
+  ('Bataraza FC'),
+  ('Los Lagartos'),
+  ('Refugio FC'),
+  -- +30 · Serie A  (16 equipos)
+  ('Africa United +30'),
+  ('Bartolo +6'),
+  ('Defensa y Justicia +30'),
+  ('El Pasaje +30'),
+  ('El Salmón'),
+  ('Escalera FC +30'),
+  ('La Docta +30'),
+  ('Los Cuervos +30'),
+  ('Talento +30'),
+  ('El Eterno +30'),
+  ('La Sociedad FC +30'),
+  ('La Unión FC +30'),
+  ('Promesa +30'),
+  ('Clinicas FC'),
+  ('La Pausa +30'),
+  ('Vieja Escuela +30'),
+  -- +30 · Serie B  (16 equipos)
+  ('Graduados +30'),
+  ('Alayama LF'),
+  ('Borregos FC +30'),
+  ('Chalchaleros FC +30'),
+  ('Farsa FC +30'),
+  ('Laboral +30'),
+  ('Poeta FC'),
+  ('Silly Team'),
+  ('Bajo Fianza +30'),
+  ('Centenario +30'),
+  ('La Plaza'),
+  ('Severino FC +30'),
+  ('Tomba +30'),
+  ('El Fortin +30'),
+  ('Mala Junta +30'),
+  ('Union y Amistad'),
+  -- +30 · Serie C  (16 equipos)
+  ('Barrilete +30'),
+  ('Los Magios +30'),
+  ('Alberdiano +30'),
+  ('Impresentables +30'),
+  ('Cordoba FC +30'),
+  ('Detenidos FC +30'),
+  ('Edinburg Legends'),
+  ('El Ciclon +30'),
+  ('Los Titos FC +30'),
+  ('OCB X-Pert'),
+  ('Per Saltum +30'),
+  ('Brancas +30'),
+  ('Faisan +30'),
+  ('Marques FC'),
+  ('Recreativo +30'),
+  ('La 22'),
+  -- +35 · Serie A  (16 equipos)
+  ('La Colonia'),
+  ('Los Titos FC'),
+  ('Los Quedados'),
+  ('El Pasaje +35'),
+  ('El Ajuste FC +35'),
+  ('Alberdiano +35'),
+  ('Bartolo +35'),
+  ('El Resto FC'),
+  ('Escalera FC +35'),
+  ('La Comunidad'),
+  ('Menosiete FC'),
+  ('OCB Legends'),
+  ('Poncho Negro SC'),
+  ('Zebra FC'),
+  ('DCC +35'),
+  ('Los Cuervos +35'),
+  -- +35 · Serie B  (16 equipos)
+  ('Bajo Palermo'),
+  ('La Docta +35'),
+  ('La Boqueria FC'),
+  ('Toronja Mecánica'),
+  ('Centenario +35'),
+  ('Severino FC +35'),
+  ('Cayejas'),
+  ('El Eterno +35'),
+  ('Nueva Alianza'),
+  ('Nuncaonce FC'),
+  ('Silly Team +35'),
+  ('Tomba +35'),
+  ('Zulmeños'),
+  ('Defensa y Justicia +35'),
+  ('Chalchaleros +35'),
+  ('Saint Vincent FC'),
+  -- +40 · Serie A  (16 equipos)
+  ('Los Chicos del Fondo'),
+  ('Zebra +40'),
+  ('Escalera +40'),
+  ('AC'),
+  ('DCC +40'),
+  ('Severino +40'),
+  ('Naritelli S.C'),
+  ('All Dogs +40'),
+  ('Los Cuervos +40'),
+  ('Bartolo +40'),
+  ('La Cruda'),
+  ('Estudiosos FC'),
+  ('Poncho Negro SC +40'),
+  ('CCFC'),
+  ('C.A. Toro'),
+  ('Caranchos FC'),
+  -- Femenino · Serie A  (14 equipos)
+  ('Delirio FC Fem'),
+  ('El Eterno Fem'),
+  ('El Campus'),
+  ('La Rabona Fem'),
+  ('Nidea FC'),
+  ('Utopia'),
+  ('Dep. Cristal Fem'),
+  ('Conquista FC'),
+  ('El Clero Fem'),
+  ('Vieja Escuela Fem'),
+  ('Setenta Treinta'),
+  ('Tu Papa FC'),
+  ('El Ajuste Fem'),
+  ('Corran Yeguas'),
+  -- Femenino · Serie B  (14 equipos)
+  ('K-Lambre'),
+  ('Vikingas'),
+  ('Impresentables Fem'),
+  ('El Veni Fem'),
+  ('El Pasaje Fem'),
+  ('Enfoque FC'),
+  ('Torino Fem'),
+  ('Calcio Fem'),
+  ('Arqui Fem'),
+  ('Suricatas'),
+  ('Un Equipo Fem'),
+  ('Bartolas'),
+  ('Farsa Fem'),
+  ('Barbados Fem'),
+  -- Femenino · Serie C  (14 equipos)
+  ('Edinburg Fem'),
+  ('Chalchaleros Fem'),
+  ('All Dogs Fem'),
+  ('Lagertha FC'),
+  ('La Citronella'),
+  ('Atl. Laboulaye Fem'),
+  ('Cordoba Fem'),
+  ('Chantas Fem'),
+  ('A que Costo FC'),
+  ('Severino Fem'),
+  ('Saprissa Fem'),
+  ('4K'),
+  ('Corona Fem'),
+  ('Borregos Fem'),
+  -- Femenino · Serie D  (14 equipos)
+  ('Maradoña FC'),
+  ('Las Titas'),
+  ('Detenidas FC'),
+  ('Sonico FC'),
+  ('Alayama Fem'),
+  ('El Descarte FC'),
+  ('Tercer Tiempo FC Fem'),
+  ('La Acade Fem'),
+  ('Yeri Fem'),
+  ('Euforia FC'),
+  ('Criterio FC'),
+  ('Las Cuervas'),
+  ('Silly Team Fem'),
+  ('C-Pico'),
+  -- Femenino · Serie E  (14 equipos)
+  ('La Bocha Fem'),
+  ('Chitas FC'),
+  ('Vodka Juniors Fem'),
+  ('Per Saltum Fem'),
+  ('Corralito Fem'),
+  ('Alberdiano Fem'),
+  ('Gárgolas Fem'),
+  ('Kikinas'),
+  ('Rodeo FC'),
+  ('OCB Fem'),
+  ('Mambas FC'),
+  ('Consejo Fem'),
+  ('Suricatas FC'),
+  ('Tori Fem'),
+  -- Femenino · Serie F  (14 equipos)
+  ('Sin Equipo'),
+  ('Granate Mecánico Fem'),
+  ('La Coqueta FC'),
+  ('Poeta Fem'),
+  ('Azzurri Fem'),
+  ('Daimon Fem'),
+  ('Chaya Fem'),
+  ('Siglo 21 Fem'),
+  ('Nakama'),
+  ('Brancas Fem'),
+  ('El Campus Jr.'),
+  ('Imperial Fem'),
+  ('La Sede Fem'),
+  ('La Trampa Fem'),
+  -- Femenino · Serie G  (14 equipos)
+  ('Legión Fútbol'),
+  ('Suricatas Jr.'),
+  ('Severino Tricolor'),
+  ('Tu Vieja FC'),
+  ('Medio Pulmon Fem'),
+  ('Celta Fem'),
+  ('La Colonia Fem'),
+  ('Valkiria FC'),
+  ('Barcelo Fem'),
+  ('Capricho Fem'),
+  ('El Amarre FC'),
+  ('Yupanqui Fem'),
+  ('Bartolo Fem'),
+  ('Los Magios Fem'),
+  -- Flex · Serie A  (14 equipos)
+  ('La Boquería Fem'),
+  ('Por la Linea FC'),
+  ('El Campus Flex'),
+  ('Nakama Flex'),
+  ('Escalera Fem'),
+  ('Gárgolas Flex'),
+  ('El Ajuste Flex'),
+  ('Utopia Flex'),
+  ('Inimputables Fem'),
+  ('Fenix Fem'),
+  ('Pastilla Vieja Fem'),
+  ('Centella FC'),
+  ('La Rabona Flex'),
+  ('Paravalancha FC')
+) as v(nombre)
+where not exists (select 1 from tercero t where t.nombre = v.nombre);
+
+
+-- ── Verificación ────────────────────────────────────────────────────────────
+
+do $$
+declare v_equipos int; v_dups int;
+begin
+  select count(*) into v_equipos from tercero where tipo = 'equipo';
+  if v_equipos <> 304 then
+    raise exception 'Se esperaban 304 equipos y hay %', v_equipos;
+  end if;
+
+  select count(*) into v_dups from (
+    select nombre from tercero where tipo='equipo'
+     group by nombre having count(*) > 1) d;
+  if v_dups > 0 then
+    raise exception '% nombres de equipo duplicados: el padrón debe ser único', v_dups;
+  end if;
+
+  raise notice 'Padrón Clausura 2026 OK · 304 equipos, sin duplicados';
+end $$;
