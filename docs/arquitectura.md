@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 13 · julio 2026 · estructura del torneo (categoría → serie) y diseño de la ficha de equipo; el género pasa a ser atributo de la categoría
+**Versión:** Draft 14 · agosto 2026 · la jornada cuelga de la serie, no del género; tres unidades de costo variable; arqueo por fecha + predio
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,26 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 13
+
+**La jornada cuelga de la serie, no del género.** Identidad `(serie_id, numero)`; el género y el torneo se derivan subiendo `serie → categoria`. El modelo anterior no podía representar el calendario real: distintas series del mismo género juegan la misma fecha en días distintos —Libre A su fecha 3 el 15/8, +35 B el 29/8— y `(torneo, genero, numero)` colapsaba fechas que en la realidad difieren. **Clausura 2026: 284 jornadas** en lugar de 28.
+
+**Fecha de calendario ≠ jornada.** Una *fecha* es un día concreto en el que juegan muchas series; una *jornada* es la fecha N de **una** serie. 29 fechas, 284 jornadas en el Clausura. De ahí emerge `(fecha, predio)` —el día de operación de un predio— como entidad natural.
+
+**Tres unidades de costo variable** (§3.3). Los gastos `por_fecha` dejan de escalar todos igual: **por partido** (árbitros, veedores, ballboys — se multiplica por `equipos ÷ 2`), **por día de cancha** (fotografía — 1 por `(fecha, predio)`) y **fijo mensual**. Un sábado con 6 series en un predio son 48 arbitrajes y un solo servicio de fotografía.
+
+**El arqueo cuelga de `(fecha, predio)`**, no de la jornada. Controla la caja física de un predio en un día, y ese día jugaron varias series: la plata no distingue de cuál vino.
+
+**Playoffs también por serie.** La final de Libre A y la de Libre B son jornadas distintas. No están en el calendario validado —no tienen fecha aún— y se cargan cuando se definan.
+
+**⚠ Cuidado con `v_presupuesto_total`.** Cuenta jornadas por torneo sin distinguir unidad: hoy da 28, con el rediseño daría 284. Multiplicaría por diez un presupuesto `por_jornada` sin fallar ni avisar. Las tablas de presupuesto están vacías, así que se arregla antes de que exista el primer número.
+
+**La PK de `jornada` no cambia.** Sigue siendo `id`, así que las siete FKs que la apuntan —`asiento`, `pago`, `gasto`, `arqueo`, `cuota`, `plan_tarifa_linea.hito_jornada_id` y el `reprograma_a` propio— no se tocan. Cambia la identidad natural y la columna.
+
+**Nada de esto está construido.** Es diseño asentado. Las seis piezas —migración de `jornada`, `generar_grilla_liga`, la rama `por_partido` de B0, arqueo, unidades de costo y playoffs— se construyen contra esta sección. La base sigue con `jornada` por género y vacía, así que no hay backfill.
+
+---
 
 ## Qué cambió desde el Draft 12
 
@@ -92,7 +112,7 @@ Las dos primeras son la misma pregunta —cuándo entra la plata— y la cobranz
 
 ## 1. Principios de diseño
 
-**a. La Fecha es la unidad operativa central, no el mes.** Cada jornada (`Fecha 9 · Masculino · 14-jun`) es la unidad contra la que se cargan ingresos de equipos y egresos operativos. El mes es una vista derivada, no la unidad de trabajo.
+**a. La Fecha es la unidad operativa central, no el mes.** Cada jornada (`Fecha 9 · Libre A · 14-jun`) es la unidad contra la que se cargan ingresos de equipos y egresos operativos. El mes es una vista derivada, no la unidad de trabajo.
 
 **b. El ingreso se reconoce al cobrar (percibido puro).** El único evento que genera ingreso contable es el pago: `Caja` —efectivo, transferencia o valores a depositar— al debe, la cuenta de `Ingresos` que corresponda al haber. Las `cuota` **no generan ningún asiento**: son términos de pago —cronograma, base de la mora y del cashflow (§3.10)—, no hechos contables. No interviene `Deudores`: lo que un equipo debe no vive en el libro diario, vive en `cuota`. La cuota hereda de la línea del plan el concepto (inscripción / partidos), y de ahí se resuelve a qué cuenta de ingreso se imputa el cobro. **La deuda de un equipo es su mora**: cuotas vencidas e impagas — cifra operativa, para reclamar, no un saldo contable. **Asimetría deliberada:** esto vale para ingresos; los **gastos siguen por devengo**, con dos asientos (§3.3). Por eso, para ingresos el P&L y la caja muestran lo mismo, y para gastos siguen contando cosas distintas. *Reemplaza al devengo progresivo del Draft 11, que a su vez había reemplazado a la Opción A — las dos vueltas y su razonamiento están en §8.*
 
@@ -292,10 +312,26 @@ Sale de `gastos_campa.xlsx`: 34 categorías y 111 conceptos, remapeados a dos di
 
 | Naturaleza | Se ancla a | Presupuesto | Ejemplos |
 |---|---|---|---|
-| `por_fecha` | jornada + predio | arancel × cantidad × jornadas | Árbitros, veedores, ballboys |
+| `por_fecha` | jornada + predio | según su unidad — ver abajo | Árbitros, veedores, ballboys, fotografía |
 | `recurrente` | mes | monto mensual × meses | Alquileres, sueldos, EPEC |
 | `eventual` | fecha calendario | monto anual por categoría | Mantenimiento, compras de predio |
 | `inversion` | fecha + activo | monto + vida útil | Desmalezadora, arcos, heladera |
+
+#### Las tres unidades del costo variable
+
+*Diseño asentado, pendiente de construir.*
+
+No todos los gastos `por_fecha` escalan igual. Meterlos a todos en "× jornadas" era correcto mientras la jornada era por género; con jornadas por serie deja de serlo, y la distinción se vuelve obligatoria:
+
+| Unidad | Escala con | Ejemplos | Cuenta |
+|---|---|---|---|
+| **Por partido** | cantidad de partidos = equipos de la serie ÷ 2 | árbitros, veedores, ballboys | cada partido tiene los suyos |
+| **Por día de cancha** | `(fecha, predio)` | fotografía | el fotógrafo va un día a un predio: **1**, sin importar cuántas series o partidos haya |
+| **Fijo mensual** | el mes | alquileres, sueldos | no escala con partidos ni fechas |
+
+La diferencia es grande, no cosmética. Un sábado con 6 series jugando en un predio son **48 partidos** —48 arbitrajes— pero **un solo** servicio de fotografía.
+
+> **⚠ `v_presupuesto_total` cuenta jornadas sin distinguir unidad.** Hoy multiplica por `count(*) from jornada where torneo_id = … and estado <> 'suspendida'`, que da 28. Con jornadas por serie daría **284**: un presupuesto `por_jornada` se multiplicaría por diez sin que nada falle ni avise. No es un error de schema, es un número diez veces más grande en pantalla. Hay que ajustarla para que use la unidad correcta según el tipo de costo. **Las tablas de presupuesto están vacías hoy**, así que todavía no hay ningún número mal — se arregla antes de que exista el primero.
 
 **Eje 2 · Área** — determina a quién se imputa: `torneo` · `predio` · `bar` · `administracion`.
 
@@ -548,8 +584,7 @@ create table predio (
 
 create table jornada (
   id                uuid primary key default gen_random_uuid(),
-  torneo_id         uuid not null references torneo(id) on delete cascade,
-  genero            genero not null,               -- cada género corre su calendario
+  serie_id          uuid not null references serie(id),  -- género y torneo se derivan subiendo
   numero            smallint,                      -- fecha de liga (null en playoff)
   instancia         text,                          -- 'cuartos' | 'semi' | 'final' (playoff)
   es_playoff        boolean not null default false,
@@ -557,7 +592,7 @@ create table jornada (
   estado            text not null default 'programada', -- programada | jugada | suspendida | reprogramada
   reprograma_a      uuid references jornada(id),   -- rastro de reprogramación
   cantidad_esperada smallint,                      -- base de estimación de ingreso
-  unique (torneo_id, genero, numero),              -- identidad: fecha × género
+  unique (serie_id, numero),                       -- identidad: fecha × serie
   check (
     (es_playoff and instancia is not null and numero is null)
     or (not es_playoff and numero is not null and instancia is null)
@@ -565,15 +600,38 @@ create table jornada (
 );
 ```
 
-**`jornada` reconciliada — eje fecha × género** (antes era fecha × predio). La identidad es `(torneo, genero, numero)`: cada género corre su calendario propio (masc 1–15, fem 1–13). **El predio no es atributo de la jornada:** se decide por equipo semana a semana y vive en las tablas de movimiento (`asiento`, `pago`, `gasto`, `arqueo`), que llevan su propio `predio_id`. Un arqueo es por jornada + predio — dos arqueos la misma fecha si hubo dos canchas.
+*Diseño asentado, pendiente de construir. La tabla en la base todavía tiene la forma anterior (`genero` en lugar de `serie_id`).*
+
+**La jornada cuelga de la serie, no del género.** La identidad es `(serie_id, numero)`. El género y el torneo se derivan subiendo `serie → categoria`, el mismo patrón que la ficha (decisión 36): no se duplican, porque duplicarlos permitiría que contradigan a la serie.
+
+**Por qué cambió.** El modelo anterior tenía identidad `(torneo_id, genero, numero)`: una jornada *era* la fecha N de un género, igual para todas las series de ese género — 28 jornadas por torneo. Pero **el calendario real es por serie**: distintas series del mismo género juegan la misma fecha en días distintos. Van casi siempre sincronizadas y se desfasan en fechas puntuales. Libre A juega su fecha 3 el 15/8 y +35 B la juega el 29/8; el modelo por género no puede representarlo, colapsa fechas que en la realidad difieren.
+
+Consecuencia práctica: la cuota de liga de un equipo (decisión 39, vencimiento atado a la jornada) se ataba a una jornada genérica de género, con fecha aproximada. Ahora se ata a **la jornada real que ese equipo juega**, con su fecha correcta.
+
+**Clausura 2026: 284 jornadas** — 12 series masculinas × 15 fechas + 8 femeninas × 13.
+
+**La PK no cambia.** Sigue siendo `id` (uuid), así que las siete FKs que apuntan a `jornada.id` —`asiento`, `pago`, `gasto`, `arqueo`, `cuota`, `plan_tarifa_linea.hito_jornada_id` y el `reprograma_a` de la propia tabla— **no se tocan**. Lo que cambia es la identidad *natural* y la columna: sale `genero`, entra `serie_id`.
+
+#### Fecha de calendario vs. jornada
+
+Distinción central del modelo nuevo, y la que ordena todo lo demás:
+
+| | Qué es | Cuántas en el Clausura |
+|---|---|---|
+| **Fecha** | un día concreto (sáb 8/8/2026). Ese día juegan muchas series | **29** |
+| **Jornada** | la fecha N de **una** serie | **284** |
+
+Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes no existía: **`(fecha, predio)` = el día de operación de un predio**. De ella cuelgan el arqueo y los costos por día de cancha.
+
+**Cantidad de partidos por jornada: se deriva, no se carga.** Es `equipos de la serie / 2` — 16 equipos dan 8 partidos, 14 dan 7. Sin excepciones conocidas. Es la base de los costos por partido.
 
 **Estado y reprogramación.** `estado` (programada/jugada/suspendida/reprogramada) + `reprograma_a` (rastro de la reprogramación). Suspender una jornada la saca de la proyección y del presupuesto de esa semana; reprogramar mueve el vencimiento atado. Es el punto donde el calendario deja de ser informativo y pasa a ser el motor de la previsión.
 
-**Playoffs = jornadas especiales (Opción A).** Misma tabla, flag `es_playoff`, campo `instancia` (cuartos/semi/final) en lugar de `numero`. No se autogeneran —cantidad y fecha se desconocen hasta terminar la liga—: se agregan a mano.
+**Playoffs: también por serie.** La final de Libre A y la de Libre B son jornadas distintas, coherente con la liga. Misma tabla, flag `es_playoff`, campo `instancia` (cuartos/semi/final) en lugar de `numero`. No se autogeneran —cantidad y fecha se desconocen hasta terminar la liga— y no están en el CSV de calendario validado: se cargan cuando se definan.
 
-**Estimación de ingreso automática.** Cada jornada proyecta ingreso estimado = arancel del tarifario (por género + regla) × `cantidad_esperada`. Vale igual para liga no jugada y para playoffs. El estimado se reemplaza por lo comprometido cuando se arman las fichas. Coherente con el principio (c) —una sola fuente de verdad, el libro diario— y con la proyección de caja por niveles de certeza (comprometido/estimado, §3.16).
+**Estimación de ingreso automática.** Cada jornada proyecta ingreso estimado = arancel del tarifario (por género + regla) × `cantidad_esperada`. Vale igual para liga no jugada y para playoffs. El estimado se reemplaza por lo comprometido cuando se arman las fichas. Coherente con el principio (c) y con la proyección de caja por niveles de certeza (§3.16).
 
-**Grilla vacía.** `generar_grilla_liga(torneo_id)` siembra 28 filas (15 + 13) fecha × género, sin fecha ni predio. Idempotente. La fecha se carga al programar; el predio se resuelve en la asignación semanal de equipos.
+**Grilla.** `generar_grilla_liga()` pasa de sembrar 28 filas fecha × género a cargar las **284 desde el calendario validado por serie** (`supabase/seeds/clausura_2026_04_calendario.csv`). Sus parámetros `p_fechas_masc` / `p_fechas_fem` dejan de tener sentido: cada serie tiene su propia cantidad de fechas y sus propios días.
 
 **Puente con el tarifario.** El placeholder `hito_calendario` (texto) fue reemplazado por el FK real `plan_tarifa_linea.hito_jornada_id → jornada(id)`. Cada línea `fecha_fija` apunta a la jornada que define su vencimiento; reprogramar la jornada recalcula el vencimiento.
 
@@ -587,7 +645,7 @@ create table caja (
 
 create table arqueo (
   id           uuid primary key default gen_random_uuid(),
-  jornada_id   uuid not null references jornada(id),
+  fecha        date not null,                 -- día de calendario, no jornada
   predio_id    uuid not null references predio(id),
   saldo_sistema numeric(16,2) not null,
   saldo_contado numeric(16,2) not null,
@@ -598,7 +656,9 @@ create table arqueo (
 );
 ```
 
-Efectivo se cuenta (arqueo por jornada + predio); transferencia se concilia contra el extracto. La diferencia de arqueo **genera un asiento de ajuste y afecta el saldo real de la caja** — no se registra como una nota al margen.
+Efectivo se cuenta (arqueo por **fecha + predio**); transferencia se concilia contra el extracto. La diferencia de arqueo **genera un asiento de ajuste y afecta el saldo real de la caja** — no se registra como una nota al margen.
+
+**Por qué el arqueo cuelga de la fecha y no de la jornada** *(diseño asentado, pendiente de construir)*. El arqueo controla la caja física de un predio en un día. Con jornadas por serie, atarlo a "la jornada de una serie" pierde sentido: ese día en ese predio jugaron varias series, y la plata de la caja no distingue de cuál vino. `(fecha, predio)` es la unidad real — el día de operación del predio (§3.5).
 
 ### 3.7 Moneda extranjera
 
@@ -646,7 +706,7 @@ create table presupuesto_linea (
 );
 ```
 
-Presupuesto de fecha = `arancel × cantidad_x_fecha × jornadas_no_suspendidas`.
+Presupuesto de fecha = `arancel × cantidad` × la unidad que corresponda al costo — partidos, días de cancha o meses (§3.3). La cuenta plana `× jornadas_no_suspendidas` quedó obsoleta con las jornadas por serie.
 
 El desvío se calcula por `cat_gasto_id`, que es la misma dimensión con la que se carga el gasto real. No hay tabla de mapeo entre presupuesto y real, y esa ausencia es el punto.
 
@@ -940,7 +1000,7 @@ No reabrir sin motivo nuevo:
 7. Gasto con dos ejes: naturaleza + área.
 8. Carga como arancel × cantidad.
 9. Estado de cuota en lugar de aging 30/60/90.
-10. Arqueo por jornada + predio, con ajuste que afecta caja.
+10. Arqueo por **fecha + predio**, con ajuste que afecta caja.
 11. Estructura permanente sin prorrateo entre torneos.
 12. Diferencia de cambio separada del resultado operativo.
 13. Categoría de gasto obligatoria; concepto opcional.

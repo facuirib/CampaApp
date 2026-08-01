@@ -45,7 +45,7 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
    valida las líneas y garantiza el balance.
 
 9. **Un movimiento de efectivo necesita `predio_id`.**
-   El arqueo es por jornada + predio; sin predio no se puede cuadrar caja.
+   El arqueo es por fecha + predio; sin predio no se puede cuadrar caja.
 
 10. **La imputación de pagos nunca se decide sola.**
     Si un equipo tiene deuda en más de un torneo, se llama a

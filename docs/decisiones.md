@@ -115,7 +115,7 @@ No expira ni se pierde al cambiar de torneo.
 Única terminología, en UI y en código. Nunca "declarable/no declarable".
 
 **19 · Efectivo por predio; transferencia y USD globales**
-*Por qué:* el arqueo es por jornada + predio, y hay dos predios.
+*Por qué:* el arqueo es por fecha + predio (decisión 46), y hay dos predios.
 
 **20 · Arqueo con ajuste que afecta la caja**
 La diferencia genera asiento, no una nota al margen.
@@ -281,6 +281,72 @@ excepciones.
 el precio. Y como `total_facturado` se recalcula por trigger desde las cuotas
 (decisión 27), sigue siendo correcto después de un ajuste manual sin tener que
 consultar el tarifario.
+
+---
+
+## Calendario por serie
+
+Tomadas, **pendientes de construir**. Ninguna existe todavía en la base, que
+sigue con `jornada` por género y vacía. Detalle y razonamiento en
+`arquitectura.md` §3.5 y §3.3.
+
+**42 · La jornada cuelga de la serie, no del género**
+Identidad natural `(serie_id, numero)`. El género y el torneo se derivan
+subiendo `serie → categoria`, igual que en la ficha (decisión 36). Sale la
+columna `genero`, entra `serie_id NOT NULL`.
+*Por qué:* el calendario real es por serie. Distintas series del mismo género
+juegan la misma fecha en días distintos —Libre A su fecha 3 el 15/8, +35 B el
+29/8—: van casi siempre sincronizadas y se desfasan en fechas puntuales. La
+identidad `(torneo, genero, numero)` colapsaba fechas que en la realidad
+difieren, y ataba la cuota de liga (decisión 39) a una fecha aproximada en vez
+de a la que ese equipo juega.
+*Alcance:* Clausura 2026 pasa de 28 jornadas a 284 (12 series masculinas × 15 +
+8 femeninas × 13). La PK sigue siendo `id`, así que las siete FKs que apuntan a
+`jornada.id` no se tocan: cambia la identidad natural, no la primaria.
+
+**43 · Fecha de calendario y jornada son cosas distintas**
+Una **fecha** es un día concreto en el que juegan muchas series; una **jornada**
+es la fecha N de una sola serie. Una fecha agrupa muchas jornadas: 29 fechas y
+284 jornadas en el Clausura.
+*Por qué:* de la distinción emerge `(fecha, predio)` —el día de operación de un
+predio— como entidad natural, y de ella cuelgan el arqueo (decisión 45) y los
+costos por día de cancha (decisión 44).
+
+**44 · Tres unidades de costo variable**
+Los gastos `por_fecha` dejan de escalar todos igual:
+**por partido** (árbitros, veedores, ballboys) × cantidad de partidos;
+**por día de cancha** (fotografía) = 1 por `(fecha, predio)`;
+**fijo mensual**, que no escala con partidos ni fechas.
+*Por qué:* un sábado con 6 series jugando en un predio son 48 partidos —48
+arbitrajes— pero un solo servicio de fotografía. Con jornada por género la
+cuenta plana "× jornadas" alcanzaba; con jornada por serie deja de alcanzar.
+*Pendiente asociado:* `v_presupuesto_total` cuenta `count(*) from jornada` sin
+distinguir unidad. Hoy da 28 y con el rediseño daría 284: multiplicaría por diez
+un presupuesto `por_jornada` sin fallar ni avisar. Las tablas de presupuesto
+están vacías, así que se arregla antes de que exista el primer número.
+
+**45 · La cantidad de partidos se deriva, no se carga**
+`partidos por jornada = equipos de la serie ÷ 2`. 16 equipos dan 8 partidos, 14
+dan 7. Sin excepciones conocidas.
+*Por qué:* es dato derivable de la estructura, y cargarlo a mano sería un
+segundo origen para algo que ya está. Es la base de los costos por partido
+(decisión 44).
+
+**46 · El arqueo cuelga de `(fecha, predio)`**
+Deja de colgar de `jornada_id`. `arqueo` pasa a tener `fecha date not null` +
+`predio_id`.
+*Por qué:* el arqueo controla la caja física de un predio en un día. Con
+jornadas por serie, atarlo a "la jornada de una serie" pierde sentido: ese día
+en ese predio jugaron varias series y la plata de la caja no distingue de cuál
+vino.
+
+**47 · Los playoffs también son por serie**
+La final de Libre A y la de Libre B son jornadas distintas. Misma tabla, flag
+`es_playoff` e `instancia` en lugar de `numero`.
+*Por qué:* coherencia con la liga. Modelarlos por género mientras la liga va por
+serie dejaría dos criterios conviviendo en la misma tabla.
+*Nota:* no están en el calendario validado —no tienen fecha aún— y se cargan
+cuando se definan.
 
 ---
 
