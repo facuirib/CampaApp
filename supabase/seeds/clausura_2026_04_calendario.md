@@ -42,7 +42,13 @@ previsión que agrupan por jornada.
 | Femenino | femenino | 91 |
 | Flex | femenino | 13 |
 
-Rango: **2026-08-01 → 2026-11-28**, 29 fechas de calendario distintas.
+Rango: **2026-08-01 → 2026-11-21**, 29 fechas de calendario distintas.
+
+**Cierre del torneo:** 19 de las 20 series terminan el **21/11**. La excepción es
+**Femenino G**, que cierra el **14/11** con su fecha 13.
+
+**Hay 12 domingos** en el calendario, además de los sábados. No es anomalía: el
+torneo usa los dos días. El `2026-10-25` es domingo y es correcto.
 
 ## Validado
 
@@ -75,8 +81,13 @@ calendario real, y conviene tenerlo escrito porque una validación ingenua
 
 ## Origen
 
-Exportado de `plantilla_calendario_clausura_2026.xlsx` (hoja `Calendario`). Las
-fechas venían como serial de Excel y se convirtieron a ISO `YYYY-MM-DD`.
+Versión **corregida y confirmada** del calendario. Ordenado por categoría/serie
+según el orden del torneo, y dentro de cada serie por `nro_fecha`.
 
-Había dos versiones del archivo con distinta fecha de modificación; se verificó
-que **producen datos idénticos** antes de exportar.
+Una versión anterior —exportada de `plantilla_calendario_clausura_2026.xlsx`—
+tenía **+35 B corriendo una semana más tarde** desde la fecha 10, y por eso el
+torneo cerraba el 28/11. Se reemplazó: +35 B ahora va del 17/10 al 21/11 en sus
+últimas seis fechas, y el 28/11 desapareció del calendario. Las otras 19 series
+no cambiaron.
+
+Los domingos `2026-09-06` y `2026-10-25` están confirmados como correctos.
