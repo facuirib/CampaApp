@@ -1455,36 +1455,33 @@ export type Database = {
           es_playoff: boolean
           estado: string
           fecha: string | null
-          genero: Database["public"]["Enums"]["genero"]
           id: string
           instancia: string | null
           numero: number | null
           reprograma_a: string | null
-          torneo_id: string
+          serie_id: string
         }
         Insert: {
           cantidad_esperada?: number | null
           es_playoff?: boolean
           estado?: string
           fecha?: string | null
-          genero: Database["public"]["Enums"]["genero"]
           id?: string
           instancia?: string | null
           numero?: number | null
           reprograma_a?: string | null
-          torneo_id: string
+          serie_id: string
         }
         Update: {
           cantidad_esperada?: number | null
           es_playoff?: boolean
           estado?: string
           fecha?: string | null
-          genero?: Database["public"]["Enums"]["genero"]
           id?: string
           instancia?: string | null
           numero?: number | null
           reprograma_a?: string | null
-          torneo_id?: string
+          serie_id?: string
         }
         Relationships: [
           {
@@ -1495,25 +1492,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "jornada_torneo_id_fkey"
-            columns: ["torneo_id"]
+            foreignKeyName: "jornada_serie_id_fkey"
+            columns: ["serie_id"]
             isOneToOne: false
-            referencedRelation: "torneo"
+            referencedRelation: "serie"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "jornada_torneo_id_fkey"
-            columns: ["torneo_id"]
-            isOneToOne: false
-            referencedRelation: "v_cobranza_kpi"
-            referencedColumns: ["torneo_id"]
-          },
-          {
-            foreignKeyName: "jornada_torneo_id_fkey"
-            columns: ["torneo_id"]
-            isOneToOne: false
-            referencedRelation: "v_deuda_detalle"
-            referencedColumns: ["torneo_id"]
           },
         ]
       }
@@ -2178,7 +2161,6 @@ export type Database = {
         Row: {
           activo: boolean
           anio: number
-          cant_fechas: number
           ejercicio_id: string | null
           estado: string
           fecha_desde: string | null
@@ -2190,7 +2172,6 @@ export type Database = {
         Insert: {
           activo?: boolean
           anio: number
-          cant_fechas?: number
           ejercicio_id?: string | null
           estado?: string
           fecha_desde?: string | null
@@ -2202,7 +2183,6 @@ export type Database = {
         Update: {
           activo?: boolean
           anio?: number
-          cant_fechas?: number
           ejercicio_id?: string | null
           estado?: string
           fecha_desde?: string | null

@@ -348,6 +348,22 @@ serie dejaría dos criterios conviviendo en la misma tabla.
 *Nota:* no están en el calendario validado —no tienen fecha aún— y se cargan
 cuando se definan.
 
+
+**48 · El schema es agnóstico del torneo**
+Ni el schema, ni las funciones, ni las vistas contienen valores específicos de
+un torneo: fechas, cantidad de fechas, nombres de series o categorías, cantidad
+de equipos o de partidos. Todo lo específico entra como **datos** vía
+`supabase/seeds/` y las funciones lo **leen** de la base.
+*El test:* un torneo nuevo se carga con sus seeds y funciona **sin tocar
+código**.
+*Por qué:* un valor del Clausura horneado en una función es un bug latente —no
+falla hoy, falla con el torneo siguiente— y en el peor caso no falla nunca:
+devuelve un número mal sin avisar.
+*Estado:* verificado por auditoría sobre las 26 funciones, 14 vistas, los check
+constraints y los defaults de columna. Único hallazgo real: los defaults
+`15`/`13` de `generar_grilla_liga`, que la reescritura de la grilla elimina.
+Hallazgo menor: `torneo.cant_fechas` con default `10`, columna muerta que nadie
+lee, eliminada en la migración de jornada por serie.
 ---
 
 ## Abiertas

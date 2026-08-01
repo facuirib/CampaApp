@@ -64,6 +64,20 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
     schema aplicado en algún lado. Si no hay entorno local, la regeneración
     implica tocar la base compartida — o sea que también se confirma antes.
 
+12. **El schema es agnóstico del torneo.**
+    Ni el schema, ni las funciones, ni las vistas pueden contener valores
+    específicos de un torneo: fechas, cantidad de fechas, nombres de series o
+    categorías, cantidad de equipos o de partidos. Todo eso entra como **datos**
+    vía `supabase/seeds/`, y las funciones lo **leen** de la base.
+
+    Si escribís un `15` porque el Clausura tiene 15 fechas, o un `'Libre'`
+    porque existe esa categoría, está mal: es un bug latente que aparece con el
+    torneo siguiente.
+
+    **Un torneo nuevo se carga con sus seeds y funciona sin tocar código.** Ese
+    es el test. Verificado por auditoría — único hallazgo: los defaults `15`/`13`
+    de `generar_grilla_liga`, que la reescritura de la grilla elimina.
+
 ## Los 5 conceptos
 
 ### 1. Percibido (ingresos) vs. devengado (gastos)

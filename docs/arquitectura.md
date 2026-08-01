@@ -22,7 +22,9 @@ La partida doble está por debajo de todo el sistema, pero como **garantía de c
 
 **Playoffs también por serie.** La final de Libre A y la de Libre B son jornadas distintas. No están en el calendario validado —no tienen fecha aún— y se cargan cuando se definan.
 
-**⚠ Cuidado con `v_presupuesto_total`.** Cuenta jornadas por torneo sin distinguir unidad: hoy da 28, con el rediseño daría 284. Multiplicaría por diez un presupuesto `por_jornada` sin fallar ni avisar. Las tablas de presupuesto están vacías, así que se arregla antes de que exista el primer número.
+**⚠ `v_presupuesto_total` — la pieza 5 tiene que llegar antes que el primer presupuesto cargado.** La vista cuenta jornadas del torneo sin distinguir la unidad del costo. Con jornadas por género daba 28; con jornadas por serie da **284**. Un presupuesto `por_jornada` se multiplicaría por diez **sin fallar ni avisar** — no es un error de schema, es un número diez veces más grande en pantalla.
+
+La bomba se arma en la **pieza 2**, cuando se cargue la grilla: hoy la vista da 0 porque `jornada` está vacía. La desarma la **pieza 5**, implementando las tres unidades (decisión 44). Entre una y otra, cualquier presupuesto que se cargue va a estar mal. Las tablas `presupuesto` y `presupuesto_linea` están vacías hoy, así que todavía no hay ningún número incorrecto — pero es una ventana que hay que cerrar antes de abrirla.
 
 **La PK de `jornada` no cambia.** Sigue siendo `id`, así que las siete FKs que la apuntan —`asiento`, `pago`, `gasto`, `arqueo`, `cuota`, `plan_tarifa_linea.hito_jornada_id` y el `reprograma_a` propio— no se tocan. Cambia la identidad natural y la columna.
 
