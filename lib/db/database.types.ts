@@ -2394,6 +2394,7 @@ export type Database = {
           equipo_torneo_id: string | null
           estado: string | null
           genero: Database["public"]["Enums"]["genero"] | null
+          jornada_suspendida: boolean | null
           monto: number | null
           pagado: number | null
           pagado_at: string | null
@@ -2426,6 +2427,7 @@ export type Database = {
           equipo_torneo_id: string | null
           estado: string | null
           id: string | null
+          jornada_suspendida: boolean | null
           monto: number | null
           numero: number | null
           pagado: number | null
@@ -2607,6 +2609,10 @@ export type Database = {
         }
         Returns: string
       }
+      crear_jornada: {
+        Args: { p_fecha?: string; p_numero: number; p_serie_id: string }
+        Returns: string
+      }
       generar_cuotas_plan: { Args: { p_plan_id: string }; Returns: number }
       generar_grilla_liga: {
         Args: {
@@ -2621,6 +2627,10 @@ export type Database = {
         Returns: number
       }
       imputar_pago_automatico: { Args: { p_pago_id: string }; Returns: number }
+      mover_jornada: {
+        Args: { p_jornada_id: string; p_nueva_fecha: string }
+        Returns: undefined
+      }
       periodo_de_fecha: { Args: { p_fecha: string }; Returns: string }
       proponer_amortizaciones: {
         Args: { p_periodo_id: string }
@@ -2649,6 +2659,7 @@ export type Database = {
         Returns: number
       }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
+      suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
     }
     Enums: {
       concepto_pago: "inscripcion" | "partidos"
