@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 15 · agosto 2026 · gestión de jornadas por funciones validadas; la cuota de liga deriva su vencimiento de la jornada; suspender saca la cuota del circuito
+**Versión:** Draft 16 · agosto 2026 · tres unidades de costo variable; `dia_cancha` como entidad propia compartida entre presupuesto y arqueo; `v_presupuesto_total` deja de contar jornadas
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,20 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 15
+
+**El costo variable tiene tres unidades, y `por_jornada` no es ninguna de ellas** (§3.3). `por_jornada` **sale del dominio**: era la unidad correcta cuando una jornada era la fecha N de un género, y dejó de serlo cuando pasó a ser la fecha N de una serie. La reemplazan **`por_partido`** y **`por_dia_cancha`**. `por_mes`, `anual` y `unico` no se tocan.
+
+**La unidad vive en el catálogo, con override en la línea** (§3.3). Un concepto tiene *naturalmente* su unidad —un arbitraje es por partido, siempre— así que el default va en `cat_gasto`/`concepto_gasto` y se hereda. La línea de presupuesto puede sobrescribirlo para el caso raro. Sin el default, cada línea nueva vuelve a decidir algo que ya estaba decidido, y basta una mal cargada para que el total se corra.
+
+**`dia_cancha` es una tabla propia** (§3.5). La entidad `(fecha, predio)` que el Draft 15 nombró no existía en la base: `jornada` no tiene predio, y las únicas tablas con fecha *y* predio son de movimiento —`asiento`, `gasto`, `pago`—. No se puede contar los días de cancha de un torneo mirando los gastos ya cargados. **Es compartida**: el presupuesto la cuenta, el arqueo (§3.6) cuelga de ella. Una sola definición de "día de operación de un predio", no dos.
+
+**Se desarma la bomba de `v_presupuesto_total`** (§3.8). Hoy multiplica por `count(*) from jornada … estado <> 'suspendida'`. Con jornadas por género daba 28; con jornadas por serie da **284**. Un presupuesto se habría mostrado **diez veces más grande** sin que nada fallara ni avisara. Pasa a multiplicar por la unidad que corresponde a cada línea. **Las tablas de presupuesto están vacías** —0 filas en `presupuesto`, `presupuesto_linea` y `gasto`—, así que se arregla antes de que exista el primer número mal.
+
+**Clasificación inicial de las 16 categorías `por_fecha`** (§3.3): 3 por partido, 8 por día de cancha, 5 aparte (4 de bar + 1 de administración). El bar no escala con partidos ni con días de cancha —escala con consumo— y tiene su propio tratamiento.
+
+---
 
 ## Qué cambió desde el Draft 14
 
@@ -337,19 +351,46 @@ Sale de `gastos_campa.xlsx`: 34 categorías y 111 conceptos, remapeados a dos di
 
 #### Las tres unidades del costo variable
 
-*Diseño asentado, pendiente de construir.*
+No todos los gastos `por_fecha` escalan igual. Meterlos a todos en "× jornadas" era correcto mientras la jornada era la fecha N de un **género**; con jornadas por **serie** deja de serlo, y la distinción se vuelve obligatoria:
 
-No todos los gastos `por_fecha` escalan igual. Meterlos a todos en "× jornadas" era correcto mientras la jornada era por género; con jornadas por serie deja de serlo, y la distinción se vuelve obligatoria:
-
-| Unidad | Escala con | Ejemplos | Cuenta |
+| Unidad | Escala con | De dónde sale el multiplicador | Ejemplos |
 |---|---|---|---|
-| **Por partido** | cantidad de partidos = equipos de la serie ÷ 2 | árbitros, veedores, ballboys | cada partido tiene los suyos |
-| **Por día de cancha** | `(fecha, predio)` | fotografía | el fotógrafo va un día a un predio: **1**, sin importar cuántas series o partidos haya |
-| **Fijo mensual** | el mes | alquileres, sueldos | no escala con partidos ni fechas |
+| **`por_partido`** | cada partido tiene los suyos | Σ sobre las jornadas no suspendidas de `equipos de la serie ÷ 2` | árbitros, veedores, ballboys |
+| **`por_dia_cancha`** | el día de operación de un predio | `count(*) from dia_cancha` del torneo (§3.5) | fotografía, guardias, limpieza, estacionamiento |
+| **`por_mes`** | el mes | meses del ejercicio | alquileres, sueldos |
 
-La diferencia es grande, no cosmética. Un sábado con 6 series jugando en un predio son **48 partidos** —48 arbitrajes— pero **un solo** servicio de fotografía.
+`anual` y `unico` siguen como estaban: no escalan.
 
-> **⚠ `v_presupuesto_total` cuenta jornadas sin distinguir unidad.** Hoy multiplica por `count(*) from jornada where torneo_id = … and estado <> 'suspendida'`, que da 28. Con jornadas por serie daría **284**: un presupuesto `por_jornada` se multiplicaría por diez sin que nada falle ni avise. No es un error de schema, es un número diez veces más grande en pantalla. Hay que ajustarla para que use la unidad correcta según el tipo de costo. **Las tablas de presupuesto están vacías hoy**, así que todavía no hay ningún número mal — se arregla antes de que exista el primero.
+La diferencia entre las dos primeras es grande, no cosmética. Un sábado con 6 series jugando en un predio son **48 partidos** —48 arbitrajes— pero **un solo** servicio de fotografía.
+
+**`por_jornada` sale del dominio.** No se conserva por compatibilidad. Era la unidad correcta bajo el modelo viejo y ahora es ambigua: "por jornada" no dice si se refiere al partido o al día. Dejarla disponible garantiza que alguien la elija y multiplique por 284.
+
+**La unidad se hereda del catálogo; la línea puede sobrescribirla.**
+
+| Dónde | Rol |
+|---|---|
+| `cat_gasto` / `concepto_gasto` | **default** — la unidad natural del concepto |
+| `presupuesto_linea.unidad` | **override** — `null` = heredar; con valor = este caso es distinto |
+
+Un arbitraje es por partido siempre; no es una decisión que deba tomarse de nuevo en cada línea de presupuesto. Sin default, cada línea vuelve a decidir algo ya decidido, y **basta una mal cargada para que el total se corra** sin que nada falle. El override existe porque el caso raro existe —un servicio que este torneo se contrata por día y el que viene por partido— y forzarlo a crear un concepto nuevo ensuciaría el catálogo.
+
+**Clasificación inicial · las 16 categorías `por_fecha`**
+
+Es punto de partida cargado como datos, no verdad de schema: se corrige con un `update`, sin migración.
+
+| Unidad | # | Categorías |
+|---|---|---|
+| **`por_partido`** | 3 | Árbitros Femenino · Árbitros Masculino · Operativos *(todas de área `torneo`)* |
+| **`por_dia_cancha`** | 8 | Coordinación · Media · Medicinal · Tribunal · Viáticos *(área `torneo`)* · Estacionamiento · Guardias · Limpieza *(área `predio`)* |
+| **aparte** | 5 | Extras · Limpieza · Productos · Proveedores *(área `bar`)* · Administración *(área `administracion`)* |
+
+Total 16 ✓ — `3 + 8 + 5`.
+
+**Viáticos hereda del concepto que refleja.** La categoría espeja a otras —Ballboys, Veedores, Guardias, Estacionamiento, Limpieza— así que su unidad no es uniforme a nivel categoría: el viático de un ballboy escala como el ballboy. Se clasifica por **concepto**, no por categoría, y por eso la unidad vive también en `concepto_gasto` y no solo en `cat_gasto`.
+
+**Dos categorías se llaman "Limpieza"** y son filas distintas: una de área `predio` y otra de área `bar`. Conviven bajo `unique (area, nombre)` y se clasifican distinto. Al cargar la clasificación hay que discriminar por área o se pisa una con la otra.
+
+**El bar no escala con el torneo.** No con partidos y no con días de cancha: escala con **consumo**. Coca, hielo, descartables — un sábado de mucha venta cuesta más que uno de poca, y la cantidad de partidos no lo predice. Meterlo en cualquiera de las dos unidades de torneo daría un número con forma de presupuesto y sin relación con la realidad. Queda fuera de las unidades variables hasta que se defina su tratamiento propio. Lo mismo Administración, que es estructura permanente (§3.2) y no se prorratea entre torneos.
 
 **Eje 2 · Área** — determina a quién se imputa: `torneo` · `predio` · `bar` · `administracion`.
 
@@ -629,7 +670,7 @@ create table jornada (
 );
 ```
 
-*Diseño asentado, pendiente de construir. La tabla en la base todavía tiene la forma anterior (`genero` en lugar de `serie_id`).*
+*Construido* — migración `20260801121708_jornada_por_serie.sql`, con las 284 jornadas del Clausura sembradas.
 
 **La jornada cuelga de la serie, no del género.** La identidad es `(serie_id, numero)`. El género y el torneo se derivan subiendo `serie → categoria`, el mismo patrón que la ficha (decisión 36): no se duplican, porque duplicarlos permitiría que contradigan a la serie.
 
@@ -650,7 +691,7 @@ Distinción central del modelo nuevo, y la que ordena todo lo demás:
 | **Fecha** | un día concreto (sáb 8/8/2026). Ese día juegan muchas series | **29** |
 | **Jornada** | la fecha N de **una** serie | **284** |
 
-Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes no existía: **`(fecha, predio)` = el día de operación de un predio**. De ella cuelgan el arqueo y los costos por día de cancha.
+Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes no existía: **`(fecha, predio)` = el día de operación de un predio**. De ella cuelgan el arqueo y los costos por día de cancha — es la tabla `dia_cancha`, abajo.
 
 **Cantidad de partidos por jornada: se deriva, no se carga.** Es `equipos de la serie / 2` — 16 equipos dan 8 partidos, 14 dan 7. Sin excepciones conocidas. Es la base de los costos por partido.
 
@@ -664,9 +705,32 @@ Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes
 
 **Puente con el tarifario.** El placeholder `hito_calendario` (texto) fue reemplazado por el FK real `plan_tarifa_linea.hito_jornada_id → jornada(id)`. Cada línea `fecha_fija` apunta a la jornada que define su vencimiento; reprogramar la jornada recalcula el vencimiento.
 
-#### Gestión de jornadas · una lógica, dos puertas
+#### `dia_cancha` · el día de operación de un predio
 
 *Diseño asentado, pendiente de construir.*
+
+```sql
+create table dia_cancha (
+  id        uuid primary key default gen_random_uuid(),
+  fecha     date not null,
+  predio_id uuid not null references predio(id),
+  unique (fecha, predio_id)        -- identidad natural
+);
+```
+
+**Por qué es una tabla y no un `select distinct`.** La entidad se nombró en el Draft 15 pero no existía en ninguna parte: `jornada` **no tiene predio** —una serie juega su fecha N, el modelo no dice dónde— y las únicas tablas con `fecha` *y* `predio_id` son de movimiento: `asiento`, `gasto`, `pago`. Derivarla de ahí sería circular: **para presupuestar los días de cancha habría que mirar los gastos ya cargados**, que es exactamente lo que todavía no pasó. El día de operación es un hecho del calendario, anterior al primer gasto.
+
+**El torneo se deriva, no se guarda.** Mismo criterio que `jornada` (decisión 36): sale de las jornadas que se juegan esa fecha. Guardarlo permitiría que contradiga al calendario, y obligaría a un trigger de coherencia para impedirlo.
+
+**Es compartida, y ese es el punto.** El presupuesto la **cuenta** —multiplicador de las líneas `por_dia_cancha` (§3.3)—; el arqueo **cuelga** de ella (§3.6). Son los dos usos que el Draft 15 había identificado por separado, y comparten la misma definición de "día de operación de un predio". Dos definiciones paralelas se desincronizarían: el presupuesto contando 58 días y el arqueo esperando 54.
+
+**Se gestiona con funciones, igual que la jornada** — una lógica, dos puertas (abajo). El seed del Clausura y el módulo de calendario que vendrá después llaman a la misma función validada.
+
+**Clausura 2026: 29 fechas × 2 predios activos = 58 días de cancha** como caso base. No es una constante del schema (regla 12): entra como datos. Las excepciones conocidas —domingos con un solo predio, semifinal y final— se cargan como tales, no se asumen.
+
+#### Gestión de jornadas · una lógica, dos puertas
+
+*Construido* — migración `20260801131425_gestion_jornadas.sql`.
 
 Las jornadas se cargan y se editan por dos vías que comparten **la misma lógica validada**:
 
@@ -705,7 +769,7 @@ Hoy "¿esta cuota está vencida?" se responde con el `vence_at` propio de la cuo
 
 Se revisa vista por vista al construir.
 
-> **Consecuencia de schema a resolver.** Hoy `cuota.vence_at` es `NOT NULL`. Si el vencimiento de la cuota de liga se deriva y no se copia, hay que decidir entre dejarlo nulo para esas cuotas —una sola fuente de verdad, principio (c)— o mantenerlo como caché sincronizada por trigger, con el precedente de `sync_total_facturado`. Se define al construir.
+> **Resuelto al construir la pieza 2.** `cuota.vence_at` **se mantuvo `NOT NULL`, como caché sincronizada por trigger** (`trg_sync_cuota_vence_at`), con el precedente de `sync_total_facturado`. Dejarlo nulo habría roto los **ocho consumidores** que lo leen —cinco vistas más `generar_cuotas_plan`, `sugerir_imputacion` y `crear_equipo_torneo`—. El trigger va **sobre `jornada`**, no dentro de `mover_jornada`, para que un `update` directo también propague.
 
 ### 3.6 Caja, arqueo y conciliación
 
@@ -730,7 +794,9 @@ create table arqueo (
 
 Efectivo se cuenta (arqueo por **fecha + predio**); transferencia se concilia contra el extracto. La diferencia de arqueo **genera un asiento de ajuste y afecta el saldo real de la caja** — no se registra como una nota al margen.
 
-**Por qué el arqueo cuelga de la fecha y no de la jornada** *(diseño asentado, pendiente de construir)*. El arqueo controla la caja física de un predio en un día. Con jornadas por serie, atarlo a "la jornada de una serie" pierde sentido: ese día en ese predio jugaron varias series, y la plata de la caja no distingue de cuál vino. `(fecha, predio)` es la unidad real — el día de operación del predio (§3.5).
+**Por qué el arqueo cuelga de la fecha y no de la jornada** *(diseño asentado, pendiente de construir — pieza 4)*. El arqueo controla la caja física de un predio en un día. Con jornadas por serie, atarlo a "la jornada de una serie" pierde sentido: ese día en ese predio jugaron varias series, y la plata de la caja no distingue de cuál vino. `(fecha, predio)` es la unidad real — el día de operación del predio.
+
+Esa unidad ya no es un par de columnas sueltas: es **`dia_cancha`** (§3.5), la misma tabla que el presupuesto cuenta para las líneas `por_dia_cancha`. Al construir la pieza 4, el `(fecha, predio_id)` de `arqueo` pasa a apuntar ahí — un arqueo sin día de cancha correspondiente es un arqueo de un día que el torneo no operó, y conviene que la base lo impida en lugar de descubrirlo cuadrando.
 
 ### 3.7 Moneda extranjera
 
@@ -774,11 +840,26 @@ create table presupuesto_linea (
   concepto_id     uuid references concepto_gasto(id),
   arancel         numeric(16,2) not null,
   cantidad_x_fecha numeric(10,2),            -- para grupo 'fecha'
-  monto_mensual   numeric(16,2)              -- para grupo 'recurrente'
+  monto_mensual   numeric(16,2),             -- para grupo 'recurrente'
+  unidad          text                       -- NULL = heredar del catálogo (§3.3)
+    check (unidad in ('por_partido','por_dia_cancha','por_mes','anual','unico'))
 );
 ```
 
-Presupuesto de fecha = `arancel × cantidad` × la unidad que corresponda al costo — partidos, días de cancha o meses (§3.3). La cuenta plana `× jornadas_no_suspendidas` quedó obsoleta con las jornadas por serie.
+**`unidad` pasa a ser anulable y cambia de dominio.** Era `not null` con `check ('por_jornada','por_mes','anual','unico')`. Ahora admite `null` —que significa *heredar el default del catálogo*, no *sin definir*— y `por_jornada` desaparece, reemplazada por `por_partido` y `por_dia_cancha`. **La tabla tiene 0 filas**, así que el cambio de `check` no migra ningún dato.
+
+Presupuesto = `arancel × cantidad ×` el multiplicador de su unidad efectiva (§3.3):
+
+| Unidad efectiva | Multiplicador |
+|---|---|
+| `por_partido` | Σ `equipos(serie) / 2` sobre las jornadas no suspendidas del torneo |
+| `por_dia_cancha` | `count(*)` de `dia_cancha` del torneo |
+| `por_mes` | meses del ejercicio |
+| `anual`, `unico` | 1 |
+
+> **La cuenta plana `× jornadas_no_suspendidas` era una bomba.** `v_presupuesto_total` multiplicaba por `count(*) from jornada where torneo_id = … and estado <> 'suspendida'`: **28** con jornadas por género, **284** con jornadas por serie. Un presupuesto se habría mostrado **diez veces más grande, sin error ni advertencia** — el peor modo de falla, porque un número plausible no se cuestiona. Se arregla con las tablas todavía vacías: nunca llegó a existir un número mal.
+
+Nota: hoy `por_partido` da **0**, porque no hay fichas cargadas y los partidos se derivan de los equipos de cada serie. Es correcto, no un bug — el presupuesto por partido existe recién cuando se sabe cuántos equipos hay.
 
 El desvío se calcula por `cat_gasto_id`, que es la misma dimensión con la que se carga el gasto real. No hay tabla de mapeo entre presupuesto y real, y esa ausencia es el punto.
 
@@ -1083,6 +1164,10 @@ No reabrir sin motivo nuevo:
 18. Fondo de inversión sin saldo en Campa: solo rescates y colocaciones.
 19. Bar es área del torneo, no unidad de negocio separada.
 20. Campa es gestión financiera; la contabilidad formal es del estudio externo.
+21. El costo variable tiene **tres unidades**: `por_partido`, `por_dia_cancha`, `por_mes`. `por_jornada` sale del dominio.
+22. La unidad es **default en el catálogo, override en la línea** de presupuesto.
+23. `dia_cancha (fecha, predio)` es **tabla propia**, compartida entre presupuesto y arqueo. El torneo se deriva.
+24. El bar no escala con partidos ni con días de cancha: escala con consumo. Tratamiento propio, pendiente.
 
 ### Decisiones reemplazadas
 

@@ -389,10 +389,11 @@ administrativo acordado, que no depende de que se juegue nada. La de liga vence
 el vencimiento la dejaría desactualizada apenas se reprograme una jornada.
 *Consecuencia:* mover la jornada mueve el vencimiento de sus cuotas sin tocar
 ninguna cuota. Es la decisión 39 funcionando de verdad, no solo declarada.
-*Pendiente de construcción:* `cuota.vence_at` es hoy `NOT NULL`. Hay que elegir
-entre dejarlo nulo para las cuotas de liga —fuente única, principio (c)— o
-mantenerlo como caché sincronizada por trigger, con el precedente de
-`sync_total_facturado`.
+*Resuelto al construir:* `cuota.vence_at` quedó **`NOT NULL`, como caché
+sincronizada** por `trg_sync_cuota_vence_at`. Dejarlo nulo habría roto los ocho
+consumidores que lo leen (cinco vistas más `generar_cuotas_plan`,
+`sugerir_imputacion` y `crear_equipo_torneo`). El trigger va **sobre `jornada`**,
+no dentro de `mover_jornada`, para que un `update` directo también propague.
 
 **51 · La cuota de una jornada suspendida sale del circuito de cobro**
 Mientras la jornada esté `suspendida`, su cuota de liga **no es deuda vencida**.
@@ -404,6 +405,76 @@ pierda credibilidad — aparece debiendo algo que nadie le va a cobrar.
 `v_estado_cuota`, `v_cuenta_corriente_equipo`, `v_deuda_equipo`,
 `v_cobranza_kpi`). Es el punto de la pieza 2 que más cuidado necesita: si una
 vista se olvida, el error es silencioso.
+---
+
+## Unidades de costo
+
+**52 · El costo variable tiene tres unidades; `por_jornada` sale del dominio**
+`por_partido` · `por_dia_cancha` · `por_mes`. `anual` y `unico` no cambian.
+*Por qué:* "por jornada" era exacto mientras la jornada era la fecha N de un
+**género**. Con jornadas por **serie** pasó a ser ambiguo —no dice si se refiere
+al partido o al día de operación— y las dos lecturas dan números muy distintos:
+un sábado con 6 series en un predio son 48 arbitrajes pero **un solo** servicio
+de fotografía.
+*No se conserva por compatibilidad.* Dejar `por_jornada` disponible garantiza
+que alguien la elija y multiplique por 284. Sale del `check`.
+*Costo de la decisión:* ninguno hoy — `presupuesto_linea` tiene 0 filas.
+
+**53 · La unidad es default en el catálogo y override en la línea**
+El default vive en `cat_gasto` / `concepto_gasto`. `presupuesto_linea.unidad`
+pasa a ser anulable: `null` = **heredar**, con valor = **este caso es distinto**.
+*Por qué:* un arbitraje es por partido siempre. No es una decisión que deba
+tomarse de nuevo en cada línea de presupuesto. Sin default, cada línea vuelve a
+resolver algo ya resuelto y basta **una mal cargada** para que el total se corra
+sin que nada falle.
+*Por qué igual hay override:* el caso raro existe —un servicio que este torneo
+se contrata por día y el que viene por partido—. Forzarlo a crear un concepto
+nuevo ensuciaría el catálogo con duplicados que solo difieren en la unidad.
+*Por qué también en `concepto_gasto` y no solo en `cat_gasto`:* **Viáticos**
+espeja a otras categorías (Ballboys, Veedores, Guardias, Estacionamiento,
+Limpieza), así que su unidad no es uniforme a nivel categoría — el viático de un
+ballboy escala como el ballboy.
+
+**54 · `dia_cancha (fecha, predio)` es tabla propia, compartida**
+Identidad natural `unique (fecha, predio_id)`. El **torneo se deriva** de las
+jornadas de esa fecha, no se guarda — mismo criterio que `jornada` (decisión 36).
+*Por qué tabla y no `select distinct`:* la entidad no existía en ninguna parte.
+`jornada` **no tiene predio** —el modelo dice qué serie juega su fecha N, no
+dónde— y las únicas tablas con `fecha` *y* `predio_id` son de movimiento
+(`asiento`, `gasto`, `pago`). Derivarla de ahí sería **circular**: para
+presupuestar los días de cancha habría que mirar los gastos ya cargados, que es
+justo lo que todavía no pasó. El día de operación es un hecho del calendario,
+anterior al primer gasto.
+*Por qué compartida:* el presupuesto la **cuenta** (multiplicador de las líneas
+`por_dia_cancha`) y el arqueo **cuelga** de ella (decisión 10, pieza 4). Dos
+definiciones paralelas se desincronizarían — el presupuesto contando 58 días y
+el arqueo esperando 54.
+*Se gestiona con funciones*, igual que la jornada (decisión 49): una lógica, dos
+puertas. Clausura 2026 da 29 fechas × 2 predios = **58** como caso base, cargado
+como datos, no como constante del schema (regla 12).
+
+**55 · Clasificación inicial de las 16 categorías `por_fecha`**
+3 `por_partido` · 8 `por_dia_cancha` · 5 aparte (4 de bar + 1 de administración).
+
+| Unidad | Categorías |
+|---|---|
+| `por_partido` | Árbitros Femenino · Árbitros Masculino · Operativos |
+| `por_dia_cancha` | Coordinación · Media · Medicinal · Tribunal · Viáticos · Estacionamiento · Guardias · Limpieza *(predio)* |
+| aparte | Extras · Limpieza *(bar)* · Productos · Proveedores · Administración |
+
+*Es punto de partida cargado como datos*, no verdad de schema: se corrige con un
+`update`, sin migración.
+*Cuidado al cargarla:* hay **dos categorías llamadas "Limpieza"**, una de área
+`predio` y otra de área `bar`, filas distintas bajo `unique (area, nombre)`, y se
+clasifican distinto. Hay que discriminar por área o se pisa una con la otra.
+*Por qué el bar queda aparte:* no escala con partidos ni con días de cancha —
+escala con **consumo**. Un sábado de mucha venta cuesta más que uno de poca, y la
+cantidad de partidos no lo predice. Meterlo en cualquiera de las dos unidades del
+torneo daría un número con forma de presupuesto y sin relación con la realidad.
+Administración queda aparte por otra razón: es estructura permanente, y la
+estructura permanente no se prorratea entre torneos (decisión 11).
+*Pendiente:* el tratamiento propio del bar.
+
 ---
 
 ## Abiertas
