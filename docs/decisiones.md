@@ -281,6 +281,9 @@ excepciones.
 el precio. Y como `total_facturado` se recalcula por trigger desde las cuotas
 (decisión 27), sigue siendo correcto después de un ajuste manual sin tener que
 consultar el tarifario.
+**⚠ Refinada por la decisión 50:** la autonomía es *parcial*. El monto se copia
+siempre, pero el vencimiento solo en las cuotas fijas — la de liga lo deriva de
+`jornada.fecha`. No leer esta decisión sin la 50.
 
 ---
 
@@ -364,6 +367,43 @@ constraints y los defaults de columna. Único hallazgo real: los defaults
 `15`/`13` de `generar_grilla_liga`, que la reescritura de la grilla elimina.
 Hallazgo menor: `torneo.cant_fechas` con default `10`, columna muerta que nadie
 lee, eliminada en la migración de jornada por serie.
+
+**49 · Las jornadas se gestionan con funciones validadas**
+`crear_jornada(serie_id, numero, fecha)`, `mover_jornada(jornada_id, fecha)` y
+`suspender_jornada(jornada_id)`. **Una lógica, dos puertas:** las usa el seed
+que carga el calendario y las usará el módulo de calendario de la app.
+*Por qué:* si el seed inserta directo y la app valida aparte, terminan
+divergiendo — el seed carga algo que la pantalla habría rechazado, o al revés.
+Con una sola implementación validada eso no puede pasar.
+*Agnósticas del torneo* (regla 12): reciben serie, número y fecha. No saben qué
+es "Clausura" ni cuántas fechas tiene una serie.
+*Reprogramar* es mover una suspendida: vuelve a `programada` con la fecha nueva.
+
+**50 · La autonomía de la cuota es parcial** *(refina la 41, no la contradice)*
+El **monto** se copia siempre del tarifario. El **vencimiento** se copia solo en
+las cuotas **fijas** (inscripción, bloque adelantado); la cuota **de liga** lo
+**deriva de `jornada.fecha`** en vivo, guardando `jornada_id`.
+*Por qué:* las dos tienen naturaleza distinta. La inscripción vence un día
+administrativo acordado, que no depende de que se juegue nada. La de liga vence
+"cuando se juega esa fecha", y esa fecha puede moverse o suspenderse. Copiarle
+el vencimiento la dejaría desactualizada apenas se reprograme una jornada.
+*Consecuencia:* mover la jornada mueve el vencimiento de sus cuotas sin tocar
+ninguna cuota. Es la decisión 39 funcionando de verdad, no solo declarada.
+*Pendiente de construcción:* `cuota.vence_at` es hoy `NOT NULL`. Hay que elegir
+entre dejarlo nulo para las cuotas de liga —fuente única, principio (c)— o
+mantenerlo como caché sincronizada por trigger, con el precedente de
+`sync_total_facturado`.
+
+**51 · La cuota de una jornada suspendida sale del circuito de cobro**
+Mientras la jornada esté `suspendida`, su cuota de liga **no es deuda vencida**.
+Vuelve al circuito al reprogramar, con el vencimiento nuevo.
+*Por qué:* esa fecha no se jugó. Un equipo cuya jornada se suspendió no es
+moroso de esa cuota, y mostrarlo como tal hace que la pantalla de deudores
+pierda credibilidad — aparece debiendo algo que nadie le va a cobrar.
+*Alcance:* toca todas las vistas que calculan deuda (`v_deuda_detalle`,
+`v_estado_cuota`, `v_cuenta_corriente_equipo`, `v_deuda_equipo`,
+`v_cobranza_kpi`). Es el punto de la pieza 2 que más cuidado necesita: si una
+vista se olvida, el error es silencioso.
 ---
 
 ## Abiertas

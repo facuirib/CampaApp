@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 14 · agosto 2026 · la jornada cuelga de la serie, no del género; tres unidades de costo variable; arqueo por fecha + predio
+**Versión:** Draft 15 · agosto 2026 · gestión de jornadas por funciones validadas; la cuota de liga deriva su vencimiento de la jornada; suspender saca la cuota del circuito
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,22 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 14
+
+**Gestión de jornadas por funciones validadas** (§3.5). `crear_jornada`, `mover_jornada` y `suspender_jornada`. **Una lógica, dos puertas**: el seed que carga el Clausura y el módulo de calendario que vendrá después llaman a las mismas funciones. No hay dos caminos que validen distinto. Son agnósticas del torneo (regla 12): reciben serie, número y fecha.
+
+**La autonomía de la cuota es parcial** (§3.4). Refina la decisión 41 sin contradecirla: el **monto** se copia siempre, pero el **vencimiento** solo en las cuotas fijas. La cuota de liga lo **deriva de `jornada.fecha`** en vivo. La inscripción vence un día administrativo fijo; la de liga vence cuando se juega esa fecha, y esa fecha puede moverse.
+
+**Suspender una jornada saca su cuota del circuito de cobro** (§3.5). Un equipo cuya fecha se suspendió **no es moroso de esa cuota**: no se jugó, no corresponde reclamarla. Vuelve al circuito al reprogramar, con el vencimiento nuevo.
+
+**Las vistas de deuda tienen que distinguir los dos tipos de cuota.** Fija por `vence_at` propio; de liga derivando de la jornada y excluyendo las suspendidas. Es el punto de la pieza que más cuidado necesita: si una vista se olvida, un equipo aparece debiendo algo que nadie le va a cobrar.
+
+**Queda por resolver al construir:** `cuota.vence_at` es hoy `NOT NULL`. Derivar el vencimiento obliga a elegir entre dejarlo nulo para las cuotas de liga —fuente única— o mantenerlo como caché sincronizada por trigger.
+
+**Nada de esto está construido.** Es la pieza 2 del rediseño: las funciones, los cambios de vista y el seed de las 284 jornadas se hacen juntos, contra esta sección.
+
+---
 
 ## Qué cambió desde el Draft 13
 
@@ -511,6 +527,17 @@ Mover una jornada recalcula el cashflow proyectado **y** los vencimientos de las
 
 Esto es lo que permite que `total_facturado` —suma de las cuotas por trigger— siga siendo correcto después de un ajuste manual: se recalcula solo, sin consultar el tarifario.
 
+**La autonomía es parcial, y depende del tipo de cuota** *(refina lo anterior, no lo contradice)*. El **monto** se copia siempre. El **vencimiento** no:
+
+| Tipo de cuota | Monto | Vencimiento | Autonomía |
+|---|---|---|---|
+| **Fija** — inscripción, bloque adelantado | copiado | copiado, `vence_at` propio | **total** |
+| **De liga** — `por_partido` | copiado | **derivado de `jornada.fecha`** | **parcial** |
+
+Las dos tienen naturaleza distinta. La inscripción vence **un día administrativo fijo**: se acordó esa fecha y no depende de que se juegue nada. La de liga vence **cuando se juega esa fecha** — y esa fecha puede moverse o suspenderse.
+
+Por eso la cuota de liga guarda `jornada_id` y lee el vencimiento de ahí, en vivo. Mover la jornada mueve su vencimiento sin tocar la cuota; suspenderla la saca del circuito de cobro (§3.5). Es la decisión 39 funcionando de verdad, no solo declarada.
+
 **Nota de nomenclatura — tres cosas parecidas que no se mezclan.**
 
 | Tabla | Qué es | Sentido | Contraparte |
@@ -636,6 +663,49 @@ Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes
 **Grilla.** `generar_grilla_liga()` pasa de sembrar 28 filas fecha × género a cargar las **284 desde el calendario validado por serie** (`supabase/seeds/clausura_2026_04_calendario.csv`). Sus parámetros `p_fechas_masc` / `p_fechas_fem` dejan de tener sentido: cada serie tiene su propia cantidad de fechas y sus propios días.
 
 **Puente con el tarifario.** El placeholder `hito_calendario` (texto) fue reemplazado por el FK real `plan_tarifa_linea.hito_jornada_id → jornada(id)`. Cada línea `fecha_fija` apunta a la jornada que define su vencimiento; reprogramar la jornada recalcula el vencimiento.
+
+#### Gestión de jornadas · una lógica, dos puertas
+
+*Diseño asentado, pendiente de construir.*
+
+Las jornadas se cargan y se editan por dos vías que comparten **la misma lógica validada**:
+
+- **Seed** — hoy: carga el Clausura 2026 desde el CSV validado.
+- **App** — más adelante: el módulo de calendario, desde pantalla.
+
+Las dos llaman a las mismas funciones. **No hay dos caminos que validen distinto**, que es el error clásico: el seed carga algo que la pantalla habría rechazado, o al revés.
+
+Las funciones son **agnósticas del torneo** (regla 12): reciben serie, número y fecha. No saben qué es "Clausura" ni cuántas fechas tiene una serie. Lo específico entra como datos.
+
+| Función | Qué hace |
+|---|---|
+| `crear_jornada(serie_id, numero, fecha)` | Alta validada: la serie existe, el número no se repite en esa serie —respeta `unique (serie_id, numero)`—, la fecha es válida o `null` (se permite sembrar la grilla antes de programar los días) |
+| `mover_jornada(jornada_id, nueva_fecha)` | Cambia la fecha. **Las cuotas de liga recalculan su vencimiento solas**, porque lo derivan de `jornada.fecha` en vez de tenerlo copiado |
+| `suspender_jornada(jornada_id)` | La jornada pasa a `suspendida`. Sus cuotas de liga **salen del circuito de cobro** |
+
+**Reprogramar es mover una suspendida.** Vuelve a `programada` con la fecha nueva, y sus cuotas vuelven al circuito con el vencimiento nuevo.
+
+#### Estado de la jornada y efecto en su cuota de liga
+
+| Estado de la jornada | Qué pasa con la cuota de liga |
+|---|---|
+| `programada`, con fecha | vencimiento = `jornada.fecha`, circuito normal |
+| `programada`, sin fecha | sin vencimiento todavía — B0 no la genera hasta que haya fecha |
+| **`suspendida`** | **fuera del circuito de cobro**: no es deuda vencida hasta que se reprograme |
+| `jugada` | vencimiento = `jornada.fecha`, se cobra normalmente |
+
+**Lo que más cuidado necesita: una cuota de liga cuya jornada está suspendida no debe aparecer como deuda.** Un equipo cuya fecha se suspendió **no es moroso de esa cuota** — no se jugó, no corresponde reclamarla. Si las vistas no lo contemplan, el equipo aparece debiendo algo que nadie le va a cobrar, y la pantalla de deudores pierde credibilidad.
+
+#### Impacto en las vistas de deuda
+
+Hoy "¿esta cuota está vencida?" se responde con el `vence_at` propio de la cuota. Para las de liga pasa a depender del **estado y la fecha de su jornada**. Toda vista que calcule deuda —`v_deuda_detalle`, `v_estado_cuota`, `v_cuenta_corriente_equipo`, `v_deuda_equipo`, `v_cobranza_kpi`— tiene que distinguir:
+
+- **Cuota fija**: `vence_at` propio, como hoy.
+- **Cuota de liga**: derivar de la jornada, y **excluir las de jornada suspendida** del cálculo de deuda vencida.
+
+Se revisa vista por vista al construir.
+
+> **Consecuencia de schema a resolver.** Hoy `cuota.vence_at` es `NOT NULL`. Si el vencimiento de la cuota de liga se deriva y no se copia, hay que decidir entre dejarlo nulo para esas cuotas —una sola fuente de verdad, principio (c)— o mantenerlo como caché sincronizada por trigger, con el precedente de `sync_total_facturado`. Se define al construir.
 
 ### 3.6 Caja, arqueo y conciliación
 
