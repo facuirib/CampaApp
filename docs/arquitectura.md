@@ -16,7 +16,9 @@ Primer módulo posterior al rediseño calendario-por-serie. Introduce **dos patr
 
 **El sueldo del socio se devenga — Forma B** (§3.19). Es la **excepción deliberada al percibido puro** de §1.b, y no una inconsistencia: el ingreso de un equipo puede no ocurrir nunca, pero el sueldo del socio es un compromiso cierto que existe cada mes se retire o no. No registrarlo hace que **la caja parezca toda del negocio cuando parte ya está comprometida**.
 
-**Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo)** (§3.19). Egreso y no patrimonio: el sueldo de socios es **costo del negocio**, así que la rentabilidad del torneo se lee después de él. Cuenta propia separada de `GAS_SUELDOS` para poder distinguir el sueldo operativo del de los dueños. **Ninguna vista se toca**: `v_resultado_producto` filtra por tipo de cuenta, así que `GAS_SOCIOS` entra al P&L y el pasivo no.
+**Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo)** (§3.19). Egreso y no patrimonio: el sueldo de socios es **costo del negocio**. Cuenta propia separada de `GAS_SUELDOS` para poder distinguir el sueldo operativo del de los dueños. **Ninguna vista se toca**: `v_resultado_producto` filtra por tipo de cuenta, así que `GAS_SOCIOS` entra al P&L y el pasivo no.
+
+**Es costo de la empresa, no del torneo** (§3.19). El asiento va con `torneo_id = NULL`, a nivel estructura permanente: el sueldo existe todos los meses haya torneo o no, e imputarlo a uno exigiría el prorrateo que la **decisión 5** prohíbe. La contribución de cada torneo queda intacta; lo que baja es el resultado de la empresa.
 
 **El sueldo acordado se versiona con historial** (§3.19). **Primer parámetro versionado de verdad**: `config_contable` tiene `vigente_desde` pero es una fila única sin historial —y no la lee nadie—, así que no servía de molde. Cambiar el sueldo es insertar una fila, no editar: es lo que permite recalcular un mes viejo con el sueldo que regía entonces.
 
@@ -1364,7 +1366,7 @@ No registrarlo distorsiona en una dirección concreta: **la caja parece toda del
 
 ```
 Devengo (mensual, automático):
-  GAS_SOCIOS        debe   X      egreso — baja la contribución del torneo
+  GAS_SOCIOS        debe   X      egreso — baja el resultado de la EMPRESA
     SOCIOS_A_PAGAR        haber  X      pasivo — lo que se le debe al socio
 
 Retiro (cuando el socio saca plata):
@@ -1383,9 +1385,13 @@ Retiro (cuando el socio saca plata):
 | **`GAS_SOCIOS`** | `egreso` | el sueldo del socio |
 | **`SOCIOS_A_PAGAR`** | `pasivo` | lo devengado y no retirado |
 
-**`egreso`, no `patrimonio`.** El sueldo de socios se trata como **costo del negocio**, no como distribución de utilidad: la rentabilidad del torneo se lee **después** de los sueldos de socios.
+**`egreso`, no `patrimonio`.** El sueldo de socios se trata como **costo del negocio**, no como distribución de utilidad.
 
-**El tipo de cuenta decide el P&L solo.** `v_resultado_producto` filtra `where c.tipo in ('ingreso','egreso')`: `GAS_SOCIOS` entra y baja la contribución; `SOCIOS_A_PAGAR`, por ser pasivo, no aparece. **No hay que tocar ninguna vista.**
+**Pero es costo de la empresa, no del torneo.** El asiento va con **`torneo_id = NULL`**, o sea a nivel **estructura permanente** (§3.2). El sueldo del socio existe todos los meses, haya torneo o no; imputarlo a un torneo exigiría prorratearlo entre los que corren ese mes, que es exactamente el criterio arbitrario que la **decisión 5** prohíbe.
+
+En `v_resultado_producto` aparece bajo **"Estructura permanente"**: la contribución de cada torneo queda intacta y lo que baja es el **resultado de la empresa**.
+
+**El tipo de cuenta decide el P&L solo.** La vista filtra `where c.tipo in ('ingreso','egreso')`: `GAS_SOCIOS` entra; `SOCIOS_A_PAGAR`, por ser pasivo, no aparece. **No hay que tocar ninguna vista.**
 
 **Cuenta propia, separada de `GAS_SUELDOS`** (empleados). Da lo mismo en el total del P&L, pero permite leer por separado el sueldo operativo del de los dueños — que es justo la distinción que se querría mirar.
 
@@ -1558,7 +1564,7 @@ No reabrir sin motivo nuevo:
 33. La **cuota de playoff se genera por instancia jugada**, en un paso posterior a la ficha, desde `equipo_playoff`.
 34. Los **partidos de un playoff son dato**, no derivados. La decisión 45 queda acotada a la liga.
 35. El **sueldo del socio se devenga** (Forma B) — excepción deliberada al percibido puro.
-36. **`GAS_SOCIOS` es egreso propio**: costo del negocio, separado de los sueldos de empleados.
+36. **`GAS_SOCIOS` es egreso propio**: costo del negocio, separado de los sueldos de empleados. Imputado a **estructura permanente** (`torneo_id` NULL), no a un torneo — decisión 5.
 37. El **sueldo acordado se versiona con historial**; cambiarlo es insertar, no editar.
 38. El **devengo mensual escribe solo**, idempotente por `(socio, período)`.
 39. **Retiro de sueldo ≠ rescate del fondo de inversión.** Cuentas y conceptos separados.

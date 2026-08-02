@@ -658,8 +658,13 @@ está comprometida con los socios. El número queda bien y la lectura mal.
 **69 · `GAS_SOCIOS` es egreso propio, no patrimonio ni `GAS_SUELDOS`**
 Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo).
 *Egreso y no patrimonio:* el sueldo de socios se trata como **costo del negocio**,
-no como distribución de utilidad. La rentabilidad del torneo se lee **después**
-de los sueldos de socios.
+no como distribución de utilidad.
+*Costo de la EMPRESA, no del torneo:* el asiento va con **`torneo_id = NULL`**, a
+nivel estructura permanente (§3.2). El sueldo existe todos los meses, haya torneo
+o no; imputarlo a uno exigiría prorratearlo entre los que corren ese mes, que es
+exactamente el criterio arbitrario que la **decisión 5** prohíbe. En
+`v_resultado_producto` cae bajo "Estructura permanente": la contribución de cada
+torneo queda intacta y lo que baja es el resultado de la empresa.
 *Cómo se implementa el P&L:* solo con el tipo de cuenta.
 `v_resultado_producto` filtra `c.tipo in ('ingreso','egreso')`, así que
 `GAS_SOCIOS` entra y baja la contribución, y `SOCIOS_A_PAGAR` no aparece por ser
