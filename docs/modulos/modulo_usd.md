@@ -1,4 +1,4 @@
-> **Fuente de diseño · Módulo USD.** Aprobado, pendiente de construir.
+> **Fuente de diseño · Módulo USD.** **Ya implementado.**
 >
 > Tercer módulo de la capa societaria, y el más liviano: la estructura ya
 > existía en el schema original —tabla `usd_operacion`, caja usd, cuentas
@@ -8,16 +8,29 @@
 > **resultado** vive en `docs/arquitectura.md` §3.7 y en `docs/decisiones.md`
 > (decisiones 78-82). Ante una diferencia **manda el resultado**.
 >
+> Resultado: `arquitectura.md` §3.7 · decisiones 78-82
+> Migraciones: `20260802130442_modulo_usd` · `20260802130633_usd_orden_ejecucion`
+>
 > ---
 >
-> **Dos cosas que el relevamiento precisó:**
+> **Lo que apareció al construir**, marcado en el cuerpo como `[AL CONSTRUIR]`.
+> El diseño estaba bien —incluido el nombre `FIN_DIF_CAMBIO`, que usa
+> correctamente en todo el texto—; esto es lo que no podía preverse desde el
+> papel:
 >
-> · La cuenta se llama **`FIN_DIF_CAMBIO`**, no `DIFERENCIA_CAMBIO`, y ya
->   existe. No se crea ninguna cuenta.
-> · El **riesgo del PPP**: el promedio cruza dos fuentes —la cantidad de
->   `usd_operacion` y los pesos del diario—. Si alguien asienta contra
->   `CAJA_USD` sin registrar la operación, el promedio queda mal en silencio y
->   todas las ventas posteriores salen a un costo equivocado.
+> · **La verificación de sincronía necesitó una columna nueva.** El replay del
+>   PPP tiene que ir en orden de EJECUCIÓN, y ninguna clave existente servía:
+>   `fecha` no, porque el PPP se calcula sobre el estado real del diario al
+>   ejecutar; y `asiento.created_at` tampoco, porque `now()` devuelve la hora de
+>   la TRANSACCIÓN y varias operaciones en una misma transacción quedan con el
+>   mismo timestamp. **Lo detectó el test**, que daba DESINCRONIZADO después de
+>   operaciones correctas. Se agregó `usd_operacion.orden`, una secuencia.
+>
+> · **Vender TODO saca el costo en libros exacto**, no el promedio redondeado —
+>   si no, quedarían centavos en CAJA_USD sin un solo dólar detrás.
+>
+> · Se agregó un **check de signo** (cantidad positiva en compra, negativa en
+>   venta), para que una carga a mano no invierta el signo y corra el promedio.
 
 ---
 
@@ -58,7 +71,9 @@ con multimoneda — decisión de diseño ya tomada y correcta.
 ## Poda: sacar 'revaluacion' (decisión nueva)
 
 usd_operacion.tipo hoy admite ('compra','venta','revaluacion'). Con el modelo
-realizado NO hay revaluación. Se saca del CHECK → solo ('compra','venta'). Misma
+realizado NO hay revaluación. Se saca del CHECK → solo ('compra','venta').
+[AL CONSTRUIR: se agregó además un check de SIGNO —cantidad > 0 en compra, < 0 en
+venta— para que una carga a mano no invierta el signo y corra el promedio.] Misma
 clase de limpieza que por_jornada en la pieza 5: un valor del dominio que el modelo
 no usa es una trampa. Si algún día se quiere revalúo, se agrega.
 
@@ -88,6 +103,9 @@ En todo momento la caja USD tiene:
 
 Al VENDER cantidad Q a tc_venta:
 - costo de salida = Q × costo_promedio actual
+  [AL CONSTRUIR: si Q es TODA la tenencia, el costo de salida es el costo en libros
+  exacto y no el promedio redondeado — si no, quedarían centavos en CAJA_USD sin un
+  solo dólar detrás. Mismo criterio que el remanente del último devengo de sponsors.]
 - recibido = Q × tc_venta
 - diferencia = recibido − costo de salida → FIN_DIF_CAMBIO (ganancia si +, pérdida si −)
 - CAJA_USD baja por el costo de salida (mantiene el promedio en la caja restante)
@@ -107,9 +125,18 @@ Queda 300 USD / $315.000 (sigue a 1050).
 ## Vistas
 
 - v_tenencia_usd: cuántos USD hay, costo en libros, promedio ponderado actual.
-- v_resultado_cambio (o incluir FIN_DIF_CAMBIO en el P&L financiero): mostrar la
-  diferencia de cambio realizada — hoy se registraría y no se vería. Decisión nueva:
-  agregar la vista.
+- v_resultado_cambio: mostrar la diferencia de cambio realizada — hoy se registraría
+  y no se vería. Decisión nueva: agregar la vista. [AL CONSTRUIR: se hizo como vista
+  propia por mes, no metiéndola en v_resultado_producto: esa filtra ingreso/egreso y
+  FIN_DIF_CAMBIO es `financiero`, que es justo lo que la decisión 12 quiere.]
+- [AL CONSTRUIR — vista que el diseño no tenía] v_usd_sincronia: la red de seguridad.
+  El promedio cruza DOS fuentes y nada las mantiene sincronizadas, así que un asiento
+  directo a CAJA_USD que no pase por usd_operacion dejaría el promedio mal EN
+  SILENCIO. La vista reconstruye el costo esperado rehaciendo el promedio operación
+  por operación —no es Σ monto_pesos, porque en una venta monto_pesos es lo RECIBIDO
+  y de CAJA_USD sale el costo al PPP— y lo compara contra el diario.
+  El replay se ordena por usd_operacion.orden, una secuencia agregada al construir:
+  ni fecha ni asiento.created_at sirven (ver el encabezado).
 
 ## Correcciones de doc
 

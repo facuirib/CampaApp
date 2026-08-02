@@ -1,4 +1,4 @@
-> **Fuente de diseño · Módulo de sponsors.** Aprobado, pendiente de construir.
+> **Fuente de diseño · Módulo de sponsors.** **Ya implementado.**
 >
 > Segundo módulo de la capa societaria. Estrena el tercer patrón de
 > reconocimiento del sistema: devengo lineal con cobro independiente.
@@ -7,21 +7,21 @@
 > **resultado** vive en `docs/arquitectura.md` §3.20 y en `docs/decisiones.md`
 > (decisiones 73-77). Ante una diferencia **manda el resultado**.
 >
+> Resultado: `arquitectura.md` §3.20 · decisiones 73-77
+> Migración: `20260802121935_modulo_sponsors`
+>
 > ---
 >
-> **Dos cosas que el relevamiento resolvió** y que acá quedaron como preguntas
-> abiertas:
+> **Lo que se resolvió al construir**, marcado en el cuerpo como
+> `[AL CONSTRUIR]`. No son errores del diseño: son preguntas que dejaba
+> abiertas, más una que no había visto.
 >
-> · **`ING_SPONSORS` ya existe** en el plan de cuentas desde el schema inicial,
->   sin uso. Solo se crean `DEUDORES_SPONSORS` e `INGRESO_DIFERIDO`.
-> · **`DEUDORES_SPONSORS` va propia**, no reusando la `DEUDORES` genérica: ésa
->   se diseñó para equipos y la decisión 1 la sacó de juego, así que reusarla
->   mezclaría deuda de equipos —que no es saldo contable— con deuda de
->   sponsors, que sí lo es.
->
-> Y **una que el diseño no contemplaba**: `total / meses` no siempre da exacto,
-> así que el **último período devenga el remanente** en vez de la cuota teórica.
-> Sin eso, `INGRESO_DIFERIDO` nunca cerraría en cero.
+> · De las tres cuentas, **`ING_SPONSORS` ya existía**; se crearon dos.
+> · **`DEUDORES_SPONSORS` va propia**, no reusando la `DEUDORES` genérica.
+> · **`registrar_cobro_sponsor` es propio**, no reusa `registrar_cobro`.
+> · **`v_estado_sponsor` va por contrato**, no por sponsor.
+> · **El redondeo no era simple:** el último período devenga el remanente, o
+>   `INGRESO_DIFERIDO` nunca cerraría en cero.
 
 ---
 
@@ -95,11 +95,14 @@ imputa a un torneo puntual.
 
 ## Cuentas nuevas (ver cuáles ya existen)
 
-- DEUDORES_SPONSORS (activo / por cobrar) — puede que exista DEUDORES genérica;
-  ver si conviene propia.
-- INGRESO_DIFERIDO (pasivo) — el ingreso aún no ganado. Probablemente nueva.
-- ING_SPONSORS (ingreso) — el ingreso ganado, aparece en P&L. Ver si hay una de
-  sponsors o se crea.
+- DEUDORES_SPONSORS (activo / por cobrar) — [AL CONSTRUIR: va PROPIA. La DEUDORES
+  genérica se diseñó para equipos y la decisión 1 la sacó de juego, así que
+  reusarla mezclaría deuda de equipos —que no es saldo contable— con deuda de
+  sponsors, que sí lo es.]
+- INGRESO_DIFERIDO (pasivo) — el ingreso aún no ganado. [AL CONSTRUIR: nueva.
+  Tampoco reusa ANTICIPOS: un anticipo es plata YA RECIBIDA.]
+- ING_SPONSORS (ingreso) — el ingreso ganado, aparece en P&L. [AL CONSTRUIR: YA
+  EXISTÍA en el plan desde el schema inicial, sin uso. No se creó.]
 
 ## Estructura
 
@@ -121,15 +124,22 @@ devengo_sponsor (contrato_id, periodo_id, ...) — anti-duplicado del devengo li
   registra el contrato. Opcional: cargar el cronograma de cuotas de cobro.
 - devengar_sponsors(periodo_id) → proceso mensual automático idempotente. Por cada
   contrato vigente en ese período: asiento ingreso_diferido / ing_sponsors, monto =
-  total / meses del rango. Redondeo simple (Facu: no importa el centavo). Escribe
+  total / meses del rango. [AL CONSTRUIR: el redondeo NO es simple. total/meses no
+  siempre da exacto —1.000.000 en 3 meses deja 0,01— y esos centavos quedarían
+  para siempre en INGRESO_DIFERIDO, que nunca cerraría en cero. El ÚLTIMO período
+  devenga el remanente, calculado como total − cuota × (meses − 1) para que sea
+  determinista y no dependa del orden.] Escribe
   solo, como devengar_sueldos_socios.
 - registrar_cobro_sponsor(cuota_id, medio, ...) → asiento caja / deudores. Cancela
-  la cuota de cobro. (¿Reusa registrar_cobro o es propio? — ver en construcción; los
-  sponsors cobran contra DEUDORES_SPONSORS, no contra las cuotas de equipo.)
+  la cuota de cobro. [AL CONSTRUIR: es PROPIO. registrar_cobro imputa contra cuota
+  de equipos y llama a imputar_pago; el sponsor cobra contra DEUDORES_SPONSORS y no
+  tiene cuotas de equipo. Mismo nombre coloquial, circuitos distintos.]
 
 ## Vistas
 
-- v_estado_sponsor: por sponsor — total, devengado a la fecha, cobrado, pendiente de
+- v_estado_sponsor: [AL CONSTRUIR: por CONTRATO, no por sponsor — un sponsor puede
+  tener contratos de años distintos y sumarlos borraría el sentido de "pendiente de
+  devengar"] — total, devengado a la fecha, cobrado, pendiente de
   devengar, pendiente de cobrar.
 - v_cuotas_sponsor_futuras: las cuotas de cobro con fecha futura → para el cashflow.
   ESTA es la que el módulo de cashflow va a consumir.
