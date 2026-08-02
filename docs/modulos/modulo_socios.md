@@ -1,4 +1,4 @@
-> **Fuente de diseño · Módulo de socios.** Aprobado, pendiente de construir.
+> **Fuente de diseño · Módulo de socios.** **Ya implementada.**
 >
 > Primer módulo posterior al rediseño calendario-por-serie. Introduce dos
 > patrones que el sistema no tenía: parámetro versionado con historial, y
@@ -6,8 +6,26 @@
 >
 > Este archivo es el **camino**: el razonamiento y los trade-offs. El
 > **resultado** vive en `docs/arquitectura.md` §3.19 y en `docs/decisiones.md`
-> (decisiones 68-72). Ante una diferencia **manda el resultado**: este
-> documento se conserva como estaba al aprobarse y no se actualiza.
+> (decisiones 68-72). Ante una diferencia **manda el resultado**.
+>
+> Resultado: `arquitectura.md` §3.19 · decisiones 68-72
+> Migración: `20260802113135_modulo_socios` · Seed: `03_socios.sql`
+>
+> ---
+>
+> **⚠ Una corrección posterior a la aprobación**, marcada en el cuerpo como
+> `[CORREGIDO]`. El borrador decía que `GAS_SOCIOS` **baja la contribución del
+> torneo**; con las reglas vigentes eso no puede pasar. El sueldo de un socio es
+> **estructura permanente** —existe todos los meses, haya torneo o no— e
+> imputarlo a un torneo exigiría prorratearlo entre los que corren ese mes, que
+> es exactamente lo que la **decisión 5** prohíbe. El asiento va con
+> `torneo_id = NULL` y cae bajo "Estructura permanente": baja el **resultado de
+> la empresa**, no la contribución del torneo. Confirmado con Facu (Opción 1)
+> antes de aplicar.
+>
+> Es la única edición hecha sobre el texto aprobado, y va marcada en vez de
+> reescrita en silencio: si el "camino" se sanea para que parezca que siempre
+> supo la respuesta, deja de servir para entender cómo se llegó.
 
 ---
 
@@ -42,7 +60,7 @@ Son situaciones distintas y merecen tratamiento distinto.
 ## Los dos asientos
 
 Devengo (mensual, automático):
-    GAS_SOCIOS       debe   X      (egreso — baja la contribución del torneo)
+    GAS_SOCIOS       debe   X      (egreso — baja el resultado de la EMPRESA)   [CORREGIDO]
     SOCIOS_A_PAGAR   haber  X      (pasivo — lo que se le debe al socio)
 
 Retiro (cuando el socio saca plata):
@@ -54,12 +72,16 @@ Saldo a favor del socio = saldo de SOCIOS_A_PAGAR imputado a ese socio
 
 ## Cuentas nuevas (decisión: egreso propio)
 
-- GAS_SOCIOS (tipo egreso) — el sueldo del socio BAJA la contribución del torneo,
-  pero en cuenta propia, separada de GAS_SUELDOS (empleados). Así se lee el impacto
-  y se distingue de sueldos operativos.
+- GAS_SOCIOS (tipo egreso) — el sueldo del socio BAJA el resultado de la EMPRESA
+  [CORREGIDO: el borrador decía "la contribución del torneo"], en cuenta propia,
+  separada de GAS_SUELDOS (empleados). Así se lee el impacto y se distingue de
+  sueldos operativos. El asiento va con torneo_id NULL = estructura permanente,
+  porque imputarlo a un torneo exigiría el prorrateo que la decisión 5 prohíbe.
   [Decisión de Facu: egreso, no patrimonio. El sueldo de socios se trata como costo
-  del negocio, no como distribución de utilidad. La rentabilidad del torneo se ve
-  después de los sueldos de socios.]
+  del negocio, no como distribución de utilidad. [CORREGIDO: la frase original decía
+  que la rentabilidad del torneo se ve después de los sueldos de socios; en realidad
+  la contribución de cada torneo queda intacta y lo que baja es el resultado de la
+  empresa.]]
 - SOCIOS_A_PAGAR (tipo pasivo) — el pasivo devengado no retirado.
 
 El tipo de cuenta decide el P&L solo (v_resultado_producto filtra ingreso/egreso).
@@ -124,7 +146,8 @@ tabla socio (§3.4: equipos/sponsors/socios comparten mecánica). Seed o alta ma
 ## Decisiones nuevas para decisiones.md
 
 - Sueldo de socio por Forma B (devengo), a diferencia de ingresos (percibido puro).
-- Cuenta GAS_SOCIOS (egreso propio) — baja contribución, separada de empleados.
+- Cuenta GAS_SOCIOS (egreso propio) — baja el resultado de la empresa [CORREGIDO:
+  decía "baja contribución"], separada de empleados, imputada a estructura permanente.
 - Sueldo acordado versionado con historial (primer parámetro versionado real).
 - Devengo mensual escribe solo (idempotente por período) — rompe con el precedente
   de amortización que propone; justificado porque el sueldo es cierto, no estimado.
