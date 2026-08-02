@@ -1249,6 +1249,56 @@ export type Database = {
           },
         ]
       }
+      equipo_playoff: {
+        Row: {
+          created_at: string
+          equipo_torneo_id: string
+          id: string
+          jornada_playoff_id: string
+        }
+        Insert: {
+          created_at?: string
+          equipo_torneo_id: string
+          id?: string
+          jornada_playoff_id: string
+        }
+        Update: {
+          created_at?: string
+          equipo_torneo_id?: string
+          id?: string
+          jornada_playoff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipo_playoff_equipo_torneo_id_fkey"
+            columns: ["equipo_torneo_id"]
+            isOneToOne: false
+            referencedRelation: "equipo_torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipo_playoff_equipo_torneo_id_fkey"
+            columns: ["equipo_torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["equipo_torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_playoff_equipo_torneo_id_fkey"
+            columns: ["equipo_torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["equipo_torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_playoff_jornada_playoff_id_fkey"
+            columns: ["jornada_playoff_id"]
+            isOneToOne: false
+            referencedRelation: "jornada"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipo_torneo: {
         Row: {
           id: string
@@ -1407,6 +1457,27 @@ export type Database = {
           },
         ]
       }
+      formato_instancia: {
+        Row: {
+          cantidad_partidos: number
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          cantidad_partidos: number
+          id?: string
+          nombre: string
+          orden: number
+        }
+        Update: {
+          cantidad_partidos?: number
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: []
+      }
       gasto: {
         Row: {
           activo_id: string | null
@@ -1559,6 +1630,7 @@ export type Database = {
       jornada: {
         Row: {
           cantidad_esperada: number | null
+          cantidad_partidos: number | null
           es_playoff: boolean
           estado: string
           fecha: string | null
@@ -1570,6 +1642,7 @@ export type Database = {
         }
         Insert: {
           cantidad_esperada?: number | null
+          cantidad_partidos?: number | null
           es_playoff?: boolean
           estado?: string
           fecha?: string | null
@@ -1581,6 +1654,7 @@ export type Database = {
         }
         Update: {
           cantidad_esperada?: number | null
+          cantidad_partidos?: number | null
           es_playoff?: boolean
           estado?: string
           fecha?: string | null
@@ -1591,6 +1665,13 @@ export type Database = {
           serie_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "jornada_instancia_fkey"
+            columns: ["instancia"]
+            isOneToOne: false
+            referencedRelation: "formato_instancia"
+            referencedColumns: ["nombre"]
+          },
           {
             foreignKeyName: "jornada_reprograma_a_fkey"
             columns: ["reprograma_a"]
@@ -2924,9 +3005,22 @@ export type Database = {
         Args: { p_fecha?: string; p_numero: number; p_serie_id: string }
         Returns: string
       }
+      crear_playoff: {
+        Args: {
+          p_cantidad_partidos?: number
+          p_fecha?: string
+          p_instancia: string
+          p_serie_id: string
+        }
+        Returns: string
+      }
       eliminar_dia_cancha: {
         Args: { p_dia_cancha_id: string }
         Returns: undefined
+      }
+      generar_cuotas_instancia: {
+        Args: { p_jornada_playoff_id: string }
+        Returns: number
       }
       generar_cuotas_plan: { Args: { p_plan_id: string }; Returns: number }
       generar_grilla_liga: {
