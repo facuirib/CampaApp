@@ -790,6 +790,80 @@ no tiene cuotas de equipo. Mismo nombre coloquial, circuitos distintos.
 
 ---
 
+## Moneda extranjera
+
+**78 · El diario es monomoneda; la cantidad de dólares vive aparte**
+`asiento_linea` es `(cuenta, debe, haber, tercero)` — **sin moneda ni cantidad**, y
+no hay ninguna columna de divisa en el resto del schema. La cantidad de dólares
+vive en `usd_operacion`.
+*Ya estaba así en el schema original; se explicita como principio* porque es la
+decisión difícil del módulo y conviene que no se reabra por comodidad.
+*La división:* la **tenencia** (cuántos USD) sale de `usd_operacion`; el **costo
+en libros** (cuántos pesos) sale del saldo de `CAJA_USD` en el diario. Los dos
+hacen falta y el PPP es el puente.
+*Por qué no meter multimoneda al diario:* contaminaría **todas** las líneas de
+todas las cuentas para un caso que vive en una sola caja. La complejidad queda
+aislada donde ocurre.
+
+**79 · Valuación por promedio ponderado (PPP), derivado y no guardado**
+`costo_promedio = costo_libros / tenencia_usd`. Los dólares salen a ese promedio
+al venderse.
+*No se guarda en ninguna parte:* se deriva de las dos fuentes. Guardarlo sería un
+tercer número que hay que mantener sincronizado con los otros dos.
+*Se mantiene solo:* al vender, `CAJA_USD` baja **exactamente por el costo de
+salida**, así que lo que queda conserva el mismo promedio. No hay que recalcular
+nada.
+*Ejemplo:* 500 @ 1.000 + 500 @ 1.100 = 1.000 USD / $1.050.000, promedio 1.050.
+Vender 700 @ 1.200 saca 735.000 de costo, recibe 840.000, gana 105.000, y quedan
+300 USD / $315.000 — todavía a 1.050.
+*⚠ Riesgo conocido:* el promedio cruza **dos fuentes**. Si alguien asienta contra
+`CAJA_USD` sin registrar la operación —un `crear_asiento` directo, un ajuste— el
+promedio queda mal **en silencio** y todas las ventas posteriores salen a un
+costo equivocado. Las funciones son la única puerta correcta, y conviene una
+verificación que compare ambas fuentes.
+
+**80 · La diferencia de cambio es solo realizada; `revaluacion` sale del dominio**
+Los dólares quedan **a su costo** hasta que se venden. La ganancia o pérdida se
+reconoce **al concretar la venta**, nunca por revalúo periódico.
+*Por qué:* sin ganancias en papel. Una tenencia que "vale más" no es plata hasta
+que se vende.
+*La poda:* `usd_operacion.tipo` admitía `('compra','venta','revaluacion')`. Con
+este modelo la revaluación no existe, y **un valor del dominio que el modelo no
+usa es una trampa**: alguien lo va a elegir y va a asentar una ganancia que no
+ocurrió. Se saca del CHECK. Misma limpieza que `por_jornada` en la decisión 52.
+Si algún día se quiere revalúo, se agrega con su lógica.
+*Reemplaza* la fila "Revaluación → Caja USD / Diferencia de cambio → No
+realizado" que `arquitectura.md` §3.7 traía desde el schema original.
+*Tabla vacía:* 0 filas, no migra ningún dato.
+
+**81 · USD a nivel empresa, y separado del fondo de inversión**
+Todos los asientos con **`torneo_id = NULL`**: la cobertura cambiaria no es de
+ningún torneo (decisión 5). Cuenta `FIN_DIF_CAMBIO`, de tipo `financiero`.
+*Separado del fondo (decisión 22, §3.15):* el fondo es plata **de los socios**
+colocada en el banco, con su propia tabla `movimiento_fondo`, su propia cuenta
+`FONDO_INVERSION` y su propio indicador `v_dependencia_fondo`. La caja USD es
+plata **de la empresa** guardada como cobertura. No se tocan.
+*No se crea ninguna cuenta:* `CAJA_USD` y `FIN_DIF_CAMBIO` ya están en el plan
+desde el schema inicial, sin uso. **El código es `FIN_DIF_CAMBIO`**, no
+`DIFERENCIA_CAMBIO`.
+
+**82 · Hace falta una vista de resultado de cambio, porque hoy no se ve**
+`FIN_DIF_CAMBIO` es `financiero`, así que `v_resultado_producto` **no la toma** —
+filtra `ingreso`/`egreso`. Eso es correcto y deliberado (decisión 12: una suba
+del dólar no debe leerse como que el torneo funcionó mejor).
+*El problema:* la "línea aparte" donde debería verse **no existe**. Ninguna vista
+lee `FIN_DIF_CAMBIO`, así que hoy la diferencia de cambio se registraría y no
+aparecería en ninguna pantalla.
+*Se agregan dos vistas:* `v_tenencia_usd` —cuántos USD, costo en libros, promedio
+actual— y `v_resultado_cambio`, para que el resultado financiero sea visible.
+
+**Alcance del módulo:** el más liviano. No se crea estructura —tabla, caja y
+cuentas ya existen—, solo la lógica: la poda del CHECK, `comprar_usd`,
+`vender_usd` con el PPP, y las dos vistas. **Sin proceso mensual:** a diferencia
+de socios y sponsors, las operaciones son puntuales y no hay nada que devengar.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**

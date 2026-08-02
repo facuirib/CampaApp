@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 20 · agosto 2026 · módulo de sponsors: devengo lineal como tercer patrón de reconocimiento, dos calendarios separados (reconocimiento y cobro), ingreso diferido como pasivo que se libera mes a mes
+**Versión:** Draft 21 · agosto 2026 · módulo USD: caja de cobertura valuada por promedio ponderado, diferencia de cambio solo realizada, y el diario confirmado monomoneda
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,20 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 20
+
+Tercer módulo de la capa societaria, y **el más liviano: no se crea estructura**. La tabla `usd_operacion`, la caja USD y las cuentas `CAJA_USD` y `FIN_DIF_CAMBIO` ya existían desde el schema inicial, sin uso. Solo faltaba la lógica.
+
+**El diario es monomoneda, y se explicita como principio** (§3.7). `asiento_linea` no tiene moneda ni cantidad, y no hay ninguna columna de divisa en el schema. La complejidad del dólar queda **aislada en `usd_operacion`**: la **tenencia** sale de ahí, el **costo en libros** del diario, y el PPP es el puente. Ya estaba así; ahora está dicho.
+
+**Valuación por promedio ponderado** (§3.7). `costo_libros / tenencia_usd`, **derivado y no guardado**. Se mantiene solo: al vender, `CAJA_USD` baja exactamente por el costo de salida, así que lo que queda conserva el promedio.
+
+**La diferencia de cambio es solo realizada** (§3.7). Los dólares quedan a su costo hasta que se venden; nada de ganancias en papel. **`revaluacion` sale del dominio** de `usd_operacion.tipo` — un valor que el modelo no usa es una trampa, misma limpieza que `por_jornada` en la pieza 5. Esto **reemplaza** la fila "Revaluación → no realizado" que §3.7 traía del schema original.
+
+> **Dos cosas que el relevamiento encontró.** `FIN_DIF_CAMBIO` es de tipo `financiero`, así que `v_resultado_producto` no la toma —correcto por la decisión 12— pero **la "línea aparte" donde debería verse no existe**: ninguna vista la lee, y hoy la diferencia de cambio se registraría sin aparecer en pantalla. Y el promedio cruza **dos fuentes**: si alguien asienta contra `CAJA_USD` sin registrar la operación, el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado.
+
+---
 
 ## Qué cambió desde el Draft 19
 
@@ -1080,13 +1094,15 @@ Agnósticas del torneo (regla 12), una lógica para el seed y para la app que ve
 - **Diferencias registradas y sin resolver** — la cola de trabajo del control de caja.
 - **Historial de arqueos** por predio y fecha.
 
-### 3.7 Moneda extranjera
+### 3.7 Moneda extranjera · caja USD de cobertura
+
+Campa guarda excedentes en dólares como **cobertura cambiaria**. Es plata de la **empresa**, no de los socios: nada que ver con el fondo de inversión (§3.15), que tiene su propia tabla y su propia cuenta.
 
 ```sql
 create table usd_operacion (
   id          uuid primary key default gen_random_uuid(),
   fecha       date not null,
-  tipo        text not null,               -- compra | venta | revaluacion
+  tipo        text not null,               -- compra | venta
   cantidad    numeric(14,2) not null,      -- negativo en venta
   tc          numeric(10,2) not null,
   monto_pesos numeric(16,2) not null,
@@ -1095,15 +1111,98 @@ create table usd_operacion (
 );
 ```
 
-Los tres asientos:
+#### El diario es monomoneda, y eso se sostiene
 
-| Operación | Debe | Haber | Resultado |
-|---|---|---|---|
-| Compra | `Caja USD` | `Caja Pesos` | Ninguno — es permuta |
-| Revaluación | `Caja USD` | `Diferencia de cambio` | No realizado |
-| Venta | `Caja Pesos` | `Caja USD` + `Dif. de cambio` | Realizado |
+**`asiento_linea` no tiene moneda ni cantidad** — es `(cuenta, debe, haber, tercero)`, todo en pesos. Tampoco hay ninguna columna de divisa en el resto del schema.
 
-`Diferencia de cambio` es una cuenta de tipo `financiero`, no `egreso`/`ingreso` operativo. En el P&L aparece **debajo del resultado operativo**, en una línea aparte. Es deliberado: una suba del dólar no debe leerse como que el torneo funcionó mejor.
+La complejidad del dólar queda **aislada en `usd_operacion`**, y la división es limpia:
+
+| Número | De dónde sale |
+|---|---|
+| **Tenencia** — cuántos USD hay | `Σ cantidad` de `usd_operacion` |
+| **Costo en libros** — cuánto valen en pesos | saldo de `CAJA_USD` en el diario |
+
+Los dos hacen falta y **el PPP es el puente**. No se toca el diario para meterle multimoneda: esa decisión ya estaba tomada en el schema original y es la correcta.
+
+#### Valuación por promedio ponderado (PPP)
+
+Los dólares en caja valen el **promedio ponderado de las compras**, y salen a ese promedio al venderse.
+
+```
+tenencia_usd    = Σ cantidad de usd_operacion
+costo_libros    = saldo de CAJA_USD (pesos)
+costo_promedio  = costo_libros / tenencia_usd
+```
+
+**El promedio no se guarda en ninguna parte: se deriva.** Y se mantiene solo — al vender, `CAJA_USD` baja exactamente por el costo de salida, así que lo que queda conserva el mismo promedio.
+
+```
+compra 500 @ 1.000  +  compra 500 @ 1.100
+  → 1.000 USD · $1.050.000 · promedio 1.050
+
+vende 700 @ 1.200
+  costo de salida  700 × 1.050 = 735.000
+  recibido         700 × 1.200 = 840.000
+  ganancia                        105.000
+  → quedan 300 USD · $315.000 · sigue en 1.050
+```
+
+#### La diferencia de cambio es solo realizada
+
+**Los dólares quedan a su costo hasta que se venden.** La ganancia o pérdida se reconoce **al concretar la venta**, nunca por revalúo periódico: sin ganancias en papel.
+
+> **`revaluacion` sale del dominio.** `usd_operacion.tipo` admitía `('compra','venta','revaluacion')`. Con el modelo realizado la revaluación no existe, y **un valor del dominio que el modelo no usa es una trampa**: alguien lo va a elegir y va a asentar una ganancia que no ocurrió. Misma limpieza que `por_jornada` en la pieza 5. Si algún día se quiere revalúo, se agrega — con su lógica.
+>
+> Esto **reemplaza** la fila "Revaluación → `Caja USD` / `Diferencia de cambio` → No realizado" que esta sección traía desde el schema original.
+
+#### Los dos asientos
+
+```
+COMPRA — USD 1.000 a $1.000
+  CAJA_USD          debe   1.000.000
+    <caja pesos>          haber  1.000.000
+  Ningún resultado: es una permuta.
+  + usd_operacion (compra, cantidad +1.000, tc 1.000, monto_pesos 1.000.000)
+
+VENTA — USD 1.000 a $1.200, con promedio en libros de $1.000
+  <caja pesos>      debe   1.200.000     lo recibido
+    CAJA_USD              haber  1.000.000     salen al PPP
+    FIN_DIF_CAMBIO        haber    200.000     ganancia realizada
+  Si el dólar hubiera bajado, FIN_DIF_CAMBIO va al DEBE (pérdida).
+  + usd_operacion (venta, cantidad −1.000, tc 1.200, monto_pesos 1.200.000)
+```
+
+`crear_asiento` expresa las tres líneas sin cambios: acepta N líneas con la única condición de que balanceen, `origen = 'usd'` ya está en su CHECK, y ni `CAJA_USD` ni las cajas de pesos globales exigen predio.
+
+**Nivel empresa**, `torneo_id = NULL`: la cobertura no es de ningún torneo (decisión 5).
+
+#### La cuenta ya existe, pero no se ve en ninguna pantalla
+
+`CAJA_USD` (activo) y **`FIN_DIF_CAMBIO`** (`financiero`) están en el plan desde el schema inicial, sin uso. **No se crea ninguna cuenta.** Ojo con el nombre: es `FIN_DIF_CAMBIO`, no `DIFERENCIA_CAMBIO`.
+
+`FIN_DIF_CAMBIO` es de tipo `financiero` y no `ingreso`/`egreso` operativo, así que **`v_resultado_producto` no la toma** — filtra `c.tipo in ('ingreso','egreso')`. Es exactamente lo que pide la decisión 12: una suba del dólar no debe leerse como que el torneo funcionó mejor.
+
+> **Pero esa "línea aparte" no existe.** Ninguna vista lee `FIN_DIF_CAMBIO`: hoy la diferencia de cambio se registraría y **no se vería en ninguna pantalla**. El módulo trae su propia vista, o el resultado financiero queda invisible.
+
+#### Lo que se lee
+
+| Vista | Para qué |
+|---|---|
+| `v_tenencia_usd` | cuántos USD hay, costo en libros y promedio ponderado actual |
+| `v_resultado_cambio` | la diferencia de cambio realizada, que hoy no se ve |
+
+> **Un riesgo del diseño, que conviene tener escrito.** El promedio se calcula cruzando **dos fuentes**: la cantidad sale de `usd_operacion` y los pesos del diario. Si alguien asienta contra `CAJA_USD` **sin** registrar la operación —un `crear_asiento` directo, un ajuste— el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado. Las funciones son la única puerta correcta; conviene además una verificación que compare ambas fuentes.
+
+#### Funciones
+
+| Función | Qué hace |
+|---|---|
+| `comprar_usd(fecha, cantidad, tc, motivo)` | asiento de compra + registra la operación |
+| `vender_usd(fecha, cantidad, tc, motivo)` | calcula el PPP, arma el asiento de tres líneas y registra la operación. Valida que haya dólares suficientes |
+
+**No hay proceso mensual.** A diferencia de socios y sponsors, las operaciones son puntuales: no hay nada que devengar, y `periodo_de_fecha` resuelve el período al asentar.
+
+**Alcance:** el más liviano de los módulos. No se crea estructura — tabla, caja y cuentas ya existen. Solo falta la lógica.
 
 ### 3.8 Presupuesto
 
@@ -1736,6 +1835,9 @@ No reabrir sin motivo nuevo:
 42. **`INGRESO_DIFERIDO` es un pasivo que se libera** mes a mes; el último período absorbe el redondeo.
 43. **Sponsor a nivel empresa** (`torneo_id` NULL); `DEUDORES_SPONSORS` propia, no la `DEUDORES` genérica.
 44. Las **cuotas de cobro de sponsor alimentan el cashflow** vía `v_cuotas_sponsor_futuras`.
+45. **USD por promedio ponderado**, derivado y no guardado.
+46. **Diferencia de cambio solo realizada**, al vender. `revaluacion` sale del dominio.
+47. **El diario es monomoneda**: la cantidad de dólares vive en `usd_operacion`, no en `asiento_linea`.
 
 ### Decisiones reemplazadas
 
