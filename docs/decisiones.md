@@ -716,6 +716,80 @@ misma mecánica y se modelan con un discriminante.
 
 ---
 
+## Sponsors
+
+**73 · Devengo lineal · el tercer patrón de reconocimiento**
+El contrato de sponsor se reconoce **prorrateado en los meses que cubre**:
+`monto_total / meses del rango`, parejo.
+*Por qué otro patrón más:* son tres naturalezas distintas y cada una ya tiene su
+argumento. El equipo **puede no pagar nunca**, así que hasta que no cobra no hay
+nada (decisión 1). El socio tiene un **fijo mensual cierto**, así que se devenga
+ese fijo cada mes (decisión 68). El sponsor firmó **un total por un período** y
+da visibilidad todo el tiempo: lo que gana el negocio cada mes es una fracción
+del contrato, no el contrato entero ni cero.
+*La asimetría es deliberada,* no una indecisión acumulada.
+
+**74 · Los dos calendarios se llevan separados**
+**Reconocimiento** —parejo, mensual, para el P&L— y **cobro** —las cuotas en sus
+fechas, para el cashflow— son dos líneas de tiempo que **no coinciden**.
+*Ejemplo:* 1.200.000 de ago-2026 a jul-2027 reconoce 100.000 todos los meses,
+pero puede cobrarse 400.000 en agosto, diciembre y abril.
+*Por qué separados:* responden preguntas distintas —"¿cuánto ganó el negocio este
+mes?" y "¿cuándo entra la plata?"— y colapsarlos en una sola línea obligaría a
+mentir en una de las dos.
+*Cómo:* `cuota_cobro_sponsor` lleva el cronograma de cobros; `devengo_sponsor`
+lleva lo reconocido. Ninguno se deriva del otro.
+*Validación:* la suma de las cuotas de cobro **tiene que igualar** `monto_total`.
+Si no, el cashflow proyecta plata que no va a entrar y `DEUDORES_SPONSORS` nunca
+llega a cero.
+
+**75 · `INGRESO_DIFERIDO` es un pasivo que se libera mes a mes**
+Al **firmar**: `DEUDORES_SPONSORS` / `INGRESO_DIFERIDO` por el total, **sin tocar
+el P&L** — se firmó, no se ganó nada todavía. Cada **mes**:
+`INGRESO_DIFERIDO` / `ING_SPONSORS` por la porción. Cada **cobro**: caja /
+`DEUDORES_SPONSORS`.
+*Cada pregunta tiene su cuenta:* cuánto ganamos (`ING_SPONSORS`), cuánto falta
+ganar (`INGRESO_DIFERIDO`), cuánto falta cobrar (`DEUDORES_SPONSORS`). Nada sale
+de cálculos aparte.
+*⚠ El último período absorbe el redondeo:* `total / meses` no siempre da exacto —
+1.000.000 en 12 meses deja 0,04 huérfanos, e `INGRESO_DIFERIDO` **nunca cerraría
+en cero**, mostrando cuatro centavos eternos de "pendiente de devengar". El
+último devengo toma el **remanente** (`monto_total` menos lo ya devengado) en vez
+de la cuota teórica: el pasivo cierra exacto por construcción.
+
+**76 · Sponsor a nivel empresa; `DEUDORES_SPONSORS` propia**
+Todos los asientos con **`torneo_id = NULL`**, igual que los sueldos de socios.
+*Por qué:* el contrato es **anual y cubre los dos torneos**; imputarlo a uno
+exigiría el prorrateo que la decisión 5 prohíbe.
+*Consecuencia a tener presente al leer las pantallas:* el ingreso de sponsors
+**no entra en la contribución de ningún torneo** — aparece bajo "Estructura
+permanente", y `v_comparador_torneos` compara torneos **sin** ingresos de
+sponsor. Es correcto y deliberado, pero sorprende si no se sabe.
+*Cuenta de deudores propia y no la `DEUDORES` genérica:* ésa se diseñó para
+equipos y la **decisión 1 la sacó de juego** —bajo percibido puro, lo que un
+equipo debe no está en el diario—. Reusarla resucitaría un concepto retirado a
+propósito y dejaría ambiguo "¿cuánto nos deben?", mezclando deuda de equipos, que
+no es saldo contable, con deuda de sponsors, que sí lo es.
+*Tampoco reusa `ANTICIPOS`:* un anticipo es plata **ya recibida**; el ingreso
+diferido es un contrato **firmado y no ganado**, que puede estar sin cobrar. Dos
+pasivos distintos.
+*De las tres cuentas, `ING_SPONSORS` ya existía* en el plan desde el schema
+inicial, sin uso.
+
+**77 · Las cuotas de cobro alimentan el cashflow**
+`v_cuotas_sponsor_futuras` expone las cuotas con fecha futura, y **es la que el
+módulo de cashflow va a consumir**.
+*Por qué importa dejarlo escrito:* es el punto de contacto entre este módulo y la
+previsión de caja (§3.10, §3.16). El cashflow no debe derivar la entrada de plata
+del devengo —que es parejo y no dice cuándo entra— sino de este cronograma.
+*El cobro de sponsor no reusa `registrar_cobro`:* ésa imputa contra `cuota` de
+equipos y llama a `imputar_pago`. El sponsor cobra contra `DEUDORES_SPONSORS` y
+no tiene cuotas de equipo. Mismo nombre coloquial, circuitos distintos.
+
+**Alcance del módulo:** backend. La pantalla es front y va después.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**

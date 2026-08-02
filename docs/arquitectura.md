@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 19 · agosto 2026 · módulo de socios: el sueldo se devenga (Forma B, excepción al percibido puro), `GAS_SOCIOS` / `SOCIOS_A_PAGAR`, sueldo versionado con historial y devengo mensual que escribe solo
+**Versión:** Draft 20 · agosto 2026 · módulo de sponsors: devengo lineal como tercer patrón de reconocimiento, dos calendarios separados (reconocimiento y cobro), ingreso diferido como pasivo que se libera mes a mes
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,24 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 19
+
+Segundo módulo de la capa societaria.
+
+**Devengo lineal · el tercer patrón de reconocimiento** (§3.20). Equipos por percibido puro, socios por devengo mensual de un fijo, sponsors por **devengo lineal prorrateado**: el contrato se reconoce repartido en los meses que cubre. Tres naturalezas distintas, tres tratamientos, cada uno argumentado.
+
+**Dos calendarios separados** (§3.20). El **reconocimiento** es parejo y mensual —responde *cuánto ganó el negocio este mes*—; el **cobro** son las cuotas en sus fechas —responde *cuándo entra la plata*—. Un contrato de 1.200.000 reconoce 100.000 por mes y puede cobrarse en tres cuotas de 400.000. Colapsarlos obligaría a mentir en una de las dos preguntas.
+
+**Ingreso diferido como pasivo que se libera** (§3.20). Al firmar se asienta `DEUDORES_SPONSORS` / `INGRESO_DIFERIDO` **sin tocar el P&L**: se firmó, no se ganó nada aún. Cada mes el devengo libera una porción contra `ING_SPONSORS`.
+
+**De las tres cuentas, una ya existía.** `ING_SPONSORS` está en el plan desde el schema inicial, sin uso. Se crean `DEUDORES_SPONSORS` e `INGRESO_DIFERIDO`. **Cuenta de deudores propia y no la `DEUDORES` genérica**: ésa se diseñó para equipos y la decisión 1 la sacó de juego, así que reusarla mezclaría deuda de equipos —que no es saldo contable— con deuda de sponsors, que sí lo es.
+
+**Nivel empresa, `torneo_id = NULL`** (§3.20), como los sueldos de socios. El contrato es anual y cubre los dos torneos. **Consecuencia a tener presente:** el ingreso de sponsors no entra en la contribución de ningún torneo, y `v_comparador_torneos` compara sin él.
+
+> **Un detalle que parece menor y no lo es** (§3.20). `total / meses` no siempre da exacto: 1.000.000 en 12 meses deja 0,04 huérfanos, y `INGRESO_DIFERIDO` nunca cerraría en cero. **El último período devenga el remanente** en vez de la cuota teórica, así el pasivo cierra exacto por construcción.
+
+---
 
 ## Qué cambió desde el Draft 18
 
@@ -1453,6 +1471,151 @@ Las dos cosas que hay que poder mirar: el número de hoy y cómo se llegó.
 
 **Alcance:** backend. La pantalla —cargar sueldo, registrar retiro, ver saldos— es front y va después.
 
+### 3.20 Sponsors · devengo lineal y dos calendarios
+
+*Diseño asentado, pendiente de construir.*
+
+Los sponsors aportan plata a cambio de visibilidad. Firman un **contrato anual** —cubre los dos torneos— por un monto total, con fechas de pago concretas. El aporte **se gana a lo largo del año**, porque dan visibilidad todo el tiempo, pero **se cobra en cuotas puntuales**.
+
+#### El tercer patrón de reconocimiento
+
+| Quién | Patrón | Por qué |
+|---|---|---|
+| **Equipos** | percibido puro (§1.b) | puede no pagar; hasta que no cobra no hay nada |
+| **Socios** (§3.19) | devengo mensual de un fijo | compromiso cierto, mismo monto cada mes |
+| **Sponsors** | **devengo lineal prorrateado** | el contrato se reconoce repartido en los meses que cubre |
+
+Tres patrones distintos para tres naturalezas distintas. **La asimetría es deliberada** y ya está argumentada caso por caso — no es que el sistema no se haya decidido.
+
+#### Los dos calendarios · el corazón del módulo
+
+Un contrato tiene **dos líneas de tiempo que no coinciden**, y el modelo las lleva separadas:
+
+| | Responde | Cadencia |
+|---|---|---|
+| **Reconocimiento** | *¿cuánto ganó el negocio este mes?* | **parejo**, mensual |
+| **Cobro** | *¿cuándo entra la plata?* | las **cuotas**, en sus fechas |
+
+Un contrato de 1.200.000 de ago-2026 a jul-2027 reconoce **100.000 por mes durante 12 meses**, pero puede cobrarse 400.000 en agosto, diciembre y abril:
+
+```
+Mes   Reconocido (P&L)   Entra (cashflow)
+Ago      100.000            400.000
+Sep      100.000                  0
+…        100.000                  …
+Dic      100.000            400.000
+Abr      100.000            400.000
+```
+
+Colapsarlos en uno solo obligaría a mentir en una de las dos preguntas.
+
+#### Tres momentos, tres asientos
+
+```
+Al FIRMAR — se registra la deuda y el ingreso todavía no ganado
+  DEUDORES_SPONSORS   debe   total
+    INGRESO_DIFERIDO        haber  total
+  Sin ingreso en el P&L: se firmó, no se ganó nada aún.
+
+Cada MES — devengo lineal, proceso automático
+  INGRESO_DIFERIDO    debe   total / meses      libera el pasivo
+    ING_SPONSORS            haber  total / meses      ingreso ganado → P&L
+
+Cada COBRO — la cuota que paga el sponsor
+  <caja>              debe   monto de la cuota
+    DEUDORES_SPONSORS       haber  monto de la cuota  cancela lo que nos debían
+```
+
+Cada pregunta se responde con **su** cuenta, sin cálculos aparte (§1.c):
+
+| Pregunta | Cuenta |
+|---|---|
+| ¿cuánto ganamos? | `ING_SPONSORS` |
+| ¿cuándo entra la plata? | las cuotas de cobro |
+| ¿cuánto falta ganar? | `INGRESO_DIFERIDO` |
+| ¿cuánto falta cobrar? | `DEUDORES_SPONSORS` |
+
+#### Las cuentas
+
+| Cuenta | Tipo | Estado |
+|---|---|---|
+| `ING_SPONSORS` | `ingreso` | **ya existe** en el plan, sin uso |
+| `DEUDORES_SPONSORS` | `activo` | nueva |
+| `INGRESO_DIFERIDO` | `pasivo` | nueva |
+
+**`DEUDORES_SPONSORS` propia y no la `DEUDORES` genérica.** `DEUDORES` "Deudores por servicios" se diseñó para equipos y la **decisión 1** la sacó de juego: bajo percibido puro, lo que un equipo debe **no está en el diario**. Reusarla resucitaría un concepto retirado a propósito y dejaría ambiguo "¿cuánto nos deben?", mezclando deuda de equipos —que no es saldo contable— con deuda de sponsors, que sí lo es.
+
+`INGRESO_DIFERIDO` tampoco reusa `ANTICIPOS`: un anticipo es plata **ya recibida** por adelantado; el ingreso diferido es un contrato **firmado y no ganado**, que puede además estar sin cobrar. Son dos pasivos distintos.
+
+#### Nivel empresa
+
+**Todos los asientos van con `torneo_id = NULL`**, igual que los sueldos de socios. El contrato es anual y cubre los dos torneos; imputarlo a uno exigiría el prorrateo que la **decisión 5** prohíbe.
+
+> **Consecuencia que conviene tener presente:** el ingreso de sponsors **no entra en la contribución de ningún torneo**. Aparece bajo "Estructura permanente" en `v_resultado_producto`, y `v_comparador_torneos` compara torneos **sin** ingresos de sponsor. Es correcto y deliberado, pero hay que saberlo al leer esas pantallas.
+
+#### Estructura
+
+```sql
+create table contrato_sponsor (
+  id             uuid primary key default gen_random_uuid(),
+  sponsor_id     uuid not null references tercero(id),
+  monto_total    numeric(16,2) not null,
+  vigente_desde  date not null,
+  vigente_hasta  date not null,
+  created_by     uuid references auth.users(id),
+  created_at     timestamptz not null default now()
+);
+
+create table cuota_cobro_sponsor (
+  id           uuid primary key default gen_random_uuid(),
+  contrato_id  uuid not null references contrato_sponsor(id) on delete cascade,
+  monto        numeric(16,2) not null,
+  fecha_cobro  date not null,
+  cobrado_at   date,
+  asiento_id   uuid references asiento(id)
+);
+
+create table devengo_sponsor (
+  id           uuid primary key default gen_random_uuid(),
+  contrato_id  uuid not null references contrato_sponsor(id),
+  periodo_id   uuid not null references periodo(id),
+  monto        numeric(16,2) not null,
+  asiento_id   uuid not null references asiento(id),
+  unique (contrato_id, periodo_id)
+);
+```
+
+`contrato_sponsor` **reusa el patrón de vigencia** estrenado en `sueldo_socio` (§3.19), y `devengo_sponsor` **reusa el anti-duplicado** de `devengo_socio`. El rango define en cuántos meses se prorratea.
+
+**La suma de las cuotas de cobro tiene que igualar `monto_total`.** Si no, el cashflow proyecta una plata que nunca va a entrar, o de menos — y `DEUDORES_SPONSORS` nunca llegaría a cero. Se valida.
+
+#### El último mes absorbe el redondeo
+
+> **Detalle que parece menor y no lo es.** `total / meses` no siempre da exacto: 1.000.000 en 12 meses da 83.333,33, y doce veces eso son 999.999,96. Los 0,04 quedarían **para siempre** en `INGRESO_DIFERIDO`, que nunca cerraría en cero, y "pendiente de devengar" mostraría cuatro centavos eternos.
+>
+> **El último período devenga el remanente** —`monto_total` menos lo ya devengado— en vez de la cuota teórica. Así el pasivo cierra exacto por construcción, sin arrastre.
+
+#### Procesos
+
+| Función | Qué hace |
+|---|---|
+| `crear_contrato_sponsor(…)` | registra el contrato, asienta la firma y, opcionalmente, carga el cronograma de cobros |
+| `devengar_sponsors(periodo_id)` | proceso mensual **idempotente que escribe solo**, igual que `devengar_sueldos_socios` |
+| `registrar_cobro_sponsor(cuota_id, medio, …)` | asiento caja / `DEUDORES_SPONSORS`, y marca la cuota cobrada |
+
+**El cobro de sponsor no reusa `registrar_cobro`.** Ésa imputa contra `cuota` de equipos y llama a `imputar_pago`; el sponsor cobra contra `DEUDORES_SPONSORS` y no tiene cuotas de equipo. Son circuitos distintos con el mismo nombre coloquial.
+
+De qué caja sale rige lo mismo que en §3.19: transferencia y central sin predio, efectivo **con** predio, o el arqueo de ese día no cierra.
+
+#### Lo que se lee
+
+| Vista | Para qué |
+|---|---|
+| `v_estado_sponsor` | por sponsor: total, devengado, cobrado, pendiente de devengar, pendiente de cobrar |
+| `v_cuotas_sponsor_futuras` | las cuotas con fecha futura — **la que el módulo de cashflow va a consumir** |
+
+**Alcance:** backend. La pantalla es front y va después.
+
 ## 4. Navegación
 
 Seis secciones; los módulos son pestañas internas. En el header: selector de **ámbito** (Empresa / Torneo) y de torneo.
@@ -1568,6 +1731,11 @@ No reabrir sin motivo nuevo:
 37. El **sueldo acordado se versiona con historial**; cambiarlo es insertar, no editar.
 38. El **devengo mensual escribe solo**, idempotente por `(socio, período)`.
 39. **Retiro de sueldo ≠ rescate del fondo de inversión.** Cuentas y conceptos separados.
+40. **Sponsors por devengo lineal** — tercer patrón, distinto de equipos y socios.
+41. **Dos calendarios separados**: reconocimiento (P&L, parejo) y cobro (cashflow, cuotas).
+42. **`INGRESO_DIFERIDO` es un pasivo que se libera** mes a mes; el último período absorbe el redondeo.
+43. **Sponsor a nivel empresa** (`torneo_id` NULL); `DEUDORES_SPONSORS` propia, no la `DEUDORES` genérica.
+44. Las **cuotas de cobro de sponsor alimentan el cashflow** vía `v_cuotas_sponsor_futuras`.
 
 ### Decisiones reemplazadas
 
