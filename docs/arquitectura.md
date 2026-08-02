@@ -1191,7 +1191,21 @@ VENTA — USD 1.000 a $1.200, con promedio en libros de $1.000
 | `v_tenencia_usd` | cuántos USD hay, costo en libros y promedio ponderado actual |
 | `v_resultado_cambio` | la diferencia de cambio realizada, que hoy no se ve |
 
-> **Un riesgo del diseño, que conviene tener escrito.** El promedio se calcula cruzando **dos fuentes**: la cantidad sale de `usd_operacion` y los pesos del diario. Si alguien asienta contra `CAJA_USD` **sin** registrar la operación —un `crear_asiento` directo, un ajuste— el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado. Las funciones son la única puerta correcta; conviene además una verificación que compare ambas fuentes.
+#### La red de seguridad · `v_usd_sincronia`
+
+El promedio cruza **dos fuentes**: la cantidad sale de `usd_operacion` y los pesos del diario. Si alguien asienta contra `CAJA_USD` **sin** registrar la operación —un `crear_asiento` directo, un ajuste— el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado.
+
+`v_usd_sincronia` compara el costo en libros contra el que se reconstruye desde `usd_operacion`, y dice `OK` o qué no cierra.
+
+**El costo esperado no es `Σ monto_pesos`.** En una venta, `monto_pesos` es lo **recibido**, pero de `CAJA_USD` sale el **costo al PPP** — dos números distintos. Y el PPP de cada venta dependió del estado en ese momento. Por eso hay que **reconstruirlo**, rehaciendo el promedio operación por operación.
+
+> **El orden del replay tiene que ser el de ejecución, y eso obligó a una columna nueva.**
+>
+> `fecha` **no sirve**: `vender_usd` calcula el PPP sobre el estado real del diario al ejecutar, así que una compra registrada con fecha vieja después de una venta daría un replay distinto del que ocurrió.
+>
+> `asiento.created_at` **tampoco**: `now()` devuelve la hora de la **transacción**, no de la sentencia. Varias operaciones en una misma transacción quedan con timestamp idéntico y el desempate cae en un uuid aleatorio. **Lo detectó el test**: las ventas se replicaban antes que las compras y el costo esperado salía igual a la suma de las compras, sin restar nada.
+>
+> `usd_operacion.orden` —una secuencia, que sí avanza dentro de la transacción— es la clave correcta.
 
 #### Funciones
 

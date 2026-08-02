@@ -2931,6 +2931,7 @@ export type Database = {
           id: string
           monto_pesos: number
           motivo: string | null
+          orden: number
           tc: number
           tipo: string
         }
@@ -2941,6 +2942,7 @@ export type Database = {
           id?: string
           monto_pesos: number
           motivo?: string | null
+          orden?: never
           tc: number
           tipo: string
         }
@@ -2951,6 +2953,7 @@ export type Database = {
           id?: string
           monto_pesos?: number
           motivo?: string | null
+          orden?: never
           tc?: number
           tipo?: string
         }
@@ -3528,6 +3531,16 @@ export type Database = {
           },
         ]
       }
+      v_resultado_cambio: {
+        Row: {
+          anio: number | null
+          ganancias: number | null
+          mes: number | null
+          perdidas: number | null
+          resultado: number | null
+        }
+        Relationships: []
+      }
       v_resultado_producto: {
         Row: {
           anio: number | null
@@ -3603,6 +3616,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_tenencia_usd: {
+        Row: {
+          costo_libros: number | null
+          promedio_ponderado: number | null
+          tenencia_usd: number | null
+        }
+        Relationships: []
+      }
       v_torneo_escala: {
         Row: {
           dias_cancha: number | null
@@ -3621,6 +3642,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_usd_sincronia: {
+        Row: {
+          costo_esperado: number | null
+          costo_libros: number | null
+          diferencia: number | null
+          estado: string | null
+          lineas_caja_usd: number | null
+          operaciones: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       anular_asiento: {
@@ -3634,6 +3666,16 @@ export type Database = {
       cargar_cuotas_sponsor: {
         Args: { p_contrato_id: string; p_cuotas: Json }
         Returns: number
+      }
+      comprar_usd: {
+        Args: {
+          p_cantidad: number
+          p_fecha: string
+          p_medio?: string
+          p_motivo?: string
+          p_tc: number
+        }
+        Returns: string
       }
       crear_arqueo: {
         Args: {
@@ -3791,6 +3833,17 @@ export type Database = {
       }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
+      usd_costo_esperado: { Args: never; Returns: number }
+      vender_usd: {
+        Args: {
+          p_cantidad: number
+          p_fecha: string
+          p_medio?: string
+          p_motivo?: string
+          p_tc: number
+        }
+        Returns: string
+      }
     }
     Enums: {
       concepto_pago: "inscripcion" | "partidos"
