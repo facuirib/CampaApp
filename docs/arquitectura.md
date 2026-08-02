@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 18 · agosto 2026 · playoffs por serie: formato de instancia como tabla configurable, `crear_playoff`, `equipo_playoff`, cuota por instancia jugada; la decisión 45 queda acotada a la liga
+**Versión:** Draft 19 · agosto 2026 · módulo de socios: el sueldo se devenga (Forma B, excepción al percibido puro), `GAS_SOCIOS` / `SOCIOS_A_PAGAR`, sueldo versionado con historial y devengo mensual que escribe solo
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,22 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 18
+
+Primer módulo posterior al rediseño calendario-por-serie. Introduce **dos patrones que el sistema no tenía**.
+
+**El sueldo del socio se devenga — Forma B** (§3.19). Es la **excepción deliberada al percibido puro** de §1.b, y no una inconsistencia: el ingreso de un equipo puede no ocurrir nunca, pero el sueldo del socio es un compromiso cierto que existe cada mes se retire o no. No registrarlo hace que **la caja parezca toda del negocio cuando parte ya está comprometida**.
+
+**Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo)** (§3.19). Egreso y no patrimonio: el sueldo de socios es **costo del negocio**, así que la rentabilidad del torneo se lee después de él. Cuenta propia separada de `GAS_SUELDOS` para poder distinguir el sueldo operativo del de los dueños. **Ninguna vista se toca**: `v_resultado_producto` filtra por tipo de cuenta, así que `GAS_SOCIOS` entra al P&L y el pasivo no.
+
+**El sueldo acordado se versiona con historial** (§3.19). **Primer parámetro versionado de verdad**: `config_contable` tiene `vigente_desde` pero es una fila única sin historial —y no la lee nadie—, así que no servía de molde. Cambiar el sueldo es insertar una fila, no editar: es lo que permite recalcular un mes viejo con el sueldo que regía entonces.
+
+**El devengo mensual escribe solo** (§3.19). **Rompe con el único precedente** de proceso mensual: `proponer_amortizaciones` propone y el operador confirma (decisión 23), porque una amortización es una estimación. El sueldo es un monto acordado y conocido — no hay nada que revisar. Idempotente por `(socio, período)` y disparado explícitamente, no por cron.
+
+**El retiro de sueldo no se mezcla con el fondo de inversión** (§3.15, §3.19). El fondo ya modela plata de socios en el sentido contrario. Uno cancela un pasivo devengado, el otro mueve respaldo: cuentas y conceptos separados, o `v_dependencia_fondo` deja de significar lo que dice.
+
+---
 
 ## Qué cambió desde el Draft 17
 
@@ -1320,6 +1336,117 @@ Dos conceptos independientes por género, cada uno con opciones alternativas; el
 
 **Válido para todas las categorías del género** — ninguna categoría tiene tarifa propia, por eso el plan lleva `genero` y no `categoria_id` (principio d, decisión 3). Con la estructura de §3.4 esto se resuelve solo: el género es atributo de la `categoria`, así que la ficha llega a su tarifario subiendo serie → categoría → género.
 
+### 3.19 Socios · sueldo devengado y retiros
+
+*Diseño asentado, pendiente de construir.*
+
+Guille y Agus —los dueños— tienen un **sueldo mensual acordado**. Retiran plata cuando quieren, y el sistema lleva la cuenta: cuánto se devengó, cuánto se retiró, y el saldo acumulado.
+
+- El sueldo es **fijo mensual**, no reparto de ganancias. Puede cambiar en el tiempo.
+- **Se acumula**: lo no retirado queda a favor y se cobra cuando el socio quiera.
+- Retirar de más deja el saldo **en contra**.
+- Saldo **corriente acumulado**, sin reseteo mensual.
+
+Se cargan como `tercero` de tipo **`socio`** — el tipo ya existe en el CHECK y §3.4 ya dice que equipos, sponsors y socios comparten mecánica. No hace falta tabla propia.
+
+#### Forma B · devengo, no percibido puro
+
+**Ésta es la excepción deliberada al principio §1.b.** Los ingresos de equipos van por percibido puro; el sueldo del socio **se devenga**.
+
+| | Reconocimiento | Por qué |
+|---|---|---|
+| Ingreso de equipo | **percibido** | puede no pagar; hasta que no cobra no hay nada |
+| Sueldo de socio | **devengo** | es un compromiso cierto: se acordó pagarlo y existe cada mes, se retire o no |
+
+No registrarlo distorsiona en una dirección concreta: **la caja parece toda del negocio cuando parte ya está comprometida** con los socios. Son situaciones distintas y merecen tratamiento distinto — no es una inconsistencia sino la misma lógica de §1.b aplicada a un hecho de naturaleza opuesta.
+
+#### Los dos asientos
+
+```
+Devengo (mensual, automático):
+  GAS_SOCIOS        debe   X      egreso — baja la contribución del torneo
+    SOCIOS_A_PAGAR        haber  X      pasivo — lo que se le debe al socio
+
+Retiro (cuando el socio saca plata):
+  SOCIOS_A_PAGAR    debe   X      cancela el pasivo
+    <caja>                haber  X      sale la plata
+```
+
+**El saldo del socio es el saldo de `SOCIOS_A_PAGAR` imputado a ese socio** — devengado menos retirado. Positivo = a favor; negativo = retiró de más. Sale del libro diario, no de un cálculo aparte (§1.c).
+
+`crear_asiento` expresa los dos **sin cambios**: `origen = 'socio'` ya está en su CHECK, y `asiento_linea.tercero_id` permite imputar por socio.
+
+#### Las dos cuentas nuevas
+
+| Cuenta | Tipo | Rol |
+|---|---|---|
+| **`GAS_SOCIOS`** | `egreso` | el sueldo del socio |
+| **`SOCIOS_A_PAGAR`** | `pasivo` | lo devengado y no retirado |
+
+**`egreso`, no `patrimonio`.** El sueldo de socios se trata como **costo del negocio**, no como distribución de utilidad: la rentabilidad del torneo se lee **después** de los sueldos de socios.
+
+**El tipo de cuenta decide el P&L solo.** `v_resultado_producto` filtra `where c.tipo in ('ingreso','egreso')`: `GAS_SOCIOS` entra y baja la contribución; `SOCIOS_A_PAGAR`, por ser pasivo, no aparece. **No hay que tocar ninguna vista.**
+
+**Cuenta propia, separada de `GAS_SUELDOS`** (empleados). Da lo mismo en el total del P&L, pero permite leer por separado el sueldo operativo del de los dueños — que es justo la distinción que se querría mirar.
+
+#### No mezclar con el fondo de inversión (§3.15)
+
+El fondo **ya modela plata de socios**, y en el sentido contrario: colocación y rescate contra `FONDO_INVERSION`, sin tocar resultado porque son movimientos de fondos.
+
+**Un retiro de sueldo no es un rescate del fondo.** Uno cancela un pasivo devengado; el otro mueve respaldo. Cuentas y conceptos **separados**: si terminaran en la misma cuenta o en el mismo indicador, `v_dependencia_fondo` dejaría de significar lo que dice — "hace ocho meses que rescatamos más de lo que devolvemos" se contaminaría con retiros de sueldo, que son otra cosa.
+
+#### Patrón nuevo · el sueldo acordado se versiona
+
+```sql
+create table sueldo_socio (
+  id            uuid primary key default gen_random_uuid(),
+  socio_id      uuid not null references tercero(id),
+  monto         numeric(16,2) not null,
+  vigente_desde date not null,
+  created_by    uuid references auth.users(id),
+  created_at    timestamptz not null default now()
+);
+```
+
+**Es el primer parámetro versionado de verdad del sistema.** `config_contable` tiene `vigente_desde`, pero es **una sola fila sin historial** —guarda "el umbral actual y desde cuándo", no una línea de tiempo— y además no la lee nadie: no sirve de molde.
+
+El sueldo vigente en un mes es **el de mayor `vigente_desde <= fin de ese mes`**. Cambiar el sueldo es **insertar una fila**, no editar la que hay. El historial es lo que permite recalcular un mes viejo con el sueldo que regía entonces — sin él, corregir un devengo de marzo usaría el sueldo de hoy.
+
+#### Patrón nuevo · el devengo escribe solo
+
+```sql
+devengar_sueldos_socios(periodo_id) → int   -- cuántos devengó
+```
+
+**Rompe con el único precedente, y es deliberado.** `proponer_amortizaciones` **propone** y el operador confirma (decisión 23), porque una amortización es una **estimación**. El sueldo del socio es un **monto acordado y conocido**: no hay nada que revisar, y devengarlo directo es defendible.
+
+- Por cada socio con sueldo vigente en el período, genera el asiento `GAS_SOCIOS` / `SOCIOS_A_PAGAR` por el monto vigente.
+- **Idempotente**: `unique (socio_id, periodo_id)`, mismo patrón que `amortizacion`. Correrlo dos veces no duplica.
+- **Se dispara por período, explícitamente.** No es un cron invisible: alguien lo corre al procesar el mes.
+- **Aborta si el período está cerrado** — `periodo_de_fecha` ya lo garantiza.
+
+#### El retiro
+
+Asiento `SOCIOS_A_PAGAR` / caja. De qué caja sale importa:
+
+| Caja | Requiere predio | |
+|---|---|---|
+| `CAJA_TRANSFERENCIA` · `CAJA_CENTRAL` | no | el camino natural |
+| `CAJA_EFECTIVO` | **sí** | el asiento declara de qué predio salió |
+
+No es una restricción del módulo sino de `crear_asiento`, que exige `predio_id` ante cualquier línea de `CAJA_EFECTIVO` — y con razón: si un socio se lleva efectivo de un predio y el asiento no lo dice, **el arqueo de ese día no cuadra** (§3.6).
+
+#### Lo que se lee
+
+| Vista | Para qué |
+|---|---|
+| `v_saldo_socio` | saldo actual por socio: a favor o en contra |
+| `v_socio_detalle_mensual` | por socio y período: devengado, retirado, saldo acumulado |
+
+Las dos cosas que hay que poder mirar: el número de hoy y cómo se llegó.
+
+**Alcance:** backend. La pantalla —cargar sueldo, registrar retiro, ver saldos— es front y va después.
+
 ## 4. Navegación
 
 Seis secciones; los módulos son pestañas internas. En el header: selector de **ámbito** (Empresa / Torneo) y de torneo.
@@ -1430,6 +1557,11 @@ No reabrir sin motivo nuevo:
 32. **`crear_playoff`** es la puerta del playoff, con identidad `(serie_id, instancia)`.
 33. La **cuota de playoff se genera por instancia jugada**, en un paso posterior a la ficha, desde `equipo_playoff`.
 34. Los **partidos de un playoff son dato**, no derivados. La decisión 45 queda acotada a la liga.
+35. El **sueldo del socio se devenga** (Forma B) — excepción deliberada al percibido puro.
+36. **`GAS_SOCIOS` es egreso propio**: costo del negocio, separado de los sueldos de empleados.
+37. El **sueldo acordado se versiona con historial**; cambiarlo es insertar, no editar.
+38. El **devengo mensual escribe solo**, idempotente por `(socio, período)`.
+39. **Retiro de sueldo ≠ rescate del fondo de inversión.** Cuentas y conceptos separados.
 
 ### Decisiones reemplazadas
 

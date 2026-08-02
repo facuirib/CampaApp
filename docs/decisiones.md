@@ -642,6 +642,75 @@ a cuartos, los 4 a semifinal, los 2 a la final— es front y va después; llena
 
 ---
 
+## Socios
+
+**68 · El sueldo del socio se devenga (Forma B), no va por percibido**
+Es la **excepción deliberada** a la decisión 1. Los ingresos de equipos se
+reconocen al cobrar; el sueldo del socio se devenga cada mes, se retire o no.
+*Por qué no es una inconsistencia:* son hechos de naturaleza opuesta. El ingreso
+de un equipo **puede no ocurrir nunca** —si no paga, no hay nada que reconocer—;
+el sueldo del socio es un **compromiso cierto**: se acordó pagarlo y existe cada
+mes independientemente de si lo retira.
+*Qué se rompe si no se registra:* la caja parece toda del negocio cuando parte ya
+está comprometida con los socios. El número queda bien y la lectura mal.
+*Alcance:* no toca el reconocimiento de ingresos. La decisión 1 sigue intacta.
+
+**69 · `GAS_SOCIOS` es egreso propio, no patrimonio ni `GAS_SUELDOS`**
+Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo).
+*Egreso y no patrimonio:* el sueldo de socios se trata como **costo del negocio**,
+no como distribución de utilidad. La rentabilidad del torneo se lee **después**
+de los sueldos de socios.
+*Cómo se implementa el P&L:* solo con el tipo de cuenta.
+`v_resultado_producto` filtra `c.tipo in ('ingreso','egreso')`, así que
+`GAS_SOCIOS` entra y baja la contribución, y `SOCIOS_A_PAGAR` no aparece por ser
+pasivo. **Ninguna vista se toca.** Si la cuenta fuera `patrimonio` —valor que el
+CHECK admite y que hoy no usa nadie— simplemente no aparecería.
+*Cuenta propia y no `GAS_SUELDOS`:* el total del P&L es el mismo, pero separarlas
+permite leer el sueldo operativo aparte del de los dueños, que es justo la
+distinción que se quiere mirar.
+*El saldo del socio es el saldo de `SOCIOS_A_PAGAR` imputado a él* — devengado
+menos retirado. Sale del diario, no de un cálculo aparte.
+
+**70 · El sueldo acordado se versiona con historial**
+`sueldo_socio (socio_id, monto, vigente_desde)`. El vigente en un mes es el de
+mayor `vigente_desde <= fin de ese mes`. **Cambiar el sueldo es insertar una
+fila, no editar la que hay.**
+*Por qué:* sin historial, corregir el devengo de marzo usaría el sueldo de hoy.
+El historial es lo que permite recalcular un mes viejo con el sueldo que regía
+entonces.
+*Primer parámetro versionado de verdad del sistema.* `config_contable` tiene
+`vigente_desde`, pero es **una sola fila sin historial** —guarda "el umbral
+actual y desde cuándo", no una línea de tiempo— y además no la lee ninguna
+función ni vista. No servía de molde.
+
+**71 · El devengo mensual escribe solo**
+`devengar_sueldos_socios(periodo_id)` genera los asientos directamente.
+Idempotente por `unique (socio_id, periodo_id)` —mismo patrón que
+`amortizacion`—, disparado explícitamente al procesar el mes, y aborta si el
+período está cerrado.
+*Rompe con el único precedente, y es deliberado:* `proponer_amortizaciones`
+**propone** y el operador confirma (decisión 23) porque una amortización es una
+**estimación**. El sueldo del socio es un **monto acordado y conocido**: no hay
+nada que revisar antes de asentarlo.
+*No es un cron invisible:* alguien lo corre. Correrlo dos veces no duplica.
+
+**72 · El retiro de sueldo no se mezcla con el fondo de inversión**
+Cuentas y conceptos separados de `FONDO_INVERSION` (decisión 22, §3.15).
+*Por qué:* el fondo ya modela plata de socios, pero **en el sentido contrario** —
+colocación y rescate, movimientos de fondos que no tocan resultado. Un retiro de
+sueldo **cancela un pasivo devengado**; un rescate **mueve respaldo**. Si
+terminaran en la misma cuenta o en el mismo indicador, `v_dependencia_fondo`
+dejaría de significar lo que dice: "hace ocho meses que rescatamos más de lo que
+devolvemos" se contaminaría con retiros de sueldo, que son otra cosa.
+
+**Alcance del módulo:** backend. La pantalla —cargar sueldo, registrar retiro,
+ver saldos— es front y va después. Guille y Agus se cargan como `tercero` tipo
+`socio`; el tipo **ya existe** en el CHECK y no hace falta tabla propia —
+`arquitectura.md` §3.4 ya establece que equipos, sponsors y socios comparten la
+misma mecánica y se modelan con un discriminante.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
