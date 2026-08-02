@@ -1103,6 +1103,96 @@ export type Database = {
         }
         Relationships: []
       }
+      contrato_sponsor: {
+        Row: {
+          asiento_firma_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          monto_total: number
+          sponsor_id: string
+          vigente_desde: string
+          vigente_hasta: string
+        }
+        Insert: {
+          asiento_firma_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto_total: number
+          sponsor_id: string
+          vigente_desde: string
+          vigente_hasta: string
+        }
+        Update: {
+          asiento_firma_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto_total?: number
+          sponsor_id?: string
+          vigente_desde?: string
+          vigente_hasta?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_sponsor_asiento_firma_id_fkey"
+            columns: ["asiento_firma_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_asiento_firma_id_fkey"
+            columns: ["asiento_firma_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "tercero"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_saldo_socio"
+            referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_detalle_mensual"
+            referencedColumns: ["socio_id"]
+          },
+        ]
+      }
       cuenta: {
         Row: {
           codigo: string
@@ -1207,6 +1297,72 @@ export type Database = {
           },
         ]
       }
+      cuota_cobro_sponsor: {
+        Row: {
+          asiento_id: string | null
+          cobrado_at: string | null
+          contrato_id: string
+          created_at: string
+          fecha_cobro: string
+          id: string
+          monto: number
+        }
+        Insert: {
+          asiento_id?: string | null
+          cobrado_at?: string | null
+          contrato_id: string
+          created_at?: string
+          fecha_cobro: string
+          id?: string
+          monto: number
+        }
+        Update: {
+          asiento_id?: string | null
+          cobrado_at?: string | null
+          contrato_id?: string
+          created_at?: string
+          fecha_cobro?: string
+          id?: string
+          monto?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuota_cobro_sponsor_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuota_cobro_sponsor_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "cuota_cobro_sponsor_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contrato_sponsor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuota_cobro_sponsor_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuotas_sponsor_futuras"
+            referencedColumns: ["contrato_id"]
+          },
+          {
+            foreignKeyName: "cuota_cobro_sponsor_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "v_estado_sponsor"
+            referencedColumns: ["contrato_id"]
+          },
+        ]
+      }
       devengo_socio: {
         Row: {
           asiento_id: string
@@ -1302,6 +1458,83 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+        ]
+      }
+      devengo_sponsor: {
+        Row: {
+          asiento_id: string
+          contrato_id: string
+          created_at: string
+          id: string
+          monto: number
+          periodo_id: string
+        }
+        Insert: {
+          asiento_id: string
+          contrato_id: string
+          created_at?: string
+          id?: string
+          monto: number
+          periodo_id: string
+        }
+        Update: {
+          asiento_id?: string
+          contrato_id?: string
+          created_at?: string
+          id?: string
+          monto?: number
+          periodo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devengo_sponsor_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devengo_sponsor_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "devengo_sponsor_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contrato_sponsor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devengo_sponsor_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuotas_sponsor_futuras"
+            referencedColumns: ["contrato_id"]
+          },
+          {
+            foreignKeyName: "devengo_sponsor_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "v_estado_sponsor"
+            referencedColumns: ["contrato_id"]
+          },
+          {
+            foreignKeyName: "devengo_sponsor_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "periodo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devengo_sponsor_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_detalle_mensual"
+            referencedColumns: ["periodo_id"]
           },
         ]
       }
@@ -2946,6 +3179,60 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cuotas_sponsor_futuras: {
+        Row: {
+          contrato_id: string | null
+          cuota_id: string | null
+          fecha_cobro: string | null
+          monto: number | null
+          sponsor: string | null
+          sponsor_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "tercero"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_saldo_socio"
+            referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_detalle_mensual"
+            referencedColumns: ["socio_id"]
+          },
+        ]
+      }
       v_dependencia_fondo: {
         Row: {
           colocado: number | null
@@ -3082,6 +3369,67 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["equipo_torneo_id"]
+          },
+        ]
+      }
+      v_estado_sponsor: {
+        Row: {
+          cobrado: number | null
+          contrato_id: string | null
+          cuotas: number | null
+          cuotas_pendientes: number | null
+          devengado: number | null
+          meses: number | null
+          monto_total: number | null
+          pendiente_cobrar: number | null
+          pendiente_devengar: number | null
+          sponsor: string | null
+          sponsor_id: string | null
+          vigente_desde: string | null
+          vigente_hasta: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "tercero"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_saldo_socio"
+            referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_detalle_mensual"
+            referencedColumns: ["socio_id"]
           },
         ]
       }
@@ -3283,6 +3631,10 @@ export type Database = {
         Args: { p_cuota_id: string; p_monto: number; p_tercero_id: string }
         Returns: number
       }
+      cargar_cuotas_sponsor: {
+        Args: { p_contrato_id: string; p_cuotas: Json }
+        Returns: number
+      }
       crear_arqueo: {
         Args: {
           p_dia_cancha_id: string
@@ -3302,6 +3654,17 @@ export type Database = {
           p_origen_id?: string
           p_predio_id?: string
           p_torneo_id?: string
+        }
+        Returns: string
+      }
+      crear_contrato_sponsor: {
+        Args: {
+          p_cuotas?: Json
+          p_fecha_firma?: string
+          p_monto_total: number
+          p_sponsor_id: string
+          p_vigente_desde: string
+          p_vigente_hasta: string
         }
         Returns: string
       }
@@ -3343,6 +3706,7 @@ export type Database = {
         }
         Returns: string
       }
+      devengar_sponsors: { Args: { p_periodo_id: string }; Returns: number }
       devengar_sueldos_socios: {
         Args: { p_periodo_id: string }
         Returns: number
@@ -3369,6 +3733,10 @@ export type Database = {
         Returns: number
       }
       imputar_pago_automatico: { Args: { p_pago_id: string }; Returns: number }
+      meses_contrato: {
+        Args: { p_desde: string; p_hasta: string }
+        Returns: number
+      }
       mover_jornada: {
         Args: { p_jornada_id: string; p_nueva_fecha: string }
         Returns: undefined
@@ -3393,6 +3761,15 @@ export type Database = {
           p_predio_id?: string
           p_responsable_id?: string
           p_tercero_id: string
+        }
+        Returns: string
+      }
+      registrar_cobro_sponsor: {
+        Args: {
+          p_cuota_id: string
+          p_fecha?: string
+          p_medio: string
+          p_predio_id?: string
         }
         Returns: string
       }
