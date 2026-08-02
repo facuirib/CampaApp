@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 21 · agosto 2026 · módulo USD: caja de cobertura valuada por promedio ponderado, diferencia de cambio solo realizada, y el diario confirmado monomoneda
+**Versión:** Draft 22 · agosto 2026 · cashflow con tres niveles de certeza (real / comprometido / estimado), anti-duplicación por estado, y §3.10 reemplazada
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,24 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 21
+
+La pieza que integra todo, y **la última grande de backend**. Es mayormente lectura: junta en una línea de tiempo las fuentes que los módulos anteriores ya producen. **Sin estructura nueva.**
+
+**Tres niveles de certeza, automáticos** (§3.10). **REAL** —movimientos de caja del diario—, **COMPROMETIDO** —cuotas de equipos y sponsors, con fecha pactada— y **ESTIMADO** —el presupuesto—. El nivel lo determina el **estado** del flujo, sin clasificación a mano, y **la confianza es una columna del modelo**, no una convención de la pantalla.
+
+**REAL sale de las cajas, no de `ingreso`/`egreso`** (§3.10). Los gastos van por devengo y los sueldos de socios también, así que esas cuentas no son caja. Y **se agregan todas las cajas**, lo que resuelve un problema solo: los traslados predio → central y las compras de USD mueven plata entre dos cuentas de caja, así que en el agregado **suman cero y no ensucian el flujo**.
+
+**ESTIMADO se distribuye por el calendario** (§3.10). `v_presupuesto_total` da un total sin dimensión temporal; se reparte con el calendario que ya existe — `por_partido` en las fechas de las jornadas, `por_dia_cancha` en los días de cancha, `por_mes` parejo. El costo cae donde el calendario dice que ocurre la actividad.
+
+**La semana se deriva de las fechas** (§3.10), con `date_trunc`. Sin tabla de semanas: una semana no es un período contable y no debería serlo.
+
+> **⚠ La anti-duplicación no alcanza del lado de egresos** (§3.10). Funciona sola en ingresos —la cuota cobrada tiene `saldo = 0` y sale de COMPROMETIDO—, pero **ESTIMADO sale del presupuesto, no de los gastos**: pagar un gasto no achica el presupuesto, así que 100.000 presupuestados y 100.000 pagados en el mismo mes darían **200.000**. La asimetría es de fondo: una cuota es un compromiso individual con estado; una línea de presupuesto es un agregado sin estado. **Resolución propuesta:** cortar la línea de tiempo por fecha —pasado REAL, futuro proyectado—, que hace la exclusión estructural. Se cierra al construir.
+
+**§3.10 se reemplaza por completo.** La `v_flujo_proyectado` que documentaba **no existía**, y su SQL **no compilaría**: referencia `cat_gasto.grupo`, `presupuesto_linea.monto_mensual`/`cantidad_x_fecha` y `jornada.torneo_id`, todo eliminado. Cuarta aparición del drift doc↔schema, y la más grande porque parecía código construido.
+
+---
 
 ## Qué cambió desde el Draft 20
 
@@ -1291,41 +1309,92 @@ create table envio (
 - El nivel de automatización es configurable: `manual` (botón por equipo) / `mixto` (aviso automático, reclamo manual) / `automatico` (ambos, con log).
 - Todo envío queda registrado en `envio` y visible desde la cuenta corriente del tercero.
 
-### 3.10 Previsión de caja
+### 3.10 Cashflow · flujo de fondos con niveles de certeza
 
-La proyección no es una tabla: es una vista que une tres orígenes.
+*Diseño asentado, pendiente de construir.*
 
-```sql
-create view v_flujo_proyectado as
--- 1. COMPROMETIDO: cuota impaga con vencimiento (no genera asiento)
-select c.vence_at as fecha, 'comprometido' as origen, 'ingreso' as signo, c.monto,
-       t.nombre as detalle
-from cuota c
-join equipo_torneo et on et.id = c.equipo_torneo_id
-join tercero t        on t.id = et.tercero_id
-where c.pagado_at is null
+La pieza que integra todo. Es **mayormente lectura**: junta en una línea de tiempo las fuentes que ya existen, sin estructura nueva.
 
-union all
--- 2. RECURRENTE: gastos fijos mensuales proyectados
-select make_date(extract(year from d)::int, extract(month from d)::int, 25),
-       'recurrente', 'egreso', pl.monto_mensual, cg.nombre
-from presupuesto_linea pl
-join cat_gasto cg on cg.id = pl.cat_gasto_id
-cross join generate_series(current_date, current_date + interval '6 months', '1 month') d
-where cg.grupo = 'recurrente'
+El requisito: **ver qué plata hay y va a haber, semana a semana, y que cada número diga de dónde viene y cuán seguro es.** Sin duplicar nada.
 
-union all
--- 3. ESTIMADO: gastos de jornadas que faltan jugar
-select j.fecha, 'estimado', 'egreso',
-       pl.arancel * pl.cantidad_x_fecha, cg.nombre
-from jornada j
-join presupuesto p       on p.torneo_id = j.torneo_id
-join presupuesto_linea pl on pl.presupuesto_id = p.id
-join cat_gasto cg        on cg.id = pl.cat_gasto_id
-where j.estado = 'programada' and cg.grupo = 'fecha';
-```
+#### Tres niveles de certeza
 
-La UI los distingue con badge (C / R / E). Es lo que permite responder "¿de dónde sale este número?" sin abrir el código.
+Cada flujo cae en **un solo** nivel, y el nivel lo determina su **estado** — automático y objetivo, sin clasificación a mano:
+
+| Nivel | Qué es | Fuente | Fecha |
+|---|---|---|---|
+| **REAL** | ya pasó, está en el diario | movimientos de las cuentas de caja | `asiento.fecha` |
+| **COMPROMETIDO** | pactado, fecha y monto ciertos | cuotas de equipos (saldo) + sponsors | `vence_at` / `fecha_cobro` |
+| **ESTIMADO** | cálculo, sin compromiso detrás | presupuesto distribuido | según el calendario |
+
+**La confianza es una columna del modelo**, no una convención de la pantalla: cada flujo sabe su nivel y la vista agrupa por él.
+
+#### REAL · movimiento de las cajas, agregadas
+
+Sale de las líneas de las cuentas que apunta `caja.cuenta_id` —`CAJA_EFECTIVO`, `CAJA_TRANSFERENCIA`, `CAJA_CENTRAL`, `CAJA_USD`— por `asiento.fecha`.
+
+**Tiene que ser por caja y no por tipo `ingreso`/`egreso`.** Los gastos van por devengo y los sueldos de socios también, así que `GAS_*` y `SOCIOS_A_PAGAR` **no son caja**: solo los ingresos de equipos coinciden, por percibido puro. Se cuenta lo que tocó caja y nada más.
+
+**Se agregan todas las cajas**, y eso resuelve un problema solo: los traslados predio → central (§3.6) y las compras de USD (§3.7) mueven plata **entre dos cuentas de caja**, así que en el agregado suman cero y no ensucian el flujo. El flujo real es el movimiento de la **posición de caja**, no de cada caja por separado. El desglose por caja, si se quiere, es otra vista.
+
+#### COMPROMETIDO · lo pactado con fecha
+
+**Ingresos:**
+
+- **Cuotas de equipos** — de `v_estado_cuota`, el **`saldo`** pendiente y no el `monto`, porque hay cuotas parciales. **Excluye las de jornada suspendida** (decisión 51): no se proyecta lo que nadie va a reclamar.
+- **Cuotas de sponsors** — `v_cuotas_sponsor_futuras`. La fuente más limpia del sistema: fechas y montos ciertos, y validado que la suma cubre el contrato (decisión 74).
+
+**Egresos:** `compromiso` con `sentido = 'pagar'` y `cheque` por `fecha_cobro`. Hoy `compromiso` está prácticamente vacía —solo la escribe `generar_cuotas_plan`— así que se suma lo que haya.
+
+#### ESTIMADO · el presupuesto distribuido por el calendario
+
+`v_presupuesto_total` da un **total sin dimensión temporal**. Para la línea de tiempo se reparte usando el calendario que ya existe:
+
+| Unidad | Dónde cae |
+|---|---|
+| `por_partido` | en las fechas de las **jornadas**, cada una con sus partidos |
+| `por_dia_cancha` | en los **días de cancha** (§3.5), en sus fechas |
+| `por_mes` | parejo por mes |
+
+El costo estimado cae **donde el calendario dice que ocurre la actividad**, no en un bulto. Reusa la escala del rediseño (§3.3).
+
+**El ESTIMADO es solo egresos.** Los ingresos proyectados ya son COMPROMETIDO, porque cuotas y sponsors tienen fecha pactada. Si algún día hubiera un ingreso sin fecha, sería estimado.
+
+#### La regla anti-duplicación, y dónde no alcanza
+
+Del lado de **ingresos** funciona sola: la cuota cobrada tiene `saldo = 0` y desaparece de COMPROMETIDO; la cuota de sponsor cobrada tiene `cobrado_at` y sale de la vista de futuras. **El estado migra el flujo de proyectado a real, y nunca está en los dos.**
+
+> **⚠ Del lado de egresos NO alcanza, y hay que resolverlo al construir.**
+>
+> El diseño dice "gasto pagado → REAL, sale de ESTIMADO". Pero **ESTIMADO sale del presupuesto, no de los gastos**: una línea "árbitros × N partidos" no sabe qué gastos concretos se pagaron, y **pagar un gasto no achica el presupuesto**. Con 100.000 presupuestados para agosto y 100.000 de árbitros efectivamente pagados en agosto, el flujo mostraría **200.000 de egreso**.
+>
+> La asimetría es de fondo: **una cuota es un compromiso individual con estado propio; una línea de presupuesto es un agregado sin estado.** No hay nada que migre.
+>
+> **Resolución propuesta: cortar la línea de tiempo por fecha.** Lo anterior a hoy es REAL —lo que efectivamente pasó— y lo de hoy en adelante es proyectado. Una fecha es pasada o futura, nunca las dos, así que la exclusión es **estructural** y no depende de emparejar líneas de presupuesto con gastos.
+>
+> Queda un caso a decidir: **las cuotas vencidas e impagas** tienen `vence_at` pasado y siguen esperándose. Mostrar plata futura con fecha pasada confunde una proyección; la alternativa es arrastrarlas a la semana en curso. Se define al construir.
+
+#### Presentación
+
+- **Por semana**, con `date_trunc('week', fecha)` sobre las fechas de los flujos. **Sin tabla de semanas**: una semana no es un período contable y no debería serlo. También por mes, que ahí sí existe `periodo`.
+- Los tres niveles sumados por separado, más el **saldo proyectado acumulado**.
+- **Alerta de quiebre** cuando el saldo perfora cero (§3.16). Avisar en julio que en septiembre falta plata es lo más valioso que hace el sistema.
+- **Drill-down**: qué compone cada celda — qué equipos pagan, qué sponsors, qué costos.
+
+#### Estructura
+
+Sin tablas nuevas, todo derivado:
+
+| Vista | |
+|---|---|
+| `v_cashflow_real` | movimientos de caja por fecha |
+| `v_cashflow_comprometido` | cuotas de equipos + sponsors + compromisos |
+| `v_cashflow_estimado` | presupuesto distribuido por calendario |
+| `v_cashflow` | unión de las tres, con nivel, semana, acumulado y quiebre |
+
+> **Reemplaza a `v_flujo_proyectado`.** El Draft anterior documentaba esa vista con SQL completo, **y no existía en la base**. Peor: su SQL **no compilaría hoy** — referencia `cat_gasto.grupo` (hoy `naturaleza` + `area`), `presupuesto_linea.monto_mensual` y `cantidad_x_fecha` (hoy `base`, `cantidad`, `unidad`) y **`jornada.torneo_id`**, que la pieza 1 eliminó. Además usaba `pagado_at is null`, que ignora las cuotas parciales y las suspendidas.
+>
+> Se reemplaza por completo: **no se copia nada de ese SQL.** Es la cuarta aparición del drift doc↔schema y la más grande, porque parecía código construido.
 
 ---
 
@@ -1852,6 +1921,10 @@ No reabrir sin motivo nuevo:
 45. **USD por promedio ponderado**, derivado y no guardado.
 46. **Diferencia de cambio solo realizada**, al vender. `revaluacion` sale del dominio.
 47. **El diario es monomoneda**: la cantidad de dólares vive en `usd_operacion`, no en `asiento_linea`.
+48. **Cashflow con tres niveles de certeza** —real, comprometido, estimado—, determinados por el estado.
+49. **REAL es el movimiento de las cajas agregadas**; los traslados internos se netean solos.
+50. **ESTIMADO es el presupuesto distribuido por el calendario**, no un bulto mensual.
+51. La **semana se deriva** con `date_trunc`; no hay tabla de semanas.
 
 ### Decisiones reemplazadas
 

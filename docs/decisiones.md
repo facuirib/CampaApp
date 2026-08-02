@@ -864,6 +864,89 @@ de socios y sponsors, las operaciones son puntuales y no hay nada que devengar.
 
 ---
 
+## Cashflow
+
+**83 · Tres niveles de certeza, determinados por el estado**
+**REAL** (movimientos de caja del diario) · **COMPROMETIDO** (cuotas de equipos y
+sponsors, con fecha pactada) · **ESTIMADO** (el presupuesto distribuido).
+*Automáticos, sin clasificación a mano:* el nivel lo determina el **estado** del
+flujo. Que alguien tenga que etiquetar cada número es la garantía de que en tres
+meses las etiquetas mienten.
+*La confianza es una COLUMNA del modelo,* no una convención de la pantalla. Cada
+flujo sabe su nivel y la vista agrupa por él — así "¿de dónde sale este número?"
+se responde sin abrir el código.
+*El ESTIMADO es solo egresos:* los ingresos proyectados ya son COMPROMETIDO,
+porque cuotas y sponsors tienen fecha pactada.
+
+**84 · REAL es el movimiento de las cajas agregadas**
+Sale de las líneas de las cuentas que apunta `caja.cuenta_id` —`CAJA_EFECTIVO`,
+`CAJA_TRANSFERENCIA`, `CAJA_CENTRAL`, `CAJA_USD`— por `asiento.fecha`.
+*Por caja y NO por tipo `ingreso`/`egreso`:* los gastos van por devengo
+(decisión 12) y los sueldos de socios también (decisión 68), así que `GAS_*` y
+`SOCIOS_A_PAGAR` **no son caja**. Solo los ingresos de equipos coinciden, por
+percibido puro. Se cuenta lo que tocó caja.
+*Agregadas, y eso resuelve un problema solo:* los traslados predio → central
+(decisión 60) y las compras de USD mueven plata **entre dos cuentas de caja**, así
+que en el agregado **suman cero** y no ensucian el flujo. El flujo real es el
+movimiento de la **posición de caja**, no de cada caja por separado. El desglose
+por caja, si se quiere, es otra vista.
+
+**85 · ESTIMADO es el presupuesto distribuido por el calendario**
+`v_presupuesto_total` da un **total sin dimensión temporal**. Se reparte con el
+calendario que ya existe: `por_partido` en las fechas de las jornadas,
+`por_dia_cancha` en los días de cancha, `por_mes` parejo.
+*Por qué:* el costo tiene que caer **donde el calendario dice que ocurre la
+actividad**, no en un bulto mensual. Es la escala de la decisión 52 usada para
+ubicar en el tiempo lo que ya sabía cuantificar.
+
+**86 · La anti-duplicación es por estado — y del lado de egresos no alcanza**
+Un flujo está en **un solo** nivel: al concretarse **migra** de proyectado a real.
+*En ingresos funciona sola:* la cuota cobrada tiene `saldo = 0` y desaparece de
+COMPROMETIDO; la de sponsor cobrada tiene `cobrado_at` y sale de la vista de
+futuras. Nunca está en los dos.
+*⚠ En egresos NO:* ESTIMADO sale del **presupuesto**, no de los gastos. Una línea
+"árbitros × N partidos" no sabe qué gastos concretos se pagaron, y **pagar un
+gasto no achica el presupuesto**. Con 100.000 presupuestados para agosto y
+100.000 pagados en agosto, el flujo mostraría **200.000**.
+*La asimetría es de fondo:* una cuota es un **compromiso individual con estado
+propio**; una línea de presupuesto es un **agregado sin estado**. No hay nada que
+migre.
+*Resolución propuesta, a cerrar al construir:* cortar la línea de tiempo por
+fecha — lo anterior a hoy es REAL, lo de hoy en adelante es proyectado. Una fecha
+es pasada o futura y nunca las dos, así que la exclusión es **estructural** y no
+depende de emparejar líneas de presupuesto con gastos.
+*Caso pendiente:* las **cuotas vencidas e impagas** tienen `vence_at` pasado y
+siguen esperándose. Mostrar plata futura con fecha pasada confunde una
+proyección; la alternativa es arrastrarlas a la semana en curso.
+
+**87 · La semana se deriva; no hay tabla de semanas**
+`date_trunc('week', fecha)` sobre las fechas de los flujos.
+*Por qué:* una semana **no es un período contable** y no debe serlo. `periodo` es
+`(anio, mes)` y así queda — meterle semanas lo convertiría en dos cosas a la vez.
+La agrupación semanal es de presentación, no de estructura.
+*La alerta de quiebre* (§3.16) se calcula sobre esa agrupación: si el saldo
+proyectado acumulado perfora cero, se avisa con fecha y monto.
+
+**88 · `v_flujo_proyectado` (§3.10) se reemplaza por completo**
+La vista que el Draft anterior documentaba con SQL completo **no existía en la
+base**, y su SQL **no compilaría hoy**: referencia `cat_gasto.grupo` —hoy
+`naturaleza` + `area`—, `presupuesto_linea.monto_mensual` y `cantidad_x_fecha`
+—hoy `base`, `cantidad`, `unidad`— y **`jornada.torneo_id`**, que la pieza 1
+eliminó. Además usaba `pagado_at is null`, que ignora las cuotas parciales y las
+de jornada suspendida.
+*No se copia nada de ese SQL.* Se reemplaza con el modelo de tres niveles.
+*Es la cuarta aparición del drift doc↔schema* —antes `presupuesto_linea`, `caja`
+y `arqueo`— y **la más grande**, porque no era un campo mal documentado sino una
+vista entera que parecía construida. Refuerza el pendiente de hacer una pasada de
+verificación doc↔schema.
+
+**Alcance del módulo:** backend, 3-4 vistas, **sin estructura nueva**. Es
+integración y presentación de fuentes existentes: el cashflow **lee** lo que cada
+patrón de reconocimiento produjo y no cambia cómo se reconoce nada. La pantalla
+—con drill-down y alerta de quiebre— es front y va después.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
