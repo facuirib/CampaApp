@@ -117,8 +117,11 @@ No expira ni se pierde al cambiar de torneo.
 **19 · Efectivo por predio; transferencia y USD globales**
 *Por qué:* el arqueo es por fecha + predio (decisión 46), y hay dos predios.
 
-**20 · Arqueo con ajuste que afecta la caja**
+**20 · Arqueo con ajuste que afecta la caja** *(⚠ refinada por la decisión 61)*
 La diferencia genera asiento, no una nota al margen.
+*Refinamiento:* sigue siendo cierto que la resolución genera asiento y mueve
+caja. Lo que cambió es **cuándo**: no al arquear. La diferencia se registra en el
+momento del conteo y la resolución es un paso posterior, que puede no ocurrir.
 
 **21 · Endoso de cheques: no se modela**
 Se registra el cheque recibido como cobrado y el pago como realizado.
@@ -453,24 +456,6 @@ el arqueo esperando 54.
 puertas. Clausura 2026 da 29 fechas × 2 predios = **58** como caso base, cargado
 como datos, no como constante del schema (regla 12).
 
-**56 · Un día de cancha puede existir sin jornada; presupuesto y arqueo lo miran
-con lentes distintas**
-`crear_dia_cancha` **no exige** que haya jornada esa fecha. El predio opera con
-el bar abierto o con un evento y no se juega, y esos días tienen caja.
-*Por qué:* `dia_cancha` ancla el arqueo (pieza 4). Exigir jornada dejaría la caja
-de esos días sin dónde colgar.
-*Las dos lentes:* el **arqueo** lee la **tabla** —si hubo caja hay que contarla,
-haya habido fútbol o no—; el **presupuesto** lee `v_dia_cancha_torneo`, que hace
-*inner join* contra `jornada`. Un día de solo bar no lleva fotógrafo ni
-árbitros: contarlo inflaría el presupuesto con un día que el torneo no jugó.
-*El principio:* la distinción entre "día de operación" y "día de torneo" es una
-**lente de lectura, no una restricción de escritura**. Ponerla en la escritura
-obligaría a elegir una de las dos y romper al otro consumidor. Es §1.c: una sola
-tabla, y cada dominio la lee como le corresponde.
-*Consecuencia en el seed:* verifica su propia poscondición —un día por cada
-(fecha de jornada × predio activo)— y no el total de la tabla, que puede tener
-legítimamente más filas.
-
 **55 · Clasificación inicial de las 16 categorías `por_fecha`**
 3 `por_partido` · 8 `por_dia_cancha` · 5 aparte (4 de bar + 1 de administración).
 
@@ -492,6 +477,98 @@ torneo daría un número con forma de presupuesto y sin relación con la realida
 Administración queda aparte por otra razón: es estructura permanente, y la
 estructura permanente no se prorratea entre torneos (decisión 11).
 *Pendiente:* el tratamiento propio del bar.
+
+**56 · Un día de cancha puede existir sin jornada; presupuesto y arqueo lo miran
+con lentes distintas**
+`crear_dia_cancha` **no exige** que haya jornada esa fecha. El predio opera con
+el bar abierto o con un evento y no se juega, y esos días tienen caja.
+*Por qué:* `dia_cancha` ancla el arqueo (pieza 4). Exigir jornada dejaría la caja
+de esos días sin dónde colgar.
+*Las dos lentes:* el **arqueo** lee la **tabla** —si hubo caja hay que contarla,
+haya habido fútbol o no—; el **presupuesto** lee `v_dia_cancha_torneo`, que hace
+*inner join* contra `jornada`. Un día de solo bar no lleva fotógrafo ni
+árbitros: contarlo inflaría el presupuesto con un día que el torneo no jugó.
+*El principio:* la distinción entre "día de operación" y "día de torneo" es una
+**lente de lectura, no una restricción de escritura**. Ponerla en la escritura
+obligaría a elegir una de las dos y romper al otro consumidor. Es §1.c: una sola
+tabla, y cada dominio la lee como le corresponde.
+*Consecuencia en el seed:* verifica su propia poscondición —un día por cada
+(fecha de jornada × predio activo)— y no el total de la tabla, que puede tener
+legítimamente más filas.
+
+---
+
+## Arqueo y consolidación de efectivo
+
+**57 · El arqueo cuelga de `dia_cancha_id`**
+`jornada_id` + `predio_id` → una sola FK, más `unique (dia_cancha_id)`.
+Implementa la decisión 46, que estaba escrita en presente sin estar construida.
+*Por qué el unique:* hoy nada impide dos arqueos del mismo predio y fecha.
+*Por qué es barato:* `arqueo` tiene 0 filas, ninguna FK entrante, ninguna vista
+que la lea y ningún código de app que la toque. Sin backfill.
+*Depende de la 56:* como un día de cancha puede existir **sin jornada**, el
+arqueo de un sábado de solo bar tiene dónde colgar. Si hubiéramos exigido
+jornada al crear el día, acá habría que desarmarlo.
+
+**58 · No hay estado contable "en tránsito"; el arqueo pendiente es el estado**
+El efectivo se consolida en dos etapas: cobro y arqueo en el predio el fin de
+semana, entrega a central el lunes. Entre las dos, **la plata la tiene el
+responsable del arqueo**, y eso lo dice el arqueo mismo — no una cuenta.
+*Por qué:* el saldo sin rendir de una persona se calcula sumando sus arqueos
+`pendiente_entrega`. Darle cuenta contable propia sería modelar un pasivo que se
+resuelve solo el lunes siguiente, y agregar un estado que hay que mantener
+sincronizado con el arqueo.
+*Consecuencia:* `arqueo` gana `estado` (`pendiente_entrega` | `entregado`) y el
+`responsable_id` que ya tenía pasa a significar "quién tiene la plata".
+
+**59 · `saldo_sistema` se congela al arquear**
+Se calcula en el momento y se guarda. Si mañana se corrige un asiento viejo, el
+`saldo_sistema` de ese arqueo **no cambia**.
+*Por qué:* el arqueo es un **acta histórica**. Decía lo que el sistema decía ese
+día, y ese es exactamente el punto de un acta: si se recalculara, un arqueo que
+cerró perfecto podría aparecer descuadrado meses después por un ajuste que no
+tuvo nada que ver.
+*No contradice §1.c:* el saldo esperado **se deriva del diario** al calcularlo.
+Lo que se guarda es la foto, no una segunda fuente. Mismo mecanismo que
+`total_facturado` o `pagado_at`, pero acá el congelamiento es el propósito y no
+una caché.
+*Pendiente de construir:* el cálculo no existe. `v_saldo_caja` da el acumulado a
+hoy, sin corte por fecha, y no puede responder "cuánto debería haber en TIR al
+cierre del 8/8". Es el trabajo con sustancia de la pieza 4.
+
+**60 · Un solo movimiento contable, al entregar (Escenario A)**
+El efectivo del predio baja **al entregar**, no al arquear. Un único asiento
+predio → central en la entrega. **El arqueo del fin de semana no mueve plata**:
+es control puro.
+*Por qué:* es coherente con la 58. Si el arqueo bajara la caja del predio, la
+plata tendría que ir a algún lado —una cuenta "a rendir"— y eso es justamente el
+estado intermedio que se decidió no tener.
+*⚠ Bloqueo estructural detectado al relevar, a resolver al construir:* este
+asiento **no se puede expresar hoy**. `asiento_linea` no tiene `predio_id` —el
+predio vive en la cabecera del asiento— así que con una sola cuenta
+`CAJA_EFECTIVO` las dos líneas del traslado caen en el mismo balde
+`(cuenta, predio)` y se netean a cero: el traslado sería invisible y el saldo del
+predio no bajaría. *Salida propuesta:* una cuenta propia `CAJA_CENTRAL`, de modo
+que las dos líneas difieran por **cuenta** y no por predio.
+
+**61 · La diferencia se registra; la resolución es diferida** *(refina la 20)*
+`diferencia = saldo_contado - saldo_sistema` se asienta al arquear, **sin forzar
+resolución**. Faltante o sobrante quedan registrados y ahí se detienen.
+*Por qué:* quién se hace cargo —¿lo cubre el responsable? ¿es quebranto?— necesita
+conversación, y forzar la imputación en el momento del conteo obliga a decidirlo
+sobre la marcha. Puede además no resolverse nunca.
+*Cómo:* `asiento_id` ya es nullable, justamente para esto: es el ajuste **cuando
+se resuelva**.
+
+**62 · Se crea la caja central**
+Destino del efectivo de los predios. Hoy hay 4 cajas —efectivo TIR, efectivo AEP,
+transferencia global, USD global— y ningún mecanismo de tránsito entre ellas.
+*⚠ Segundo bloqueo detectado al relevar:* `check_caja_predio` **rechaza** una caja
+de efectivo sin predio, que es exactamente lo que sería la central. Hay que
+ajustar el trigger. Y como `v_saldo_caja` mapea `tipo → código de cuenta` con un
+`case` escrito a mano, no puede distinguir dos cajas de efectivo con cuentas
+distintas: `caja` necesita `cuenta_id → cuenta(id)` y la vista deja de mapear a
+mano. Se cierra al construir.
 
 ---
 

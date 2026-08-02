@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 16 · agosto 2026 · tres unidades de costo variable; `dia_cancha` como entidad propia compartida entre presupuesto y arqueo; `v_presupuesto_total` deja de contar jornadas
+**Versión:** Draft 17 · agosto 2026 · el arqueo cuelga de `dia_cancha`; el efectivo se consolida en dos etapas (arqueo en predio → entrega a central); `saldo_sistema` congelado y diferencia con resolución diferida
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,24 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 16
+
+**El arqueo cuelga de `dia_cancha`** (§3.6). `jornada_id` + `predio_id` → `dia_cancha_id`, más el `unique` que hoy falta. Implementa la decisión 46, que estaba escrita en presente sin estar construida. La tabla tiene 0 filas y ningún consumidor: no hay backfill.
+
+**El efectivo se consolida en dos etapas** (§3.6). Cobro y arqueo pasan el fin de semana en el predio; la entrega a central es el lunes. **No hay estado contable intermedio "en tránsito"**: el arqueo pendiente *es* el estado, y el saldo sin rendir de una persona sale de sumar sus arqueos pendientes. Inventarle una cuenta sería modelar un pasivo que se resuelve solo el lunes.
+
+**Escenario A: la plata baja al entregar, no al arquear** (§3.6). Un único asiento predio → central en la entrega. **El arqueo del fin de semana es control puro y no mueve plata.**
+
+**`saldo_sistema` se congela** (§3.6). El arqueo es un acta histórica: si mañana se corrige un asiento viejo, el saldo esperado de ese arqueo no cambia. Se deriva del diario al calcularlo; lo que se guarda es la foto.
+
+**La diferencia se registra, no se resuelve** (§3.6). Faltante o sobrante quedan asentados y ahí se detienen. Quién se hace cargo es un paso posterior, y puede no ocurrir nunca. **Reemplaza** al criterio anterior, que la resolvía con un asiento como parte del arqueo.
+
+> **Dos bloqueos estructurales encontrados al relevar** (§3.6). El asiento predio → central **no se puede expresar hoy**: `asiento_linea` no tiene `predio_id` —el predio está en la cabecera—, así que con una sola cuenta `CAJA_EFECTIVO` las dos líneas del traslado se netean a cero y el saldo del predio no baja. Y `check_caja_predio` rechaza una caja de efectivo sin predio, que es exactamente lo que sería la central. La salida propuesta es una cuenta `CAJA_CENTRAL` propia; se cierra al construir.
+
+**Correcciones doc↔schema** (§3.6). `caja` se documentaba como `(id, tipo unique)` y la tabla real siempre fue `(id, tipo, nombre, predio_id, activo)` — `tipo` no es único porque hay una caja de efectivo por predio. Y `arqueo` se documentaba con `fecha date not null`, que nunca existió. **Tercera aparición del mismo patrón** (antes: `presupuesto_linea`): conviene una pasada de verificación doc↔schema.
+
+---
 
 ## Qué cambió desde el Draft 15
 
@@ -784,32 +802,122 @@ Se revisa vista por vista al construir.
 
 > **Resuelto al construir la pieza 2.** `cuota.vence_at` **se mantuvo `NOT NULL`, como caché sincronizada por trigger** (`trg_sync_cuota_vence_at`), con el precedente de `sync_total_facturado`. Dejarlo nulo habría roto los **ocho consumidores** que lo leen —cinco vistas más `generar_cuotas_plan`, `sugerir_imputacion` y `crear_equipo_torneo`—. El trigger va **sobre `jornada`**, no dentro de `mover_jornada`, para que un `update` directo también propague.
 
-### 3.6 Caja, arqueo y conciliación
+### 3.6 Caja, arqueo y consolidación de efectivo
+
+#### El estado real de `caja`
 
 ```sql
 create table caja (
-  id      uuid primary key default gen_random_uuid(),
-  tipo    text not null unique       -- efectivo | transferencia | usd
-);
-
-create table arqueo (
-  id           uuid primary key default gen_random_uuid(),
-  fecha        date not null,                 -- día de calendario, no jornada
-  predio_id    uuid not null references predio(id),
-  saldo_sistema numeric(16,2) not null,
-  saldo_contado numeric(16,2) not null,
-  diferencia    numeric(16,2) generated always as (saldo_contado - saldo_sistema) stored,
-  asiento_id    uuid references asiento(id),   -- ajuste, si hubo diferencia
-  responsable_id uuid not null references auth.users(id),
-  created_at    timestamptz not null default now()
+  id        uuid primary key default gen_random_uuid(),
+  tipo      text not null,               -- efectivo | transferencia | usd
+  nombre    text not null,
+  predio_id uuid references predio(id),
+  activo    boolean not null default true
 );
 ```
 
-Efectivo se cuenta (arqueo por **fecha + predio**); transferencia se concilia contra el extracto. La diferencia de arqueo **genera un asiento de ajuste y afecta el saldo real de la caja** — no se registra como una nota al margen.
+*Hasta el Draft 16 esta sección documentaba `caja` como `(id, tipo unique)`. **La tabla real siempre fue ésta**, y es la correcta: `tipo` no es único, porque hay **una caja de efectivo por predio**. Corregido contra el schema.*
 
-**Por qué el arqueo cuelga de la fecha y no de la jornada** *(diseño asentado, pendiente de construir — pieza 4)*. El arqueo controla la caja física de un predio en un día. Con jornadas por serie, atarlo a "la jornada de una serie" pierde sentido: ese día en ese predio jugaron varias series, y la plata de la caja no distingue de cuál vino. `(fecha, predio)` es la unidad real — el día de operación del predio.
+Filas hoy: `Efectivo Tirolesa` @ TIR · `Efectivo Aeropuerto` @ AEP · `Caja Transferencia` (global) · `Caja USD` (global). El trigger `check_caja_predio` garantiza que efectivo tenga predio y que el resto no.
 
-Esa unidad ya no es un par de columnas sueltas: es **`dia_cancha`** (§3.5), la misma tabla que el presupuesto cuenta para las líneas `por_dia_cancha`. Al construir la pieza 4, el `(fecha, predio_id)` de `arqueo` pasa a apuntar ahí — un arqueo sin día de cancha correspondiente es un arqueo de un día que el torneo no operó, y conviene que la base lo impida en lugar de descubrirlo cuadrando.
+**El efectivo se discrimina por `asiento.predio_id`, no por cuenta.** Hay una sola cuenta contable `CAJA_EFECTIVO`; el predio vive en la cabecera del asiento, y `v_saldo_caja` filtra por él. Esto importa para la consolidación, abajo.
+
+Efectivo se cuenta (arqueo); transferencia se concilia contra el extracto.
+
+#### El circuito real del efectivo
+
+*Diseño asentado, pendiente de construir — pieza 4.*
+
+La plata cobrada en un predio el fin de semana no llega a la administración ese mismo día. Hay dos momentos, y **el modelo tiene que distinguirlos**:
+
+```
+COBRO (finde)          ARQUEO (finde)              ENTREGA (lunes)
+efectivo entra    →    control: contado vs    →    plata del predio a central
+a la caja del          sistema congelado;          un asiento de traslado;
+predio                 registra diferencia         el arqueo pasa a 'entregado'
+                       NO mueve plata
+```
+
+**No hay estado contable intermedio "en tránsito".** El arqueo mismo *es* el estado: un arqueo hecho y no entregado **significa** que la plata la tiene su responsable. El saldo sin rendir de una persona sale de sumar sus arqueos pendientes — no necesita cuenta propia, y agregarle una sería inventar un pasivo que se resuelve solo el lunes.
+
+#### El arqueo cuelga de `dia_cancha`
+
+```sql
+create table arqueo (
+  id             uuid primary key default gen_random_uuid(),
+  dia_cancha_id  uuid not null unique references dia_cancha(id),
+  saldo_sistema  numeric(16,2) not null,       -- congelado al arquear
+  saldo_contado  numeric(16,2) not null,
+  diferencia     numeric(16,2) generated always as (saldo_contado - saldo_sistema) stored,
+  estado         text not null default 'pendiente_entrega'
+                 check (estado in ('pendiente_entrega','entregado')),
+  asiento_id     uuid references asiento(id),   -- ajuste de la diferencia, si se resuelve
+  responsable_id uuid not null references auth.users(id),
+  created_at     timestamptz not null default now()
+);
+```
+
+*La tabla real todavía tiene `jornada_id` + `predio_id`, ambos `NOT NULL`. La decisión 46 estaba escrita en presente sin estar construida; esta pieza la hace realidad.*
+
+**`jornada_id` + `predio_id` → `dia_cancha_id`.** Dos columnas se vuelven una FK. El arqueo controla la caja física de un predio en un día; con jornadas por serie, atarlo a "la jornada de una serie" pierde sentido — ese día jugaron varias series y la plata no distingue de cuál vino.
+
+**`unique (dia_cancha_id)`** corrige de paso un agujero: hoy nada impide dos arqueos del mismo predio y fecha.
+
+**La decisión 56 es precondición de ésta.** Como un día de cancha puede existir **sin jornada**, el arqueo de un sábado de solo bar tiene dónde colgar. Si hubiéramos exigido jornada al crear el día, acá estaríamos desarmándolo.
+
+Migrar es gratis: la tabla tiene **0 filas**, ninguna FK entrante, ninguna vista que la lea y ningún código de app que la toque. No hay backfill.
+
+#### El saldo esperado, y por qué se congela
+
+**Hoy no existe.** `v_saldo_caja` da el acumulado *a hoy*, sin corte por fecha, y no puede responder *"¿cuánto efectivo debería haber en TIR al cierre del 8/8?"*. Hace falta el cálculo con corte temporal, derivado del libro diario: lo cobrado en efectivo en ese predio hasta esa fecha, menos lo pagado en efectivo, menos lo ya entregado a central.
+
+Es el trabajo con sustancia de la pieza. El recolgado es un `alter table`; esto es una vista nueva.
+
+**`saldo_sistema` se congela.** Se calcula al arquear y se guarda. **El arqueo es un acta histórica**: si mañana se corrige un asiento viejo, el `saldo_sistema` de ese arqueo no cambia — decía lo que el sistema decía ese día, y ese es el punto de un acta. Mismo mecanismo que `total_facturado` o `pagado_at`, pero acá el congelamiento es **el propósito**, no una caché.
+
+Esto no contradice §1.c: el saldo esperado **se deriva del diario** al momento de calcularlo. Lo que se guarda es la foto, no una segunda fuente.
+
+#### El movimiento contable: uno solo, al entregar
+
+**Escenario A, decidido.** El efectivo del predio baja **al entregar**, no al arquear.
+
+| Momento | Qué pasa contablemente |
+|---|---|
+| **Arqueo** (finde) | **nada**. Control puro: registra contado vs sistema y la diferencia |
+| **Entrega** (lunes) | **un único asiento** predio → central. El arqueo pasa a `entregado` |
+
+Entre los dos momentos la plata figura en la caja del predio, y *quién la tiene* lo dice el `responsable_id` del arqueo pendiente. Un solo asiento, sin cuenta intermedia "a rendir": el estado lo lleva el arqueo, no el plan de cuentas.
+
+> **⚠ Este asiento no se puede expresar con el modelo actual.** Dos hallazgos del relevamiento, que la construcción tiene que resolver **antes** de escribir `registrar_entrega_central`:
+>
+> **1 · `asiento_linea` no tiene `predio_id`.** El predio vive en la **cabecera** del asiento. Un traslado TIR → central necesitaría dos ámbitos de predio en un mismo asiento, y no hay dónde ponerlos. Con una sola cuenta `CAJA_EFECTIVO`, las dos líneas caen en el mismo balde `(cuenta, predio)` y **se netean a cero**: el traslado sería invisible y el saldo de TIR no bajaría.
+>
+> **2 · No hay caja central posible hoy.** `check_caja_predio` **rechaza** una caja de efectivo sin predio, que es justo lo que sería la central.
+>
+> **Salida propuesta:** una cuenta propia **`CAJA_CENTRAL`**. El asiento queda `CAJA_CENTRAL` al debe / `CAJA_EFECTIVO` al haber, con `predio_id` = el predio de origen en la cabecera — las dos líneas difieren por **cuenta**, no por predio, y el saldo del predio baja correctamente. Arrastra dos cambios: `caja` gana `cuenta_id → cuenta(id)` (hoy `v_saldo_caja` mapea `tipo → código` con un `case` escrito a mano, que no puede distinguir dos cajas de efectivo), y `check_caja_predio` se ajusta para admitir la central. Se cierra al construir.
+
+#### La diferencia: se registra, no se resuelve
+
+`diferencia = saldo_contado - saldo_sistema`, columna generada.
+
+Se registra **sin forzar resolución**. Faltante o sobrante quedan asentados como diferencia, y ahí se detienen. **Quién se hace cargo** —¿lo cubre el responsable? ¿es quebranto?— es un paso posterior, y puede no ocurrir nunca. `asiento_id` es nullable justamente para eso: es el ajuste **cuando se resuelva**.
+
+> Reemplaza al criterio del Draft 16, que decía que la diferencia *"genera un asiento de ajuste y afecta el saldo real de la caja"* como parte del arqueo. Sigue siendo cierto que la resolución genera asiento y mueve caja; lo que cambia es **cuándo**: no al arquear. Forzar la imputación en el momento del conteo obliga a decidir sobre la marcha algo que necesita conversación.
+
+#### Las puertas
+
+Agnósticas del torneo (regla 12), una lógica para el seed y para la app que venga.
+
+| Función | Qué hace |
+|---|---|
+| `crear_arqueo(dia_cancha_id, saldo_contado, responsable_id)` | Calcula y **congela** `saldo_sistema`, guarda lo contado, la diferencia sale sola, estado `pendiente_entrega`. Valida el `unique` |
+| `registrar_entrega_central(arqueo_id, …)` | Genera el asiento predio → central y marca `entregado` |
+
+#### Qué habilita
+
+- **Saldo sin rendir por responsable** = Σ de sus arqueos `pendiente_entrega`. Sale de los arqueos, sin cuenta contable propia.
+- **Diferencias registradas y sin resolver** — la cola de trabajo del control de caja.
+- **Historial de arqueos** por predio y fecha.
 
 ### 3.7 Moneda extranjera
 
@@ -1172,7 +1280,7 @@ No reabrir sin motivo nuevo:
 7. Gasto con dos ejes: naturaleza + área.
 8. Carga como arancel × cantidad.
 9. Estado de cuota en lugar de aging 30/60/90.
-10. Arqueo por **fecha + predio**, con ajuste que afecta caja.
+10. Arqueo por **fecha + predio** — concretado como `dia_cancha_id` (25). *La segunda mitad de esta decisión, "con ajuste que afecta caja", fue refinada por la 29: el ajuste existe, pero no al arquear.*
 11. Estructura permanente sin prorrateo entre torneos.
 12. Diferencia de cambio separada del resultado operativo.
 13. Categoría de gasto obligatoria; concepto opcional.
@@ -1187,6 +1295,12 @@ No reabrir sin motivo nuevo:
 22. La unidad es **default en el catálogo, override en la línea** de presupuesto.
 23. `dia_cancha (fecha, predio)` es **tabla propia**, compartida entre presupuesto y arqueo. El torneo se deriva.
 24. El bar no escala con partidos ni con días de cancha: escala con consumo. Tratamiento propio, pendiente.
+25. El arqueo cuelga de **`dia_cancha_id`**, con `unique`. Concreta la 10.
+26. **Sin estado contable "en tránsito"**: el arqueo pendiente de entrega *es* el estado, y la plata la tiene su responsable.
+27. **`saldo_sistema` se congela** al arquear. El arqueo es acta histórica.
+28. **Un solo movimiento contable, al entregar** (Escenario A). El arqueo no mueve plata.
+29. **La diferencia se registra; la resolución es diferida** y puede no ocurrir.
+30. Se crea la **caja central**, destino del efectivo de los predios.
 
 ### Decisiones reemplazadas
 
