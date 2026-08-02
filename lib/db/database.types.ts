@@ -3139,6 +3139,61 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cashflow: {
+        Row: {
+          entradas: number | null
+          flujo_neto: number | null
+          futura: boolean | null
+          mes: string | null
+          monto_comprometido: number | null
+          monto_estimado: number | null
+          monto_real: number | null
+          saldo_proyectado: number | null
+          salidas: number | null
+          semana: string | null
+        }
+        Relationships: []
+      }
+      v_cashflow_comprometido: {
+        Row: {
+          arrastrada: boolean | null
+          detalle: string | null
+          fecha: string | null
+          fecha_original: string | null
+          monto: number | null
+          nivel: string | null
+          origen: string | null
+        }
+        Relationships: []
+      }
+      v_cashflow_estimado: {
+        Row: {
+          detalle: string | null
+          fecha: string | null
+          monto: number | null
+          nivel: string | null
+          origen: string | null
+        }
+        Relationships: []
+      }
+      v_cashflow_quiebre: {
+        Row: {
+          flujo_neto: number | null
+          mes: string | null
+          saldo_proyectado: number | null
+          semana: string | null
+        }
+        Relationships: []
+      }
+      v_cashflow_real: {
+        Row: {
+          fecha: string | null
+          monto: number | null
+          nivel: string | null
+          origen: string | null
+        }
+        Relationships: []
+      }
       v_cobranza_kpi: {
         Row: {
           cobrado: number | null
