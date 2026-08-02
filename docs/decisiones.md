@@ -453,6 +453,24 @@ el arqueo esperando 54.
 puertas. Clausura 2026 da 29 fechas × 2 predios = **58** como caso base, cargado
 como datos, no como constante del schema (regla 12).
 
+**56 · Un día de cancha puede existir sin jornada; presupuesto y arqueo lo miran
+con lentes distintas**
+`crear_dia_cancha` **no exige** que haya jornada esa fecha. El predio opera con
+el bar abierto o con un evento y no se juega, y esos días tienen caja.
+*Por qué:* `dia_cancha` ancla el arqueo (pieza 4). Exigir jornada dejaría la caja
+de esos días sin dónde colgar.
+*Las dos lentes:* el **arqueo** lee la **tabla** —si hubo caja hay que contarla,
+haya habido fútbol o no—; el **presupuesto** lee `v_dia_cancha_torneo`, que hace
+*inner join* contra `jornada`. Un día de solo bar no lleva fotógrafo ni
+árbitros: contarlo inflaría el presupuesto con un día que el torneo no jugó.
+*El principio:* la distinción entre "día de operación" y "día de torneo" es una
+**lente de lectura, no una restricción de escritura**. Ponerla en la escritura
+obligaría a elegir una de las dos y romper al otro consumidor. Es §1.c: una sola
+tabla, y cada dominio la lee como le corresponde.
+*Consecuencia en el seed:* verifica su propia poscondición —un día por cada
+(fecha de jornada × predio activo)— y no el total de la tabla, que puede tener
+legítimamente más filas.
+
 **55 · Clasificación inicial de las 16 categorías `por_fecha`**
 3 `por_partido` · 8 `por_dia_cancha` · 5 aparte (4 de bar + 1 de administración).
 

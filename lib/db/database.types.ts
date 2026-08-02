@@ -438,6 +438,13 @@ export type Database = {
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "asiento_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       asiento_linea: {
@@ -591,6 +598,7 @@ export type Database = {
           imputacion_default: string
           naturaleza: string
           nombre: string
+          unidad_default: string
         }
         Insert: {
           activo?: boolean
@@ -600,6 +608,7 @@ export type Database = {
           imputacion_default?: string
           naturaleza: string
           nombre: string
+          unidad_default: string
         }
         Update: {
           activo?: boolean
@@ -609,6 +618,7 @@ export type Database = {
           imputacion_default?: string
           naturaleza?: string
           nombre?: string
+          unidad_default?: string
         }
         Relationships: [
           {
@@ -662,6 +672,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -911,6 +928,13 @@ export type Database = {
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "compromiso_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       concepto_gasto: {
@@ -920,6 +944,7 @@ export type Database = {
           cat_gasto_id: string
           id: string
           nombre: string
+          unidad_default: string | null
         }
         Insert: {
           activo?: boolean
@@ -927,6 +952,7 @@ export type Database = {
           cat_gasto_id: string
           id?: string
           nombre: string
+          unidad_default?: string | null
         }
         Update: {
           activo?: boolean
@@ -934,6 +960,7 @@ export type Database = {
           cat_gasto_id?: string
           id?: string
           nombre?: string
+          unidad_default?: string | null
         }
         Relationships: [
           {
@@ -1069,6 +1096,35 @@ export type Database = {
             columns: ["plan_tarifa_linea_id"]
             isOneToOne: false
             referencedRelation: "plan_tarifa_linea"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dia_cancha: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          predio_id: string
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          id?: string
+          predio_id: string
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          predio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dia_cancha_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
             referencedColumns: ["id"]
           },
         ]
@@ -1261,6 +1317,13 @@ export type Database = {
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       escenario: {
@@ -1447,6 +1510,13 @@ export type Database = {
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       jornada: {
@@ -1585,6 +1655,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "movimiento_fondo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -1886,6 +1963,13 @@ export type Database = {
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       plan_tarifa_linea: {
@@ -2047,6 +2131,13 @@ export type Database = {
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       presupuesto_linea: {
@@ -2057,7 +2148,7 @@ export type Database = {
           concepto_id: string | null
           id: string
           presupuesto_id: string
-          unidad: string
+          unidad: string | null
         }
         Insert: {
           base: number
@@ -2066,7 +2157,7 @@ export type Database = {
           concepto_id?: string | null
           id?: string
           presupuesto_id: string
-          unidad: string
+          unidad?: string | null
         }
         Update: {
           base?: number
@@ -2075,7 +2166,7 @@ export type Database = {
           concepto_id?: string | null
           id?: string
           presupuesto_id?: string
-          unidad?: string
+          unidad?: string | null
         }
         Relationships: [
           {
@@ -2422,6 +2513,51 @@ export type Database = {
         }
         Relationships: []
       }
+      v_dia_cancha_torneo: {
+        Row: {
+          dia_cancha_id: string | null
+          fecha: string | null
+          predio_id: string | null
+          torneo_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "dia_cancha_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_estado_cuota: {
         Row: {
           equipo_torneo_id: string | null
@@ -2487,11 +2623,13 @@ export type Database = {
           cat_gasto_id: string | null
           concepto_id: string | null
           ejercicio_id: string | null
+          factor: number | null
           id: string | null
           presupuesto_id: string | null
           torneo_id: string | null
           total_presupuestado: number | null
           unidad: string | null
+          unidad_linea: string | null
         }
         Relationships: [
           {
@@ -2543,6 +2681,13 @@ export type Database = {
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       v_resultado_producto: {
@@ -2574,6 +2719,24 @@ export type Database = {
           },
         ]
       }
+      v_torneo_escala: {
+        Row: {
+          dias_cancha: number | null
+          partidos: number | null
+          torneo_id: string | null
+        }
+        Insert: {
+          dias_cancha?: never
+          partidos?: never
+          torneo_id?: string | null
+        }
+        Update: {
+          dias_cancha?: never
+          partidos?: never
+          torneo_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       anular_asiento: {
@@ -2598,6 +2761,10 @@ export type Database = {
         }
         Returns: string
       }
+      crear_dia_cancha: {
+        Args: { p_fecha: string; p_predio_id: string }
+        Returns: string
+      }
       crear_equipo_torneo: {
         Args: {
           p_medio_previsto: Database["public"]["Enums"]["medio_pago"]
@@ -2612,6 +2779,10 @@ export type Database = {
       crear_jornada: {
         Args: { p_fecha?: string; p_numero: number; p_serie_id: string }
         Returns: string
+      }
+      eliminar_dia_cancha: {
+        Args: { p_dia_cancha_id: string }
+        Returns: undefined
       }
       generar_cuotas_plan: { Args: { p_plan_id: string }; Returns: number }
       generar_grilla_liga: {

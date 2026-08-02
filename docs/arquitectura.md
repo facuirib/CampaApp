@@ -724,6 +724,19 @@ create table dia_cancha (
 
 **Es compartida, y ese es el punto.** El presupuesto la **cuenta** —multiplicador de las líneas `por_dia_cancha` (§3.3)—; el arqueo **cuelga** de ella (§3.6). Son los dos usos que el Draft 15 había identificado por separado, y comparten la misma definición de "día de operación de un predio". Dos definiciones paralelas se desincronizarían: el presupuesto contando 58 días y el arqueo esperando 54.
 
+**Un día de cancha puede no tener jornada.** El predio opera con el bar abierto, o con un evento, y no se juega. `crear_dia_cancha` **no exige jornada**: si la exigiera, la caja de esos días se quedaría sin dónde colgar, y el arqueo es justamente el otro consumidor de la tabla.
+
+**Dos consumidores, dos lentes.** Comparten la tabla y la miran distinto, deliberadamente:
+
+| | Qué mira | Por qué |
+|---|---|---|
+| **Arqueo** (§3.6) | la **tabla**, todas las filas | si hubo caja ese día en ese predio hay que contarla, haya habido fútbol o no |
+| **Presupuesto** (§3.3) | la vista **`v_dia_cancha_torneo`**, que hace *inner join* contra `jornada` | un día de solo bar no lleva fotógrafo ni árbitros; contarlo inflaría el presupuesto con un día que el torneo no jugó |
+
+La distinción entre "día de operación" y "día de torneo" es **una lente de lectura, no una restricción de escritura**. Ponerla en la escritura obligaría a elegir una de las dos y romper al otro consumidor. Es el mismo criterio de fuente única de §1.c: una sola tabla, y cada dominio la lee como le corresponde.
+
+Las jornadas suspendidas no cuentan para la lente de presupuesto: si todas las de una fecha están suspendidas, esa fecha no se jugó y el presupuesto por día de cancha baja. El arqueo de ese día sigue existiendo.
+
 **Se gestiona con funciones, igual que la jornada** — una lógica, dos puertas (abajo). El seed del Clausura y el módulo de calendario que vendrá después llaman a la misma función validada.
 
 **Clausura 2026: 29 fechas × 2 predios activos = 58 días de cancha** como caso base. No es una constante del schema (regla 12): entra como datos. Las excepciones conocidas —domingos con un solo predio, semifinal y final— se cargan como tales, no se asumen.
@@ -838,17 +851,19 @@ create table presupuesto_linea (
   presupuesto_id  uuid not null references presupuesto(id) on delete cascade,
   cat_gasto_id    uuid not null references cat_gasto(id),
   concepto_id     uuid references concepto_gasto(id),
-  arancel         numeric(16,2) not null,
-  cantidad_x_fecha numeric(10,2),            -- para grupo 'fecha'
-  monto_mensual   numeric(16,2),             -- para grupo 'recurrente'
+  base            numeric(16,2) not null,
+  cantidad        numeric(16,2) not null default 1,
   unidad          text                       -- NULL = heredar del catálogo (§3.3)
-    check (unidad in ('por_partido','por_dia_cancha','por_mes','anual','unico'))
+    check (unidad is null or unidad in
+          ('por_partido','por_dia_cancha','por_mes','anual','unico'))
 );
 ```
 
+*Hasta el Draft 15 esta sección documentaba columnas `arancel`, `cantidad_x_fecha` y `monto_mensual` que **nunca existieron en la base**: la tabla se construyó con `base`, `cantidad` y `unidad`. Corregido contra el schema real.*
+
 **`unidad` pasa a ser anulable y cambia de dominio.** Era `not null` con `check ('por_jornada','por_mes','anual','unico')`. Ahora admite `null` —que significa *heredar el default del catálogo*, no *sin definir*— y `por_jornada` desaparece, reemplazada por `por_partido` y `por_dia_cancha`. **La tabla tiene 0 filas**, así que el cambio de `check` no migra ningún dato.
 
-Presupuesto = `arancel × cantidad ×` el multiplicador de su unidad efectiva (§3.3):
+Presupuesto = `base × cantidad ×` el multiplicador de su unidad efectiva (§3.3):
 
 | Unidad efectiva | Multiplicador |
 |---|---|
@@ -858,6 +873,10 @@ Presupuesto = `arancel × cantidad ×` el multiplicador de su unidad efectiva (�
 | `anual`, `unico` | 1 |
 
 > **La cuenta plana `× jornadas_no_suspendidas` era una bomba.** `v_presupuesto_total` multiplicaba por `count(*) from jornada where torneo_id = … and estado <> 'suspendida'`: **28** con jornadas por género, **284** con jornadas por serie. Un presupuesto se habría mostrado **diez veces más grande, sin error ni advertencia** — el peor modo de falla, porque un número plausible no se cuestiona. Se arregla con las tablas todavía vacías: nunca llegó a existir un número mal.
+
+> **Segundo bug en la misma vista.** La rama final era `else pl.base`, sin `cantidad`: una línea `unico` de `500.000 × 3` mostraba **500.000**. Ahora todas las ramas multiplican por `cantidad` y solo cambia el factor. También se saca el `* 12` escrito a mano de `por_mes`: los meses se derivan del ejercicio.
+
+La vista expone además `unidad` y `factor`, para que la pantalla pueda mostrar **de dónde salió el número** en lugar de solo el número.
 
 Nota: hoy `por_partido` da **0**, porque no hay fichas cargadas y los partidos se derivan de los equipos de cada serie. Es correcto, no un bug — el presupuesto por partido existe recién cuando se sabe cuántos equipos hay.
 
