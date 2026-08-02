@@ -1,4 +1,4 @@
-> **Fuente de diseño · Módulo Cashflow.** Aprobado, pendiente de construir.
+> **Fuente de diseño · Módulo Cashflow.** **Ya implementado.**
 >
 > La pieza que integra todo, y la última grande de backend. Mayormente lectura:
 > junta en una línea de tiempo las fuentes que los módulos anteriores ya
@@ -8,21 +8,31 @@
 > **resultado** vive en `docs/arquitectura.md` §3.10 y en `docs/decisiones.md`
 > (decisiones 83-88). Ante una diferencia **manda el resultado**.
 >
+> Resultado: `arquitectura.md` §3.10 · decisiones 83-88
+> Migración: `20260802133417_modulo_cashflow` · 5 vistas
+>
 > ---
 >
-> **⚠ Un agujero del diseño, detectado al integrarlo.** El documento dice
+> **El agujero que este diseño tenía, y cómo se cerró.** El documento afirma
 > "gasto PAGADO → REAL, sale de ESTIMADO", y **eso no ocurre solo**: ESTIMADO
 > sale del **presupuesto**, no de los gastos, y pagar un gasto no achica el
 > presupuesto. Con 100.000 presupuestados para agosto y 100.000 pagados en
-> agosto, el flujo mostraría 200.000.
+> agosto, el flujo habría mostrado 200.000.
 >
-> La asimetría es de fondo: una **cuota** es un compromiso individual con
-> estado propio —por eso del lado de ingresos la regla sí funciona sola—
-> mientras que una **línea de presupuesto** es un agregado sin estado. No hay
-> nada que migre.
+> La asimetría es de fondo: una **cuota** es un compromiso individual con estado
+> propio —por eso del lado de ingresos la regla sí funciona sola— mientras que
+> una **línea de presupuesto** es un agregado sin estado. No hay nada que migre.
+> Se cerró con un **corte por fecha**, que hace la exclusión estructural.
 >
-> Resolución propuesta: **cortar la línea de tiempo por fecha** (pasado REAL,
-> futuro proyectado), que hace la exclusión estructural. Se cierra al construir.
+> **Tres ajustes que aparecieron al construir**, marcados en el cuerpo como
+> `[AL CONSTRUIR]`:
+>
+> · El corte quedó **`REAL <= hoy`, no `< hoy`**: con la regla literal, un cobro
+>   de esta mañana no aparecería en ningún lado.
+> · Las unidades **`anual` y `unico` no entran** en el estimado: no tienen fecha
+>   natural.
+> · El check de anti-duplicación **va por id de cuota**; la primera versión
+>   emparejaba por fecha y monto y daba un falso positivo.
 
 ---
 
@@ -59,6 +69,28 @@ Un flujo tiene UN nivel según su estado, y los niveles son excluyentes:
 - La transición es automática: al concretarse, migra de proyectado a real. NUNCA se
   suma en dos niveles.
 Por eso no se duplica: el estado determina el nivel, y un flujo tiene un solo estado.
+
+[AL CONSTRUIR — esto vale para INGRESOS, no para egresos. La cuota cobrada tiene
+saldo 0 y desaparece sola; pero ESTIMADO sale del PRESUPUESTO, no de los gastos, y
+pagar un gasto no achica el presupuesto: no hay nada que migre. Se cerró con un
+CORTE POR FECHA, que hace la exclusión estructural —una fecha es pasada o futura,
+nunca las dos—:
+    REAL          fecha <= hoy    los hechos son hechos
+    COMPROMETIDO  fecha >= hoy    + las vencidas impagas arrastradas a hoy
+    ESTIMADO      fecha >  hoy    estrictamente futuro
+El corte de REAL es <= y no <, aunque la regla acordada decía "anterior a hoy":
+con < hoy, un cobro de esta mañana no aparecería en ningún lado —ni en real, que es
+hoy, ni en proyectado, que ya ocurrió—. Y el corte solo hace falta entre REAL y
+ESTIMADO, porque COMPROMETIDO se autoexcluye por saldo.
+
+Verificado con el caso crítico: hoy 2/8, Libre A con la jornada 1 el 1/8 (pasada) y
+las 2, 3 y 4 en agosto futuro, a 100.000 de árbitros por jornada. Estimado de agosto
+-300.000 (las tres futuras) + real -100.000 (pagado el 1/8) = -400.000, las cuatro
+jornadas contadas UNA vez. Sin el corte habrían sido -500.000.
+
+El check de que una cuota cobrada no está en COMPROMETIDO va POR ID DE CUOTA: la
+primera versión emparejaba por vence_at y monto, que matchea cuotas ajenas, y daba
+un falso positivo de 3 en vez de 0.]
 
 ## REAL — movimientos de caja (todas las cajas agregadas)
 
@@ -99,6 +131,11 @@ en un bulto. Reusa el calendario del rediseño.
 Nota: el ESTIMADO es solo egresos (los ingresos proyectados ya son COMPROMETIDO —
 cuotas y sponsors tienen fecha). Si un ingreso no tuviera fecha, sería estimado, pero
 hoy todos los ingresos proyectados están pautados.
+
+[AL CONSTRUIR: las unidades `anual` y `unico` NO ENTRAN en la línea de tiempo. Su
+factor es 1 y el presupuesto no dice cuándo se pagan, así que no tienen fecha
+natural — e inventarles una sería ubicar plata donde no se sabe que ocurre. Quedan
+fuera, y hay que darles fecha para poder proyectarlas.]
 
 ## Presentación
 
