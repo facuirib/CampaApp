@@ -1,7 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════
 -- B3 · preview_cobro() — arma las líneas del asiento SIN escribir
 -- Espeja registrar_cobro() para el modal de pago. No inserta nada.
--- Aplicar: pendiente de confirmación de Facu (regla 11).
+-- Renombrada 02/08 a timestamp posterior a las migraciones de Facu para
+-- que corra al final. Lista para aplicar. Espeja registrar_cobro (verificado).
 -- ═══════════════════════════════════════════════════════════════
 
 create or replace function public.preview_cobro(
