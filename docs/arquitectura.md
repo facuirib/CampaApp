@@ -1,6 +1,6 @@
 # Campa — Arquitectura
 
-**Versión:** Draft 17 · agosto 2026 · el arqueo cuelga de `dia_cancha`; el efectivo se consolida en dos etapas (arqueo en predio → entrega a central); `saldo_sistema` congelado y diferencia con resolución diferida
+**Versión:** Draft 18 · agosto 2026 · playoffs por serie: formato de instancia como tabla configurable, `crear_playoff`, `equipo_playoff`, cuota por instancia jugada; la decisión 45 queda acotada a la liga
 **Referencias:** `supabase/migrations/` (esquema ejecutable) · `CLAUDE.md` (reglas) · `docs/decisiones.md`
 **Stack:** Next.js 15 (App Router + TypeScript) · Tailwind · Supabase (Postgres + Auth + RLS) · Vercel
 
@@ -9,6 +9,22 @@
 **Lo que Campa no es.** No es un sistema contable. La contabilidad formal —balance, liquidación de IVA, amortizaciones fiscales— la hace un estudio externo. Campa incorpora los criterios contables que **afectan la lectura financiera** y descarta los que solo sirven para el balance.
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
+
+## Qué cambió desde el Draft 17
+
+**Los playoffs ya colgaban de serie** (§3.5). La pieza 1 movió *toda* `jornada`, no solo la liga. La pieza 6 **no mueve nada**: cierra tres agujeros que quedaron abiertos porque la rama `es_playoff` nunca se ejercitó — no hay puerta de creación (`crear_jornada` hardcodea `es_playoff = false`), el `unique (serie_id, numero)` no protege playoffs porque `numero` es `NULL`, e `instancia` no tiene dominio.
+
+**El formato de instancia es una tabla, no un CHECK** (§3.5). `formato_instancia (nombre, cantidad_partidos, orden)`, sembrada con cuartos=4 / semifinal=2 / final=1. Cerrarlo con literales sería violar la regla 12: otro torneo puede tener octavos, repechaje o final a ida y vuelta, y tiene que entrar con sus datos sin tocar código.
+
+**`crear_playoff` es la cuarta puerta** (§3.5). Extiende la decisión 49 al playoff. Valida contra el formato y contra `(serie_id, instancia)`, que es la identidad natural que faltaba. `mover_jornada` y `suspender_jornada` ya servían.
+
+**`equipo_playoff` — quién juega cada instancia** (§3.5). En la liga juegan todos los de la serie siempre; en playoff **la clasificación es dato** y no se deriva de nada. Sin esa tabla no hay a quién cobrarle.
+
+**La cuota de playoff se genera después de la ficha, por instancia jugada** (§3.5). B0 sigue excluyéndolas y está bien: al armar la ficha no se sabe si el equipo va a clasificar, y facturarle a 16 equipos una final que juegan 2 sería inventar deuda. Se cobra lo que se juega a medida que se juega.
+
+> **⚠ Bug latente que esta pieza destapa** (§3.3, §3.5). `v_torneo_escala.partidos` calcula `equipos ÷ 2` por jornada **sin excluir playoffs**: la final de Libre A daría 8 partidos en vez de 1. Con 3 instancias × 20 series el presupuesto `por_partido` se infla mucho y **en silencio** — misma clase que la bomba del 284. Hoy no molesta porque hay 0 playoffs. **La decisión 45 queda acotada a la liga**: en un cuadro la cantidad de partidos depende del formato, no del tamaño de la serie.
+
+---
 
 ## Qué cambió desde el Draft 16
 
@@ -715,7 +731,7 @@ Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes
 
 **Estado y reprogramación.** `estado` (programada/jugada/suspendida/reprogramada) + `reprograma_a` (rastro de la reprogramación). Suspender una jornada la saca de la proyección y del presupuesto de esa semana; reprogramar mueve el vencimiento atado. Es el punto donde el calendario deja de ser informativo y pasa a ser el motor de la previsión.
 
-**Playoffs: también por serie.** La final de Libre A y la de Libre B son jornadas distintas, coherente con la liga. Misma tabla, flag `es_playoff`, campo `instancia` (cuartos/semi/final) en lugar de `numero`. No se autogeneran —cantidad y fecha se desconocen hasta terminar la liga— y no están en el CSV de calendario validado: se cargan cuando se definan.
+**Playoffs: también por serie.** La final de Libre A y la de Libre B son jornadas distintas, coherente con la liga. Misma tabla, flag `es_playoff`, campo `instancia` en lugar de `numero`. No se autogeneran —cantidad y fecha se desconocen hasta terminar la liga— y no están en el CSV de calendario validado. Detalle completo abajo.
 
 **Estimación de ingreso automática.** Cada jornada proyecta ingreso estimado = arancel del tarifario (por género + regla) × `cantidad_esperada`. Vale igual para liga no jugada y para playoffs. El estimado se reemplaza por lo comprometido cuando se arman las fichas. Coherente con el principio (c) y con la proyección de caja por niveles de certeza (§3.16).
 
@@ -790,6 +806,115 @@ Las funciones son **agnósticas del torneo** (regla 12): reciben serie, número 
 | `jugada` | vencimiento = `jornada.fecha`, se cobra normalmente |
 
 **Lo que más cuidado necesita: una cuota de liga cuya jornada está suspendida no debe aparecer como deuda.** Un equipo cuya fecha se suspendió **no es moroso de esa cuota** — no se jugó, no corresponde reclamarla. Si las vistas no lo contemplan, el equipo aparece debiendo algo que nadie le va a cobrar, y la pantalla de deudores pierde credibilidad.
+
+#### Playoffs · el cuadro es de la serie
+
+*Diseño asentado, pendiente de construir — pieza 6.*
+
+**Los playoffs ya cuelgan de serie.** La pieza 1 movió *toda* `jornada`, no solo la liga: `serie_id` es `NOT NULL` y no queda rastro de `genero`. La final de Libre A y la de Libre B son jornadas distintas, y las series no se mezclan — `jornada.serie_id` es una sola, así que un cuadro cruzado no es representable ni por accidente.
+
+Lo que faltaba no era el recolgado sino **tres agujeros**, que es lo que esta pieza cierra:
+
+| Agujero | Hoy | Consecuencia |
+|---|---|---|
+| **Sin puerta** | `crear_jornada` **hardcodea `es_playoff = false`** y exige `numero` positivo | la única vía sería `insert` directo, justo lo que la decisión 49 vino a evitar |
+| **`unique` que no protege** | `unique (serie_id, numero)`, y en playoff `numero` es `NULL` | Postgres considera cada `NULL` distinto: se pueden crear **infinitas finales de Libre A** sin que nada falle |
+| **`instancia` sin dominio** | ningún CHECK | `'final'`, `'Final'`, `'semi'`, `'semifinal'` pasan todas, y después no agrupan |
+
+`mover_jornada` y `suspender_jornada` no se tocan: operan por `id` y ya son agnósticas del tipo de jornada.
+
+##### El formato es una tabla, no un CHECK
+
+```sql
+create table formato_instancia (
+  id                uuid primary key default gen_random_uuid(),
+  nombre            text not null unique,   -- cuartos | semifinal | final
+  cantidad_partidos smallint not null,      -- 4 | 2 | 1
+  orden             smallint not null
+);
+```
+
+Estructura estándar, igual en todas las series de los dos géneros:
+
+| Instancia | Equipos | Partidos |
+|---|---|---|
+| cuartos | 8 | **4** |
+| semifinal | 4 | **2** |
+| final | 2 | **1** |
+
+**Los equipos no se guardan: son `partidos × 2`.** Guardar los dos permitiría que se contradigan, y el que hace falta para presupuestar es el de partidos.
+
+**Cerrar el dominio con `check (instancia in ('cuartos','semifinal','final'))` sería violar la regla 12.** Ese es el formato de *este* torneo: otro puede tener octavos, repechaje, tercer puesto, o final a ida y vuelta. Un torneo nuevo tiene que entrar con sus datos, sin tocar código — y ese es el test.
+
+`jornada.instancia` se valida **contra esta tabla**. Editable y extensible sin migración.
+
+##### `crear_playoff` · la cuarta puerta
+
+```sql
+crear_playoff(serie_id, instancia, fecha default null,
+              cantidad_partidos default <del formato>) → uuid
+```
+
+Extiende la decisión 49 —una lógica, dos puertas— al playoff. Crea la jornada con `es_playoff = true` y sin `numero`, valida que la serie exista, que la instancia esté en `formato_instancia`, y **la unicidad de `(serie_id, instancia)`**, que es la identidad natural que el `unique` roto no cubría.
+
+`fecha` puede ser `null`: el playoff se crea cuando se define el cuadro y se programa después con `mover_jornada`. Cantidad y fecha se desconocen hasta que termina la liga, así que no se autogeneran ni están en el CSV de calendario.
+
+##### `equipo_playoff` · quién juega cada instancia
+
+```sql
+create table equipo_playoff (
+  id                 uuid primary key default gen_random_uuid(),
+  equipo_torneo_id   uuid not null references equipo_torneo(id),
+  jornada_playoff_id uuid not null references jornada(id),
+  unique (equipo_torneo_id, jornada_playoff_id)
+);
+```
+
+En la liga no hace falta —juegan todos los de la serie, siempre— pero en playoff **la clasificación es el dato**: quién llegó a semifinal no se deriva de nada que el sistema tenga. Sin esta tabla no hay a quién cobrarle.
+
+##### La cuota de playoff se genera después, por instancia
+
+**Hoy B0 excluye los playoffs de la generación de cuotas, y está bien.** Lo hace por triple partida: la validación los saltea y las dos ramas del CTE los dejan afuera. Los "0 cuotas de playoff" del test de B0 son deliberados.
+
+**Al armar la ficha no se puede saber**: no existen las jornadas de playoff, no hay fechas, y sobre todo **no se sabe si el equipo va a clasificar**. Facturarle a los 16 equipos de la serie una final que juegan 2 sería inventar deuda.
+
+**Se cobra por instancia jugada, no un paquete al clasificar.** El equipo juega cuartos → cuota de cuartos; pasa a semifinal → cuota de semifinal. Es el mismo criterio que la liga: se factura lo que se juega, a medida que se juega. Un equipo eliminado en cuartos no debe la semifinal.
+
+```sql
+generar_cuotas_instancia(jornada_playoff_id) → int
+```
+
+Genera **una cuota por equipo registrado en esa instancia**, con el arancel de la línea `es_playoff` del tarifario de su género, atada a la jornada de playoff. El vencimiento **se deriva de `jornada.fecha`**, mismo patrón que la cuota de liga (decisión 50) y sincronizado por el mismo trigger: reprogramar la final mueve el vencimiento de sus cuotas sin tocar ninguna cuota.
+
+**Percibido puro intacto** (§1.b): la jornada de playoff no genera asiento y la cuota tampoco. El ingreso aparece al cobrar, igual que todo lo demás.
+
+El tarifario ya tiene la línea, **solo en la opción "Pago por fecha"** — quien eligió "Cuotas" paga un total plano que ya la incluye:
+
+| Género | Regla | Precio ef/tr | `cantidad_esperada` |
+|---|---|---|---|
+| masculino | `por_partido`, `es_playoff` | 470.000 / 530.000 | 3 |
+| femenino | `por_partido`, `es_playoff` | 150.000 / 180.000 | 3 |
+
+Sin `fecha_desde`/`fecha_hasta`, con carve-out explícito en `chk_por_partido`.
+
+##### El playoff no infla el presupuesto
+
+> **⚠ Bug latente que esta pieza destapa.** `v_torneo_escala.partidos` (§3.3) calcula `equipos de la serie ÷ 2` **por cada jornada no suspendida, sin excluir playoffs**. Para la liga es correcto. Para un playoff no: la final de Libre A es **1 partido**, no `16 ÷ 2 = 8`. Hoy no molesta porque hay 0 playoffs; en cuanto se creen, cada instancia infla el multiplicador `por_partido` del presupuesto — con 3 instancias × 20 series, mucho, y **en silencio**. Misma clase que la bomba del 284.
+
+El arreglo separa los dos casos:
+
+| Tipo de jornada | Partidos |
+|---|---|
+| **liga** | `equipos de la serie ÷ 2` — se deriva (decisión 45) |
+| **playoff** | `jornada.cantidad_partidos` — **es dato** |
+
+**La decisión 45 queda acotada a la liga.** "Los partidos se derivan del tamaño de la serie" vale mientras juegan todos contra todos; en un cuadro la cantidad depende del **formato**, no del tamaño de la serie. Por eso `formato_instancia` trae el default y `jornada` guarda el valor efectivo — una semifinal a partido único y otra a ida y vuelta son formatos distintos y el número tiene que poder diferir.
+
+##### Alcance: el backend ahora, el bracket después
+
+Esta pieza construye **solo el backend**: `formato_instancia`, `crear_playoff`, `equipo_playoff`, `generar_cuotas_instancia` y el arreglo de `v_torneo_escala`.
+
+**La pantalla de bracket** —elegir los 8 que pasan a cuartos, los 4 a semifinal, los 2 a la final— es front, y va después. Invoca estas mismas funciones: una lógica, dos puertas, igual que en jornadas. Lo que la pantalla llena es `equipo_playoff`, y de ahí salen las cuotas.
 
 #### Impacto en las vistas de deuda
 
@@ -1301,6 +1426,10 @@ No reabrir sin motivo nuevo:
 28. **Un solo movimiento contable, al entregar** (Escenario A). El arqueo no mueve plata.
 29. **La diferencia se registra; la resolución es diferida** y puede no ocurrir.
 30. Se crea la **caja central**, destino del efectivo de los predios.
+31. El **formato de instancia** es tabla configurable, no un CHECK con literales.
+32. **`crear_playoff`** es la puerta del playoff, con identidad `(serie_id, instancia)`.
+33. La **cuota de playoff se genera por instancia jugada**, en un paso posterior a la ficha, desde `equipo_playoff`.
+34. Los **partidos de un playoff son dato**, no derivados. La decisión 45 queda acotada a la liga.
 
 ### Decisiones reemplazadas
 

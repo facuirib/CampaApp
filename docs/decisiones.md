@@ -331,9 +331,11 @@ distinguir unidad. Hoy da 28 y con el rediseño daría 284: multiplicaría por d
 un presupuesto `por_jornada` sin fallar ni avisar. Las tablas de presupuesto
 están vacías, así que se arregla antes de que exista el primer número.
 
-**45 · La cantidad de partidos se deriva, no se carga**
+**45 · La cantidad de partidos se deriva, no se carga** *(⚠ acotada a la liga por la decisión 67)*
 `partidos por jornada = equipos de la serie ÷ 2`. 16 equipos dan 8 partidos, 14
 dan 7. Sin excepciones conocidas.
+*Alcance:* vale mientras juegan todos contra todos. **En playoff no**: la
+cantidad depende del formato del cuadro, no del tamaño de la serie, y es dato.
 *Por qué:* es dato derivable de la estructura, y cargarlo a mano sería un
 segundo origen para algo que ya está. Es la base de los costos por partido
 (decisión 44).
@@ -569,6 +571,74 @@ ajustar el trigger. Y como `v_saldo_caja` mapea `tipo → código de cuenta` con
 `case` escrito a mano, no puede distinguir dos cajas de efectivo con cuentas
 distintas: `caja` necesita `cuenta_id → cuenta(id)` y la vista deja de mapear a
 mano. Se cierra al construir.
+
+---
+
+## Playoffs
+
+**63 · Los playoffs ya cuelgan de serie; la pieza 6 no mueve nada**
+La pieza 1 movió **toda** `jornada` a `serie_id`, no solo la liga. La final de
+Libre A y la de Libre B ya son jornadas distintas.
+*Por qué importa dejarlo escrito:* el plan del rediseño listaba "playoffs por
+serie" como pieza pendiente, y el relevamiento mostró que ya estaba hecho. Lo
+que faltaba eran **tres agujeros**, porque la rama `es_playoff` nunca se
+ejercitó: no hay puerta de creación —`crear_jornada` hardcodea
+`es_playoff = false` y exige `numero`—, el `unique (serie_id, numero)` no
+protege playoffs porque `numero` es `NULL` y Postgres considera cada `NULL`
+distinto, e `instancia` no tiene dominio.
+*Las series no se mezclan:* `jornada.serie_id` es una sola, así que un cuadro
+cruzado entre series no es representable ni por accidente.
+
+**64 · El formato de instancia es una tabla configurable, no un hardcode**
+`formato_instancia (nombre, cantidad_partidos, orden)`, sembrada con
+cuartos = 4 · semifinal = 2 · final = 1. `jornada.instancia` se valida contra
+esa tabla.
+*Por qué:* cerrar el dominio con `check (instancia in (…))` sería violar la
+regla 12. Cuartos-semi-final es el formato de **este** torneo; otro puede tener
+octavos, repechaje, tercer puesto o final a ida y vuelta. Editable y extensible
+sin migración.
+*Los equipos no se guardan:* son `partidos × 2`. Guardar los dos permitiría que
+se contradigan, y el que hace falta para presupuestar es el de partidos.
+
+**65 · `crear_playoff` es la puerta, con identidad `(serie_id, instancia)`**
+`crear_playoff(serie_id, instancia, fecha default null, cantidad_partidos
+default del formato)`. Extiende la decisión 49 —una lógica, dos puertas— al
+playoff, y cierra los tres agujeros de una vez: da la puerta, impone la
+unicidad que faltaba y valida la instancia contra el formato.
+*`fecha` nullable:* cantidad y fecha se desconocen hasta que termina la liga. Se
+crea el cuadro y se programa después con `mover_jornada`, que ya sirve para
+playoffs porque opera por `id`. `suspender_jornada` también.
+
+**66 · La cuota de playoff se genera por instancia jugada, después de la ficha**
+`generar_cuotas_instancia(jornada_playoff_id)` genera una cuota por equipo
+registrado en `equipo_playoff`, con el arancel de la línea `es_playoff` del
+tarifario de su género, atada a la jornada de playoff y con vencimiento derivado
+de su fecha (patrón de la decisión 50).
+*Por qué no en B0:* al armar la ficha no existen las jornadas de playoff, no hay
+fechas, y sobre todo **no se sabe si el equipo va a clasificar**. Facturarle a
+los 16 equipos de la serie una final que juegan 2 sería inventar deuda. B0 ya
+las excluye por triple partida, y está bien.
+*Por instancia, no un paquete al clasificar:* juega cuartos → cuota de cuartos;
+pasa a semifinal → cuota de semifinal. Se factura lo que se juega a medida que
+se juega, igual que la liga. Un equipo eliminado en cuartos no debe la semi.
+*Hace falta `equipo_playoff`* porque en la liga juegan todos los de la serie
+siempre, y en playoff la clasificación es un dato que no se deriva de nada.
+
+**67 · Los partidos de un playoff son dato; la decisión 45 se acota a la liga**
+`v_torneo_escala.partidos` pasa a distinguir: liga = `equipos ÷ 2`, playoff =
+`jornada.cantidad_partidos`.
+*Por qué:* hoy la vista no excluye playoffs, así que la final de Libre A contaría
+**8 partidos en vez de 1**. Con 3 instancias × 20 series el presupuesto
+`por_partido` se infla mucho y en silencio — misma clase que la bomba del 284.
+No molesta todavía porque hay 0 playoffs; se arregla antes de que existan.
+*El principio:* "los partidos se derivan del tamaño de la serie" vale mientras
+juegan todos contra todos. En un cuadro la cantidad depende del **formato**, y
+por eso `formato_instancia` trae el default y `jornada` guarda el valor efectivo:
+una semifinal a partido único y otra a ida y vuelta tienen que poder diferir.
+
+**Alcance de la pieza:** backend. La pantalla de bracket —elegir los 8 que pasan
+a cuartos, los 4 a semifinal, los 2 a la final— es front y va después; llena
+`equipo_playoff` invocando estas mismas funciones.
 
 ---
 
