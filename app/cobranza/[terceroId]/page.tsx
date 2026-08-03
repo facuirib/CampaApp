@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { formatMoney, formatDate } from '@/lib/format'
 
@@ -26,7 +27,15 @@ export default async function CuentaCorrientePage({
 
   return (
     <main className="p-8 font-sans">
-      <h1 className="text-2xl font-bold mb-6">{equipo}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{equipo}</h1>
+        <Link
+          href={`/cobranza/${terceroId}/cobrar`}
+          className="bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded hover:bg-gray-800"
+        >
+          Registrar pago
+        </Link>
+      </div>
 
       {error && (
         <pre className="text-red-600 text-sm bg-red-50 p-3 rounded mb-4">
