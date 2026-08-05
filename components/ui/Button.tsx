@@ -3,10 +3,17 @@ import Icon, { type NombreIcono } from './Icon'
 export type VarianteBoton = 'primary' | 'secondary' | 'tertiary'
 export type TamanoBoton = 'default' | 'pill'
 
-/** Los tres niveles de jerarquía. Ninguno lleva borde gris. */
+/**
+ * Los tres niveles de jerarquía. Ninguno lleva borde gris.
+ *
+ * El secundario escribe en --blue-d y no en --blue: sobre el tint el azul
+ * pleno daba 4.35:1, apenas por debajo del 4.5:1 que pide WCAG AA para texto
+ * de 11px, aunque sea bold. Con --blue-d da 5.99:1. El fondo no cambia, y el
+ * color no es nuevo: es el mismo que ya usa el primario en hover.
+ */
 const VARIANTES: Record<VarianteBoton, string> = {
   primary: 'bg-blue text-white shadow-blue hover:bg-blue-d',
-  secondary: 'bg-blue-tint text-blue hover:bg-infobg',
+  secondary: 'bg-blue-tint text-blue-d hover:bg-infobg',
   tertiary: 'bg-transparent text-muted underline hover:text-ink',
 }
 
@@ -21,7 +28,7 @@ const VARIANTES: Record<VarianteBoton, string> = {
  */
 const CARGANDO: Record<VarianteBoton, string> = {
   primary: 'bg-blue-soft text-white',
-  secondary: 'bg-blue-tint text-blue',
+  secondary: 'bg-blue-tint text-blue-d',
   tertiary: 'bg-transparent text-muted underline',
 }
 
