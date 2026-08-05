@@ -13,6 +13,11 @@ const LINKS = [
 export default function NavBar() {
   const pathname = usePathname()
 
+  // /design/mobile se embebe en un iframe angosto dentro de /design para
+  // mostrar el colapso a cards del DataTable. Ahí la navegación es ruido: se
+  // ve cortada y no lleva a ningún lado.
+  if (pathname.startsWith('/design/mobile')) return null
+
   // La sección activa es la de href más específico que matchea la ruta actual,
   // para que /cobranza/[id] resalte "Deudores" sin pisar /proyeccion/mensual.
   const activoHref = LINKS.map((l) => l.href)

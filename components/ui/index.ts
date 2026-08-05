@@ -10,5 +10,15 @@
 export { default as Badge, type BadgeProps, type EstadoBadge } from './Badge'
 export { default as Button, type ButtonProps, type TamanoBoton, type VarianteBoton } from './Button'
 export { default as Card, type CardProps } from './Card'
+export {
+  default as DataTable,
+  type AlineacionCelda,
+  type CeldaBadge,
+  type ColumnDef,
+  type DataTableProps,
+  type DensidadTabla,
+  type FormatoCelda,
+  type ValorCelda,
+} from './DataTable'
 export { default as Icon, type IconProps, type NombreIcono } from './Icon'
 export { default as Money, type MoneyProps } from './Money'

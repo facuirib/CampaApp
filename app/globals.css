@@ -73,6 +73,13 @@
   --infobg: #dbe8ff; /* badge info (su texto es --blue-d) */
   --neutrotx: #5a6473; /* badge neutro (su fondo es --line2) */
   --disabled-tx: #aab; /* texto de cualquier control deshabilitado */
+
+  /* ── Tabla ──
+     El hover es el mismo que usa el mockup en sus tablas; el zebra viene de
+     la decisión 5a. Son fondos de fila, no colores de marca: si el sistema
+     gana un color nuevo, no salen de acá. */
+  --row-hover: #f6f9ff;
+  --zebra: #fafbfd;
 }
 
 @theme inline {
@@ -104,6 +111,8 @@
   --color-line2: var(--line2);
   --color-bg: var(--bg);
   --color-disabled: var(--disabled-tx);
+  --color-row-hover: var(--row-hover);
+  --color-zebra: var(--zebra);
 
   /* Estos pisan la escala de radios de Tailwind a propósito: la escala de
      Campa es la del sistema, así que `rounded-md` vale 14px y no 6px. */

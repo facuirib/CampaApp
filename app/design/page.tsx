@@ -1,4 +1,12 @@
-import { Badge, Button, Card, Money } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  Money,
+  type CeldaBadge,
+  type ColumnDef,
+} from '@/components/ui'
 
 /**
  * Referencia visual del sistema de diseño.
@@ -37,6 +45,128 @@ const RADIOS = [
   ['--r-sm', '10px'],
   ['--r-pill', '999px'],
 ] as const
+
+// ── Datos de los ejemplos de DataTable ──────────────────────────────────────
+
+interface FilaCobranza {
+  id: string
+  equipo: string
+  estado: CeldaBadge
+  vence: string
+  deuda: number
+}
+
+const COL_COBRANZA: ColumnDef<FilaCobranza>[] = [
+  { key: 'equipo', label: 'Equipo' },
+  { key: 'estado', label: 'Estado', format: 'badge' },
+  { key: 'vence', label: 'Vence', format: 'date' },
+  { key: 'deuda', label: 'Deuda', format: 'money', width: 120 },
+]
+
+const COBRANZA: FilaCobranza[] = [
+  {
+    id: '1',
+    equipo: 'El Ciclón',
+    estado: { estado: 'alDia', label: 'Al día' },
+    vence: '2026-09-12',
+    deuda: 0,
+  },
+  {
+    id: '2',
+    equipo: 'Escalera FC',
+    estado: { estado: 'porVencer', label: 'Por vencer' },
+    vence: '2026-08-28',
+    deuda: 850000,
+  },
+  {
+    id: '3',
+    equipo: 'Delirio FC',
+    estado: { estado: 'mora', label: 'En mora' },
+    vence: '2026-07-15',
+    deuda: 3050000,
+  },
+  {
+    id: '4',
+    equipo: 'Africa United +30',
+    estado: { estado: 'mora', label: 'En mora' },
+    vence: '2026-06-30',
+    deuda: 4860000,
+  },
+]
+
+interface FilaMovimiento {
+  id: string
+  fecha: string
+  concepto: string
+  medio: string
+  importe: number
+}
+
+const COL_MOVIMIENTOS: ColumnDef<FilaMovimiento>[] = [
+  { key: 'fecha', label: 'Fecha', format: 'date', width: 96 },
+  { key: 'concepto', label: 'Concepto' },
+  { key: 'medio', label: 'Medio' },
+  { key: 'importe', label: 'Importe', format: 'money', width: 120 },
+]
+
+const MOVIMIENTOS: FilaMovimiento[] = [
+  {
+    id: '1',
+    fecha: '2026-08-03',
+    concepto: 'Cobro fecha 4',
+    medio: 'Transferencia',
+    importe: 1750000,
+  },
+  {
+    id: '2',
+    fecha: '2026-08-02',
+    concepto: 'Alquiler de cancha',
+    medio: 'Efectivo',
+    importe: -420000,
+  },
+  {
+    id: '3',
+    fecha: '2026-08-01',
+    concepto: 'Arbitraje fecha 4',
+    medio: 'Efectivo',
+    importe: -310000,
+  },
+]
+
+interface FilaCuota {
+  id: string
+  equipo: string
+  cuota: string
+  vence: string
+  monto: number
+}
+
+const COL_CUOTAS: ColumnDef<FilaCuota>[] = [
+  { key: 'equipo', label: 'Equipo' },
+  { key: 'cuota', label: 'Cuota' },
+  { key: 'vence', label: 'Vence', format: 'date' },
+  { key: 'monto', label: 'Monto', format: 'money', width: 110 },
+]
+
+// Generadas, no al azar: el build tiene que dar siempre lo mismo.
+const EQUIPOS_LARGO = [
+  'El Ciclón',
+  'Escalera FC',
+  'Delirio FC',
+  'Africa United +30',
+  'La Sociedad',
+  'Bazinga',
+  'La Pausa',
+  'Alfiado',
+]
+
+const CUOTAS: FilaCuota[] = Array.from({ length: 24 }, (_, i) => ({
+  id: `c${i}`,
+  equipo: EQUIPOS_LARGO[i % EQUIPOS_LARGO.length],
+  cuota: `${(i % 3) + 1} de 3`,
+  vence: `2026-0${(i % 4) + 6}-${String((i % 27) + 1).padStart(2, '0')}`,
+  monto: 250000 + (i % 7) * 125000,
+}))
 
 function Muestra({ token, nombre }: { token: string; nombre: string }) {
   return (
@@ -79,9 +209,9 @@ export default function DesignPage() {
       <header className="mb-7">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Sistema de diseño</h1>
         <p className="mt-1 text-[12px] text-muted">
-          Tanda 1 — tokens y las cuatro primitivas. Los valores salen del bloque{' '}
+          Tokens y componentes, cada uno en todas sus variantes. Los valores salen del bloque{' '}
           <code className="rounded-sm bg-line2 px-1 py-0.5 font-mono text-[11px]">:root</code> del
-          mockup, sin retoques.
+          mockup, sin retoques. Si una variante existe en el código y no está acá, es un bug.
         </p>
       </header>
 
@@ -393,6 +523,94 @@ export default function DesignPage() {
             de la card la recorta, así la última fila cierra en la esquina en vez de quedar con las
             puntas cuadradas.
           </p>
+        </div>
+      </Seccion>
+
+      <Seccion n="06" titulo="DataTable">
+        <div className="grid gap-3">
+          <Card
+            title="Cobranza — texto, badge, fecha, plata y total"
+            icon="equipos"
+            action={
+              <span className="text-[9.5px] font-semibold text-muted">
+                filas clickeables · rowHref
+              </span>
+            }
+          >
+            <DataTable
+              columns={COL_COBRANZA}
+              rows={COBRANZA}
+              rowKey="id"
+              rowHref={() => '/cobranza'}
+              total={{ equipo: 'Total', deuda: 8760000 }}
+            />
+            <p className="mt-3 text-[10.5px] leading-relaxed text-muted">
+              El total se <strong className="font-bold text-ink">pasa</strong>, no se calcula. La
+              tabla no suma nunca y no tiene un camino alternativo que lo haga: el número correcto
+              sale de la vista SQL con los centavos completos, mientras que la columna muestra
+              importes ya redondeados a peso. La fila navy anclada dice eso mismo sin texto —viene
+              de otro lado, no es una fila más.
+            </p>
+          </Card>
+
+          <Card title="Movimientos — sin total" icon="comprobante">
+            <DataTable columns={COL_MOVIMIENTOS} rows={MOVIMIENTOS} rowKey="id" />
+            <p className="mt-3 text-[10.5px] text-muted">
+              Sin <code className="font-mono">total</code> no hay fila navy. Los importes negativos
+              salen del formato, no de una regla de la tabla.
+            </p>
+          </Card>
+
+          <Card title="Cuotas — densidad compacta, header sticky" icon="calendario">
+            <DataTable
+              columns={COL_CUOTAS}
+              rows={CUOTAS}
+              rowKey="id"
+              densidad="compacta"
+              maxHeight={260}
+              total={{ equipo: 'Total del período', monto: 12750000 }}
+            />
+            <p className="mt-3 text-[10.5px] leading-relaxed text-muted">
+              24 filas en 260px de alto: scroleá adentro de la tabla y mirá el header, que se queda
+              arriba, y el total, que se queda abajo. El total va en{' '}
+              <code className="font-mono">tfoot</code> con{' '}
+              <code className="font-mono">position: sticky</code> en vez de un bloque aparte, así
+              sigue alineado con las columnas cuando la tabla scrollea al costado.
+            </p>
+          </Card>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card title="Sin filas" icon="alerta">
+              <DataTable
+                columns={COL_MOVIMIENTOS}
+                rows={[]}
+                rowKey="id"
+                emptyMessage="Todavía no hay movimientos en el período."
+              />
+              <p className="mt-3 text-[10.5px] text-muted">
+                <code className="font-mono">emptyMessage</code> es del dominio: dice qué falta, no
+                &ldquo;sin datos&rdquo;.
+              </p>
+            </Card>
+
+            <Card title="Colapso mobile" icon="ver">
+              {/* iframe y no una explicación: el corte es por breakpoint CSS, así
+                  que hace falta un viewport angosto de verdad. Con 360px acá
+                  adentro, la variante se ve sin achicar la ventana. */}
+              <iframe
+                src="/design/mobile"
+                title="La misma tabla a 360px de ancho"
+                width={360}
+                height={420}
+                className="mx-auto block w-[360px] rounded-md border border-line bg-bg"
+              />
+              <p className="mt-3 text-[10.5px] leading-relaxed text-muted">
+                Abajo de 768px la tabla no scrollea al costado: cada fila pasa a ser una card con
+                label y valor, y el total a un bloque navy. Los formatos se respetan —el badge sigue
+                siendo badge y la plata sigue en <code className="font-mono">Money</code>.
+              </p>
+            </Card>
+          </div>
         </div>
       </Seccion>
     </div>
