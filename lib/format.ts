@@ -10,9 +10,18 @@ const MONEDA = new Intl.NumberFormat('es-AR', {
  * Cada importe se redondea por separado, así que una columna de filas puede no
  * sumar exactamente el total que se muestra abajo. No es un descuadre: cada
  * número sale de su propia vista SQL, con los centavos completos.
+ *
+ * `Intl` en es-AR intercala un espacio duro entre el signo y la cifra
+ * ("$ 1.750.000"). El sistema de diseño lo escribe pegado —los 105
+ * importes del mockup, sin una excepción— así que se quita. Se hace acá y no
+ * en el componente Money para que siga habiendo un solo formateo de plata en
+ * toda la app: si convivieran los dos, la misma cifra se vería distinta según
+ * qué pantalla la muestre.
  */
 export function formatMoney(n: number): string {
-  return MONEDA.format(n)
+  // El separador es U+00A0 (espacio duro), no un espacio común: se escribe
+  // escapado porque en el código fuente los dos se ven igual.
+  return MONEDA.format(n).replace('\u00A0', '')
 }
 
 /** El torneo es en Córdoba: las fechas con hora se muestran en esa zona. */

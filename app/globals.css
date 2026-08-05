@@ -1,26 +1,168 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════════════════════════════════
+   CAMPA · tokens del sistema de diseño
+
+   Los valores salen EXACTOS del bloque :root de campa_v9.html. No se retocan
+   acá: si un color tiene que cambiar, cambia en el mockup y se copia.
+
+   Se declaran dos veces a propósito:
+
+   · en `:root`, con los nombres del mockup (--blue, --r-md, --sh-sm). Así una
+     regla CSS del mockup se portea tal cual, sin traducir nada.
+   · en `@theme inline`, para que Tailwind genere las utilidades (bg-blue,
+     rounded-md, shadow-sm). Es la vía idiomática en v4 y la que usan los
+     componentes de components/ui.
+
+   Un solo valor, dos formas de escribirlo. Nunca un hex suelto en un .tsx.
+   ══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Marca ── */
+  --blue: #1468fb;
+  --blue-d: #0d52d6;
+  --night: #061221;
+  --flyway: #5892f2;
+  --regale: #9bbce8;
+
+  /* ── Estado: OK ── */
+  --ok: #22b07d;
+  --okbg: #d6f3e7;
+  --oktx: #12855c;
+
+  /* ── Estado: por vencer ── */
+  --warn: #f0a020;
+  --warnbg: #fbe6b8;
+  --warntx: #7a5a12;
+
+  /* ── Estado: mora ── */
+  --err: #e5484d;
+  --errbg: #fde0e1;
+  --errtx: #c23438;
+
+  /* ── Neutros ── */
+  --ink: #0b1524;
+  --muted: #6b7686;
+  --line: #e7eaf0;
+  --line2: #eef1f6;
+  --bg: #f4f6fa;
+
+  /* ── Series de gráfico (parity con el mockup; los usa la tanda 2) ── */
+  --st-blue: #1468fb;
+  --st-green: #22b07d;
+  --st-red: #e5484d;
+
+  /* ── Radios ── */
+  --r-lg: 20px;
+  --r-md: 14px;
+  --r-sm: 10px;
+  --r-pill: 999px;
+
+  /* ── Sombras ── */
+  --sh-sm: 0 1px 2px rgba(13, 30, 60, 0.06);
+  --sh-md: 0 6px 22px rgba(13, 30, 60, 0.08);
+
+  /* ── Derivados de componente ──
+     El brief especificaba estos cuatro como hex sueltos. Se nombran acá para
+     que ningún componente lleve un color literal. --neutrotx es el único
+     valor nuevo: el fondo del badge neutro resultó ser --line2, que ya existía
+     y se reutiliza. */
+  --blue-tint: #eef5ff; /* fondo del botón secundario */
+  --blue-soft: #93b9f5; /* primario en loading, desaturado */
+  --sh-blue: 0 2px 6px rgba(20, 104, 251, 0.28); /* sombra del primario */
+  --infobg: #dbe8ff; /* badge info (su texto es --blue-d) */
+  --neutrotx: #5a6473; /* badge neutro (su fondo es --line2) */
+  --disabled-tx: #aab; /* texto de cualquier control deshabilitado */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-asap), ui-sans-serif, system-ui, sans-serif;
+
+  --color-blue: var(--blue);
+  --color-blue-d: var(--blue-d);
+  --color-blue-tint: var(--blue-tint);
+  --color-blue-soft: var(--blue-soft);
+  --color-night: var(--night);
+  --color-flyway: var(--flyway);
+  --color-regale: var(--regale);
+
+  --color-ok: var(--ok);
+  --color-okbg: var(--okbg);
+  --color-oktx: var(--oktx);
+  --color-warn: var(--warn);
+  --color-warnbg: var(--warnbg);
+  --color-warntx: var(--warntx);
+  --color-err: var(--err);
+  --color-errbg: var(--errbg);
+  --color-errtx: var(--errtx);
+  --color-infobg: var(--infobg);
+  --color-neutrotx: var(--neutrotx);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-bg: var(--bg);
+  --color-disabled: var(--disabled-tx);
+
+  /* Estos pisan la escala de radios de Tailwind a propósito: la escala de
+     Campa es la del sistema, así que `rounded-md` vale 14px y no 6px. */
+  --radius-lg: var(--r-lg);
+  --radius-md: var(--r-md);
+  --radius-sm: var(--r-sm);
+  --radius-pill: var(--r-pill);
+
+  --shadow-sm: var(--sh-sm);
+  --shadow-md: var(--sh-md);
+  --shadow-blue: var(--sh-blue);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Cifras de plata. Con `tabular-nums` todos los dígitos ocupan lo mismo, así
+   que los miles quedan alineados de una fila a la otra y la columna deja de
+   "bailar". Money la aplica sola; en la tanda 2 la usan las celdas numéricas
+   de DataTable. */
+@utility cifra {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+
+  /* Foco visible en todo control alcanzable por teclado. Va acá una sola vez
+     para que ningún componente tenga que acordarse. */
+  :focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* El spinner del botón. Fuera de @layer a propósito: el CSS sin capa gana
+   sobre las utilidades de Tailwind, así que la variante de movimiento
+   reducido de abajo se aplica sin pelear especificidad. */
+@keyframes campa-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.girando {
+  animation: campa-girar 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* El spinner sigue girando —es información de estado, no decoración— pero
+     mucho más lento. Las transiciones decorativas se apagan. */
+  .girando {
+    animation-duration: 2.4s;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
 }
