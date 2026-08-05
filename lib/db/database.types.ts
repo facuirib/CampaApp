@@ -3639,6 +3639,13 @@ export type Database = {
           },
         ]
       }
+      v_saldo_caja_total: {
+        Row: {
+          cajas: number | null
+          saldo_total: number | null
+        }
+        Relationships: []
+      }
       v_saldo_efectivo_dia_cancha: {
         Row: {
           arqueo_estado: string | null

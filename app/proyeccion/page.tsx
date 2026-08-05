@@ -37,15 +37,17 @@ const ALTO_PLOT = ALTO - MARGEN_ARR - MARGEN_AB
 
 export default async function ProyeccionPage() {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('v_cashflow')
-    .select('*')
-    .not('semana', 'is', null)
-    .order('semana')
+  const [{ data, error }, { data: caja }] = await Promise.all([
+    supabase.from('v_cashflow').select('*').not('semana', 'is', null).order('semana'),
+    // El saldo de HOY sale de su propia vista, ya sumado: el front no calcula
+    // totales (regla 1). No es lo mismo que saldo_proyectado, que es el saldo
+    // al CIERRE de la semana e incluye lo comprometido todavía sin cobrar.
+    supabase.from('v_saldo_caja_total').select('saldo_total').single(),
+  ])
 
   const filas = data ?? []
 
-  const filaActual = [...filas].reverse().find((f) => !f.futura) ?? filas[0]
+  const saldoHoy = caja?.saldo_total ?? 0
   const filaFinal = filas[filas.length - 1]
   const filaQuiebre = filas.find((f) => (f.saldo_proyectado ?? 0) < 0)
 
@@ -117,9 +119,8 @@ export default async function ProyeccionPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="border border-gray-200 rounded p-4">
               <div className="text-sm text-gray-500 mb-1">Saldo actual</div>
-              <div className="text-2xl font-bold">
-                {formatMoney(filaActual?.saldo_proyectado ?? 0)}
-              </div>
+              <div className="text-2xl font-bold">{formatMoney(saldoHoy)}</div>
+              <div className="text-xs text-gray-400 mt-1">Caja real, hoy</div>
             </div>
 
             <div className="border border-gray-200 rounded p-4">
