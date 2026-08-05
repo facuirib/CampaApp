@@ -46,8 +46,8 @@ export default async function CobranzaKpisPage() {
 
                 <div className="grid grid-cols-2 gap-3 text-sm mb-3">
                   <div>
-                    <div className="text-gray-500">Facturado</div>
-                    <div>{formatMoney(kpi.devengado ?? 0)}</div>
+                    <div className="text-gray-500">Comprometido</div>
+                    <div>{formatMoney(kpi.comprometido ?? 0)}</div>
                   </div>
                   <div>
                     <div className="text-gray-500">Cobrado</div>

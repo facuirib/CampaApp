@@ -3211,7 +3211,7 @@ export type Database = {
       v_cobranza_kpi: {
         Row: {
           cobrado: number | null
-          devengado: number | null
+          comprometido: number | null
           dias_promedio_cobro: number | null
           nombre: string | null
           por_vencer: number | null
