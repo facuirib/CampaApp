@@ -154,7 +154,7 @@ Las correcciones van como ajuste en el período abierto.
 Un trigger lo completa cuando el saldo de la cuota llega a cero.
 *Por qué:* es el mismo principio de fuente única, aplicado dentro de la base.
 
-**27 · `total_facturado` sincronizado por trigger**
+**27 · `total_plan` sincronizado por trigger** *(se llamaba `total_facturado`)*
 Se mantiene la columna pero un trigger la recalcula ante cualquier cambio en cuota.
 *Por qué:* era un número duplicado sin nada que lo mantuviera al día.
 
@@ -281,7 +281,7 @@ afecta a las fichas que se armen después; y una cuota puntual se puede ajustar
 a mano —caso raro— editando su `monto`, sin marca especial ni tabla de
 excepciones.
 *Por qué:* un equipo no puede enterarse a mitad de torneo de que le cambiaron
-el precio. Y como `total_facturado` se recalcula por trigger desde las cuotas
+el precio. Y como `total_plan` se recalcula por trigger desde las cuotas
 (decisión 27), sigue siendo correcto después de un ajuste manual sin tener que
 consultar el tarifario.
 **⚠ Refinada por la decisión 50:** la autonomía es *parcial*. El monto se copia
@@ -532,7 +532,7 @@ cerró perfecto podría aparecer descuadrado meses después por un ajuste que no
 tuvo nada que ver.
 *No contradice §1.c:* el saldo esperado **se deriva del diario** al calcularlo.
 Lo que se guarda es la foto, no una segunda fuente. Mismo mecanismo que
-`total_facturado` o `pagado_at`, pero acá el congelamiento es el propósito y no
+`total_plan` o `pagado_at`, pero acá el congelamiento es el propósito y no
 una caché.
 *Pendiente de construir:* el cálculo no existe. `v_saldo_caja` da el acumulado a
 hoy, sin corte por fecha, y no puede responder "cuánto debería haber en TIR al

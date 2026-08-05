@@ -103,7 +103,7 @@ de ahí sale a qué cuenta de ingreso se imputa el cobro.
 
 **La deuda de un equipo es su mora**: cuotas vencidas e impagas. Es una cifra
 operativa, para reclamar — **no un saldo contable**. Al preguntarte "cuánto
-debe este equipo", la respuesta nunca es `total_facturado`.
+debe este equipo", la respuesta nunca es `total_plan`.
 
 **Gastos — al cargar. Esto NO cambió.** Un gasto sigue generando dos
 asientos: devengo al cargar (`Gasto` / `Proveedores a pagar`) y pago al pagar

@@ -61,8 +61,8 @@ export default async function CuentaCorrientePage({
                 </p>
                 <div className="flex flex-wrap gap-6 text-sm">
                   <div>
-                    <div className="text-gray-500">Total facturado</div>
-                    <div>{formatMoney(ficha.total_facturado ?? 0)}</div>
+                    <div className="text-gray-500">Total del plan</div>
+                    <div>{formatMoney(ficha.total_plan ?? 0)}</div>
                   </div>
                   <div>
                     <div className="text-gray-500">Pagado</div>

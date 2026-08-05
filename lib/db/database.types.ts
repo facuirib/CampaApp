@@ -1724,7 +1724,7 @@ export type Database = {
           serie_id: string
           tercero_id: string
           torneo_id: string
-          total_facturado: number
+          total_plan: number
         }
         Insert: {
           id?: string
@@ -1735,7 +1735,7 @@ export type Database = {
           serie_id: string
           tercero_id: string
           torneo_id: string
-          total_facturado?: number
+          total_plan?: number
         }
         Update: {
           id?: string
@@ -1746,7 +1746,7 @@ export type Database = {
           serie_id?: string
           tercero_id?: string
           torneo_id?: string
-          total_facturado?: number
+          total_plan?: number
         }
         Relationships: [
           {
@@ -3246,8 +3246,8 @@ export type Database = {
           serie: string | null
           tercero_id: string | null
           torneo: string | null
-          total_facturado: number | null
           total_pagado: number | null
+          total_plan: number | null
         }
         Relationships: []
       }

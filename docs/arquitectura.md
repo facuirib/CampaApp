@@ -591,7 +591,7 @@ create table equipo_torneo (              -- la "ficha" del equipo en un torneo
   plan_partidos_id    uuid not null references plan_tarifa(id),  -- opción elegida, concepto='partidos'
   medio_previsto medio_pago not null,           -- congela precio_efectivo o precio_transferencia
   responsable_id uuid references auth.users(id),
-  total_facturado numeric(16,2) not null default 0,  -- suma de las cuotas (trigger); NO es la deuda
+  total_plan     numeric(16,2) not null default 0,  -- suma de las cuotas (trigger); NO es la deuda
   unique (tercero_id, torneo_id)
 );
 
@@ -606,7 +606,9 @@ create table cuota (
 );
 ```
 
-**`total_facturado` no es la deuda.** Es la suma de las cuotas, mantenida por trigger (`sync_total_facturado`, decisión 27). Mide el tamaño del plan de pago, no lo que el equipo debe hoy, y **tampoco es un importe facturado** —bajo percibido puro no se factura nada al armar la ficha—: el nombre quedó heredado. **La deuda es la mora**: cuotas con `vence_at < current_date` y sin cancelar. Es el número que se reclama.
+**`total_plan` no es la deuda.** Es la suma de las cuotas, mantenida por trigger (`sync_total_plan`, decisión 27). Mide el tamaño del plan de pago, no lo que el equipo debe hoy. **La deuda es la mora**: cuotas con `vence_at < current_date` y sin cancelar. Es el número que se reclama.
+
+> *Se llamaba `total_facturado`. Bajo percibido puro no se factura nada al armar la ficha, así que el nombre heredado obligaba a aclarar en cada mención que no era ni deuda ni facturación — un nombre que necesita nota al pie para no engañar es un nombre mal puesto. Renombrado de raíz —columna, función, trigger y vista— en `20260802190000_total_plan.sql`.*
 
 **`equipo_torneo.asiento_id` quedó sin uso.** Nació para apuntar al asiento del devengo total. Sin devengo de ingresos no hay ningún asiento que colgar de la ficha: el asiento del cobro pertenece a `pago`, que ya tiene su propia columna `asiento_id`. Nada la escribe hoy, así que no hay dato que migrar.
 
@@ -658,7 +660,7 @@ Armar la ficha genera todas sus cuotas, traduciendo las líneas de las dos opcio
 
 Mover una jornada recalcula el cashflow proyectado **y** los vencimientos de las cuotas de equipo, desde la misma fuente. Es el principio (i) —el calendario es el motor de la previsión— alcanzando también a la cobranza.
 
-*Consecuencia de modelo:* una cuota `por_partido` tiene que saber de qué jornada depende, así que `cuota` gana una FK a `jornada`, nullable —las de fecha propia no la usan—. Cómo se mantiene `vence_at` sincronizado al reprogramarse la jornada se resuelve al implementar; hay precedente de triggers de sincronización (`sync_total_facturado`, `sync_cuota_pagada`).
+*Consecuencia de modelo:* una cuota `por_partido` tiene que saber de qué jornada depende, así que `cuota` gana una FK a `jornada`, nullable —las de fecha propia no la usan—. Cómo se mantiene `vence_at` sincronizado al reprogramarse la jornada se resuelve al implementar; hay precedente de triggers de sincronización (`sync_total_plan`, `sync_cuota_pagada`).
 
 **El monto se copia, y desde ahí la cuota es autónoma.** Cada línea tiene `precio_efectivo` y `precio_transferencia`; la cuota tiene un solo `monto`. Al generarla se copia el que corresponde al `medio_previsto` de la ficha, y ahí termina el vínculo de importe: `cuota.monto` es un valor propio, no una lectura del tarifario.
 
@@ -668,7 +670,7 @@ Mover una jornada recalcula el cashflow proyectado **y** los vencimientos de las
 - **Que el equipo pague por otro medio no reabre el importe.** El precio se fijó al armar la ficha; el medio de pago real, al cobrar, es otra cosa.
 - **Una cuota puntual se puede ajustar a mano.** Es caso raro y no lleva marca especial: con editar `monto` alcanza. No hace falta ni un flag de "ajustada" ni una tabla de excepciones — el monto de la cuota ya es la fuente de verdad de lo que ese equipo debe pagar.
 
-Esto es lo que permite que `total_facturado` —suma de las cuotas por trigger— siga siendo correcto después de un ajuste manual: se recalcula solo, sin consultar el tarifario.
+Esto es lo que permite que `total_plan` —suma de las cuotas por trigger— siga siendo correcto después de un ajuste manual: se recalcula solo, sin consultar el tarifario.
 
 **La autonomía es parcial, y depende del tipo de cuota** *(refina lo anterior, no lo contradice)*. El **monto** se copia siempre. El **vencimiento** no:
 
@@ -993,7 +995,7 @@ Hoy "¿esta cuota está vencida?" se responde con el `vence_at` propio de la cuo
 
 Se revisa vista por vista al construir.
 
-> **Resuelto al construir la pieza 2.** `cuota.vence_at` **se mantuvo `NOT NULL`, como caché sincronizada por trigger** (`trg_sync_cuota_vence_at`), con el precedente de `sync_total_facturado`. Dejarlo nulo habría roto los **ocho consumidores** que lo leen —cinco vistas más `generar_cuotas_plan`, `sugerir_imputacion` y `crear_equipo_torneo`—. El trigger va **sobre `jornada`**, no dentro de `mover_jornada`, para que un `update` directo también propague.
+> **Resuelto al construir la pieza 2.** `cuota.vence_at` **se mantuvo `NOT NULL`, como caché sincronizada por trigger** (`trg_sync_cuota_vence_at`), con el precedente de `sync_total_plan`. Dejarlo nulo habría roto los **ocho consumidores** que lo leen —cinco vistas más `generar_cuotas_plan`, `sugerir_imputacion` y `crear_equipo_torneo`—. El trigger va **sobre `jornada`**, no dentro de `mover_jornada`, para que un `update` directo también propague.
 
 ### 3.6 Caja, arqueo y consolidación de efectivo
 
@@ -1066,7 +1068,7 @@ Migrar es gratis: la tabla tiene **0 filas**, ninguna FK entrante, ninguna vista
 
 Es el trabajo con sustancia de la pieza. El recolgado es un `alter table`; esto es una vista nueva.
 
-**`saldo_sistema` se congela.** Se calcula al arquear y se guarda. **El arqueo es un acta histórica**: si mañana se corrige un asiento viejo, el `saldo_sistema` de ese arqueo no cambia — decía lo que el sistema decía ese día, y ese es el punto de un acta. Mismo mecanismo que `total_facturado` o `pagado_at`, pero acá el congelamiento es **el propósito**, no una caché.
+**`saldo_sistema` se congela.** Se calcula al arquear y se guarda. **El arqueo es un acta histórica**: si mañana se corrige un asiento viejo, el `saldo_sistema` de ese arqueo no cambia — decía lo que el sistema decía ese día, y ese es el punto de un acta. Mismo mecanismo que `total_plan` o `pagado_at`, pero acá el congelamiento es **el propósito**, no una caché.
 
 Esto no contradice §1.c: el saldo esperado **se deriva del diario** al momento de calcularlo. Lo que se guarda es la foto, no una segunda fuente.
 
@@ -1511,7 +1513,7 @@ Si históricamente cobran el 92% de lo comprometido —el total del plan de cuot
 
 Modela las modalidades de pago del torneo. **Versionado por torneo:** cada torneo clona su tarifario y edita valores/reglas sin tocar código. Reemplaza el hardcodeo de precios.
 
-Es una **capa de catálogos / plantilla**, no data entry contable. El devengo no vive acá: cuando se arma la ficha del equipo (`equipo_torneo`), el tarifario es la fuente de la que salen las `cuota` con sus importes y vencimientos —y, derivado de ellas, `total_facturado`—. Armar la ficha no devenga nada: cada cuota se devenga al vencer (ver §3.4 y principio b). `plan_tarifa` no toca asientos.
+Es una **capa de catálogos / plantilla**, no data entry contable. El devengo no vive acá: cuando se arma la ficha del equipo (`equipo_torneo`), el tarifario es la fuente de la que salen las `cuota` con sus importes y vencimientos —y, derivado de ellas, `total_plan`—. Armar la ficha no devenga nada: cada cuota se devenga al vencer (ver §3.4 y principio b). `plan_tarifa` no toca asientos.
 
 **Tablas:** `plan_tarifa` (torneo + género + concepto + opción) → `plan_tarifa_linea` (los renglones). Se llama `plan_tarifa` y no `plan_pago` porque este último ya lo ocupa la moratoria de deuda (§3.14).
 
