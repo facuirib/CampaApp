@@ -138,7 +138,7 @@ Primer módulo posterior al rediseño calendario-por-serie. Introduce **dos patr
 
 **Queda por resolver al construir:** `cuota.vence_at` es hoy `NOT NULL`. Derivar el vencimiento obliga a elegir entre dejarlo nulo para las cuotas de liga —fuente única— o mantenerlo como caché sincronizada por trigger.
 
-**Nada de esto está construido.** Es la pieza 2 del rediseño: las funciones, los cambios de vista y el seed de las 284 jornadas se hacen juntos, contra esta sección.
+**Construido.** Pieza 2 del rediseño, migración `20260801131425_gestion_jornadas.sql`: las funciones, los cambios de vista y el seed de las 284 jornadas se aplicaron juntos.
 
 ---
 
@@ -160,7 +160,7 @@ La bomba se arma en la **pieza 2**, cuando se cargue la grilla: hoy la vista da 
 
 **La PK de `jornada` no cambia.** Sigue siendo `id`, así que las siete FKs que la apuntan —`asiento`, `pago`, `gasto`, `arqueo`, `cuota`, `plan_tarifa_linea.hito_jornada_id` y el `reprograma_a` propio— no se tocan. Cambia la identidad natural y la columna.
 
-**Nada de esto está construido.** Es diseño asentado. Las seis piezas —migración de `jornada`, `generar_grilla_liga`, la rama `por_partido` de B0, arqueo, unidades de costo y playoffs— se construyen contra esta sección. La base sigue con `jornada` por género y vacía, así que no hay backfill.
+**Construido, las seis piezas.** `jornada` cuelga de serie (`20260801121708`), gestión de jornadas (`20260801131425`), la rama `por_partido` de B0 ejercitada por primera vez, unidades de costo y `dia_cancha` (`20260802075345`, `20260802075631`), arqueo y consolidación (`20260802094852`, `20260802095023`) y playoffs por serie (`20260802103856`). La base tiene las 284 jornadas del Clausura y 58 días de cancha.
 
 ---
 
@@ -596,12 +596,14 @@ create table equipo_torneo (              -- la "ficha" del equipo en un torneo
 );
 
 create table cuota (
-  id                uuid primary key default gen_random_uuid(),
-  equipo_torneo_id  uuid not null references equipo_torneo(id) on delete cascade,
-  numero            int not null,
-  vence_at          date not null,
-  monto             numeric(16,2) not null,
-  pagado_at         date,
+  id                   uuid primary key default gen_random_uuid(),
+  equipo_torneo_id     uuid not null references equipo_torneo(id) on delete cascade,
+  numero               int not null,
+  vence_at             date not null,          -- caché sincronizada (decisión 50)
+  monto                numeric(16,2) not null,
+  pagado_at            date,                   -- derivado por trigger (decisión 26)
+  plan_tarifa_linea_id uuid not null references plan_tarifa_linea(id),  -- decisión 29
+  jornada_id           uuid references jornada(id),  -- solo las de liga (decisión 39)
   unique (equipo_torneo_id, numero)
 );
 ```
@@ -760,17 +762,20 @@ create table jornada (
   id                uuid primary key default gen_random_uuid(),
   serie_id          uuid not null references serie(id),  -- género y torneo se derivan subiendo
   numero            smallint,                      -- fecha de liga (null en playoff)
-  instancia         text,                          -- 'cuartos' | 'semi' | 'final' (playoff)
+  instancia         text references formato_instancia(nombre),  -- solo playoff (pieza 6)
   es_playoff        boolean not null default false,
   fecha             date,                          -- null hasta programar
   estado            text not null default 'programada', -- programada | jugada | suspendida | reprogramada
   reprograma_a      uuid references jornada(id),   -- rastro de reprogramación
   cantidad_esperada smallint,                      -- base de estimación de ingreso
-  unique (serie_id, numero),                       -- identidad: fecha × serie
+  cantidad_partidos smallint,                      -- solo playoff: es dato (decisión 67)
+  unique (serie_id, numero),                       -- identidad de liga: fecha × serie
+  unique (serie_id, instancia),                    -- identidad de playoff (pieza 6)
   check (
     (es_playoff and instancia is not null and numero is null)
     or (not es_playoff and numero is not null and instancia is null)
-  )
+  ),
+  check (es_playoff = (cantidad_partidos is not null))
 );
 ```
 
@@ -811,7 +816,7 @@ Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes
 
 #### `dia_cancha` · el día de operación de un predio
 
-*Diseño asentado, pendiente de construir.*
+*Construido — migración `20260802075345_dia_cancha.sql`, con los 58 días del Clausura sembrados.*
 
 ```sql
 create table dia_cancha (
@@ -879,7 +884,7 @@ Las funciones son **agnósticas del torneo** (regla 12): reciben serie, número 
 
 #### Playoffs · el cuadro es de la serie
 
-*Diseño asentado, pendiente de construir — pieza 6.*
+*Construido — pieza 6, migración `20260802103856_playoffs_por_serie.sql`. `formato_instancia` sembrado con cuartos / semifinal / final.*
 
 **Los playoffs ya cuelgan de serie.** La pieza 1 movió *toda* `jornada`, no solo la liga: `serie_id` es `NOT NULL` y no queda rastro de `genero`. La final de Libre A y la de Libre B son jornadas distintas, y las series no se mezclan — `jornada.serie_id` es una sola, así que un cuadro cruzado no es representable ni por accidente.
 
@@ -1007,7 +1012,8 @@ create table caja (
   tipo      text not null,               -- efectivo | transferencia | usd
   nombre    text not null,
   predio_id uuid references predio(id),
-  activo    boolean not null default true
+  activo    boolean not null default true,
+  cuenta_id uuid not null references cuenta(id)   -- agregada por la pieza 4
 );
 ```
 
@@ -1021,7 +1027,7 @@ Efectivo se cuenta (arqueo); transferencia se concilia contra el extracto.
 
 #### El circuito real del efectivo
 
-*Diseño asentado, pendiente de construir — pieza 4.*
+*Construido — pieza 4, migraciones `20260802094852_caja_central.sql` y `20260802095023_arqueo_dia_cancha.sql`.*
 
 La plata cobrada en un predio el fin de semana no llega a la administración ese mismo día. Hay dos momentos, y **el modelo tiene que distinguirlos**:
 
@@ -1046,13 +1052,15 @@ create table arqueo (
   diferencia     numeric(16,2) generated always as (saldo_contado - saldo_sistema) stored,
   estado         text not null default 'pendiente_entrega'
                  check (estado in ('pendiente_entrega','entregado')),
-  asiento_id     uuid references asiento(id),   -- ajuste de la diferencia, si se resuelve
+  entregado_at   timestamptz,
+  asiento_ajuste_id  uuid references asiento(id),  -- resuelve la diferencia, si se resuelve
+  asiento_entrega_id uuid references asiento(id),  -- el traslado predio → central
   responsable_id uuid not null references auth.users(id),
   created_at     timestamptz not null default now()
 );
 ```
 
-*La tabla real todavía tiene `jornada_id` + `predio_id`, ambos `NOT NULL`. La decisión 46 estaba escrita en presente sin estar construida; esta pieza la hace realidad.*
+*Así es la tabla hoy. Hasta la pieza 4 tenía `jornada_id` + `predio_id`, ambos `NOT NULL`: la decisión 46 estaba escrita en presente sin estar construida, y `20260802095023_arqueo_dia_cancha.sql` la hizo realidad. El `asiento_id` único se desdobló en `asiento_ajuste_id` y `asiento_entrega_id`, y se agregó `entregado_at`.*
 
 **`jornada_id` + `predio_id` → `dia_cancha_id`.** Dos columnas se vuelven una FK. El arqueo controla la caja física de un predio en un día; con jornadas por serie, atarlo a "la jornada de una serie" pierde sentido — ese día jugaron varias series y la plata no distingue de cuál vino.
 
@@ -1313,7 +1321,7 @@ create table envio (
 
 ### 3.10 Cashflow · flujo de fondos con niveles de certeza
 
-*Diseño asentado, pendiente de construir.*
+*Construido — migraciones `20260802133417_modulo_cashflow.sql` y `20260802200000_cashflow_stock_vs_flujo.sql` (esta última corrige el doble conteo del saldo). Cinco vistas.*
 
 La pieza que integra todo. Es **mayormente lectura**: junta en una línea de tiempo las fuentes que ya existen, sin estructura nueva.
 
@@ -1542,7 +1550,7 @@ Dos conceptos independientes por género, cada uno con opciones alternativas; el
 
 ### 3.19 Socios · sueldo devengado y retiros
 
-*Diseño asentado, pendiente de construir.*
+*Construido — migración `20260802113135_modulo_socios.sql`. Guille y Agus cargados por `supabase/seeds/03_socios.sql`; los sueldos acordados se cargan aparte.*
 
 Guille y Agus —los dueños— tienen un **sueldo mensual acordado**. Retiran plata cuando quieren, y el sistema lleva la cuenta: cuánto se devengó, cuánto se retiró, y el saldo acumulado.
 
@@ -1657,7 +1665,7 @@ Las dos cosas que hay que poder mirar: el número de hoy y cómo se llegó.
 
 ### 3.20 Sponsors · devengo lineal y dos calendarios
 
-*Diseño asentado, pendiente de construir.*
+*Construido — migración `20260802121935_modulo_sponsors.sql`.*
 
 Los sponsors aportan plata a cambio de visibilidad. Firman un **contrato anual** —cubre los dos torneos— por un monto total, con fechas de pago concretas. El aporte **se gana a lo largo del año**, porque dan visibilidad todo el tiempo, pero **se cobra en cuotas puntuales**.
 

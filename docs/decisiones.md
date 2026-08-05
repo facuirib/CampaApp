@@ -166,8 +166,10 @@ No se escribe. Se elimina cuando el bloque 3 (Cobranza) esté terminado.
 
 ## Diseño del cobro
 
-Tomadas, **pendientes de implementar**. Ninguna existe todavía en la base.
-Detalle y razonamiento en `arquitectura.md` §3.4 → El circuito de cobro.
+**Todas construidas.** `crear_equipo_torneo` (`20260731070827`) y
+`registrar_cobro` (`20260731100343`, sin fallback de usuario desde
+`20260802170000`). Detalle y razonamiento en `arquitectura.md` §3.4 → El
+circuito de cobro.
 
 **29 · `cuota.plan_tarifa_linea_id`, FK NOT NULL**
 Toda cuota de equipo hereda de su línea del tarifario el concepto
@@ -292,9 +294,10 @@ siempre, pero el vencimiento solo en las cuotas fijas — la de liga lo deriva d
 
 ## Calendario por serie
 
-Tomadas, **pendientes de construir**. Ninguna existe todavía en la base, que
-sigue con `jornada` por género y vacía. Detalle y razonamiento en
-`arquitectura.md` §3.5 y §3.3.
+**Todas construidas**, en las seis piezas del rediseño (`20260801121708` a
+`20260802103856`). La base tiene las 284 jornadas del Clausura colgando de
+serie, y 58 días de cancha. Detalle y razonamiento en `arquitectura.md` §3.5 y
+§3.3.
 
 **42 · La jornada cuelga de la serie, no del género**
 Identidad natural `(serie_id, numero)`. El género y el torneo se derivan
