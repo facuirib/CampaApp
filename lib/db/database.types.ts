@@ -3176,6 +3176,20 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cashflow_mensual: {
+        Row: {
+          entradas: number | null
+          flujo_neto: number | null
+          futura: boolean | null
+          mes: string | null
+          monto_comprometido: number | null
+          monto_estimado: number | null
+          monto_real: number | null
+          saldo_proyectado: number | null
+          salidas: number | null
+        }
+        Relationships: []
+      }
       v_cashflow_quiebre: {
         Row: {
           flujo_neto: number | null
@@ -3839,6 +3853,15 @@ export type Database = {
         Returns: undefined
       }
       periodo_de_fecha: { Args: { p_fecha: string }; Returns: string }
+      preview_cobro: {
+        Args: {
+          p_imputaciones: Json
+          p_medio: string
+          p_monto: number
+          p_tercero_id: string
+        }
+        Returns: Json
+      }
       proponer_amortizaciones: {
         Args: { p_periodo_id: string }
         Returns: {
