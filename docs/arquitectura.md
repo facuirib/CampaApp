@@ -1116,11 +1116,20 @@ Agnósticas del torneo (regla 12), una lógica para el seed y para la app que ve
 | `crear_arqueo(dia_cancha_id, saldo_contado, responsable_id)` | Calcula y **congela** `saldo_sistema`, guarda lo contado, la diferencia sale sola, estado `pendiente_entrega`. Valida el `unique` |
 | `registrar_entrega_central(arqueo_id, …)` | Genera el asiento predio → central y marca `entregado` |
 
-#### Qué habilita
+#### Lo que se lee
 
-- **Saldo sin rendir por responsable** = Σ de sus arqueos `pendiente_entrega`. Sale de los arqueos, sin cuenta contable propia.
-- **Diferencias registradas y sin resolver** — la cola de trabajo del control de caja.
-- **Historial de arqueos** por predio y fecha.
+| Vista | Qué devuelve | Deriva de |
+|---|---|---|
+| `v_saldo_efectivo_dia_cancha` | por cada día de operación: cuánto **debería** haber (`saldo_sistema`) y si ya se arqueó | `dia_cancha` × `saldo_efectivo_predio()` |
+| `v_arqueo_detalle` | el historial: sistema, contado, diferencia, estado, responsable, y los dos asientos | `arqueo` + `dia_cancha` + `predio` |
+| `v_arqueo_diferencia` | solo las diferencias **sin resolver**, con `clase` = faltante o sobrante | `arqueo` donde `diferencia <> 0` y `asiento_ajuste_id is null` |
+| `v_efectivo_sin_rendir` | por responsable: cuántos arqueos pendientes, cuánto suman y desde cuándo | `arqueo` en `pendiente_entrega` |
+
+**`v_saldo_efectivo_dia_cancha` es la que se mira antes de contar** — dice qué esperar. El saldo que expone es **en vivo**; el del arqueo, una vez hecho, queda congelado (decisión 59).
+
+**`v_efectivo_sin_rendir` es el saldo sin rendir de cada persona**, y sale de los arqueos y no de una cuenta contable: es la decisión 58 hecha consulta. `v_arqueo_diferencia` es la cola de trabajo del control de caja — lo que falta resolver, que puede no resolverse nunca (decisión 61).
+
+*Ninguna de las cuatro alimenta una pantalla todavía: el módulo de arqueo es front pendiente.*
 
 ### 3.7 Moneda extranjera · caja USD de cobertura
 
@@ -1397,10 +1406,19 @@ Sin tablas nuevas, todo derivado:
 
 | Vista | |
 |---|---|
-| `v_cashflow_real` | movimientos de caja por fecha |
-| `v_cashflow_comprometido` | cuotas de equipos + sponsors + compromisos |
-| `v_cashflow_estimado` | presupuesto distribuido por calendario |
-| `v_cashflow` | unión de las tres, con nivel, semana, acumulado y quiebre |
+| Vista | Qué devuelve | Deriva de |
+|---|---|---|
+| `v_cashflow_real` | movimientos de caja por fecha y origen | las cuentas de caja del diario |
+| `v_cashflow_comprometido` | lo pactado con fecha, con `fecha_original` y `arrastrada` | `v_estado_cuota`, `v_cuotas_sponsor_futuras`, `compromiso`, `cheque` |
+| `v_cashflow_estimado` | el presupuesto repartido por el calendario | `v_presupuesto_total` × jornadas / `dia_cancha` / meses |
+| **`v_cashflow`** | la línea de tiempo semanal: los tres niveles, `entradas`, `salidas`, `flujo_neto`, `saldo_proyectado` y `futura` | unión de las tres anteriores |
+| **`v_cashflow_mensual`** | lo mismo agregado por mes: flujos sumados y `saldo_proyectado` = el de la **última semana** del mes | `v_cashflow` |
+| **`v_cashflow_quiebre`** | solo las semanas futuras con `saldo_proyectado < 0` — vacía si no hay quiebre | `v_cashflow` |
+| **`v_saldo_caja_total`** | `saldo_total` y `cajas`: la posición de caja de **hoy**, en un solo número | `v_saldo_caja` |
+
+**Tres de ellas alimentan pantallas hoy:** `v_cashflow` y `v_saldo_caja_total` en `/proyeccion`, y **`v_cashflow_mensual` en `/proyeccion/mensual`** — ésta la construyó Horacio (P3) sobre la semanal.
+
+**Por qué `v_saldo_caja_total` existe.** El total de caja no era un número: `v_saldo_caja` devuelve una fila por caja. Sumarlas en el front habría violado la regla 1 —el front nunca calcula totales—, así que la suma vive en una vista. Es **la contracara de `saldo_proyectado`**: `v_saldo_caja_total` responde *cuánta plata hay ahora* y solo cuenta lo que ya tocó caja; `saldo_proyectado` responde *cuánta voy a tener* e incluye lo comprometido todavía sin cobrar.
 
 > **Reemplaza a `v_flujo_proyectado`.** El Draft anterior documentaba esa vista con SQL completo, **y no existía en la base**. Peor: su SQL **no compilaría hoy** — referencia `cat_gasto.grupo` (hoy `naturaleza` + `area`), `presupuesto_linea.monto_mensual` y `cantidad_x_fecha` (hoy `base`, `cantidad`, `unidad`) y **`jornada.torneo_id`**, que la pieza 1 eliminó. Además usaba `pagado_at is null`, que ignora las cuotas parciales y las suspendidas.
 >

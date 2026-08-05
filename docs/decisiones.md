@@ -914,13 +914,13 @@ gasto no achica el presupuesto**. Con 100.000 presupuestados para agosto y
 *La asimetría es de fondo:* una cuota es un **compromiso individual con estado
 propio**; una línea de presupuesto es un **agregado sin estado**. No hay nada que
 migre.
-*Resolución propuesta, a cerrar al construir:* cortar la línea de tiempo por
-fecha — lo anterior a hoy es REAL, lo de hoy en adelante es proyectado. Una fecha
-es pasada o futura y nunca las dos, así que la exclusión es **estructural** y no
+*Resuelta por la decisión 90:* se cortó la línea de tiempo por fecha, así la
+exclusión es **estructural** —una fecha es pasada o futura, nunca las dos— y no
 depende de emparejar líneas de presupuesto con gastos.
-*Caso pendiente:* las **cuotas vencidas e impagas** tienen `vence_at` pasado y
-siguen esperándose. Mostrar plata futura con fecha pasada confunde una
-proyección; la alternativa es arrastrarlas a la semana en curso.
+*El caso de las vencidas impagas también se cerró ahí:* tienen `vence_at` pasado
+y se siguen esperando, así que se **arrastran a hoy** conservando
+`fecha_original`. Mostrar plata futura con fecha pasada confundiría la
+proyección.
 
 **87 · La semana se deriva; no hay tabla de semanas**
 `date_trunc('week', fecha)` sobre las fechas de los flujos.
@@ -947,6 +947,78 @@ verificación doc↔schema.
 integración y presentación de fuentes existentes: el cashflow **lee** lo que cada
 patrón de reconocimiento produjo y no cambia cómo se reconoce nada. La pantalla
 —con drill-down y alerta de quiebre— es front y va después.
+
+---
+
+## Correcciones posteriores
+
+**89 · `registrar_cobro` sin fallback a `auth.users`**
+El responsable sale del parámetro o de la sesión —`coalesce(p_responsable_id,
+auth.uid())`— y si no hay ninguno, **falla explícito**. Se sacó el tercer
+término, `(select id from auth.users limit 1)`.
+*Por qué:* hacía dos daños distintos. Desde el front sin sesión, `auth.uid()` es
+null y la subconsulta se evalúa: el rol no puede leer `auth.users` y el error que
+llegaba era "permission denied for table users", que no dice nada de lo que pasó.
+Y peor: desde un rol que **sí** puede leerla —el servidor— un cobro sin
+`p_responsable_id` quedaba atribuido **al primer usuario de la tabla**, en
+silencio. Eso no falla: **miente sobre quién cobró**, y queda escrito en
+`pago.registrado_por` y en `asiento.created_by`.
+*Es un cambio de criterio de auditoría,* no una corrección técnica: un dato de
+auditoría inventado es peor que la ausencia del dato.
+*No se usó `SECURITY DEFINER`.* Esa vía —propuesta en la rama
+`fix/registrar-cobro-definer`, descartada— resolvía el síntoma dejando vivo el
+problema: con `DEFINER` el fallback funciona **siempre**, así que el responsable
+falso pasaría de error ocasional a comportamiento normal.
+*Camino feliz idéntico:* `coalesce` corta en el primer argumento no nulo, así que
+con sesión válida la subconsulta nunca se evaluaba.
+*⚠ Pendiente:* `crear_asiento` tiene **el mismo fallback**, y lo llaman nueve
+funciones que le pasan `p_created_by => null`. Es el mismo problema en el lugar
+más central —la única vía de escritura al diario—. Queda para el bloque 10.
+*Commit `0cbad99`, migración `20260802170000`.*
+
+**90 · El corte por fecha del cashflow** *(cierra la 86)*
+`REAL <= hoy` · `COMPROMETIDO >= hoy` + las vencidas arrastradas · `ESTIMADO >
+hoy`.
+*Por qué el corte:* es lo que impide que el presupuesto y los gastos ya pagados
+se cuenten dos veces, sin depender de emparejarlos uno a uno (decisión 86).
+*Por qué `<=` y no `<`:* la regla acordada decía "anterior a hoy", pero con
+`< hoy` **un cobro de esta mañana no aparecería en ningún lado** — ni en real,
+que es hoy, ni en proyectado, que ya ocurrió. Y el corte solo hace falta entre
+REAL y ESTIMADO: COMPROMETIDO se autoexcluye por `saldo`.
+*Verificado con el caso crítico:* con la jornada 1 del 01/08 pasada y las 2, 3 y
+4 futuras, a 100.000 de árbitros por jornada, el estimado de agosto dio −300.000
+y el real −100.000: las cuatro jornadas contadas **una** vez. Sin el corte,
+−500.000.
+*Las unidades `anual` y `unico` no entran en el estimado:* no tienen fecha
+natural, e inventarles una sería ubicar plata donde no se sabe que ocurre.
+Necesitan fecha para poder proyectarse.
+
+**91 · `v_cashflow`: el saldo separa stock de flujo**
+El saldo proyectado es **stock** (la caja real al cierre de esa semana) **más el
+acumulado de lo que todavía no ocurrió** (comprometido + estimado). `monto_real`
+**nunca** se acumula.
+*Qué estaba mal:* la ventana partía de `sum(saldo) from v_saldo_caja` —un stock,
+que ya contiene todos los movimientos reales— y le sumaba `flujo_neto`, que
+**incluye `monto_real`**: los mismos cobros, contados dos veces. `/proyeccion`
+mostraba "Saldo actual $16.600.000" con $3.790.000 en caja, y el error se
+arrastraba a todas las semanas siguientes.
+*Por qué el stock se toma al fin de CADA semana* y no fijo al saldo de hoy: así
+una sola expresión sirve para los tres casos —una semana pasada muestra su saldo
+histórico, la actual la caja de hoy más lo comprometido, y las futuras acumulan—.
+Con el saldo de hoy fijo, todas las pasadas mostrarían el mismo número y el tramo
+"real" del gráfico sería una línea horizontal.
+*Consistencia:* el stock replica la lógica exacta de `v_saldo_caja` —join contra
+`caja`, filtro por predio— más el corte de fecha, así los dos números coinciden
+por construcción y no por casualidad.
+*Convención semana/mes, ahora explícita:* **una semana pertenece al mes en que
+empieza**. `v_cashflow` agrupa solo por semana y deriva el mes del lunes; antes
+agrupaba por `(semana, mes)` y una semana partida entre dos meses producía **dos
+filas con la misma semana**, con el `order by` de la ventana empatado. En el
+Clausura se parten cuatro semanas y tres ya tienen flujo.
+*`v_cashflow_mensual` se corrigió sola:* solo lee `saldo_proyectado`. Sus
+columnas de flujo siguen bien — ahí sumar flujos **sí** corresponde; el error era
+sumar un flujo sobre un stock.
+*Commit `6e8e236`, migración `20260802200000`.*
 
 ---
 
