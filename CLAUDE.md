@@ -28,8 +28,28 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
    Si estás escribiendo lógica de asientos en TypeScript, algo está mal.
 
 4. **El asiento nunca se edita ni se borra.**
-   Se anula con contraasiento (`anular_asiento`). Toda vista que lea asientos
-   filtra `where anulado_por is null`.
+   Se anula con contraasiento (`anular_asiento`): se crea un asiento nuevo con
+   las líneas invertidas y el original queda marcado con `anulado_por`.
+
+   **Cómo lo lee una vista depende de qué hace con los asientos:**
+
+   - **Vistas que LISTAN** filtran `where anulado_por is null`: no tiene
+     sentido mostrar asientos muertos. Es lo que hace `v_libro_diario`.
+
+   - **Vistas que SUMAN saldos NO filtran.** El original y su contraasiento
+     **se compensan solos**: +X y −X dan 0. Filtrar `anulado_por is null`
+     excluye el original y **deja el contraasiento huérfano**, así que el saldo
+     da **−X en vez de 0**.
+
+   La causa es que `anular_asiento` marca **solo el original**: el
+   contraasiento queda con `anulado_por is null`. Para un saldo, o se incluyen
+   los dos o no se incluye ninguno — y como el contraasiento tiene fecha propia,
+   incluir ambos es además lo correcto con corte temporal: da lo que el diario
+   decía ese día.
+
+   `v_saldo_caja`, `v_cashflow_real` y `saldo_efectivo_predio()` ya lo hacen
+   así, y lo explican en sus migraciones. La regla lo dice acá, que es donde se
+   busca antes de escribir una vista nueva.
 
 5. **Terminología de UI: "Efectivo" y "Transferencia".**
    Nunca "declarable/no declarable", ni blanco/negro, ni equivalentes.
@@ -77,6 +97,25 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
     **Un torneo nuevo se carga con sus seeds y funciona sin tocar código.** Ese
     es el test. Verificado por auditoría — único hallazgo: los defaults `15`/`13`
     de `generar_grilla_liga`, que la reescritura de la grilla elimina.
+
+13. **La Fase 2 actualiza el doc que escribió la Fase 1.**
+    Si construiste algo que `arquitectura.md` o `decisiones.md` declaraban
+    pendiente, **actualizá su estado ahí mismo antes de commitear**, con la
+    migración que lo respalda. No en un commit posterior: en el mismo.
+
+    El doc se escribe al diseñar, cuando todo está pendiente. Si nadie vuelve
+    sobre él al construir, queda declarando pendiente lo que ya existe — y ese
+    es el peor error posible, porque **alguien lo lee, lo construye de nuevo y
+    duplica lo que ya está**.
+
+    No es hipotético: pasó nueve veces seguidas, y las nueve fallaron igual.
+    Módulos completos —arqueo, cashflow, socios, sponsors— figuraban como
+    "pendiente de construir" con la migración aplicada y probada con datos.
+
+    Vale también para lo que el doc afirma del schema: si renombraste una
+    columna o agregaste una, el bloque DDL del doc se corrige en el mismo
+    commit. **El schema es la verdad; el doc se corrige hacia él, nunca al
+    revés.**
 
 ## Los 5 conceptos
 
@@ -176,37 +215,43 @@ El sobrante queda como anticipo (saldo a favor), no se pierde.
 - Errores de dominio: clase `DomainError`, no strings sueltos
 - Toda función SQL nueva va en una migración numerada, no en un script suelto
 
-## Funciones de Postgres disponibles
+## Las puertas
 
-No reimplementar esto en TypeScript:
+Hay ~50 funciones en la base. **Éstas son las que no se pueden esquivar**: cada
+una protege un invariante que se rompe si escribís por otro lado. Si estás por
+hacer un `insert` que alguna de éstas ya hace, parás.
 
-| Función | Qué hace |
+| Puerta | Qué invariante protege |
 |---|---|
-| `crear_asiento(fecha, origen, desc, lineas, [torneo], [jornada], [predio], [origen_id])` | Única vía de escritura en el diario |
-| `anular_asiento(id, motivo, [fecha])` | Contraasiento. El original queda marcado |
-| `periodo_de_fecha(fecha)` | Resuelve el período; lo crea si no existe |
-| `saldo_cuenta(codigo, [hasta], [torneo])` | Saldo según naturaleza de la cuenta |
-| `sugerir_imputacion(pago_id)` | Propone reparto de un pago (no escribe) |
-| `imputar_pago(pago_id, imputaciones)` | Imputa lo que eligió el operador |
-| `aplicar_anticipo(tercero, cuota, monto)` | Usa saldo a favor |
-| `generar_cuotas_plan(plan_id)` | Cuotas de una moratoria |
-| `proponer_amortizaciones(periodo_id)` | Amortizaciones del mes |
+| `crear_asiento(...)` | **Única vía de escritura en el diario.** Resuelve el período, valida las líneas y garantiza Debe = Haber |
+| `anular_asiento(id, motivo, [fecha])` | El asiento no se edita ni se borra: se contraasienta, y el original queda marcado |
+| `crear_equipo_torneo(...)` | Única vía de alta de ficha. Genera las cuotas desde el tarifario según la regla de cada línea |
+| `registrar_cobro(...)` | Única vía de cobro. Pago + imputación + asiento en una transacción: o entra todo o no entra nada |
+| `imputar_pago(pago_id, imputaciones)` | Valida que las cuotas sean del tercero y que no se exceda el saldo |
+| `crear_jornada` · `crear_playoff` · `mover_jornada` · `suspender_jornada` | Una lógica, dos puertas: el seed y la app validan igual |
+| `crear_dia_cancha` · `crear_arqueo` · `registrar_entrega_central` | El circuito de caja física, con el saldo esperado congelado al arquear |
+| `devengar_sueldos_socios(periodo)` · `devengar_sponsors(periodo)` | Procesos mensuales **idempotentes**: correrlos dos veces no duplica |
+| `comprar_usd` · `vender_usd` | El promedio ponderado y la diferencia de cambio realizada. Tocar `CAJA_USD` por afuera corre el promedio en silencio |
 
-## Vistas principales
+**El catálogo completo vive en `docs/arquitectura.md`**, por tema. Acá no se
+replica: una lista a mano se desactualiza en la próxima migración, y eso es
+exactamente la fábrica de drift que este archivo tiene que evitar.
+
+## Vistas que conviene conocer
+
+Hay ~34. Estas cinco son las que aparecen en casi cualquier tarea:
 
 | Vista | Para qué |
 |---|---|
-| `v_deuda_equipo` | Cobranza: quién debe, cuánto, saldo a favor |
-| `v_deuda_detalle` | Cuota por cuota, todos los torneos |
-| `v_estado_cuota` | Estado de cada cuota |
-| `v_cobranza_kpi` | Tasa de cobranza, días promedio |
+| `v_estado_cuota` | El estado de cada cuota. Base de toda la cobranza |
+| `v_deuda_equipo` | Quién debe, cuánto, saldo a favor |
 | `v_saldo_caja` | Saldo de cada caja, derivado del diario |
-| `v_resultado_producto` | Contribución por torneo + estructura |
-| `v_comparador_torneos` | Contribución por equipo entre torneos |
-| `v_calendario_pagos` | Compromisos con criticidad |
-| `v_anticipo_saldo` | Saldo a favor disponible |
-| `v_libro_diario` | Cabecera de asientos con totales |
-| `v_asiento_detalle` | Líneas de un asiento, con nombres |
+| `v_libro_diario` · `v_asiento_detalle` | El diario y las líneas de un asiento |
+| `v_cashflow` | La línea de tiempo: real, comprometido y estimado |
+
+Para el resto, **buscá por tema en `docs/arquitectura.md`**: cobranza §3.4 ·
+calendario §3.5 · caja y arqueo §3.6 · USD §3.7 · presupuesto §3.8 · cashflow
+§3.10 · socios §3.19 · sponsors §3.20.
 
 ## Invariantes en la base
 
@@ -230,6 +275,8 @@ No replicar estas validaciones en el front — ya están garantizadas:
 - [ ] Si tocaste SQL: la migración corre sobre base limpia
 - [ ] Si tocaste asientos: hay test que verifica Debe = Haber
 - [ ] Ningún total calculado en el cliente
+- [ ] **Si construiste algo que el doc daba por pendiente: actualizá su estado
+      ahí mismo, con la migración que lo respalda** (regla 13)
 
 ## Qué NO hacer todavía
 
