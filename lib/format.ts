@@ -24,6 +24,18 @@ export function formatMoney(n: number): string {
   return MONEDA.format(n).replace('\u00A0', '')
 }
 
+const ENTERO = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
+
+/**
+ * Un conteo: equipos, partidos, cuotas. Lleva separador de miles y NO lleva `$`.
+ *
+ * Vive acá y no en el componente por el mismo motivo que `formatMoney`: que
+ * haya un solo lugar donde se decide cómo se escribe un número en la app.
+ */
+export function formatEntero(n: number): string {
+  return ENTERO.format(n)
+}
+
 /** El torneo es en Córdoba: las fechas con hora se muestran en esa zona. */
 const FECHA = new Intl.DateTimeFormat('es-AR', {
   timeZone: 'America/Argentina/Cordoba',

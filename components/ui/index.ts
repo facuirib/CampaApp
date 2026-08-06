@@ -26,4 +26,13 @@ export {
   type ValorCelda,
 } from './DataTable'
 export { default as Icon, type IconProps, type NombreIcono } from './Icon'
+export {
+  default as KpiCard,
+  type FormatoKpi,
+  type KpiCardProps,
+  type TonoKpi,
+  type ValorKpi,
+  type VariacionKpi,
+} from './KpiCard'
+export { default as KpiHero, type KpiHeroProps } from './KpiHero'
 export { default as Money, type MoneyProps } from './Money'

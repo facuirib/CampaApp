@@ -4,10 +4,13 @@ import {
   Button,
   Card,
   DataTable,
+  KpiCard,
+  KpiHero,
   Money,
   type CeldaBadge,
   type ColumnDef,
   type LineaAsiento,
+  type ValorKpi,
 } from '@/components/ui'
 
 /**
@@ -192,6 +195,17 @@ const ASIENTO_LARGO: LineaAsiento[] = [
   { cuenta: 'ING_INSCRIPCIONES', nombre: 'Ingresos por inscripciones', haber: 500000 },
   { cuenta: 'ING_SPONSORS', nombre: 'Ingresos por sponsors', haber: 250000 },
   { cuenta: 'ING_BAR', nombre: 'Ingresos del bar', haber: 100000 },
+]
+
+// ── KPIs de ejemplo ─────────────────────────────────────────────────────────
+
+// Serie de las últimas 7 fechas, para el sparkline. Fija, no al azar.
+const SERIE_CAJA = [42, 45, 44, 51, 58, 56, 68]
+
+const RESUMEN: ValorKpi[] = [
+  { titulo: 'Resultado del torneo', valor: 81200000, tono: 'neutro' },
+  { titulo: 'En caja', valor: 79700000, tono: 'info' },
+  { titulo: 'Por cobrar', valor: 8760000, tono: 'alerta' },
 ]
 
 function Muestra({ token, nombre }: { token: string; nombre: string }) {
@@ -485,9 +499,8 @@ export default function DesignPage() {
           <Card title="Con título e ícono" icon="caja">
             <p className="text-[11px] text-muted">
               El header aparece si viene <code className="font-mono">title</code>,{' '}
-              <code className="font-mono">icon</code> o{' '}
-              <code className="font-mono">action</code> — cualquiera de los tres. Sin ninguno, la
-              card es solo el contenedor.
+              <code className="font-mono">icon</code> o <code className="font-mono">action</code> —
+              cualquiera de los tres. Sin ninguno, la card es solo el contenedor.
             </p>
           </Card>
 
@@ -495,9 +508,8 @@ export default function DesignPage() {
             <p className="text-[11px] text-muted">
               Solo <code className="font-mono">icon</code>, sin título. Antes esta card descartaba
               el ícono en silencio: el header únicamente se dibujaba con{' '}
-              <code className="font-mono">title</code> o{' '}
-              <code className="font-mono">action</code>. Lo que se pasa explícito no puede
-              desaparecer sin aviso.
+              <code className="font-mono">title</code> o <code className="font-mono">action</code>.
+              Lo que se pasa explícito no puede desaparecer sin aviso.
             </p>
           </Card>
 
@@ -783,6 +795,83 @@ export default function DesignPage() {
               </p>
             </Card>
           </div>
+        </div>
+      </Seccion>
+
+      <Seccion n="08" titulo="KpiCard / KpiHero">
+        <div className="grid gap-3">
+          <Ejemplo titulo="Resumen financiero — KpiHero">
+            <KpiHero valores={RESUMEN} />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Recibe un array de valores, no <code className="font-mono">children</code>: así los
+              separadores y el espaciado quedan del lado del componente y el resumen se ve igual en
+              toda la app. Es el mismo <code className="font-mono">--night</code> del isologo y de
+              la fila de total del DataTable — el fondo oscuro ya significa &ldquo;esto es el total,
+              no una parte&rdquo;. Sobre navy el tono <code className="font-mono">info</code> usa{' '}
+              <code className="font-mono">--flyway</code> y no{' '}
+              <code className="font-mono">--blue</code>: el azul de marca da 3,94:1 ahí y el otro
+              6,10:1.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Los cuatro tonos">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <KpiCard tono="positivo" titulo="En caja hoy" valor={79700000} icon="caja" />
+              <KpiCard tono="alerta" titulo="Deuda vencida" valor={8760000} icon="alerta" />
+              <KpiCard tono="info" titulo="Comprometido" valor={31500000} icon="calendario" />
+              <KpiCard tono="neutro" titulo="Anticipos" valor={1250000} icon="monedas" />
+            </div>
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              La prop es qué <strong className="font-bold text-ink">significa</strong> el número, no
+              de qué color va: la pantalla dice que la deuda vencida es{' '}
+              <code className="font-mono">alerta</code> y el sistema elige el rojo. Mismo criterio
+              que el <code className="font-mono">estado</code> del Badge.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Formato, subtítulo, sparkline y variación">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <KpiCard
+                tono="info"
+                titulo="Equipos inscriptos"
+                valor={304}
+                formato="entero"
+                icon="equipos"
+                subtitulo="Padrón completo"
+              />
+              <KpiCard
+                tono="positivo"
+                titulo="En caja hoy"
+                valor={79700000}
+                icon="caja"
+                subtitulo="Caja real, sin proyectar"
+              />
+              <KpiCard
+                tono="positivo"
+                titulo="Recaudado"
+                valor={68400000}
+                icon="monedas"
+                sparkline={SERIE_CAJA}
+                subtitulo="Últimas 7 fechas"
+              />
+              <KpiCard
+                tono="alerta"
+                titulo="Deuda vencida"
+                valor={8760000}
+                icon="alerta"
+                variacion={{ porcentaje: -12, base: 'vs. la fecha anterior' }}
+              />
+            </div>
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              <code className="font-mono">formato=&quot;entero&quot;</code> es un conteo y no lleva{' '}
+              <code className="font-mono">$</code> — 304 equipos, no $304. El sparkline muestra la
+              forma de la serie y{' '}
+              <strong className="font-bold text-ink">ninguna cifra sale de él</strong>. Y la
+              variación lleva la base pegada al porcentaje porque{' '}
+              <code className="font-mono">▼12%</code> solo no dice nada: el tipo la exige, así que
+              un porcentaje sin contra-qué-compara no compila.
+            </p>
+          </Ejemplo>
         </div>
       </Seccion>
     </div>
