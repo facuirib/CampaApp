@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/db/server'
-import { Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type GastoDetalleRow = Database['public']['Views']['v_gasto_detalle']['Row']
@@ -77,15 +77,13 @@ export default async function GastosPage() {
       )}
 
       {!error && (
-        <Card icon="comprobante" noPadding>
-          <DataTable
-            columns={COL_GASTOS}
-            rows={gastos}
-            rowKey="gasto_id"
-            maxHeight={500}
-            emptyMessage="No hay gastos registrados."
-          />
-        </Card>
+        <DataTable
+          columns={COL_GASTOS}
+          rows={gastos}
+          rowKey="gasto_id"
+          maxHeight={500}
+          emptyMessage="No hay gastos registrados."
+        />
       )}
     </div>
   )

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/db/server'
-import { Card, DataTable, type ColumnDef } from '@/components/ui'
+import { DataTable, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaResultado = Database['public']['Views']['v_resultado_producto']['Row']
@@ -59,15 +59,13 @@ export default async function ResultadosPage() {
             <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
               Estado de resultados
             </h2>
-            <Card icon="documento" noPadding>
-              <DataTable
-                columns={COL_RESULTADOS}
-                rows={resultados ?? []}
-                rowKey={(row, i) => `${row.anio}-${row.producto}-${i}`}
-                maxHeight={400}
-                emptyMessage="No hay resultados registrados todavía."
-              />
-            </Card>
+            <DataTable
+              columns={COL_RESULTADOS}
+              rows={resultados ?? []}
+              rowKey={(row, i) => `${row.anio}-${row.producto}-${i}`}
+              maxHeight={400}
+              emptyMessage="No hay resultados registrados todavía."
+            />
             <p className="mt-3 text-[10.5px] text-muted">
               La estructura permanente no se prorratea entre torneos.
             </p>
@@ -77,15 +75,13 @@ export default async function ResultadosPage() {
             <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
               Comparación de torneos
             </h2>
-            <Card icon="equipos" noPadding>
-              <DataTable
-                columns={COL_COMPARADOR}
-                rows={comparador ?? []}
-                rowKey={(row, i) => `${row.nombre}-${row.fecha_desde}-${i}`}
-                maxHeight={400}
-                emptyMessage="No hay torneos para comparar todavía."
-              />
-            </Card>
+            <DataTable
+              columns={COL_COMPARADOR}
+              rows={comparador ?? []}
+              rowKey={(row, i) => `${row.nombre}-${row.fecha_desde}-${i}`}
+              maxHeight={400}
+              emptyMessage="No hay torneos para comparar todavía."
+            />
             <p className="mt-3 text-[10.5px] text-muted">
               Los sponsors no se incluyen (son a nivel empresa, cubren ambos torneos).
             </p>

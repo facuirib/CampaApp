@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
-import { Card, DataTable, type ColumnDef } from '@/components/ui'
+import { DataTable, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 /** Dólares formateados: "US$ 12.500". */
@@ -159,15 +159,13 @@ export default async function UsdPage() {
         )}
 
         {!errorDifCambio && (
-          <Card icon="monedas" noPadding>
-            <DataTable
-              columns={COL_DIF_CAMBIO}
-              rows={filasDifCambio}
-              rowKey={(row, i) => `${row.periodo}-${i}`}
-              maxHeight={360}
-              emptyMessage="No hay operaciones en dólares con diferencia de cambio."
-            />
-          </Card>
+          <DataTable
+            columns={COL_DIF_CAMBIO}
+            rows={filasDifCambio}
+            rowKey={(row, i) => `${row.periodo}-${i}`}
+            maxHeight={360}
+            emptyMessage="No hay operaciones en dólares con diferencia de cambio."
+          />
         )}
 
         <p className="mt-3 text-xs text-gray-500">

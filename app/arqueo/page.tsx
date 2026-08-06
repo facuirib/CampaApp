@@ -149,8 +149,7 @@ export default async function ArqueoPage() {
                   <Money value={fila.monto_sin_rendir ?? 0} />
                 </div>
                 <p className="text-[11px] text-muted">
-                  {fila.arqueos_pendientes ?? 0} arqueos pendientes · desde{' '}
-                  {formatDate(fila.desde)}
+                  {fila.arqueos_pendientes ?? 0} arqueos pendientes · desde {formatDate(fila.desde)}
                 </p>
               </Card>
             ))}
@@ -163,15 +162,13 @@ export default async function ArqueoPage() {
           <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
             Diferencias sin resolver
           </h2>
-          <Card icon="monedas" noPadding>
-            <DataTable
-              columns={COL_DIFERENCIAS}
-              rows={diferencias}
-              rowKey={(row, i) => row.arqueo_id ?? i}
-              maxHeight={400}
-              emptyMessage="No hay diferencias pendientes"
-            />
-          </Card>
+          <DataTable
+            columns={COL_DIFERENCIAS}
+            rows={diferencias}
+            rowKey={(row, i) => row.arqueo_id ?? i}
+            maxHeight={400}
+            emptyMessage="No hay diferencias pendientes"
+          />
         </section>
       )}
 
@@ -180,15 +177,13 @@ export default async function ArqueoPage() {
           <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
             Cajas por día de operación
           </h2>
-          <Card icon="calendario" noPadding>
-            <DataTable
-              columns={COL_DIA_CANCHA}
-              rows={diaCancha}
-              rowKey={(row, i) => row.dia_cancha_id ?? i}
-              maxHeight={400}
-              emptyMessage="No hay días de cancha registrados"
-            />
-          </Card>
+          <DataTable
+            columns={COL_DIA_CANCHA}
+            rows={diaCancha}
+            rowKey={(row, i) => row.dia_cancha_id ?? i}
+            maxHeight={400}
+            emptyMessage="No hay días de cancha registrados"
+          />
         </section>
       )}
 
@@ -197,15 +192,13 @@ export default async function ArqueoPage() {
           <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
             Historial de arqueos
           </h2>
-          <Card icon="documento" noPadding>
-            <DataTable
-              columns={COL_HISTORIAL}
-              rows={historial}
-              rowKey={(row, i) => row.arqueo_id ?? i}
-              maxHeight={400}
-              emptyMessage="No hay arqueos registrados"
-            />
-          </Card>
+          <DataTable
+            columns={COL_HISTORIAL}
+            rows={historial}
+            rowKey={(row, i) => row.arqueo_id ?? i}
+            maxHeight={400}
+            emptyMessage="No hay arqueos registrados"
+          />
         </section>
       )}
     </div>
