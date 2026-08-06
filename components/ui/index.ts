@@ -7,6 +7,11 @@
  * pantalla debería escribir un color, un radio ni una sombra a mano: si algo
  * no se puede expresar con estas piezas, falta una pieza.
  */
+export {
+  default as AsientoPreview,
+  type AsientoPreviewProps,
+  type LineaAsiento,
+} from './AsientoPreview'
 export { default as Badge, type BadgeProps, type EstadoBadge } from './Badge'
 export { default as Button, type ButtonProps, type TamanoBoton, type VarianteBoton } from './Button'
 export { default as Card, type CardProps } from './Card'

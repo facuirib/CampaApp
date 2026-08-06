@@ -1073,3 +1073,27 @@ pasa a derivarse del diario, y esa es una decisión de modelo aparte.
 
 *Cuándo:* con la escritura de gastos (G1/G3), no antes. Hoy la lectura ya
 refleja la baja; lo que falta es poder ejecutarla.
+
+**Dos mejoras para cuando se toque `preview_cobro`.** Ninguna es urgente y el
+componente `AsientoPreview` ya está listo para aprovecharlas sin cambios.
+
+**(a) Que devuelva el nombre de cuenta, no el código.** Hoy la función arma las
+líneas con `'cuenta', v_cuenta_caja` y con los códigos `ING_INSCRIPCIONES` /
+`ING_PARTIDOS`, así que al operador se le muestra literalmente
+`CAJA_TRANSFERENCIA`. La tabla `cuenta` tiene el nombre bueno
+(`Caja Transferencia`, `Ingresos por partidos`): alcanza con un join y agregar
+la clave `nombre` al `jsonb_build_object`. El componente ya prefiere `nombre` y
+cae al código si no viene.
+
+**(b) Que el balance sea real y no un literal.** La función cierra con
+`'total_haber', v_debe` —la misma variable que `total_debe`— y
+`'balanceado', true` literal. O sea que los totales que se muestran no se
+derivan de las líneas que se muestran, y **el badge no puede dar rojo nunca**.
+No está mal —el asiento balancea por construcción y la función aborta antes si
+la imputación no cuadra— pero el indicador hoy no informa nada. Derivar ambos
+de las líneas efectivamente construidas convierte un adorno en una
+verificación.
+
+*Cuándo:* cuando se toque `preview_cobro` por cualquier otro motivo, o al
+escribir la primera `preview_*` de otro módulo — conviene que la nueva ya nazca
+con las dos cosas bien y no copie el patrón actual.

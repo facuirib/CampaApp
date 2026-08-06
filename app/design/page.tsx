@@ -1,4 +1,5 @@
 import {
+  AsientoPreview,
   Badge,
   Button,
   Card,
@@ -6,6 +7,7 @@ import {
   Money,
   type CeldaBadge,
   type ColumnDef,
+  type LineaAsiento,
 } from '@/components/ui'
 
 /**
@@ -167,6 +169,30 @@ const CUOTAS: FilaCuota[] = Array.from({ length: 24 }, (_, i) => ({
   vence: `2026-0${(i % 4) + 6}-${String((i % 27) + 1).padStart(2, '0')}`,
   monto: 250000 + (i % 7) * 125000,
 }))
+
+// ── Asientos de ejemplo ─────────────────────────────────────────────────────
+
+// Tal como los devuelve `preview_cobro` hoy: la cuenta viene como CÓDIGO.
+const ASIENTO_COBRO: LineaAsiento[] = [
+  { cuenta: 'CAJA_TRANSFERENCIA', debe: 525000 },
+  { cuenta: 'ING_PARTIDOS', haber: 400000 },
+  { cuenta: 'ING_INSCRIPCIONES', haber: 125000 },
+]
+
+// Con `nombre` resuelto: así se vería si la función de preview hiciera el join
+// contra `cuenta`. Es el mismo componente, sin cambios.
+const ASIENTO_GASTO: LineaAsiento[] = [
+  { cuenta: 'GAS_ARBITRAJE', nombre: 'Arbitraje', debe: 310000 },
+  { cuenta: 'PROVEEDORES_A_PAGAR', nombre: 'Proveedores a pagar', haber: 310000 },
+]
+
+const ASIENTO_LARGO: LineaAsiento[] = [
+  { cuenta: 'CAJA_EFECTIVO', nombre: 'Caja Efectivo', debe: 1750000 },
+  { cuenta: 'ING_PARTIDOS', nombre: 'Ingresos por partidos', haber: 900000 },
+  { cuenta: 'ING_INSCRIPCIONES', nombre: 'Ingresos por inscripciones', haber: 500000 },
+  { cuenta: 'ING_SPONSORS', nombre: 'Ingresos por sponsors', haber: 250000 },
+  { cuenta: 'ING_BAR', nombre: 'Ingresos del bar', haber: 100000 },
+]
 
 function Muestra({ token, nombre }: { token: string; nombre: string }) {
   return (
@@ -608,6 +634,105 @@ export default function DesignPage() {
                 Abajo de 768px la tabla no scrollea al costado: cada fila pasa a ser una card con
                 label y valor, y el total a un bloque navy. Los formatos se respetan —el badge sigue
                 siendo badge y la plata sigue en <code className="font-mono">Money</code>.
+              </p>
+            </Card>
+          </div>
+        </div>
+      </Seccion>
+
+      <Seccion n="07" titulo="AsientoPreview">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Card title="Cobro — como lo usa la pantalla de cobranza" icon="caja">
+            <AsientoPreview
+              colapsable
+              defaultAbierto
+              descripcion="La Pausa · cuotas 2 y 3"
+              fecha="2026-08-06"
+              lineas={ASIENTO_COBRO}
+              totalDebe={525000}
+              totalHaber={525000}
+              balanceado
+            />
+            <p className="mt-3 text-[10.5px] leading-relaxed text-muted">
+              Es lo que devuelve <code className="font-mono">preview_cobro</code> hoy, sin retocar:
+              la cuenta viene como <strong className="font-bold text-ink">código</strong>. El
+              plegado usa <code className="font-mono">&lt;details&gt;</code> nativo — anda con
+              teclado y sin JavaScript, así que el componente no necesita{' '}
+              <code className="font-mono">&quot;use client&quot;</code>.
+            </p>
+          </Card>
+
+          <Card title="Gasto — con el nombre de cuenta resuelto" icon="comprobante">
+            <AsientoPreview
+              descripcion="Arbitraje fecha 4"
+              lineas={ASIENTO_GASTO}
+              totalDebe={310000}
+              totalHaber={310000}
+              balanceado
+            />
+            <p className="mt-3 text-[10.5px] leading-relaxed text-muted">
+              El mismo componente, sin cambios, cuando la línea trae{' '}
+              <code className="font-mono">nombre</code>. Así se vería el cobro de al lado el día que{' '}
+              <code className="font-mono">preview_cobro</code> haga el join contra{' '}
+              <code className="font-mono">cuenta</code>. Sin{' '}
+              <code className="font-mono">colapsable</code>, el asiento está siempre a la vista.
+            </p>
+          </Card>
+
+          <Card title="Cinco líneas" icon="documento">
+            <AsientoPreview
+              descripcion="Recaudación de la fecha"
+              lineas={ASIENTO_LARGO}
+              totalDebe={1750000}
+              totalHaber={1750000}
+              balanceado
+            />
+            <p className="mt-3 text-[10.5px] leading-relaxed text-muted">
+              Las líneas al haber van indentadas y con &ldquo;a&rdquo;, como se escribe un asiento a
+              mano. El lado que no corresponde queda{' '}
+              <strong className="font-bold text-ink">en blanco</strong> y no con{' '}
+              <code className="font-mono">—</code>: no es un dato que falta, es la estructura.
+            </p>
+          </Card>
+
+          <div className="grid gap-3">
+            <Card title="Cargando" icon="reloj">
+              <AsientoPreview
+                cargando
+                descripcion="La Pausa · cuota 3"
+                lineas={[]}
+                totalDebe={0}
+                totalHaber={0}
+                balanceado={false}
+              />
+            </Card>
+
+            <Card title="Con error" icon="alerta">
+              <AsientoPreview
+                error="La imputación suma 400000 y el pago es de 525000. Tienen que coincidir."
+                lineas={[]}
+                totalDebe={0}
+                totalHaber={0}
+                balanceado={false}
+              />
+            </Card>
+
+            <Card title="Sin balancear" icon="alerta">
+              <AsientoPreview
+                descripcion="Solo puede pasar si la función de preview lo informa"
+                lineas={[
+                  { cuenta: 'CAJA_EFECTIVO', nombre: 'Caja Efectivo', debe: 500000 },
+                  { cuenta: 'ING_PARTIDOS', nombre: 'Ingresos por partidos', haber: 400000 },
+                ]}
+                totalDebe={500000}
+                totalHaber={400000}
+                balanceado={false}
+              />
+              <p className="mt-3 text-[10.5px] leading-relaxed text-muted">
+                El componente dibuja el balance tal como lo recibe, no lo recalcula.{' '}
+                <code className="font-mono">preview_cobro</code> hoy manda{' '}
+                <code className="font-mono">balanceado: true</code> literal, así que por esa vía
+                este estado no aparece — y eso es cosa de la función, no del componente.
               </p>
             </Card>
           </div>

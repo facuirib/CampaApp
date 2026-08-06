@@ -4,7 +4,7 @@ import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
 import { formatMoney, formatDate } from '@/lib/format'
-import PreviewAsiento from '@/components/PreviewAsiento'
+import PreviewCobro from '@/components/PreviewCobro'
 import type { Database, Json } from '@/lib/db/database.types'
 
 type CuotaDeuda = Database['public']['Views']['v_deuda_detalle']['Row']
@@ -358,7 +358,7 @@ export default function CobrarPage({
 
               {monto > 0 && imputacionCompleta && (
                 <div className="mb-6">
-                  <PreviewAsiento
+                  <PreviewCobro
                     terceroId={terceroId}
                     monto={monto}
                     medio={medio}
