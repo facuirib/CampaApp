@@ -118,7 +118,22 @@ const PADDING_FILA: Record<DensidadTabla, string> = {
  * ─────────────────────────────────────────────────────────────────────────
  *
  * Abajo de 768px la tabla no scrollea al costado: colapsa a una card por
- * fila, con label y valor. Los formatos se respetan igual.
+ * fila, con label y valor. Los formatos se respetan igual. El precio de que
+ * el corte sea puro CSS —y por eso funcione sin JavaScript y desde un Server
+ * Component— es que los dos layouts van al DOM y uno se oculta.
+ *
+ * ── Cómo se usa ─────────────────────────────────────────────────────────
+ *
+ * NO va envuelta en `Card`. La tabla ya es su propio contenedor: trae borde,
+ * radio y `overflow-hidden`. Adentro de una Card quedan dos bordes, y con
+ * `noPadding` quedan pegados y se ve una línea doble.
+ *
+ * Si necesita título, el título va ARRIBA de la tabla, no envolviéndola:
+ *
+ *     <section>
+ *       <h2>Diferencias sin resolver</h2>
+ *       <DataTable … />
+ *     </section>
  */
 export default function DataTable<T extends object>({
   columns,
@@ -137,6 +152,21 @@ export default function DataTable<T extends object>({
 
   const padding = PADDING_FILA[densidad]
   const vacia = rows.length === 0
+
+  // Sin filas se dibuja UN bloque, compartido por los dos anchos, en vez de
+  // uno adentro de la tabla y otro adentro de la lista de cards. El mensaje
+  // llegaba dos veces al DOM: en el navegador se veía una sola —CSS oculta el
+  // layout que no toca— pero estaba escrito dos veces igual, y es la clase de
+  // duplicado que después alguien copia creyendo que hace falta.
+  if (vacia) {
+    return (
+      <div className={className}>
+        <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
+          {emptyMessage}
+        </div>
+      </div>
+    )
+  }
 
   const celdasTotal = total
     ? columns.map((col) => ({
@@ -172,17 +202,6 @@ export default function DataTable<T extends object>({
             </thead>
 
             <tbody className="[&>tr:last-child>td]:border-b-0">
-              {vacia && (
-                <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-3 py-8 text-center text-[11px] text-muted"
-                  >
-                    {emptyMessage}
-                  </td>
-                </tr>
-              )}
-
               {rows.map((row, i) => {
                 const href = rowHref?.(row)
                 const interactiva = href != null || onRowClick != null
@@ -269,12 +288,6 @@ export default function DataTable<T extends object>({
 
       {/* ── Mobile: una card por fila, sin scroll horizontal ─────────────── */}
       <div className="grid gap-2 md:hidden">
-        {vacia && (
-          <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
-            {emptyMessage}
-          </div>
-        )}
-
         {rows.map((row, i) => {
           const href = rowHref?.(row)
           const cuerpo = (

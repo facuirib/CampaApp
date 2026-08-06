@@ -32,7 +32,11 @@ export default function Card({
   className,
   children,
 }: CardProps) {
-  const hayHeader = title != null || action != null
+  // También con `icon` solo. Antes el header se dibujaba únicamente si había
+  // title o action, así que un `<Card icon="x">` sin título descartaba el
+  // ícono sin decir nada: lo que se pasa explícito no puede desaparecer en
+  // silencio.
+  const hayHeader = icon != null || title != null || action != null
 
   const clases = [
     'bg-white border border-line rounded-md shadow-sm',
@@ -51,11 +55,20 @@ export default function Card({
             noPadding ? 'px-4 pt-4 pb-3' : 'mb-[13px]',
           ].join(' ')}
         >
-          {title != null && (
+          {title != null ? (
             <h2 className="flex items-center gap-1.5 text-[12.5px] font-extrabold tracking-[-.2px] text-ink">
               {icon && <Icon name={icon} size={14} className="text-blue" />}
               {title}
             </h2>
+          ) : (
+            // Sin título el ícono va en un span y no en un h2: un encabezado
+            // sin texto no encabeza nada, y un lector de pantalla lo anunciaría
+            // como un título vacío.
+            icon && (
+              <span className="flex items-center">
+                <Icon name={icon} size={14} className="text-blue" />
+              </span>
+            )
           )}
           {action}
         </div>

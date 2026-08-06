@@ -209,6 +209,33 @@ function Muestra({ token, nombre }: { token: string; nombre: string }) {
   )
 }
 
+/**
+ * Un ejemplo con título, para lo que NO va adentro de una Card.
+ *
+ * El DataTable ya es su propio contenedor —borde, radio, overflow-hidden—,
+ * así que envolverlo en Card da dos bordes. El título va arriba, no
+ * envolviendo.
+ */
+function Ejemplo({
+  titulo,
+  aside,
+  children,
+}: {
+  titulo: string
+  aside?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="text-[12.5px] font-extrabold tracking-[-.2px] text-ink">{titulo}</h3>
+        {aside}
+      </div>
+      {children}
+    </div>
+  )
+}
+
 function Seccion({
   n,
   titulo,
@@ -457,8 +484,20 @@ export default function DesignPage() {
         <div className="grid gap-3 lg:grid-cols-2">
           <Card title="Con título e ícono" icon="caja">
             <p className="text-[11px] text-muted">
-              El header es opcional: sin <code className="font-mono">title</code> ni{' '}
-              <code className="font-mono">action</code>, la card es solo el contenedor.
+              El header aparece si viene <code className="font-mono">title</code>,{' '}
+              <code className="font-mono">icon</code> o{' '}
+              <code className="font-mono">action</code> — cualquiera de los tres. Sin ninguno, la
+              card es solo el contenedor.
+            </p>
+          </Card>
+
+          <Card icon="monedas">
+            <p className="text-[11px] text-muted">
+              Solo <code className="font-mono">icon</code>, sin título. Antes esta card descartaba
+              el ícono en silencio: el header únicamente se dibujaba con{' '}
+              <code className="font-mono">title</code> o{' '}
+              <code className="font-mono">action</code>. Lo que se pasa explícito no puede
+              desaparecer sin aviso.
             </p>
           </Card>
 
@@ -554,10 +593,18 @@ export default function DesignPage() {
 
       <Seccion n="06" titulo="DataTable">
         <div className="grid gap-3">
-          <Card
-            title="Cobranza — texto, badge, fecha, plata y total"
-            icon="equipos"
-            action={
+          <p className="rounded-md border border-line bg-white px-4 py-3 text-[10.5px] leading-relaxed text-muted">
+            <strong className="font-bold text-ink">No va envuelta en Card.</strong> La tabla ya es
+            su propio contenedor: trae borde, radio y{' '}
+            <code className="font-mono">overflow-hidden</code>. Adentro de una Card quedan dos
+            bordes, y con <code className="font-mono">noPadding</code> quedan pegados y se ve una
+            línea doble. Si necesita título, el título va{' '}
+            <strong className="font-bold text-ink">arriba</strong> de la tabla, no envolviéndola —
+            que es como están armados los ejemplos de acá abajo.
+          </p>
+          <Ejemplo
+            titulo="Cobranza — texto, badge, fecha, plata y total"
+            aside={
               <span className="text-[9.5px] font-semibold text-muted">
                 filas clickeables · rowHref
               </span>
@@ -577,17 +624,17 @@ export default function DesignPage() {
               importes ya redondeados a peso. La fila navy anclada dice eso mismo sin texto —viene
               de otro lado, no es una fila más.
             </p>
-          </Card>
+          </Ejemplo>
 
-          <Card title="Movimientos — sin total" icon="comprobante">
+          <Ejemplo titulo="Movimientos — sin total">
             <DataTable columns={COL_MOVIMIENTOS} rows={MOVIMIENTOS} rowKey="id" />
             <p className="mt-3 text-[10.5px] text-muted">
               Sin <code className="font-mono">total</code> no hay fila navy. Los importes negativos
               salen del formato, no de una regla de la tabla.
             </p>
-          </Card>
+          </Ejemplo>
 
-          <Card title="Cuotas — densidad compacta, header sticky" icon="calendario">
+          <Ejemplo titulo="Cuotas — densidad compacta, header sticky">
             <DataTable
               columns={COL_CUOTAS}
               rows={CUOTAS}
@@ -603,10 +650,10 @@ export default function DesignPage() {
               <code className="font-mono">position: sticky</code> en vez de un bloque aparte, así
               sigue alineado con las columnas cuando la tabla scrollea al costado.
             </p>
-          </Card>
+          </Ejemplo>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <Card title="Sin filas" icon="alerta">
+            <Ejemplo titulo="Sin filas">
               <DataTable
                 columns={COL_MOVIMIENTOS}
                 rows={[]}
@@ -617,9 +664,9 @@ export default function DesignPage() {
                 <code className="font-mono">emptyMessage</code> es del dominio: dice qué falta, no
                 &ldquo;sin datos&rdquo;.
               </p>
-            </Card>
+            </Ejemplo>
 
-            <Card title="Colapso mobile" icon="ver">
+            <Ejemplo titulo="Colapso mobile">
               {/* iframe y no una explicación: el corte es por breakpoint CSS, así
                   que hace falta un viewport angosto de verdad. Con 360px acá
                   adentro, la variante se ve sin achicar la ventana. */}
@@ -635,7 +682,7 @@ export default function DesignPage() {
                 label y valor, y el total a un bloque navy. Los formatos se respetan —el badge sigue
                 siendo badge y la plata sigue en <code className="font-mono">Money</code>.
               </p>
-            </Card>
+            </Ejemplo>
           </div>
         </div>
       </Seccion>
