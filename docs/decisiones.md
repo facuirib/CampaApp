@@ -1054,3 +1054,22 @@ Hay que decidir entre:
 *Cuándo:* antes de que aparezca el primer movimiento con fecha de 2027. No es
 urgente, pero el síntoma si se olvida es un cobro que falla en producción con
 un mensaje que habla de ejercicios, no de cobranza.
+
+**Puerta `anular_gasto()`.** Un gasto cargado por error no se puede dar de
+baja: no hay función que lo haga y `gasto` no tiene columna de anulación. El
+único mecanismo del sistema es `anular_asiento()`, que corrige el diario pero
+deja la fila de `gasto` intacta.
+
+`v_gasto_detalle` (migración `20260806160132`) cierra la mitad visible del
+hueco: deriva el estado del asiento de devengo, así que un gasto
+contraasentado se **muestra** como `anulado` sin duplicar la verdad del
+diario en una columna. Falta la otra mitad — la puerta que contraasienta el
+devengo y deja la baja **operable** desde la app.
+
+Queda un caso sin cubrir, del otro lado: si se anula el asiento de **pago** y
+no el de devengo, `pagado_at` sigue escrito y la fila se muestra `pagado`
+aunque el diario diga que no se pagó. Resolverlo es decidir si el pago también
+pasa a derivarse del diario, y esa es una decisión de modelo aparte.
+
+*Cuándo:* con la escritura de gastos (G1/G3), no antes. Hoy la lectura ya
+refleja la baja; lo que falta es poder ejecutarla.

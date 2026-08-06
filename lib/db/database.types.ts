@@ -966,6 +966,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "compromiso_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_gasto_detalle"
+            referencedColumns: ["gasto_id"]
+          },
+          {
             foreignKeyName: "compromiso_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
@@ -3502,6 +3509,110 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+        ]
+      }
+      v_gasto_detalle: {
+        Row: {
+          activo_id: string | null
+          arancel: number | null
+          area: string | null
+          asiento_dev_id: string | null
+          asiento_pag_id: string | null
+          cantidad: number | null
+          categoria: string | null
+          concepto: string | null
+          devengado_at: string | null
+          es_libre: boolean | null
+          estado: string | null
+          gasto_id: string | null
+          jornada_id: string | null
+          medio_pago: string | null
+          naturaleza: string | null
+          pagado_at: string | null
+          predio: string | null
+          predio_id: string | null
+          torneo: string | null
+          torneo_id: string | null
+          total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gasto_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "activo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_asiento_dev_id_fkey"
+            columns: ["asiento_dev_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_asiento_dev_id_fkey"
+            columns: ["asiento_dev_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "gasto_asiento_pag_id_fkey"
+            columns: ["asiento_pag_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_asiento_pag_id_fkey"
+            columns: ["asiento_pag_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "gasto_jornada_id_fkey"
+            columns: ["jornada_id"]
+            isOneToOne: false
+            referencedRelation: "jornada"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
           },
         ]
       }

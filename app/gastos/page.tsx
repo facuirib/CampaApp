@@ -1,30 +1,8 @@
-import type { PostgrestError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/db/server'
 import { Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import type { Database } from '@/lib/db/database.types'
 
-// v_gasto_detalle todavía no está en database.types.ts (migración sin aplicar) — tipado local.
-interface GastoDetalleRow {
-  gasto_id: string
-  concepto: string | null
-  es_libre: boolean | null
-  categoria: string | null
-  naturaleza: string | null
-  area: string | null
-  torneo_id: string | null
-  torneo: string | null
-  predio_id: string | null
-  predio: string | null
-  jornada_id: string | null
-  arancel: number | null
-  cantidad: number | null
-  total: number | null
-  devengado_at: string | null
-  pagado_at: string | null
-  medio_pago: string | null
-  estado: string | null
-  asiento_dev_id: string | null
-  asiento_pag_id: string | null
-}
+type GastoDetalleRow = Database['public']['Views']['v_gasto_detalle']['Row']
 
 interface FilaGasto {
   gasto_id: string
@@ -38,7 +16,15 @@ interface FilaGasto {
   estado: CeldaBadge
 }
 
+/**
+ * Los tres estados que emite la vista.
+ *
+ * `anulado` va en gris y no en rojo: el gasto no está mal, está dado de baja.
+ * El rojo es para lo que reclama atención, y un gasto anulado ya no reclama
+ * nada — solo tiene que quedar visible para que no parezca que nunca se cargó.
+ */
 function estadoGastoABadge(estado: string | null): CeldaBadge {
+  if (estado === 'anulado') return { estado: 'neutro', label: 'Anulado' }
   if (estado === 'pagado') return { estado: 'ok', label: 'Pagado' }
   if (estado === 'devengado') return { estado: 'porVencer', label: 'Impago' }
   return { estado: 'neutro', label: estado ?? '—' }
@@ -58,16 +44,15 @@ const COL_GASTOS: ColumnDef<FilaGasto>[] = [
 export default async function GastosPage() {
   const supabase = await createClient()
 
-  const { data, error } = (await supabase
-    .from('v_gasto_detalle' as never)
+  const { data, error } = await supabase
+    .from('v_gasto_detalle')
     .select('*')
-    .order('devengado_at', { ascending: false })) as unknown as {
-    data: GastoDetalleRow[] | null
-    error: PostgrestError | null
-  }
+    .order('devengado_at', { ascending: false })
 
-  const gastos: FilaGasto[] = (data ?? []).map((g) => ({
-    gasto_id: g.gasto_id,
+  const gastos: FilaGasto[] = (data ?? []).map((g: GastoDetalleRow) => ({
+    // La vista tipa todas sus columnas como nullable, que es lo que hace
+    // Supabase con cualquier vista. `gasto_id` viene de `gasto.id`, que es PK.
+    gasto_id: g.gasto_id!,
     concepto: g.concepto,
     categoria: g.categoria,
     area: g.area,
