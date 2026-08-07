@@ -3,8 +3,17 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
-import { formatMoney, formatDate } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
 import PreviewCobro from '@/components/PreviewCobro'
+import {
+  Button,
+  DataTable,
+  Field,
+  Input,
+  Select,
+  type CeldaBadge,
+  type ColumnDef,
+} from '@/components/ui'
 import type { Database, Json } from '@/lib/db/database.types'
 
 type CuotaDeuda = Database['public']['Views']['v_deuda_detalle']['Row']
@@ -19,6 +28,36 @@ interface Imputacion {
 
 const TOLERANCIA = 0.005
 
+/** Mismo mapa que la cuenta corriente: estas filas también son cuotas. */
+const ESTADOS: Record<string, CeldaBadge> = {
+  al_dia: { estado: 'alDia', label: 'Al día' },
+  pagada: { estado: 'ok', label: 'Pagada' },
+  por_vencer: { estado: 'porVencer', label: 'Por vencer' },
+  vencida: { estado: 'mora', label: 'Vencida' },
+  parcial_vencida: { estado: 'mora', label: 'Parcial vencida' },
+}
+
+function estadoCuota(codigo: string | null): CeldaBadge {
+  return ESTADOS[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
+}
+
+interface FilaImputacion {
+  cuota_id: string
+  cuota_numero: number | null
+  vence_at: string | null
+  saldo: number | null
+  estado: CeldaBadge
+  a_imputar: number | null
+}
+
+const COLUMNAS: ColumnDef<FilaImputacion>[] = [
+  { key: 'cuota_numero', label: 'Cuota', align: 'right', width: 70 },
+  { key: 'vence_at', label: 'Vence', format: 'date', width: 110 },
+  { key: 'saldo', label: 'Saldo', format: 'money', width: 130 },
+  { key: 'estado', label: 'Estado', format: 'badge' },
+  { key: 'a_imputar', label: 'A imputar', format: 'money', width: 130 },
+]
+
 function hoyEnCordoba(): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Cordoba',
@@ -32,9 +71,7 @@ function hoyEnCordoba(): string {
 function calcularImputacionAutomatica(cuotas: CuotaDeuda[], monto: number): Imputacion[] {
   if (monto <= 0) return []
 
-  const ordenadas = [...cuotas].sort((a, b) =>
-    (a.vence_at ?? '').localeCompare(b.vence_at ?? '')
-  )
+  const ordenadas = [...cuotas].sort((a, b) => (a.vence_at ?? '').localeCompare(b.vence_at ?? ''))
 
   let restanteCentavos = Math.round(monto * 100)
   const imputaciones: Imputacion[] = []
@@ -54,11 +91,7 @@ function calcularImputacionAutomatica(cuotas: CuotaDeuda[], monto: number): Impu
   return imputaciones
 }
 
-export default function CobrarPage({
-  params,
-}: {
-  params: Promise<{ terceroId: string }>
-}) {
+export default function CobrarPage({ params }: { params: Promise<{ terceroId: string }> }) {
   const { terceroId } = use(params)
 
   const [cargando, setCargando] = useState(true)
@@ -145,22 +178,22 @@ export default function CobrarPage({
 
   const cuotasTorneo = useMemo(
     () => torneosConDeuda.find((t) => t.torneoId === torneoSeleccionado)?.cuotas ?? [],
-    [torneosConDeuda, torneoSeleccionado]
+    [torneosConDeuda, torneoSeleccionado],
   )
 
   const imputaciones = useMemo(
     () => calcularImputacionAutomatica(cuotasTorneo, monto),
-    [cuotasTorneo, monto]
+    [cuotasTorneo, monto],
   )
 
   const sumaImputaciones = useMemo(
     () => Math.round(imputaciones.reduce((acc, i) => acc + i.monto, 0) * 100) / 100,
-    [imputaciones]
+    [imputaciones],
   )
 
   const totalDeudaTorneo = useMemo(
     () => cuotasTorneo.reduce((acc, c) => acc + (c.saldo ?? 0), 0),
-    [cuotasTorneo]
+    [cuotasTorneo],
   )
 
   const excedeDeuda = monto > totalDeudaTorneo + TOLERANCIA
@@ -206,43 +239,64 @@ export default function CobrarPage({
     setRecarga((n) => n + 1)
   }
 
+  // Solo presentación: la imputación ya está calculada arriba, acá se la busca
+  // para mostrarla. Ningún número sale de este map.
+  const filasImputacion: FilaImputacion[] = cuotasTorneo.map((c) => ({
+    cuota_id: c.cuota_id!,
+    cuota_numero: c.cuota_numero,
+    vence_at: c.vence_at,
+    saldo: c.saldo,
+    estado: estadoCuota(c.estado),
+    a_imputar: imputaciones.find((i) => i.cuota_id === c.cuota_id)?.monto ?? null,
+  }))
+
   return (
-    <main className="p-8 font-sans max-w-3xl">
-      <Link href={`/cobranza/${terceroId}`} className="text-sm text-blue-600 hover:underline">
+    <div className="pb-10">
+      <Link
+        href={`/cobranza/${terceroId}`}
+        className="text-[11px] font-semibold text-blue-d hover:underline"
+      >
         ← Volver a la cuenta corriente
       </Link>
 
-      <h1 className="text-2xl font-bold mt-2 mb-6">Registrar pago — {nombreEquipo}</h1>
+      <header className="mb-6 mt-2">
+        <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">
+          Registrar cobro — {nombreEquipo}
+        </h1>
+        <p className="mt-1 text-[12px] text-muted">
+          El monto se imputa a las cuotas más viejas primero.
+        </p>
+      </header>
 
       {errorCarga && (
-        <pre className="text-red-600 text-sm bg-red-50 p-3 rounded mb-4">{errorCarga}</pre>
+        <p className="mb-4 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{errorCarga}</p>
       )}
 
-      {cargando && <p className="text-sm text-gray-500">Cargando…</p>}
+      {cargando && <p className="text-[11px] text-muted">Cargando…</p>}
 
       {!cargando && !errorCarga && cuotas.length === 0 && !resultadoExito && (
-        <p className="text-sm text-gray-500">Este equipo no tiene cuotas impagas</p>
+        <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
+          Este equipo no tiene cuotas impagas.
+        </div>
       )}
 
       {!cargando && !errorCarga && cuotas.length > 0 && (
         <>
           {torneosConDeuda.length > 1 && (
             <div className="mb-6">
-              <div className="text-sm text-gray-500 mb-2">Torneo</div>
+              <div className="mb-2 text-[9px] font-bold uppercase tracking-[.06em] text-muted">
+                Torneo
+              </div>
               <div className="flex flex-wrap gap-2">
                 {torneosConDeuda.map((t) => (
-                  <button
+                  <Button
                     key={t.torneoId}
-                    type="button"
+                    size="pill"
+                    variant={torneoSeleccionado === t.torneoId ? 'primary' : 'secondary'}
                     onClick={() => setTorneoSeleccionado(t.torneoId)}
-                    className={`px-3 py-1.5 rounded border text-sm ${
-                      torneoSeleccionado === t.torneoId
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
                   >
                     {t.torneo}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -250,114 +304,71 @@ export default function CobrarPage({
 
           {torneoSeleccionado && (
             <>
-              <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-                <div>
-                  <label className="block text-gray-500 mb-1" htmlFor="monto">
-                    Monto
-                  </label>
-                  <input
-                    id="monto"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={monto || ''}
-                    onChange={(e) => setMonto(parseFloat(e.target.value) || 0)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5"
-                  />
-                </div>
+              <div className="mb-4 rounded-md border border-line bg-white p-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Monto" required>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={monto || ''}
+                      onChange={(e) => setMonto(parseFloat(e.target.value) || 0)}
+                    />
+                  </Field>
 
-                <div>
-                  <label className="block text-gray-500 mb-1" htmlFor="medio">
-                    Medio
-                  </label>
-                  <select
-                    id="medio"
-                    value={medio}
-                    onChange={(e) => setMedio(e.target.value as Medio)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5"
-                  >
-                    <option value="efectivo">Efectivo</option>
-                    <option value="transferencia">Transferencia</option>
-                    <option value="cheque">Cheque</option>
-                  </select>
-                </div>
+                  <Field label="Medio">
+                    <Select value={medio} onChange={(e) => setMedio(e.target.value as Medio)}>
+                      <option value="efectivo">Efectivo</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="cheque">Cheque</option>
+                    </Select>
+                  </Field>
 
-                <div>
-                  <label className="block text-gray-500 mb-1" htmlFor="fecha">
-                    Fecha
-                  </label>
-                  <input
-                    id="fecha"
-                    type="date"
-                    value={fecha}
-                    onChange={(e) => setFecha(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5"
-                  />
-                </div>
+                  <Field label="Fecha">
+                    <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                  </Field>
 
-                {medio === 'efectivo' && (
-                  <div>
-                    <label className="block text-gray-500 mb-1" htmlFor="predio">
-                      Predio
-                    </label>
-                    <select
-                      id="predio"
-                      value={predioId ?? ''}
-                      onChange={(e) => setPredioId(e.target.value || null)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5"
+                  {medio === 'efectivo' && (
+                    <Field
+                      label="Predio"
+                      required
+                      error={predioId ? null : 'Un cobro en efectivo necesita predio.'}
                     >
-                      <option value="">Elegir predio…</option>
-                      {predios.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      <Select
+                        placeholder="Elegir predio…"
+                        value={predioId ?? ''}
+                        onChange={(e) => setPredioId(e.target.value || null)}
+                      >
+                        {predios.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
+                </div>
               </div>
 
               {excedeDeuda && (
-                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
+                <p className="mb-4 rounded-md bg-warnbg px-4 py-3 text-[11px] text-warntx">
                   El monto ingresado ({formatMoney(monto)}) supera la deuda del torneo (
                   {formatMoney(totalDeudaTorneo)}). El sistema va a rechazar el cobro.
                 </p>
               )}
 
-              <table className="w-full text-sm border-collapse mb-6">
-                <thead>
-                  <tr className="text-left border-b border-gray-300">
-                    <th className="py-2 pr-4">Cuota</th>
-                    <th className="py-2 pr-4">Vencimiento</th>
-                    <th className="py-2 pr-4">Saldo</th>
-                    <th className="py-2 pr-4">Estado</th>
-                    <th className="py-2 pr-4">A imputar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cuotasTorneo.map((cuota) => {
-                    const vencida = (cuota.dias_atraso ?? 0) > 0
-                    const aImputar =
-                      imputaciones.find((i) => i.cuota_id === cuota.cuota_id)?.monto ?? 0
-
-                    return (
-                      <tr
-                        key={cuota.cuota_id}
-                        className={`border-b border-gray-100 ${vencida ? 'bg-red-50' : ''}`}
-                      >
-                        <td className="py-2 pr-4">{cuota.cuota_numero}</td>
-                        <td className="py-2 pr-4">{formatDate(cuota.vence_at)}</td>
-                        <td className="py-2 pr-4">{formatMoney(cuota.saldo ?? 0)}</td>
-                        <td className="py-2 pr-4">{cuota.estado}</td>
-                        <td className="py-2 pr-4">{aImputar > 0 ? formatMoney(aImputar) : ''}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              <div className="mb-4">
+                <DataTable
+                  columns={COLUMNAS}
+                  rows={filasImputacion}
+                  rowKey="cuota_id"
+                  maxHeight={360}
+                  emptyMessage="Este torneo no tiene cuotas impagas."
+                />
+              </div>
 
               {monto > 0 && imputacionCompleta && (
-                <div className="mb-6">
+                <div className="mb-4">
                   <PreviewCobro
                     terceroId={terceroId}
                     monto={monto}
@@ -368,32 +379,32 @@ export default function CobrarPage({
               )}
 
               {errorRegistro && (
-                <pre className="text-red-600 text-sm bg-red-50 p-3 rounded mb-4 whitespace-pre-wrap">
+                <p className="mb-4 whitespace-pre-wrap rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
                   {errorRegistro}
-                </pre>
+                </p>
               )}
 
               {resultadoExito && (
-                <p className="text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 mb-4 text-sm">
+                <p className="mb-4 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">
                   {resultadoExito}{' '}
-                  <Link href={`/cobranza/${terceroId}`} className="underline">
+                  <Link href={`/cobranza/${terceroId}`} className="font-bold underline">
                     Volver a la cuenta corriente
                   </Link>
                 </p>
               )}
 
-              <button
-                type="button"
+              <Button
+                icon="check"
+                loading={registrando}
                 disabled={!puedeConfirmar}
                 onClick={confirmar}
-                className="px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700"
               >
-                {registrando ? 'Registrando…' : 'Confirmar pago'}
-              </button>
+                Confirmar cobro
+              </Button>
             </>
           )}
         </>
       )}
-    </main>
+    </div>
   )
 }

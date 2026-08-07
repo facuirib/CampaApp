@@ -5,9 +5,12 @@ import {
   Card,
   ChartArea,
   DataTable,
+  Field,
+  Input,
   KpiCard,
   KpiHero,
   Money,
+  Select,
   Waterfall,
   type CeldaBadge,
   type ColumnDef,
@@ -997,6 +1000,110 @@ export default function DesignPage() {
               caja, y no existe. Los números son de ejemplo — y el facturado es{' '}
               <strong className="font-bold text-ink">88,46M</strong> y no los 742,5M del mockup,
               porque con aquéllos la resta no daba y esta página es documentación.
+            </p>
+          </Ejemplo>
+        </div>
+      </Seccion>
+
+      <Seccion n="10" titulo="Field / Input / Select">
+        <div className="grid gap-3">
+          <p className="rounded-md border border-line bg-white px-4 py-3 text-[10.5px] leading-relaxed text-muted">
+            <strong className="font-bold text-ink">Field envuelve al control</strong>, no lo
+            renderiza: <code className="font-mono">Input</code> extiende{' '}
+            <code className="font-mono">InputHTMLAttributes</code>, así que vestir un campo que ya
+            existe es cambiar <code className="font-mono">&lt;input&gt;</code> por{' '}
+            <code className="font-mono">&lt;Input&gt;</code> — el{' '}
+            <code className="font-mono">value</code> y el{' '}
+            <code className="font-mono">onChange</code> siguen siendo los mismos. El{' '}
+            <code className="font-mono">id</code> lo genera Field y lo comparte por contexto, así
+            que la asociación label ↔ control es el default y no algo que haya que recordar.
+            <br />
+            <br />
+            Son los únicos del sistema con <code className="font-mono">&quot;use client&quot;</code>
+            : un control con <code className="font-mono">value</code> es cliente por definición. Los
+            de presentación pura siguen siendo server-renderable.
+          </p>
+
+          <Ejemplo titulo="Una fila de campos — la baseline pareja de 8a">
+            <div className="rounded-md border border-line bg-white p-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Monto">
+                  <Input type="number" defaultValue={525000} />
+                </Field>
+                <Field label="Medio">
+                  <Select defaultValue="transferencia">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="cheque">Cheque</option>
+                  </Select>
+                </Field>
+                <Field label="Fecha">
+                  <Input type="date" defaultValue="2026-08-07" />
+                </Field>
+                <Field label="Predio" hint="Solo si el medio es efectivo">
+                  <Select placeholder="Elegir predio…" defaultValue="">
+                    <option value="1">Tirolesa</option>
+                    <option value="2">Aeropuerto</option>
+                  </Select>
+                </Field>
+              </div>
+            </div>
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Los cuatro controles miden{' '}
+              <strong className="font-bold text-ink">34px exactos</strong> y el label tiene alto
+              fijo de una línea: por eso la fila alinea arriba y abajo aunque los rótulos midan
+              distinto. El <code className="font-mono">hint</code> del último crece hacia abajo sin
+              descolgar a los vecinos. Y el monto lleva{' '}
+              <code className="font-mono">tabular-nums</code> solo por ser{' '}
+              <code className="font-mono">type=&quot;number&quot;</code>.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Con error">
+            <div className="rounded-md border border-line bg-white p-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Monto" required error="El monto tiene que ser mayor a cero.">
+                  <Input type="number" defaultValue={0} />
+                </Field>
+                <Field label="Predio" required error="Un cobro en efectivo necesita predio.">
+                  <Select placeholder="Elegir predio…" defaultValue="">
+                    <option value="1">Tirolesa</option>
+                  </Select>
+                </Field>
+                <Field label="Concepto" hint="Sin error: el hint queda visible">
+                  <Input placeholder="Arbitraje fecha 4" />
+                </Field>
+              </div>
+            </div>
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              El borde pasa a <code className="font-mono">--err</code> y el mensaje va en{' '}
+              <code className="font-mono">--errtx</code>. El error reemplaza al hint, no se suma: si
+              el campo está mal, lo que hay que leer es qué está mal.{' '}
+              <code className="font-mono">--errbg</code> queda para el recuadro de error del
+              formulario entero — un bloque de fondo rojo por campo pesa demasiado en una fila.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Deshabilitados">
+            <div className="rounded-md border border-line bg-white p-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Monto">
+                  <Input type="number" defaultValue={525000} disabled />
+                </Field>
+                <Field label="Medio">
+                  <Select defaultValue="efectivo" disabled>
+                    <option value="efectivo">Efectivo</option>
+                  </Select>
+                </Field>
+                <Field label="Fecha">
+                  <Input type="date" defaultValue="2026-08-07" disabled />
+                </Field>
+              </div>
+            </div>
+            <p className="mt-2 text-[10.5px] text-muted">
+              Mismo tratamiento que el Button deshabilitado: fondo{' '}
+              <code className="font-mono">--bg</code>, texto{' '}
+              <code className="font-mono">--disabled-tx</code>, sin hover.
             </p>
           </Ejemplo>
         </div>
