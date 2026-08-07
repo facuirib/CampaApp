@@ -56,12 +56,16 @@ const TEXTO_VALOR: Record<RolPaso, string> = {
  * Ninguna cifra se calcula: las que se muestran son las que vinieron.
  */
 export default function Waterfall({ pasos, alto = 260, titulo, className }: WaterfallProps) {
-  if (pasos.length === 0) {
+  // Sin pasos, o con todos en cero. El segundo caso importa: un puente cuyos
+  // tres números son 0 dibuja tres hilos sobre la línea de base y deja un
+  // recuadro vacío del alto completo. No está roto, pero no dice nada y ocupa
+  // como si dijera algo — mejor una frase que explique por qué está vacío.
+  if (pasos.length === 0 || pasos.every((p) => p.valor === 0)) {
     return (
       <div
         className={`rounded-md border border-line bg-white px-4 py-10 text-center text-[11px] text-muted ${className ?? ''}`}
       >
-        Todavía no hay pasos para graficar.
+        Todavía no hay números para este puente.
       </div>
     )
   }

@@ -959,6 +959,29 @@ export default function DesignPage() {
             </p>
           </Ejemplo>
 
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Ejemplo titulo="Sin serie">
+              <ChartArea serie={[]} />
+              <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+                Es lo que muestra el dashboard con la base en cero.
+              </p>
+            </Ejemplo>
+
+            <Ejemplo titulo="Puente en cero">
+              <Waterfall
+                pasos={[
+                  { titulo: 'Comprometido', valor: 0, rol: 'suma' },
+                  { titulo: 'Por cobrar', valor: 0, rol: 'resta' },
+                  { titulo: 'Cobrado', valor: 0, rol: 'resultado' },
+                ]}
+              />
+              <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+                Con los tres pasos en cero el gráfico dibujaría tres hilos sobre la línea de base y
+                un recuadro vacío del alto completo: no está roto, pero ocupa como si dijera algo.
+              </p>
+            </Ejemplo>
+          </div>
+
           <Ejemplo titulo="Puente devengado → caja">
             <Waterfall pasos={PUENTE} titulo="De lo facturado a lo que hay en caja" />
             <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
