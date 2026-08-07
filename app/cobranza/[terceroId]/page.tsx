@@ -1,6 +1,62 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
-import { formatMoney, formatDate } from '@/lib/format'
+import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import type { Database } from '@/lib/db/database.types'
+
+type Ficha = Database['public']['Views']['v_cuenta_corriente_equipo']['Row']
+type CuotaRow = Database['public']['Views']['v_deuda_detalle']['Row']
+
+/**
+ * El segmento `[terceroId]` acepta cualquier texto, así que `/cobranza/kpis` o
+ * `/cobranza/loquesea` llegan hasta acá. Se valida ANTES de consultar: si no
+ * es un uuid, la consulta ni se hace y el error de Postgres —`invalid input
+ * syntax for type uuid`— no llega a existir, mucho menos a pantalla.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Los estados de cuota, con rótulo legible.
+ *
+ * Acá SÍ corresponde este mapa: estas filas son cuotas, y `v_deuda_detalle`
+ * trae la columna `estado`. En la lista de deudores no aplicaba porque
+ * `v_deuda_equipo` lista importes por equipo, no situaciones de cuota.
+ *
+ * `vencida` y `parcial_vencida` comparten el rojo: las dos son plata que ya
+ * tendría que estar. Se distinguen por el rótulo, que dice cuál es cuál.
+ */
+const ESTADOS: Record<string, CeldaBadge> = {
+  al_dia: { estado: 'alDia', label: 'Al día' },
+  pagada: { estado: 'ok', label: 'Pagada' },
+  por_vencer: { estado: 'porVencer', label: 'Por vencer' },
+  vencida: { estado: 'mora', label: 'Vencida' },
+  parcial_vencida: { estado: 'mora', label: 'Parcial vencida' },
+}
+
+function estadoCuota(codigo: string | null): CeldaBadge {
+  // Un estado que la vista agregue mañana cae en gris con su código, en vez
+  // de romper o de mentir con un color que no le toca.
+  return ESTADOS[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
+}
+
+interface FilaCuota {
+  cuota_id: string
+  cuota_numero: number | null
+  vence_at: string | null
+  monto: number | null
+  pagado: number | null
+  saldo: number | null
+  estado: CeldaBadge
+}
+
+const COLUMNAS: ColumnDef<FilaCuota>[] = [
+  { key: 'cuota_numero', label: 'Cuota', align: 'right', width: 70 },
+  { key: 'vence_at', label: 'Vence', format: 'date', width: 110 },
+  { key: 'monto', label: 'Monto', format: 'money', width: 128 },
+  { key: 'pagado', label: 'Pagado', format: 'money', width: 128 },
+  { key: 'saldo', label: 'Saldo', format: 'money', width: 128 },
+  { key: 'estado', label: 'Estado', format: 'badge' },
+]
 
 export default async function CuentaCorrientePage({
   params,
@@ -8,117 +64,108 @@ export default async function CuentaCorrientePage({
   params: Promise<{ terceroId: string }>
 }) {
   const { terceroId } = await params
+
+  // Un id que no es uuid no puede corresponder a ningún equipo: es un 404, y
+  // así se corta antes de consultar. El error de Postgres ni se produce.
+  if (!UUID.test(terceroId)) notFound()
+
   const supabase = await createClient()
+  const [fichasRes, cuotasRes] = await Promise.all([
+    supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
+    supabase
+      .from('v_deuda_detalle')
+      .select('*')
+      .eq('tercero_id', terceroId)
+      .order('torneo')
+      .order('cuota_numero'),
+  ])
 
-  const [{ data: fichas, error: errorFichas }, { data: cuotas, error: errorCuotas }] =
-    await Promise.all([
-      supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
-      supabase
-        .from('v_deuda_detalle')
-        .select('*')
-        .eq('tercero_id', terceroId)
-        .order('torneo', { ascending: true })
-        .order('cuota_numero', { ascending: true }),
-    ])
+  const error = fichasRes.error ?? cuotasRes.error
+  const fichas = fichasRes.data ?? []
+  const cuotas = cuotasRes.data ?? []
 
-  const error = errorFichas ?? errorCuotas
-  const equipo = fichas?.[0]?.equipo ?? cuotas?.[0]?.equipo ?? 'Equipo sin datos'
-  const sinDatos = !error && (!fichas || fichas.length === 0) && (!cuotas || cuotas.length === 0)
+  // Uuid válido pero sin ficha ni cuota: tampoco existe como recurso.
+  if (!error && fichas.length === 0 && cuotas.length === 0) notFound()
+
+  const equipo = fichas[0]?.equipo ?? cuotas[0]?.equipo ?? 'Equipo'
 
   return (
-    <main className="p-8 font-sans">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{equipo}</h1>
-        <Link
-          href={`/cobranza/${terceroId}/cobrar`}
-          className="bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded hover:bg-gray-800"
-        >
-          Registrar pago
+    <div className="pb-10">
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">{equipo}</h1>
+          <p className="mt-1 text-[12px] text-muted">
+            Cuenta corriente — una sección por ficha, con sus cuotas.
+          </p>
+        </div>
+        <Link href={`/cobranza/${terceroId}/cobrar`}>
+          <Button icon="plus">Registrar cobro</Button>
         </Link>
-      </div>
+      </header>
 
       {error && (
-        <pre className="text-red-600 text-sm bg-red-50 p-3 rounded mb-4">
-          {error.message}
-        </pre>
+        <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
 
-      {sinDatos && (
-        <p className="text-sm text-gray-500">Este equipo no tiene deudas registradas</p>
-      )}
+      {fichas.map((ficha: Ficha) => {
+        // Filtro, no cálculo: se reparten las cuotas ya traídas entre las
+        // fichas del equipo. Ningún número sale de acá.
+        const suyas = cuotas.filter((c: CuotaRow) => c.equipo_torneo_id === ficha.equipo_torneo_id)
 
-      {!error &&
-        fichas?.map((ficha) => {
-          const cuotasTorneo =
-            cuotas?.filter((c) => c.equipo_torneo_id === ficha.equipo_torneo_id) ?? []
+        const filas: FilaCuota[] = suyas.map((c: CuotaRow) => ({
+          cuota_id: c.cuota_id!,
+          cuota_numero: c.cuota_numero,
+          vence_at: c.vence_at,
+          monto: c.monto,
+          pagado: c.pagado,
+          saldo: c.saldo,
+          estado: estadoCuota(c.estado),
+        }))
 
-          return (
-            <section key={ficha.equipo_torneo_id} className="mb-8">
-              <div className="border border-gray-200 rounded p-4 mb-2">
-                <h2 className="text-lg font-semibold">{ficha.torneo}</h2>
-                <p className="text-sm text-gray-500 mb-3">
-                  {ficha.categoria} · {ficha.serie}
-                </p>
-                <div className="flex flex-wrap gap-6 text-sm">
-                  <div>
-                    <div className="text-gray-500">Total del plan</div>
-                    <div>{formatMoney(ficha.total_plan ?? 0)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500">Pagado</div>
-                    <div>{formatMoney(ficha.total_pagado ?? 0)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500">Saldo</div>
-                    <div className="font-bold text-lg">{formatMoney(ficha.saldo ?? 0)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500">Cuotas</div>
-                    <div>
-                      {ficha.cuotas_pagadas ?? 0} de {ficha.cuotas_total ?? 0} pagadas
-                    </div>
-                  </div>
-                </div>
-              </div>
+        const saldo = ficha.saldo ?? 0
 
-              {cuotasTorneo.length > 0 && (
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="text-left border-b border-gray-300">
-                      <th className="py-2 pr-4">Cuota</th>
-                      <th className="py-2 pr-4">Vencimiento</th>
-                      <th className="py-2 pr-4">Monto</th>
-                      <th className="py-2 pr-4">Pagado</th>
-                      <th className="py-2 pr-4">Saldo</th>
-                      <th className="py-2 pr-4">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cuotasTorneo.map((cuota) => {
-                      const vencida =
-                        (cuota.estado?.includes('vencid') ?? false) ||
-                        (cuota.dias_atraso ?? 0) > 0
+        return (
+          <section key={ficha.equipo_torneo_id} className="mb-8">
+            <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+              {ficha.torneo}
+            </h2>
+            <p className="mb-3 text-[11px] text-muted">
+              {ficha.categoria} · Serie {ficha.serie}
+            </p>
 
-                      return (
-                        <tr
-                          key={cuota.cuota_id}
-                          className={`border-b border-gray-100 ${vencida ? 'bg-red-50' : ''}`}
-                        >
-                          <td className="py-2 pr-4">{cuota.cuota_numero}</td>
-                          <td className="py-2 pr-4">{formatDate(cuota.vence_at)}</td>
-                          <td className="py-2 pr-4">{formatMoney(cuota.monto ?? 0)}</td>
-                          <td className="py-2 pr-4">{formatMoney(cuota.pagado ?? 0)}</td>
-                          <td className="py-2 pr-4">{formatMoney(cuota.saldo ?? 0)}</td>
-                          <td className="py-2 pr-4">{cuota.estado}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </section>
-          )
-        })}
-    </main>
+            <div className="mb-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+              <KpiCard tono="neutro" titulo="Total del plan" valor={ficha.total_plan ?? 0} />
+              <KpiCard tono="positivo" titulo="Pagado" valor={ficha.total_pagado ?? 0} />
+              <KpiCard tono={saldo > 0 ? 'alerta' : 'positivo'} titulo="Saldo" valor={saldo} />
+              <KpiCard
+                tono="info"
+                titulo="Cuotas pagadas"
+                valor={ficha.cuotas_pagadas ?? 0}
+                formato="entero"
+                subtitulo={`de ${ficha.cuotas_total ?? 0} cuotas`}
+              />
+            </div>
+
+            {/* La fila de total se PASA desde la ficha: total_plan, total_pagado
+                y saldo de `v_cuenta_corriente_equipo` son exactamente la suma de
+                las columnas de esta tabla —verificado sobre las 28 fichas del
+                set— así que no hace falta sumarlas acá, ni se hace. */}
+            <DataTable
+              columns={COLUMNAS}
+              rows={filas}
+              rowKey="cuota_id"
+              maxHeight={420}
+              total={{
+                cuota_numero: 'Total',
+                monto: ficha.total_plan ?? 0,
+                pagado: ficha.total_pagado ?? 0,
+                saldo,
+              }}
+              emptyMessage="Esta ficha no tiene cuotas generadas."
+            />
+          </section>
+        )
+      })}
+    </div>
   )
 }
