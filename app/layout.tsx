@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Asap } from 'next/font/google'
-import NavBar from '@/components/NavBar'
+import Sidebar from '@/components/Sidebar'
 import './globals.css'
 
 // Asap es la tipografía de marca. next/font la sirve desde el mismo dominio y
@@ -26,9 +26,15 @@ export default function RootLayout({
   return (
     <html lang="es-AR" className={asap.variable}>
       <body className="antialiased">
-        {/* NavBar provisoria — reemplazar por el layout F4 de Facu cuando esté */}
-        <NavBar />
-        <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+        {/* En mobile el sidebar es una franja arriba y el contenido va debajo;
+            desde md pasan a ser dos columnas. El `min-w-0` del main es lo que
+            impide que una tabla ancha empuje el ancho de todo el layout. */}
+        <div className="md:flex md:items-start">
+          <Sidebar />
+          <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
+            <div className="mx-auto max-w-6xl">{children}</div>
+          </main>
+        </div>
       </body>
     </html>
   )
