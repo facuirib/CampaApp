@@ -327,3 +327,65 @@ end $function$;
 
 comment on function public.preview_pago_gasto(uuid, text) is
   'Preview del asiento de pago de un gasto (PROVEEDORES al debe, caja al haber). STABLE. Espeja pagar_gasto.';
+
+
+-- ═══════════════════════════════════════════════════════════════
+-- Gastos · anular_gasto — anula un gasto entero
+--
+-- Da de baja un gasto: contraasienta sus asientos (anular_asiento, deja
+-- rastro) y limpia el pago. Queda 'anulado' en v_gasto_detalle.
+--   · Solo devengado → contraasienta el devengo.
+--   · Devengado + pagado → contraasienta PAGO y DEVENGO (ese orden) y
+--     limpia pagado_at/medio_pago/asiento_pag_id.
+-- Resuelve el caso espejo: anular SIEMPRE limpia el pago, nunca queda
+-- pagado_at sin asiento. No se puede anular dos veces.
+-- ═══════════════════════════════════════════════════════════════
+
+create or replace function public.anular_gasto(
+  p_gasto_id uuid,
+  p_motivo   text,
+  p_fecha    date default current_date
+)
+returns void
+language plpgsql
+as $function$
+declare
+  v_asiento_dev  uuid;
+  v_asiento_pag  uuid;
+  v_pagado_at    date;
+  v_dev_anulado  uuid;
+begin
+  select g.asiento_dev_id, g.asiento_pag_id, g.pagado_at, adev.anulado_por
+    into v_asiento_dev, v_asiento_pag, v_pagado_at, v_dev_anulado
+    from gasto g
+    left join asiento adev on adev.id = g.asiento_dev_id
+   where g.id = p_gasto_id;
+
+  if not found then
+    raise exception 'El gasto % no existe', p_gasto_id;
+  end if;
+
+  if v_dev_anulado is not null then
+    raise exception 'El gasto % ya está anulado', p_gasto_id;
+  end if;
+
+  if p_motivo is null or btrim(p_motivo) = '' then
+    raise exception 'La anulación necesita un motivo';
+  end if;
+
+  if v_pagado_at is not null then
+    if v_asiento_pag is not null then
+      perform anular_asiento(v_asiento_pag, 'Anulación de gasto (pago) · ' || p_motivo, p_fecha);
+    end if;
+    update gasto
+       set pagado_at = null, medio_pago = null, asiento_pag_id = null
+     where id = p_gasto_id;
+  end if;
+
+  if v_asiento_dev is not null then
+    perform anular_asiento(v_asiento_dev, 'Anulación de gasto (devengo) · ' || p_motivo, p_fecha);
+  end if;
+end $function$;
+
+comment on function public.anular_gasto(uuid, text, date) is
+  'Anula un gasto entero: contraasienta pago (si estaba pagado) y devengo, limpia pagado_at/medio_pago/asiento_pag_id. Resuelve el caso espejo. Falla si ya está anulado.';
