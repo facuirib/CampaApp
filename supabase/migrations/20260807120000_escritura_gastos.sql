@@ -251,3 +251,79 @@ end $function$;
 
 comment on function public.pagar_gasto(uuid, text, date, uuid, uuid) is
   'Paga un gasto ya devengado: asiento PROVEEDORES (debe) / caja (haber). Falla si ya está pagado. Exige responsable sin fallback.';
+
+
+-- ═══════════════════════════════════════════════════════════════
+-- Gastos · preview_pago_gasto — preview del asiento de PAGO de un gasto
+--
+-- Espeja el asiento de pago que hará pagar_gasto, sin insertar (STABLE).
+-- Para el AsientoPreview del formulario de pago.
+--   Debe: PROVEEDORES · Haber: caja según medio
+-- Hecha bien: nombre de cuenta + totales derivados.
+-- ═══════════════════════════════════════════════════════════════
+
+create or replace function public.preview_pago_gasto(
+  p_gasto_id uuid,
+  p_medio    text
+)
+returns jsonb
+language plpgsql
+stable
+as $function$
+declare
+  v_total        numeric(16,2);
+  v_pagado_at    date;
+  v_cuenta_caja  text;
+  v_caja_nombre  text;
+  v_prov_nombre  text;
+  v_lineas       jsonb;
+  v_total_debe   numeric(16,2);
+  v_total_haber  numeric(16,2);
+begin
+  select g.total, g.pagado_at
+    into v_total, v_pagado_at
+    from gasto g
+   where g.id = p_gasto_id;
+
+  if not found then
+    raise exception 'El gasto % no existe', p_gasto_id;
+  end if;
+
+  if v_pagado_at is not null then
+    raise exception 'El gasto % ya está pagado (el %)', p_gasto_id, v_pagado_at;
+  end if;
+
+  v_cuenta_caja := case p_medio
+                     when 'efectivo'      then 'CAJA_EFECTIVO'
+                     when 'transferencia' then 'CAJA_TRANSFERENCIA'
+                     when 'cheque'        then 'VALORES_A_DEPOSITAR'
+                   end;
+
+  if v_cuenta_caja is null then
+    raise exception 'Medio de pago inválido: "%". Los válidos son efectivo, transferencia y cheque.', p_medio;
+  end if;
+
+  select nombre into v_prov_nombre from cuenta where codigo = 'PROVEEDORES';
+  select nombre into v_caja_nombre from cuenta where codigo = v_cuenta_caja;
+
+  v_lineas := jsonb_build_array(
+    jsonb_build_object('cuenta', 'PROVEEDORES', 'cuenta_nombre', v_prov_nombre, 'debe', v_total),
+    jsonb_build_object('cuenta', v_cuenta_caja, 'cuenta_nombre', v_caja_nombre, 'haber', v_total)
+  );
+
+  select
+    coalesce(sum((l->>'debe')::numeric),  0),
+    coalesce(sum((l->>'haber')::numeric), 0)
+    into v_total_debe, v_total_haber
+    from jsonb_array_elements(v_lineas) l;
+
+  return jsonb_build_object(
+    'lineas', v_lineas,
+    'total_debe', v_total_debe,
+    'total_haber', v_total_haber,
+    'balanceado', v_total_debe = v_total_haber
+  );
+end $function$;
+
+comment on function public.preview_pago_gasto(uuid, text) is
+  'Preview del asiento de pago de un gasto (PROVEEDORES al debe, caja al haber). STABLE. Espeja pagar_gasto.';

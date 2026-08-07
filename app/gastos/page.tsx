@@ -81,6 +81,7 @@ export default async function GastosPage() {
           columns={COL_GASTOS}
           rows={gastos}
           rowKey="gasto_id"
+          rowHref={(row) => `/gastos/${row.gasto_id}/pagar`}
           maxHeight={500}
           emptyMessage="No hay gastos registrados."
         />
