@@ -15,6 +15,7 @@ export {
 export { default as Badge, type BadgeProps, type EstadoBadge } from './Badge'
 export { default as Button, type ButtonProps, type TamanoBoton, type VarianteBoton } from './Button'
 export { default as Card, type CardProps } from './Card'
+export { default as ChartArea, type ChartAreaProps, type PuntoSerie } from './ChartArea'
 export {
   default as DataTable,
   type AlineacionCelda,
@@ -36,3 +37,9 @@ export {
 } from './KpiCard'
 export { default as KpiHero, type KpiHeroProps } from './KpiHero'
 export { default as Money, type MoneyProps } from './Money'
+export {
+  default as Waterfall,
+  type PasoWaterfall,
+  type RolPaso,
+  type WaterfallProps,
+} from './Waterfall'

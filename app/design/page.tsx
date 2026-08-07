@@ -3,13 +3,17 @@ import {
   Badge,
   Button,
   Card,
+  ChartArea,
   DataTable,
   KpiCard,
   KpiHero,
   Money,
+  Waterfall,
   type CeldaBadge,
   type ColumnDef,
   type LineaAsiento,
+  type PasoWaterfall,
+  type PuntoSerie,
   type ValorKpi,
 } from '@/components/ui'
 
@@ -206,6 +210,37 @@ const RESUMEN: ValorKpi[] = [
   { titulo: 'Resultado del torneo', valor: 81200000, tono: 'neutro' },
   { titulo: 'En caja', valor: 79700000, tono: 'info' },
   { titulo: 'Por cobrar', valor: 8760000, tono: 'alerta' },
+]
+
+// ── Series de ejemplo ───────────────────────────────────────────────────────
+
+// 14 semanas: 8 reales y 6 proyectadas, como las devuelve v_cashflow.
+const SALDOS = [
+  4_200_000, 5_100_000, 4_800_000, 6_300_000, 7_900_000, 7_400_000, 9_100_000, 10_600_000,
+  9_800_000, 11_200_000, 12_900_000, 12_100_000, 14_400_000, 16_800_000,
+]
+
+const SERIE_CAJA_SEM: PuntoSerie[] = SALDOS.map((valor, i) => ({
+  fecha: `2026-0${Math.floor(i / 4) + 6}-${String((i % 4) * 7 + 1).padStart(2, '0')}`,
+  valor,
+  proyectado: i >= 8,
+}))
+
+// La misma forma pero con un quiebre de caja, para ver el tramo bajo cero.
+const SERIE_QUIEBRE: PuntoSerie[] = [
+  3_100_000, 2_200_000, 900_000, -600_000, -1_800_000, -900_000, 400_000, 2_600_000,
+].map((valor, i) => ({
+  fecha: `2026-0${Math.floor(i / 4) + 8}-${String((i % 4) * 7 + 1).padStart(2, '0')}`,
+  valor,
+  proyectado: i >= 4,
+}))
+
+// El puente cierra: 88,46 − 8,76 = 79,7. Los tres números de la decisión 6d no
+// reconcilian entre sí (742,5 − 8,76 ≠ 79,7), y /design es documentación.
+const PUENTE: PasoWaterfall[] = [
+  { titulo: 'Facturado', valor: 88_460_000, rol: 'suma' },
+  { titulo: 'Por cobrar', valor: 8_760_000, rol: 'resta' },
+  { titulo: 'En caja', valor: 79_700_000, rol: 'resultado' },
 ]
 
 function Muestra({ token, nombre }: { token: string; nombre: string }) {
@@ -870,6 +905,75 @@ export default function DesignPage() {
               variación lleva la base pegada al porcentaje porque{' '}
               <code className="font-mono">▼12%</code> solo no dice nada: el tipo la exige, así que
               un porcentaje sin contra-qué-compara no compila.
+            </p>
+          </Ejemplo>
+        </div>
+      </Seccion>
+
+      <Seccion n="09" titulo="ChartArea / Waterfall">
+        <div className="grid gap-3">
+          <Ejemplo titulo="Evolución de caja — real y proyectado">
+            <ChartArea serie={SERIE_CAJA_SEM} titulo="Evolución del saldo de caja por semana" />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              El tramo sólido en <code className="font-mono">--night</code> es lo que ya pasó; el
+              punteado en <code className="font-mono">--flyway</code> es lo proyectado. La marca va{' '}
+              <strong className="font-bold text-ink">por punto</strong> (
+              <code className="font-mono">proyectado</code>), que es como viene{' '}
+              <code className="font-mono">futura</code> de{' '}
+              <code className="font-mono">v_cashflow</code>, así que la pantalla no tiene que
+              calcular dónde parte la serie. Lo que se agregó respecto del SVG a mano de{' '}
+              <code className="font-mono">/proyeccion</code>: el relleno degradado, la grilla y{' '}
+              <strong className="font-bold text-ink">el marco que cierra el plot</strong> — antes
+              quedaba abierto arriba y a los costados.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Con quiebre de caja">
+            <ChartArea serie={SERIE_QUIEBRE} titulo="Saldo proyectado con quiebre de caja" />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Bajo cero el tramo se repinta en <code className="font-mono">--err</code> y se marcan
+              los puntos, sin perder el punteado donde además es proyectado. La escala siempre
+              incluye el cero: un gráfico de saldo que no lo muestra esconde justo lo que hay que
+              mirar. Se apaga con <code className="font-mono">marcarNegativo={'{false}'}</code>.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Compacto — para poco ancho">
+            <div className="max-w-[440px]">
+              <ChartArea
+                compacto
+                serie={SERIE_CAJA_SEM}
+                titulo="Evolución del saldo, en versión compacta"
+              />
+            </div>
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              <code className="font-mono">compacto</code> no agranda las letras:{' '}
+              <strong className="font-bold text-ink">achica el lienzo</strong>, de 800 a 440. El SVG
+              escala por <code className="font-mono">viewBox</code>, así que en un contenedor
+              angosto el lienzo grande se dibuja al 0,545 y una etiqueta de 11px termina midiendo 6.
+              Con el lienzo chico la escala queda en ~1 y todo aterriza en su tamaño nominal — no
+              solo el texto, también los trazos y los puntos, que subiendo fuentes seguirían finos.
+              Además bajan las marcas de 5 a 4 y las fechas de 8 a 4, porque en poco ancho el otro
+              problema es el amontonamiento. Va acá dentro de un contenedor de 440px para que se vea
+              como se vería en un teléfono.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Puente devengado → caja">
+            <Waterfall pasos={PUENTE} titulo="De lo facturado a lo que hay en caja" />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Cada barra arranca donde terminó la anterior; el resultado se dibuja desde cero con{' '}
+              <strong className="font-bold text-ink">su</strong> valor, no con el acumulado. El
+              componente{' '}
+              <strong className="font-bold text-ink">no verifica que el puente cierre</strong>: si
+              los números no reconcilian, la barra final no coincide con donde llegó el acumulado y
+              se ve. Taparlo calculando el resultado acá convertiría un error visible en uno mudo.
+            </p>
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Todavía no tiene consumidor: haría falta una vista que combine devengado, por cobrar y
+              caja, y no existe. Los números son de ejemplo — y el facturado es{' '}
+              <strong className="font-bold text-ink">88,46M</strong> y no los 742,5M del mockup,
+              porque con aquéllos la resta no daba y esta página es documentación.
             </p>
           </Ejemplo>
         </div>

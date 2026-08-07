@@ -1,19 +1,5 @@
 import { createClient } from '@/lib/db/server'
-import { formatMoney, formatDate } from '@/lib/format'
-
-/** Versión abreviada para el eje Y del gráfico: $2,5M / $850k / $900. */
-function formatMoneyCorto(n: number): string {
-  const signo = n < 0 ? '-' : ''
-  const abs = Math.abs(n)
-
-  if (abs >= 1_000_000) {
-    return `${signo}$${(abs / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}M`
-  }
-  if (abs >= 1_000) {
-    return `${signo}$${(abs / 1_000).toLocaleString('es-AR', { maximumFractionDigits: 0 })}k`
-  }
-  return `${signo}$${abs.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
-}
+import { formatMoney, formatMoneyCorto, formatDate } from '@/lib/format'
 
 /** Fecha corta para el eje X: "12 mar". */
 function formatSemanaCorta(semana: string): string {
@@ -109,8 +95,8 @@ export default async function ProyeccionPage() {
 
       {!error && filas.length === 0 && (
         <p className="text-sm text-gray-500">
-          Todavía no hay datos de flujo. La proyección aparece cuando se registren cuotas, cobros
-          o presupuesto.
+          Todavía no hay datos de flujo. La proyección aparece cuando se registren cuotas, cobros o
+          presupuesto.
         </p>
       )}
 

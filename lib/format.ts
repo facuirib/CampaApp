@@ -24,6 +24,27 @@ export function formatMoney(n: number): string {
   return MONEDA.format(n).replace('\u00A0', '')
 }
 
+/**
+ * Importe abreviado, para donde no entra la cifra completa: ejes de gráficos,
+ * barras, etiquetas apretadas.
+ *
+ * `$2,5M` · `$850k` · `$900`. Redondea, así que NO sirve para un número que el
+ * operador vaya a leer como dato: para eso está `formatMoney`. Acá el objetivo
+ * es ubicar una magnitud en un eje, no informar un saldo.
+ */
+export function formatMoneyCorto(n: number): string {
+  const signo = n < 0 ? '-' : ''
+  const abs = Math.abs(n)
+
+  if (abs >= 1_000_000) {
+    return `${signo}$${(abs / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}M`
+  }
+  if (abs >= 1_000) {
+    return `${signo}$${(abs / 1_000).toLocaleString('es-AR', { maximumFractionDigits: 0 })}k`
+  }
+  return `${signo}$${abs.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+}
+
 const ENTERO = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
 /**
