@@ -1,6 +1,6 @@
 import Icon, { type NombreIcono } from './Icon'
 import Money from './Money'
-import { formatEntero } from '@/lib/format'
+import { formatEntero, formatUSD } from '@/lib/format'
 
 /**
  * Qué SIGNIFICA el número, no de qué color va.
@@ -12,13 +12,27 @@ import { formatEntero } from '@/lib/format'
  */
 export type TonoKpi = 'positivo' | 'alerta' | 'info' | 'neutro'
 
-/** `money` lleva `$`; `entero` es un conteo y no lleva. */
-export type FormatoKpi = 'money' | 'entero'
+/**
+ * `money` lleva `$`; `entero` es un conteo y no lleva; `usd` es la otra moneda.
+ *
+ * `usd` está acá y no resuelto en la pantalla por lo mismo que `money` no se
+ * formatea a mano: que haya UN lugar donde se decide cómo se escribe cada
+ * moneda. Una pantalla que armara el string por su cuenta podría mostrar los
+ * dólares distinto de la siguiente que los muestre.
+ */
+export type FormatoKpi = 'money' | 'entero' | 'usd'
 
 /** Un número con su etiqueta. Es la unidad que comparten KpiCard y KpiHero. */
 export interface ValorKpi {
   titulo: string
-  valor: number
+  /**
+   * `null` es "todavía no hay número", y se muestra como guion.
+   *
+   * No es lo mismo que cero: el TC promedio ponderado sin tenencia no es
+   * «$0» —un tipo de cambio de cero pesos no existe— sino que no está
+   * definido. Mostrar cero ahí inventa un dato.
+   */
+  valor: number | null
   /** Default: 'money'. */
   formato?: FormatoKpi
   /** En la card tiñe la barra lateral; en la hero, el número. */
@@ -71,12 +85,11 @@ const TRAZO: Record<TonoKpi, string> = {
   neutro: 'text-muted',
 }
 
-export function valorKpi(valor: number, formato: FormatoKpi = 'money') {
-  return formato === 'money' ? (
-    <Money value={valor} />
-  ) : (
-    <span className="cifra">{formatEntero(valor)}</span>
-  )
+export function valorKpi(valor: number | null, formato: FormatoKpi = 'money') {
+  if (valor === null) return <span className="cifra text-muted">—</span>
+  if (formato === 'money') return <Money value={valor} />
+  if (formato === 'usd') return <span className="cifra">{formatUSD(valor)}</span>
+  return <span className="cifra">{formatEntero(valor)}</span>
 }
 
 /**

@@ -4077,6 +4077,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_resultado_cambio_total: {
+        Row: {
+          ganancias: number | null
+          meses: number | null
+          perdidas: number | null
+          resultado: number | null
+        }
+        Relationships: []
+      }
       v_resultado_producto: {
         Row: {
           anio: number | null

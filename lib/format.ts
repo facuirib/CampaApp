@@ -45,6 +45,28 @@ export function formatMoneyCorto(n: number): string {
   return `${signo}$${abs.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
 }
 
+const DOLARES = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
+
+/**
+ * Importe en dólares: `US$12.500`.
+ *
+ * Formato propio y NO `formatMoney`, que escribe pesos: si los dos se vieran
+ * iguales, la tenencia en dólares y su costo en pesos —que están uno al lado
+ * del otro en `/usd`— se confundirían a simple vista. El prefijo distinto es lo
+ * único que dice cuál es cuál.
+ *
+ * Vive acá por lo mismo que `formatMoney`: un solo lugar donde se decide cómo
+ * se escribe cada moneda.
+ */
+export function formatUSD(n: number): string {
+  // Mismo espacio duro que `formatMoney`, y se quita por el mismo motivo.
+  return DOLARES.format(n).replace(' ', '')
+}
+
 const ENTERO = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
 /**

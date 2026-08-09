@@ -1213,20 +1213,24 @@ VENTA — USD 1.000 a $1.200, con promedio en libros de $1.000
 
 **Nivel empresa**, `torneo_id = NULL`: la cobertura no es de ningún torneo (decisión 5).
 
-#### La cuenta ya existe, pero no se ve en ninguna pantalla
+#### Las cuentas ya existían en el plan
 
 `CAJA_USD` (activo) y **`FIN_DIF_CAMBIO`** (`financiero`) están en el plan desde el schema inicial, sin uso. **No se crea ninguna cuenta.** Ojo con el nombre: es `FIN_DIF_CAMBIO`, no `DIFERENCIA_CAMBIO`.
 
 `FIN_DIF_CAMBIO` es de tipo `financiero` y no `ingreso`/`egreso` operativo, así que **`v_resultado_producto` no la toma** — filtra `c.tipo in ('ingreso','egreso')`. Es exactamente lo que pide la decisión 12: una suba del dólar no debe leerse como que el torneo funcionó mejor.
 
-> **Pero esa "línea aparte" no existe.** Ninguna vista lee `FIN_DIF_CAMBIO`: hoy la diferencia de cambio se registraría y **no se vería en ninguna pantalla**. El módulo trae su propia vista, o el resultado financiero queda invisible.
+> **Esa "línea aparte" ya existe.** Cuando se escribió esto, ninguna vista leía `FIN_DIF_CAMBIO` y la diferencia de cambio se habría registrado sin verse en ningún lado. Hoy la leen `v_resultado_cambio` —por mes— y `v_resultado_cambio_total` —el acumulado—, y las dos se muestran en `/usd`.
 
 #### Lo que se lee
 
 | Vista | Para qué |
 |---|---|
 | `v_tenencia_usd` | cuántos USD hay, costo en libros y promedio ponderado actual |
-| `v_resultado_cambio` | la diferencia de cambio realizada, que hoy no se ve |
+| `v_resultado_cambio` | la diferencia de cambio **realizada**, por período |
+| `v_resultado_cambio_total` | lo mismo acumulado, en una fila, para el KPI (migración `20260809181901`) |
+| `v_usd_sincronia` | la red de seguridad de abajo: costo en libros contra costo esperado |
+
+`v_resultado_cambio_total` suma `v_resultado_cambio` y no el diario, para que el KPI y la tabla mensual de la pantalla no puedan discrepar.
 
 #### La red de seguridad · `v_usd_sincronia`
 
@@ -1253,7 +1257,9 @@ El promedio cruza **dos fuentes**: la cantidad sale de `usd_operacion` y los pes
 
 **No hay proceso mensual.** A diferencia de socios y sponsors, las operaciones son puntuales: no hay nada que devengar, y `periodo_de_fecha` resuelve el período al asentar.
 
-**Alcance:** el más liviano de los módulos. No se crea estructura — tabla, caja y cuentas ya existen. Solo falta la lógica.
+**Alcance:** el más liviano de los módulos. No se creó estructura — tabla, caja y cuentas ya existían. **Backend y pantalla están hechos**: `/usd` muestra tenencia, costo en libros y promedio ponderado; el control de sincronía; la lista de operaciones; y el resultado por diferencia de cambio, mensual y acumulado.
+
+> **La valuación es al COSTO, y no puede ser otra cosa.** No hay ninguna cotización del día en el schema, así que el sistema es incapaz de mostrar una tenencia a valor de mercado — y por lo tanto de mostrar una ganancia **no realizada** como si fuera realizada. La pantalla lo dice donde importa: el KPI de costo en libros aclara *"lo pagado, no valor de mercado"*.
 
 ### 3.8 Presupuesto
 

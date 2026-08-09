@@ -1022,6 +1022,36 @@ sumar un flujo sobre un stock.
 
 ---
 
+**El resguardo USD cuenta en la caja total.** `v_saldo_caja` incluye la fila de
+`caja` de tipo `usd` —joinea por `cuenta_id` sin filtrar tipo— y
+`v_saldo_caja_total` la suma, así que el KpiCard "En caja" del dashboard
+**incluye el costo en pesos de los dólares**.
+
+*Se confirma así.* El resguardo es **patrimonio de Campa**: los dólares están
+comprados, son plata de la empresa, y excluirlos del total haría que la caja
+total mostrara menos de lo que hay. Es lo que corresponde para la pregunta
+"¿cuánto tiene Campa?".
+
+*Está a valor de COSTO, no de mercado.* El saldo de `CAJA_USD` es lo que se
+pagó, a promedio ponderado. El sistema no puede hacer otra cosa: **no hay
+ninguna cotización del día en el schema** (§3.7). Con el dólar en alza, la caja
+total muestra menos que el valor real de la posición — deliberado, es la
+valuación al costo.
+
+> **Refinamiento pendiente, no bug.** "En caja" se lee fácil como *disponible
+> para operar*, y el resguardo es plata **inmovilizada a propósito**: no se
+> toca para pagar un arbitraje. Con USD comprado, alguien puede mirar el
+> dashboard y creer que tiene más disponible del que tiene.
+>
+> Lo que falta es el **desglose visible**: que el dashboard diga
+> "En caja $X · incluye $Y en resguardo USD" en vez de un total mudo. El número
+> no cambia; cambia lo que se entiende al leerlo.
+>
+> *Cuándo:* cuando haya USD comprado de verdad. Hoy la tenencia de producción
+> es cero y el desglose mostraría "incluye $0", que es peor que no mostrarlo.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
@@ -1110,23 +1140,31 @@ Lo natural es agregar `sueldo_vigente` —y quizá `vigente_desde`— a
 *Cuándo:* cuando se construya la escritura de socios (alta de sueldo pactado),
 que es cuando el número pasa a ser editable y no verlo se vuelve incómodo.
 
-**Las dos puertas de socios no aceptan responsable.** `devengar_sueldos_socios`
-y `crear_retiro_socio` llaman a `crear_asiento` con el último argumento en
-`null`, así que sus asientos se anotan con el **fallback a `auth.users`** — la
-misma auditoría falsa que se sacó de `registrar_cobro` (decisión 89) y que la
-cadena de gastos ya resolvió pasando `p_created_by`.
+**Las puertas de socios, sponsors y USD no aceptan responsable.** Ocho
+funciones llaman a `crear_asiento` con el último argumento en `null`, así que
+sus asientos se anotan con el **fallback a `auth.users`** — la misma auditoría
+falsa que se sacó de `registrar_cobro` (decisión 89) y que la cadena de gastos
+ya resolvió pasando `p_created_by`:
+
+| Módulo | Funciones |
+|---|---|
+| Socios (§3.19) | `devengar_sueldos_socios` · `crear_retiro_socio` |
+| Sponsors (§3.20) | `crear_contrato_sponsor` · `cargar_cuotas_sponsor` · `devengar_sponsors` · `registrar_cobro_sponsor` |
+| USD (§3.7) | `comprar_usd` · `vender_usd` |
+
+Las de sponsors y USD ni siquiera usan `auth.uid()`.
 
 Hoy no se nota porque la base tiene **un solo usuario**, así que el fallback
-acierta por casualidad: al cargar los datos de prueba los nueve asientos
-quedaron con el responsable correcto sin que nadie lo pasara. Con dos usuarios
-elegiría cualquiera, y el síntoma sería un diario que atribuye un retiro a
-quien no lo hizo.
+acierta por casualidad: al cargar los datos de prueba los asientos quedaron con
+el responsable correcto sin que nadie lo pasara. Con dos usuarios elegiría
+cualquiera, y el síntoma sería un diario que atribuye un retiro a quien no lo
+hizo.
 
 El arreglo es el mismo que en gastos: un `p_created_by` opcional al final de
 cada una. Se hace junto con el resto de los llamadores automáticos, no suelto.
 
-*Cuándo:* bloque 10, con el fallback de `crear_asiento`. Son nueve procesos
-automáticos y la decisión de qué responsable llevan es una sola.
+*Cuándo:* bloque 10, con el fallback de `crear_asiento`. La decisión de qué
+responsable llevan los procesos automáticos es una sola.
 
 **`fn_audit` audita cambios que no cambian nada.** El trigger inserta una fila
 en `audit_log` por cada UPDATE, sin comparar antes con después. Resultado
