@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      _prueba_marca: {
+        Row: {
+          id: string
+          tipo: string
+        }
+        Insert: {
+          id: string
+          tipo: string
+        }
+        Update: {
+          id?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       activo: {
         Row: {
           categoria: string
@@ -3937,8 +3952,22 @@ export type Database = {
     }
     Functions: {
       anular_asiento: {
-        Args: { p_asiento_id: string; p_fecha?: string; p_motivo: string }
+        Args: {
+          p_asiento_id: string
+          p_created_by?: string
+          p_fecha?: string
+          p_motivo: string
+        }
         Returns: string
+      }
+      anular_gasto: {
+        Args: {
+          p_created_by?: string
+          p_fecha?: string
+          p_gasto_id: string
+          p_motivo: string
+        }
+        Returns: undefined
       }
       aplicar_anticipo: {
         Args: { p_cuota_id: string; p_monto: number; p_tercero_id: string }
@@ -4064,6 +4093,16 @@ export type Database = {
         Args: { p_jornada_id: string; p_nueva_fecha: string }
         Returns: undefined
       }
+      pagar_gasto: {
+        Args: {
+          p_created_by?: string
+          p_gasto_id: string
+          p_medio: string
+          p_pagado_at: string
+          p_predio_id?: string
+        }
+        Returns: string
+      }
       periodo_de_fecha: { Args: { p_fecha: string }; Returns: string }
       preview_cobro: {
         Args: {
@@ -4072,6 +4111,14 @@ export type Database = {
           p_monto: number
           p_tercero_id: string
         }
+        Returns: Json
+      }
+      preview_gasto: {
+        Args: { p_cat_gasto_id: string; p_total: number }
+        Returns: Json
+      }
+      preview_pago_gasto: {
+        Args: { p_gasto_id: string; p_medio: string }
         Returns: Json
       }
       proponer_amortizaciones: {
@@ -4107,6 +4154,22 @@ export type Database = {
       }
       registrar_entrega_central: {
         Args: { p_arqueo_id: string; p_fecha?: string }
+        Returns: string
+      }
+      registrar_gasto: {
+        Args: {
+          p_activo_id?: string
+          p_arancel: number
+          p_cantidad: number
+          p_cat_gasto_id: string
+          p_concepto_id?: string
+          p_concepto_libre?: string
+          p_created_by?: string
+          p_devengado_at: string
+          p_jornada_id?: string
+          p_predio_id?: string
+          p_torneo_id?: string
+        }
         Returns: string
       }
       saldo_cuenta: {
