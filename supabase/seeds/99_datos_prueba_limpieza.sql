@@ -33,6 +33,12 @@ declare
   v_fichas    int := 0;
   v_gastos    int := 0;
   v_activos   int := 0;
+  v_sueldos   int := 0;
+  v_devsoc    int := 0;
+  v_devspo    int := 0;
+  v_cuospo    int := 0;
+  v_contspo   int := 0;
+  v_terspo    int := 0;
   v_lineas    int := 0;
   v_asientos  int := 0;
 begin
@@ -71,7 +77,30 @@ begin
    where a.id in (select id from public._prueba_marca where tipo = 'activo');
   get diagnostics v_activos = row_count;
 
-  -- 7 · líneas y asientos
+  -- 7 · socios: devengos y sueldos pactados (antes que sus asientos)
+  delete from devengo_socio d
+   where d.id in (select id from public._prueba_marca where tipo = 'devengo_socio');
+  get diagnostics v_devsoc = row_count;
+
+  delete from sueldo_socio s
+   where s.id in (select id from public._prueba_marca where tipo = 'sueldo_socio');
+  get diagnostics v_sueldos = row_count;
+
+  -- 8 · sponsors, de la hoja al tronco: devengos y cuotas cuelgan del
+  --     contrato, y el contrato apunta a su asiento de firma.
+  delete from devengo_sponsor d
+   where d.id in (select id from public._prueba_marca where tipo = 'devengo_sponsor');
+  get diagnostics v_devspo = row_count;
+
+  delete from cuota_cobro_sponsor q
+   where q.id in (select id from public._prueba_marca where tipo = 'cuota_cobro_sponsor');
+  get diagnostics v_cuospo = row_count;
+
+  delete from contrato_sponsor c
+   where c.id in (select id from public._prueba_marca where tipo = 'contrato_sponsor');
+  get diagnostics v_contspo = row_count;
+
+  -- 9 · líneas y asientos
   delete from asiento_linea l
    where l.asiento_id in (select id from public._prueba_marca where tipo = 'asiento');
   get diagnostics v_lineas = row_count;
@@ -80,8 +109,19 @@ begin
    where a.id in (select id from public._prueba_marca where tipo = 'asiento');
   get diagnostics v_asientos = row_count;
 
-  raise notice 'Borrado: % imputaciones, % pagos, % cuotas, % fichas, % gastos, % activos, % líneas, % asientos.',
-    v_imput, v_pagos, v_cuotas, v_fichas, v_gastos, v_activos, v_lineas, v_asientos;
+  -- 10 · los sponsors como tercero, AL FINAL: asiento_linea.tercero_id los
+  --      referencia, así que recién se pueden borrar con las líneas ya idas.
+  --      Los socios NO se borran: Guille y Agus son datos reales del seed 03,
+  --      lo de prueba eran su sueldo y sus devengos.
+  delete from tercero t
+   where t.id in (select id from public._prueba_marca where tipo = 'tercero_sponsor');
+  get diagnostics v_terspo = row_count;
+
+  raise notice 'Borrado: % imputaciones, % pagos, % cuotas, % fichas, % gastos, % activos, '
+               '% sueldos, % devengos de socio, % devengos de sponsor, % cuotas de sponsor, '
+               '% contratos, % sponsors, % líneas, % asientos.',
+    v_imput, v_pagos, v_cuotas, v_fichas, v_gastos, v_activos,
+    v_sueldos, v_devsoc, v_devspo, v_cuospo, v_contspo, v_terspo, v_lineas, v_asientos;
 end $$;
 
 -- El marcador se va con los datos que marcaba: sin rastro.

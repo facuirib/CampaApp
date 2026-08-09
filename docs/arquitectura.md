@@ -1821,10 +1821,29 @@ De qué caja sale rige lo mismo que en §3.19: transferencia y central sin predi
 
 | Vista | Para qué |
 |---|---|
-| `v_estado_sponsor` | por sponsor: total, devengado, cobrado, pendiente de devengar, pendiente de cobrar |
+| `v_estado_sponsor` | por contrato: total, devengado, cobrado, pendiente de devengar, pendiente de cobrar |
+| `v_cuotas_sponsor` | **el calendario de cobro entero**, con estado `cobrada` / `vencida` / `por_vencer` |
+| `v_sponsor_detalle_mensual` | **el calendario de reconocimiento**, mes a mes, con acumulado y pendiente |
 | `v_cuotas_sponsor_futuras` | las cuotas con fecha futura — **la que el módulo de cashflow va a consumir** |
 
-**Alcance:** backend. La pantalla es front y va después.
+Las dos del medio se agregaron con la pantalla (migración `20260809155729`), porque
+con las otras dos **no se podía mostrar ninguno de los dos calendarios completo**:
+del reconocimiento sólo existía el agregado, y del cobro sólo las cuotas futuras
+—o sea que **una cuota vencida e impaga desaparecía el día que se vencía**, y un
+sponsor moroso era invisible—.
+
+`v_sponsor_detalle_mensual` deriva del **diario** (`ING_SPONSORS`), no de la tabla
+`devengo_sponsor`: es un número contable (§2), y así reconcilia con
+`v_estado_sponsor.devengado` por construcción en vez de por casualidad. Se engancha
+por `origen_id = contrato`, y el filtro por cuenta deja afuera el asiento de firma
+y los de cobro, que tocan otras cuentas.
+
+`v_cuotas_sponsor_futuras` **se conserva**: sigue siendo la que el cashflow va a
+consumir, y la nueva la contiene.
+
+**Alcance:** backend **y pantalla**. `/sponsors` está construida y vestida: cuatro
+KpiCards por contrato —contratado · reconocido · cobrado · pendiente de cobrar— y
+las dos tablas, una por calendario.
 
 ## 4. Navegación
 
