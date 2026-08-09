@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/db/client'
-import { AsientoPreview, type LineaAsiento } from '@/components/ui'
+import { AsientoPreview } from '@/components/ui'
+import { ERROR_PREVIEW_INESPERADO, leerPreviewAsiento, type PreviewAsiento } from '@/lib/db/preview'
 
 /**
  * El asiento que va a generar un cobro, antes de registrarlo.
@@ -24,17 +25,10 @@ interface PreviewCobroProps {
   imputaciones: { cuota_id: string; monto: number }[]
 }
 
-interface PreviewCobroResult {
-  lineas: LineaAsiento[]
-  total_debe: number
-  total_haber: number
-  balanceado: boolean
-}
-
 export default function PreviewCobro({ terceroId, monto, medio, imputaciones }: PreviewCobroProps) {
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [resultado, setResultado] = useState<PreviewCobroResult | null>(null)
+  const [resultado, setResultado] = useState<PreviewAsiento | null>(null)
 
   const hayImputaciones = imputaciones.length > 0
   const imputacionesKey = JSON.stringify(imputaciones)
@@ -53,13 +47,7 @@ export default function PreviewCobro({ terceroId, monto, medio, imputaciones }: 
       setCargando(true)
       setError(null)
 
-      // `preview_cobro` no está en los tipos generados, de ahí el cast.
-      const { data, error } = await (
-        supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: PreviewCobroResult | null; error: { message: string } | null }>
-      )('preview_cobro', {
+      const { data, error } = await supabase.rpc('preview_cobro', {
         p_tercero_id: terceroId,
         p_monto: monto,
         p_medio: medio,
@@ -72,7 +60,9 @@ export default function PreviewCobro({ terceroId, monto, medio, imputaciones }: 
         setError(error.message)
         setResultado(null)
       } else {
-        setResultado(data)
+        const asiento = leerPreviewAsiento(data)
+        setError(asiento ? null : ERROR_PREVIEW_INESPERADO)
+        setResultado(asiento)
       }
       setCargando(false)
     }

@@ -32,6 +32,7 @@ declare
   v_cuotas    int := 0;
   v_fichas    int := 0;
   v_gastos    int := 0;
+  v_activos   int := 0;
   v_lineas    int := 0;
   v_asientos  int := 0;
 begin
@@ -65,7 +66,12 @@ begin
    where g.id in (select id from public._prueba_marca where tipo = 'gasto');
   get diagnostics v_gastos = row_count;
 
-  -- 6 · líneas y asientos
+  -- 6 · activos (después de los gastos: gasto.activo_id los referencia)
+  delete from activo a
+   where a.id in (select id from public._prueba_marca where tipo = 'activo');
+  get diagnostics v_activos = row_count;
+
+  -- 7 · líneas y asientos
   delete from asiento_linea l
    where l.asiento_id in (select id from public._prueba_marca where tipo = 'asiento');
   get diagnostics v_lineas = row_count;
@@ -74,8 +80,8 @@ begin
    where a.id in (select id from public._prueba_marca where tipo = 'asiento');
   get diagnostics v_asientos = row_count;
 
-  raise notice 'Borrado: % imputaciones, % pagos, % cuotas, % fichas, % gastos, % líneas, % asientos.',
-    v_imput, v_pagos, v_cuotas, v_fichas, v_gastos, v_lineas, v_asientos;
+  raise notice 'Borrado: % imputaciones, % pagos, % cuotas, % fichas, % gastos, % activos, % líneas, % asientos.',
+    v_imput, v_pagos, v_cuotas, v_fichas, v_gastos, v_activos, v_lineas, v_asientos;
 end $$;
 
 -- El marcador se va con los datos que marcaba: sin rastro.
