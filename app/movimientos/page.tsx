@@ -1,133 +1,138 @@
 import { createClient } from '@/lib/db/server'
-import { formatMoney, formatDate } from '@/lib/format'
+import { clavePeriodo, formatPeriodo, rotuloOrigen } from '@/lib/domain/asiento'
+import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
+import { Badge, DataTable, type ColumnDef } from '@/components/ui'
+import type { Database } from '@/lib/db/database.types'
 
-export default async function MovimientosPage() {
+type FilaDiario = Database['public']['Views']['v_libro_diario']['Row']
+
+interface FilaAsiento {
+  asiento_id: string
+  fecha: string | null
+  /** Texto y, si está anulado, su badge: van juntos en la misma celda. */
+  descripcion: React.ReactNode
+  origen: string
+  periodo: string
+  torneo: string | null
+  total_debe: number | null
+  total_haber: number | null
+}
+
+const COLUMNAS: ColumnDef<FilaAsiento>[] = [
+  { key: 'fecha', label: 'Fecha', format: 'date', width: 104 },
+  { key: 'descripcion', label: 'Descripción' },
+  { key: 'origen', label: 'Origen', width: 148 },
+  { key: 'periodo', label: 'Período', width: 84 },
+  { key: 'torneo', label: 'Torneo', width: 120 },
+  { key: 'total_debe', label: 'Debe', format: 'money', width: 128 },
+  { key: 'total_haber', label: 'Haber', format: 'money', width: 128 },
+]
+
+export default async function MovimientosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ origen?: string; periodo?: string }>
+}) {
+  const { origen, periodo } = await searchParams
   const supabase = await createClient()
 
-  const [{ data: asientos, error: errorAsientos }, { data: lineas, error: errorLineas }] =
-    await Promise.all([
-      supabase
-        .from('v_libro_diario')
-        .select('*')
-        .order('fecha', { ascending: false })
-        .order('created_at', { ascending: false }),
-      supabase.from('v_asiento_detalle').select('*'),
-    ])
+  // Las opciones del filtro salen de los datos, no de una lista escrita a mano:
+  // así un origen que aparezca mañana se ofrece solo, y uno que nunca se usó no
+  // ensucia el desplegable con una opción que no devuelve nada.
+  const opcionesRes = await supabase.from('v_libro_diario').select('origen, anio, mes')
 
-  const error = errorAsientos ?? errorLineas
+  let consulta = supabase
+    .from('v_libro_diario')
+    .select('*')
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
 
-  const lineasPorAsiento = new Map<string, NonNullable<typeof lineas>>()
-  for (const linea of lineas ?? []) {
-    if (!linea.asiento_id) continue
-    const actuales = lineasPorAsiento.get(linea.asiento_id) ?? []
-    actuales.push(linea)
-    lineasPorAsiento.set(linea.asiento_id, actuales)
+  // El filtro se aplica EN LA CONSULTA, no sobre las filas ya traídas: la
+  // página es servidor y el filtro viaja en la URL, así que lo que llega al
+  // navegador es sólo lo que se muestra.
+  if (origen) consulta = consulta.eq('origen', origen)
+  if (periodo) {
+    const [anio, mes] = periodo.split('-')
+    consulta = consulta.eq('anio', Number(anio)).eq('mes', Number(mes))
   }
 
+  const asientosRes = await consulta
+  const error = asientosRes.error ?? opcionesRes.error
+
+  const origenes = [...new Set((opcionesRes.data ?? []).map((f) => f.origen).filter(Boolean))]
+    .map((codigo) => ({ valor: codigo as string, label: rotuloOrigen(codigo) }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+
+  const periodos = [
+    ...new Set((opcionesRes.data ?? []).map((f) => clavePeriodo(f.anio, f.mes)).filter(Boolean)),
+  ]
+    .sort()
+    .reverse()
+    .map((clave) => {
+      const [anio, mes] = clave.split('-')
+      return { valor: clave, label: formatPeriodo(Number(anio), Number(mes)) }
+    })
+
+  const FILTROS: FiltroUrl[] = [
+    { parametro: 'origen', label: 'Origen', todos: 'Todos los orígenes', opciones: origenes },
+    { parametro: 'periodo', label: 'Período', todos: 'Todos los períodos', opciones: periodos },
+  ]
+
+  const filas: FilaAsiento[] = (asientosRes.data ?? []).map((a: FilaDiario) => ({
+    asiento_id: a.asiento_id!,
+    fecha: a.fecha,
+    // El badge va PEGADO a la descripción y no en una columna propia: una
+    // columna de estado dejaría 56 guiones para marcar 2 anulados, y el dato
+    // se lee mejor al lado de qué asiento es que en el otro extremo de la fila.
+    descripcion: a.anulado ? (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <span className="text-muted line-through">{a.descripcion}</span>
+        <Badge estado="neutro">Anulado</Badge>
+      </span>
+    ) : (
+      a.descripcion
+    ),
+    origen: rotuloOrigen(a.origen),
+    periodo: formatPeriodo(a.anio, a.mes),
+    torneo: a.torneo,
+    total_debe: a.total_debe,
+    total_haber: a.total_haber,
+  }))
+
+  const hayFiltro = Boolean(origen || periodo)
+
   return (
-    <main className="p-8 font-sans">
-      <h1 className="text-2xl font-bold mb-1">Libro diario</h1>
-      <p className="text-sm text-gray-500 mb-6">Registro de movimientos contables.</p>
+    <div className="pb-10">
+      <header className="mb-6">
+        <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Libro diario</h1>
+        <p className="mt-1 text-[12px] text-muted">
+          Todos los asientos, del más reciente al más viejo. Los anulados se muestran igual: el
+          diario es un registro histórico, no una lista de lo vigente.
+        </p>
+      </header>
 
       {error && (
-        <pre className="text-red-600 text-sm bg-red-50 p-3 rounded mb-4">{error.message}</pre>
+        <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
 
-      {!error && (!asientos || asientos.length === 0) && (
-        <p className="text-sm text-gray-500">
-          Todavía no hay movimientos registrados. Los asientos aparecen cuando se registran
-          cobros o gastos.
-        </p>
-      )}
+      <FiltrosUrl filtros={FILTROS} />
 
-      {!error &&
-        asientos &&
-        asientos.length > 0 &&
-        asientos.map((asiento) => {
-          const susLineas = asiento.asiento_id
-            ? (lineasPorAsiento.get(asiento.asiento_id) ?? [])
-            : []
-          const balanceado = (asiento.total_debe ?? 0) === (asiento.total_haber ?? 0)
-
-          return (
-            <div
-              key={asiento.asiento_id}
-              className={`border border-gray-200 rounded p-4 mb-4 ${
-                asiento.anulado ? 'opacity-60' : ''
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className={asiento.anulado ? 'line-through' : ''}>
-                  <div className="text-sm text-gray-500">{formatDate(asiento.fecha)}</div>
-                  <div className="font-semibold">{asiento.descripcion}</div>
-                </div>
-                <div className="text-lg font-bold">{formatMoney(asiento.total_debe ?? 0)}</div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-3">
-                {asiento.origen && (
-                  <span className="text-xs bg-gray-100 rounded px-2 py-0.5">
-                    {asiento.origen}
-                  </span>
-                )}
-                {asiento.torneo && (
-                  <span className="text-xs bg-gray-100 rounded px-2 py-0.5">
-                    {asiento.torneo}
-                  </span>
-                )}
-                {asiento.anulado && (
-                  <span className="text-xs bg-red-100 text-red-700 font-semibold rounded px-2 py-0.5">
-                    ANULADO
-                  </span>
-                )}
-              </div>
-
-              {susLineas.length > 0 && (
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="text-left border-b border-gray-300">
-                      <th className="py-1.5 pr-4">Cuenta</th>
-                      <th className="py-1.5 pr-4">Debe</th>
-                      <th className="py-1.5 pr-4">Haber</th>
-                      <th className="py-1.5 pr-4">Tercero</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {susLineas.map((linea, i) => (
-                      <tr key={i} className="border-b border-gray-100">
-                        <td className="py-1.5 pr-4">
-                          {linea.cuenta_codigo} {linea.cuenta}
-                        </td>
-                        <td className="py-1.5 pr-4">
-                          {linea.debe ? formatMoney(linea.debe) : ''}
-                        </td>
-                        <td className="py-1.5 pr-4">
-                          {linea.haber ? formatMoney(linea.haber) : ''}
-                        </td>
-                        <td className="py-1.5 pr-4">{linea.tercero ?? ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="font-bold border-t border-gray-300">
-                      <td className="py-1.5 pr-4">
-                        Total{' '}
-                        {balanceado ? (
-                          <span className="text-green-700">✓</span>
-                        ) : (
-                          <span className="text-red-600">✗</span>
-                        )}
-                      </td>
-                      <td className="py-1.5 pr-4">{formatMoney(asiento.total_debe ?? 0)}</td>
-                      <td className="py-1.5 pr-4">{formatMoney(asiento.total_haber ?? 0)}</td>
-                      <td className="py-1.5 pr-4"></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              )}
-            </div>
-          )
-        })}
-    </main>
+      {/* Sin fila de total: sumar el debe de asientos de distintos orígenes y
+          períodos no da un número que signifique nada —no es el saldo de nada—,
+          y ninguna vista lo ofrece. */}
+      <DataTable
+        columns={COLUMNAS}
+        rows={filas}
+        rowKey="asiento_id"
+        rowHref={(f) => `/movimientos/${f.asiento_id}`}
+        densidad="compacta"
+        maxHeight={600}
+        emptyMessage={
+          hayFiltro
+            ? 'Ningún asiento coincide con el filtro.'
+            : 'Todavía no hay movimientos registrados. Los asientos aparecen cuando se registran cobros o gastos.'
+        }
+      />
+    </div>
   )
 }

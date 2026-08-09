@@ -33,8 +33,29 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth +
 
    **Cómo lo lee una vista depende de qué hace con los asientos:**
 
-   - **Vistas que LISTAN** filtran `where anulado_por is null`: no tiene
-     sentido mostrar asientos muertos. Es lo que hace `v_libro_diario`.
+   - **Vistas que LISTAN asientos los muestran TODOS y marcan el anulado.**
+     No filtran. `v_libro_diario` expone `anulado_por is not null as anulado`
+     y devuelve las dos filas: el original marcado y su contraasiento. La
+     pantalla los distingue —`/movimientos` tacha el original y le pone un
+     badge—, que es distinto de esconderlos.
+
+     **Filtrar acá sería peor que no filtrar**, por la misma razón que explica
+     el punto siguiente: `anular_asiento` marca **solo el original**. Un
+     `where anulado_por is null` esconde el original y **deja el contraasiento
+     visible**, o sea un `ajuste` de −X flotando en el diario sin nada que
+     explique qué anula. Se pierde justo la mitad que da sentido a la otra.
+
+     Y de fondo: el diario es un **registro histórico**, no una lista de lo
+     vigente. Que un asiento se haya hecho y después anulado son dos hechos, y
+     los dos pasaron. Esconder el primero es reescribir la historia — que es
+     exactamente lo que la regla 4 existe para impedir.
+
+     **No "arregles" `v_libro_diario` para que filtre**: `/movimientos` depende
+     de que no lo haga.
+
+     Una vista que liste **otra cosa** —cuotas, gastos, contratos— sí puede
+     filtrar lo anulado, porque ahí la fila anulada no tiene contraparte que
+     quede huérfana. Lo de arriba vale para listar **asientos**.
 
    - **Vistas que SUMAN saldos NO filtran.** El original y su contraasiento
      **se compensan solos**: +X y −X dan 0. Filtrar `anulado_por is null`
