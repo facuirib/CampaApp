@@ -26,6 +26,9 @@ interface FilaHistorial {
 
 interface FilaDiaCancha {
   dia_cancha_id: string | null
+  // No es columna visible: solo para armar el rowHref (arqueado → entregar
+  // ese arqueo; sin arquear → crear uno nuevo preseleccionando el día).
+  arqueo_id: string | null
   fecha: string | null
   predio: string | null
   saldo_sistema: number | null
@@ -116,6 +119,7 @@ export default async function ArqueoPage() {
 
   const diaCancha: FilaDiaCancha[] = (diaCanchaRaw ?? []).map((f) => ({
     dia_cancha_id: f.dia_cancha_id,
+    arqueo_id: f.arqueo_id,
     fecha: f.fecha,
     predio: f.predio,
     saldo_sistema: f.saldo_sistema,
@@ -181,6 +185,9 @@ export default async function ArqueoPage() {
             columns={COL_DIA_CANCHA}
             rows={diaCancha}
             rowKey={(row, i) => row.dia_cancha_id ?? i}
+            rowHref={(row) =>
+              row.arqueo_id ? `/arqueo/${row.arqueo_id}/entregar` : `/arqueo/nuevo?dia=${row.dia_cancha_id}`
+            }
             maxHeight={400}
             emptyMessage="No hay días de cancha registrados"
           />
@@ -196,6 +203,7 @@ export default async function ArqueoPage() {
             columns={COL_HISTORIAL}
             rows={historial}
             rowKey={(row, i) => row.arqueo_id ?? i}
+            rowHref={(row) => `/arqueo/${row.arqueo_id}/entregar`}
             maxHeight={400}
             emptyMessage="No hay arqueos registrados"
           />
