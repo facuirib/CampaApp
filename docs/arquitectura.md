@@ -1915,7 +1915,11 @@ Se presenta solo la excepción: ascensos, descensos, bajas y altas nuevas. Los e
 
 **Idempotencia del importador.** La importación debe poder correrse dos veces sin duplicar: clave natural `(torneo_id, nombre_equipo)`.
 
-**Auditoría.** `asiento` ya es inmutable. Para el resto de las tablas, tabla `audit_log` genérica con trigger sobre `update`/`delete` en las sensibles (`equipo_torneo`, `cuota`, `gasto`, `arqueo`).
+**Auditoría.** `asiento` ya es inmutable. Para el resto de las tablas, tabla `audit_log` genérica con trigger sobre `update`/`delete` en las sensibles: **seis** — `equipo_torneo`, `cuota`, `gasto`, `arqueo`, `activo` y `cheque` (el doc listaba cuatro; las dos últimas también lo tienen).
+
+**No hay `insert`**: el registro se lleva sólo de lo que cambia después de creado, así que un alta no genera evento. `/auditoria` lo dice y no ofrece un badge de INSERT que nunca aparecería.
+
+La pantalla lee de **`v_auditoria`** (migración `20260809171605`), que agrega `campos_cambiados` contando el diff de los dos snapshots **en SQL**. No es un adorno: sin esa columna no se puede filtrar por ella —PostgREST no filtra por algo que no existe en la vista— y hoy **727 de los 865 `update` registrados no cambiaron ningún campo**. Ver la nota de `fn_audit` en `decisiones.md` § Abiertas.
 
 ## 8. Decisiones cerradas
 

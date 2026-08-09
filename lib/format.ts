@@ -96,3 +96,28 @@ export function formatDate(value: string | Date | null | undefined): string {
 
   return FECHA.format(fecha)
 }
+
+const FECHA_HORA = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'America/Argentina/Cordoba',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+/**
+ * Fecha con hora: "09/08/2026 14:35".
+ *
+ * Para los `timestamptz` —cuándo ocurrió algo—, no para las columnas `date`.
+ * A diferencia de `formatDate`, acá SÍ corresponde construir un `Date`: un
+ * timestamptz trae zona, y lo que se quiere ver es esa hora en Córdoba.
+ */
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return SIN_DATO
+
+  const fecha = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(fecha.getTime())) return SIN_DATO
+
+  return FECHA_HORA.format(fecha)
+}

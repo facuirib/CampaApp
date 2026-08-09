@@ -3260,6 +3260,42 @@ export type Database = {
           },
         ]
       }
+      v_auditoria: {
+        Row: {
+          anterior: Json | null
+          campos_cambiados: number | null
+          created_at: string | null
+          id: number | null
+          nuevo: Json | null
+          operacion: string | null
+          registro_id: string | null
+          tabla: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          anterior?: Json | null
+          campos_cambiados?: never
+          created_at?: string | null
+          id?: number | null
+          nuevo?: Json | null
+          operacion?: string | null
+          registro_id?: string | null
+          tabla?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          anterior?: Json | null
+          campos_cambiados?: never
+          created_at?: string | null
+          id?: number | null
+          nuevo?: Json | null
+          operacion?: string | null
+          registro_id?: string | null
+          tabla?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       v_calendario_pagos: {
         Row: {
           criticidad: string | null

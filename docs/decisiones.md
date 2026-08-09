@@ -1127,3 +1127,39 @@ cada una. Se hace junto con el resto de los llamadores automáticos, no suelto.
 
 *Cuándo:* bloque 10, con el fallback de `crear_asiento`. Son nueve procesos
 automáticos y la decisión de qué responsable llevan es una sola.
+
+**`fn_audit` audita cambios que no cambian nada.** El trigger inserta una fila
+en `audit_log` por cada UPDATE, sin comparar antes con después. Resultado
+medido sobre 1.134 eventos:
+
+| | eventos | con `campos_cambiados = 0` |
+|---|---|---|
+| UPDATE | 865 | **727** |
+| DELETE | 269 | 0 |
+
+**El 64% del log no audita nada**, y **719 de esos 727 son `equipo_torneo`**:
+la ficha se reescribe con los mismos valores cada vez que se toca una cuota
+suya. Los que sí cambian algo cambian lo esperable — `pagado_at` 47 veces,
+`total_plan` 38, `total_facturado` 37.
+
+El arreglo es comparar en el trigger y no escribir si `old` y `new` son
+iguales, algo así como `if to_jsonb(old) is not distinct from to_jsonb(new)
+then return new; end if;` antes del insert.
+
+**Bug latente en el mismo trigger:** `fn_audit` guarda `nuevo` **sólo en
+UPDATE** (`case when TG_OP = 'UPDATE' then to_jsonb(new) end`). Hoy no molesta
+porque los triggers están declarados sólo para UPDATE y DELETE, así que no hay
+INSERTs auditados. Pero **el día que se agregue INSERT al trigger, cada alta se
+guardaría con los dos snapshots en null**: sin `anterior` porque no lo había, y
+sin `nuevo` porque el `case` no lo cubre. Quedaría un evento que dice "se creó
+algo" sin decir qué, y `v_auditoria` lo contaría como cero campos — o sea que
+el filtro "sólo con cambios" escondería las altas.
+
+`v_auditoria` (migración `20260809171605`) **no arregla nada de esto**: lo hace
+visible. Cuenta el diff en SQL para que la pantalla pueda filtrar el ruido, y
+deja los DELETE siempre por encima de cero para que un borrado nunca se
+confunda con un no-op.
+
+*Cuándo:* cuando se toque el trigger. No es urgente —el log de más no rompe
+nada, sólo abulta— pero cuanto más tarde, más filas vacías hay que filtrar. El
+bug del INSERT sí hay que resolverlo **antes** de auditar altas, no después.
