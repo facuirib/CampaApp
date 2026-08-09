@@ -1055,27 +1055,22 @@ Hay que decidir entre:
 urgente, pero el síntoma si se olvida es un cobro que falla en producción con
 un mensaje que habla de ejercicios, no de cobranza.
 
-**Puerta `anular_gasto()`.** Un gasto cargado por error no se puede dar de
-baja: no hay función que lo haga y `gasto` no tiene columna de anulación. El
-único mecanismo del sistema es `anular_asiento()`, que corrige el diario pero
-deja la fila de `gasto` intacta.
+**~~Puerta `anular_gasto()`~~ — CERRADA.** Construida en la migración
+`20260809141359_escritura_gastos.sql`, junto con `registrar_gasto` y
+`pagar_gasto`. Contraasienta los dos asientos en orden inverso —pago primero,
+devengo después— y limpia `pagado_at`, `medio_pago` y `asiento_pag_id`, que
+era el **caso espejo** que esta entrada dejaba sin cubrir: anular el pago sin
+el devengo mostraba la fila como `pagado` con el diario diciendo lo contrario.
 
-`v_gasto_detalle` (migración `20260806160132`) cierra la mitad visible del
-hueco: deriva el estado del asiento de devengo, así que un gasto
-contraasentado se **muestra** como `anulado` sin duplicar la verdad del
-diario en una columna. Falta la otra mitad — la puerta que contraasienta el
-devengo y deja la baja **operable** desde la app.
+Probada extremo a extremo contra la base: los cuatro asientos del circuito
+netean 0 en las tres cuentas y la caja del predio vuelve al saldo previo.
 
-Queda un caso sin cubrir, del otro lado: si se anula el asiento de **pago** y
-no el de devengo, `pagado_at` sigue escrito y la fila se muestra `pagado`
-aunque el diario diga que no se pagó. Resolverlo es decidir si el pago también
-pasa a derivarse del diario, y esa es una decisión de modelo aparte.
+> Esta entrada quedó marcada como pendiente **un commit de más**: se cerró en
+> `701b22e` y se corrigió acá. Es exactamente lo que la regla 13 previene, y
+> por eso queda anotado en vez de borrado.
 
-*Cuándo:* con la escritura de gastos (G1/G3), no antes. Hoy la lectura ya
-refleja la baja; lo que falta es poder ejecutarla.
-
-**Dos mejoras para cuando se toque `preview_cobro`.** Ninguna es urgente y el
-componente `AsientoPreview` ya está listo para aprovecharlas sin cambios.
+**Una mejora para cuando se toque `preview_cobro`.** No es urgente y el
+componente `AsientoPreview` ya está listo para aprovecharla sin cambios.
 
 **(a) Que devuelva el nombre de cuenta, no el código.** Hoy la función arma las
 líneas con `'cuenta', v_cuenta_caja` y con los códigos `ING_INSCRIPCIONES` /
@@ -1094,6 +1089,41 @@ la imputación no cuadra— pero el indicador hoy no informa nada. Derivar ambos
 de las líneas efectivamente construidas convierte un adorno en una
 verificación.
 
-*Cuándo:* cuando se toque `preview_cobro` por cualquier otro motivo, o al
-escribir la primera `preview_*` de otro módulo — conviene que la nueva ya nazca
-con las dos cosas bien y no copie el patrón actual.
+*Cuándo:* cuando se toque `preview_cobro` por cualquier otro motivo. **La otra
+mitad de esta entrada ya se cumplió**: `preview_gasto` y `preview_pago_gasto`
+nacieron con las dos cosas bien —devuelven `nombre` y derivan los totales de
+las líneas—, y ese es el contrato que `leerPreviewAsiento` (`lib/db/preview.ts`)
+fija para las que vengan. `preview_cobro` es la única que falta alinear.
+
+**El sueldo vigente de un socio no está en ninguna vista.** `sueldo_socio`
+guarda el historial versionado y `sueldo_vigente(socio, fecha)` lo resuelve,
+pero las dos vistas del módulo —`v_saldo_socio` y `v_socio_detalle_mensual`—
+derivan de `SOCIOS_A_PAGAR` y no lo traen. La pantalla de socios muestra
+entonces devengado, retirado y saldo **sin el número que les da contexto**: un
+saldo en cero no distingue "todavía no se devengó nada" de "se retiró todo lo
+devengado", y no hay forma de ver desde la app cuánto cobra cada socio ni desde
+cuándo.
+
+Lo natural es agregar `sueldo_vigente` —y quizá `vigente_desde`— a
+`v_saldo_socio`, que ya es una fila por socio. Es aditivo y no toca el diario.
+
+*Cuándo:* cuando se construya la escritura de socios (alta de sueldo pactado),
+que es cuando el número pasa a ser editable y no verlo se vuelve incómodo.
+
+**Las dos puertas de socios no aceptan responsable.** `devengar_sueldos_socios`
+y `crear_retiro_socio` llaman a `crear_asiento` con el último argumento en
+`null`, así que sus asientos se anotan con el **fallback a `auth.users`** — la
+misma auditoría falsa que se sacó de `registrar_cobro` (decisión 89) y que la
+cadena de gastos ya resolvió pasando `p_created_by`.
+
+Hoy no se nota porque la base tiene **un solo usuario**, así que el fallback
+acierta por casualidad: al cargar los datos de prueba los nueve asientos
+quedaron con el responsable correcto sin que nadie lo pasara. Con dos usuarios
+elegiría cualquiera, y el síntoma sería un diario que atribuye un retiro a
+quien no lo hizo.
+
+El arreglo es el mismo que en gastos: un `p_created_by` opcional al final de
+cada una. Se hace junto con el resto de los llamadores automáticos, no suelto.
+
+*Cuándo:* bloque 10, con el fallback de `crear_asiento`. Son nueve procesos
+automáticos y la decisión de qué responsable llevan es una sola.

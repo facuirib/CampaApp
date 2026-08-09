@@ -1,10 +1,38 @@
 import { createClient } from '@/lib/db/server'
-import { formatMoney } from '@/lib/format'
+import { Badge, DataTable, KpiCard, type ColumnDef } from '@/components/ui'
+import type { Database } from '@/lib/db/database.types'
 
-/** Período mensual: "mm/aaaa". */
-function formatPeriodo(anio: number, mes: number): string {
+type FilaMensual = Database['public']['Views']['v_socio_detalle_mensual']['Row']
+
+interface FilaPeriodo {
+  periodo_id: string
+  periodo: string
+  devengado: number | null
+  retirado: number | null
+  neto: number | null
+  saldo_acumulado: number | null
+}
+
+/**
+ * El período va como TEXTO, no como `format: 'date'`.
+ *
+ * La vista da `anio` y `mes` por separado, no una fecha: fabricar un día 1 para
+ * poder formatearlo sería inventar un dato que no existe, y mostrar "01/08/26"
+ * donde el mes es la unidad. El devengo es del mes completo — se asienta el
+ * último día, no el primero.
+ */
+function formatPeriodo(anio: number | null, mes: number | null): string {
+  if (anio == null || mes == null) return '—'
   return `${String(mes).padStart(2, '0')}/${anio}`
 }
+
+const COLUMNAS: ColumnDef<FilaPeriodo>[] = [
+  { key: 'periodo', label: 'Período', width: 96 },
+  { key: 'devengado', label: 'Devengado', format: 'money', width: 132 },
+  { key: 'retirado', label: 'Retirado', format: 'money', width: 132 },
+  { key: 'neto', label: 'Neto', format: 'money', width: 132 },
+  { key: 'saldo_acumulado', label: 'Saldo acumulado', format: 'money', width: 150 },
+]
 
 export default async function SociosPage() {
   const supabase = await createClient()
@@ -22,7 +50,8 @@ export default async function SociosPage() {
 
   const error = errorSocios ?? errorDetalle
 
-  const detallePorSocio = new Map<string, NonNullable<typeof detalle>>()
+  // Reparto de filas ya traídas, no cálculo: ningún número sale de acá.
+  const detallePorSocio = new Map<string, FilaMensual[]>()
   for (const fila of detalle ?? []) {
     if (!fila.socio_id) continue
     const actuales = detallePorSocio.get(fila.socio_id) ?? []
@@ -31,87 +60,91 @@ export default async function SociosPage() {
   }
 
   return (
-    <main className="p-8 font-sans">
-      <h1 className="text-2xl font-bold mb-1">Socios</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        Cuenta de cada socio: lo devengado, lo retirado y el saldo.
-      </p>
+    <div className="pb-10">
+      {/* Sin KPIs globales arriba: ninguna vista da el total entre socios, y
+          sumar las dos filas acá sería exactamente lo que la regla 1 prohíbe.
+          Los KPIs son por socio, que es el grano que v_saldo_socio da. */}
+      <header className="mb-6">
+        <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Socios</h1>
+        <p className="mt-1 text-[12px] text-muted">
+          La cuenta de cada socio: lo devengado, lo retirado y el saldo a favor.
+        </p>
+      </header>
 
       {error && (
-        <pre className="text-red-600 text-sm bg-red-50 p-3 rounded mb-4">{error.message}</pre>
+        <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
 
       {!error && (!socios || socios.length === 0) && (
-        <p className="text-sm text-gray-500">No hay socios cargados.</p>
+        <div className="rounded-md border border-line bg-white px-4 py-10 text-center text-[11px] text-muted">
+          No hay socios cargados.
+        </div>
       )}
 
-      {!error &&
-        socios &&
-        socios.length > 0 &&
-        socios.map((socio) => {
-          const saldo = socio.saldo ?? 0
-          const detalleSocio = socio.socio_id ? (detallePorSocio.get(socio.socio_id) ?? []) : []
+      {socios?.map((socio) => {
+        const saldo = socio.saldo ?? 0
+        const filas: FilaPeriodo[] = (
+          socio.socio_id ? (detallePorSocio.get(socio.socio_id) ?? []) : []
+        ).map((f) => ({
+          periodo_id: f.periodo_id!,
+          periodo: formatPeriodo(f.anio, f.mes),
+          devengado: f.devengado,
+          retirado: f.retirado,
+          neto: f.neto,
+          saldo_acumulado: f.saldo_acumulado,
+        }))
 
-          return (
-            <section key={socio.socio_id} className="border border-gray-200 rounded p-4 mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-lg font-semibold">{socio.nombre}</h2>
-                {socio.activo === false && (
-                  <span className="text-xs bg-gray-100 text-gray-600 rounded px-2 py-0.5">
-                    Inactivo
-                  </span>
-                )}
-              </div>
+        return (
+          <section key={socio.socio_id} className="mb-8">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                {socio.nombre}
+              </h2>
+              {socio.activo === false && <Badge estado="neutro">Inactivo</Badge>}
+            </div>
 
-              <div className="grid grid-cols-3 gap-4 text-sm mb-4">
-                <div>
-                  <div className="text-gray-500">Devengado</div>
-                  <div className="text-lg font-bold">{formatMoney(socio.devengado ?? 0)}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500">Retirado</div>
-                  <div className="text-lg font-bold">{formatMoney(socio.retirado ?? 0)}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500">Saldo</div>
-                  <div
-                    className={`text-lg font-bold ${
-                      saldo > 0 ? 'text-green-700' : saldo < 0 ? 'text-red-600' : ''
-                    }`}
-                  >
-                    {saldo > 0 ? '+' : ''}
-                    {formatMoney(saldo)}
-                  </div>
-                </div>
-              </div>
+            <div className="mb-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+              <KpiCard tono="neutro" titulo="Devengado" valor={socio.devengado ?? 0} />
+              <KpiCard tono="info" titulo="Retirado" valor={socio.retirado ?? 0} />
+              {/* El saldo negativo es el socio que retiró de más: plata que le
+                  queda en contra. Va en alerta porque es la única de las tres
+                  cifras que puede estar mal, no porque cero sea malo. */}
+              <KpiCard
+                tono={saldo < 0 ? 'alerta' : 'positivo'}
+                titulo="Saldo"
+                valor={saldo}
+                subtitulo={saldo < 0 ? 'Retiró más de lo devengado' : 'A favor del socio'}
+              />
+            </div>
 
-              {detalleSocio.length > 0 && (
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="text-left border-b border-gray-300">
-                      <th className="py-2 pr-4">Período</th>
-                      <th className="py-2 pr-4">Devengado</th>
-                      <th className="py-2 pr-4">Retirado</th>
-                      <th className="py-2 pr-4">Neto</th>
-                      <th className="py-2 pr-4">Saldo acumulado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detalleSocio.map((fila) => (
-                      <tr key={fila.periodo_id} className="border-b border-gray-100">
-                        <td className="py-2 pr-4">{formatPeriodo(fila.anio ?? 0, fila.mes ?? 0)}</td>
-                        <td className="py-2 pr-4">{formatMoney(fila.devengado ?? 0)}</td>
-                        <td className="py-2 pr-4">{formatMoney(fila.retirado ?? 0)}</td>
-                        <td className="py-2 pr-4">{formatMoney(fila.neto ?? 0)}</td>
-                        <td className="py-2 pr-4">{formatMoney(fila.saldo_acumulado ?? 0)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </section>
-          )
-        })}
-    </main>
+            {/* La fila de total se PASA desde v_saldo_socio, no se suma acá.
+                Verificado contra los datos: devengado y retirado de la vista
+                coinciden con la suma de las mensuales en los dos socios.
+
+                `saldo_acumulado` queda EN BLANCO a propósito. Las otras tres
+                columnas son flujo —lo que pasó en cada mes— y sumarlas da algo
+                que significa: los netos suman exactamente el saldo. El
+                acumulado es STOCK: cada fila ya contiene a las anteriores, así
+                que sumar la columna cuenta los meses viejos una vez por cada
+                mes siguiente. El único total sensato sería el último valor de
+                la serie, y ése ya está arriba en el KpiCard de Saldo — bajo un
+                rótulo que dice "saldo" y no "total". */}
+            <DataTable
+              columns={COLUMNAS}
+              rows={filas}
+              rowKey="periodo_id"
+              maxHeight={420}
+              total={{
+                periodo: 'Total',
+                devengado: socio.devengado ?? 0,
+                retirado: socio.retirado ?? 0,
+                neto: saldo,
+              }}
+              emptyMessage="Todavía no hay devengos ni retiros para este socio."
+            />
+          </section>
+        )
+      })}
+    </div>
   )
 }
