@@ -1825,9 +1825,12 @@ De qué caja sale rige lo mismo que en §3.19: transferencia y central sin predi
 | `v_cuotas_sponsor` | **el calendario de cobro entero**, con estado `cobrada` / `vencida` / `por_vencer` |
 | `v_sponsor_detalle_mensual` | **el calendario de reconocimiento**, mes a mes, con acumulado y pendiente |
 | `v_cuotas_sponsor_futuras` | las cuotas con fecha futura — **la que el módulo de cashflow va a consumir** |
+| `v_sponsor_lista` | **una fila por SPONSOR**, agregando sus contratos, con estado derivado |
+| `v_sponsor_kpi` | los totales de todos los sponsors, en una fila |
 
-Las dos del medio se agregaron con la pantalla (migración `20260809155729`), porque
-con las otras dos **no se podía mostrar ninguno de los dos calendarios completo**:
+`v_cuotas_sponsor` y `v_sponsor_detalle_mensual` se agregaron con la pantalla
+(migración `20260809155729`), porque con las otras dos **no se podía mostrar
+ninguno de los dos calendarios completo**:
 del reconocimiento sólo existía el agregado, y del cobro sólo las cuotas futuras
 —o sea que **una cuota vencida e impaga desaparecía el día que se vencía**, y un
 sponsor moroso era invisible—.
@@ -1841,9 +1844,26 @@ y los de cobro, que tocan otras cuentas.
 `v_cuotas_sponsor_futuras` **se conserva**: sigue siendo la que el cashflow va a
 consumir, y la nueva la contiene.
 
-**Alcance:** backend **y pantalla**. `/sponsors` está construida y vestida: cuatro
-KpiCards por contrato —contratado · reconocido · cobrado · pendiente de cobrar— y
-las dos tablas, una por calendario.
+Las dos últimas se agregaron al partir la pantalla (migración `20260809174936`).
+El grano de `v_estado_sponsor` es el **contrato**, y un sponsor puede tener más de
+uno: una lista por contrato lo mostraría dos veces con cifras parciales, y a
+"cuánto nos debe Bodega" hay que contestarle una vez. `v_sponsor_lista` agrega por
+sponsor —y arranca de `tercero`, así que un sponsor cargado y todavía **sin
+contrato aparece igual**, con ceros—. `v_sponsor_kpi` suma `v_sponsor_lista` y no
+`v_estado_sponsor`: así el encabezado y la tabla de abajo salen de la misma fuente
+y no pueden discrepar.
+
+**Alcance:** backend **y pantalla**, en dos rutas:
+
+- **`/sponsors`** — lista-resumen: cuatro KpiCards globales de `v_sponsor_kpi` y
+  una fila por sponsor, con estado (`en_mora` · `al_dia` · `saldado` ·
+  `sin_contrato`) y link al detalle.
+- **`/sponsors/[sponsorId]`** — los cuatro KpiCards **del sponsor** —ya agregados
+  por la vista— y una sección por contrato con sus dos calendarios.
+
+Nació como una sola pantalla con un bloque por contrato, y con tres contratos de
+prueba ya ocupaba tres pantallas de scroll: con quince sponsors no se puede
+comparar dos sin recordarlos.
 
 ## 4. Navegación
 

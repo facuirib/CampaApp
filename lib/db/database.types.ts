@@ -244,6 +244,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "anticipo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       anticipo_uso: {
@@ -627,6 +634,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "asiento_linea_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       audit_log: {
@@ -925,6 +939,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "cheque_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       compromiso: {
@@ -1063,6 +1084,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "compromiso_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
           },
           {
             foreignKeyName: "compromiso_torneo_id_fkey"
@@ -1247,6 +1275,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
           },
         ]
       }
@@ -1537,6 +1572,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "devengo_socio_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       devengo_sponsor: {
@@ -1761,6 +1803,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "envio_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       equipo_playoff: {
@@ -1910,6 +1959,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
           },
           {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
@@ -2465,6 +2521,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "pago_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       pago_imputacion: {
@@ -2984,6 +3047,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "sueldo_socio_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       tercero: {
@@ -3160,6 +3230,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "anticipo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
           },
         ]
       }
@@ -3476,6 +3553,13 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
       }
       v_cuotas_sponsor_futuras: {
@@ -3529,6 +3613,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
           },
         ]
       }
@@ -3753,6 +3844,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
           },
         ]
       }
@@ -4116,7 +4214,49 @@ export type Database = {
             referencedRelation: "v_socio_detalle_mensual"
             referencedColumns: ["socio_id"]
           },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
         ]
+      }
+      v_sponsor_kpi: {
+        Row: {
+          cobrado: number | null
+          contratado: number | null
+          contratos: number | null
+          cuotas_vencidas: number | null
+          pendiente_cobrar: number | null
+          pendiente_devengar: number | null
+          reconocido: number | null
+          sponsors: number | null
+          sponsors_en_mora: number | null
+        }
+        Relationships: []
+      }
+      v_sponsor_lista: {
+        Row: {
+          activo: boolean | null
+          cobrado: number | null
+          contratado: number | null
+          contratos: number | null
+          cuotas: number | null
+          cuotas_pendientes: number | null
+          cuotas_vencidas: number | null
+          email: string | null
+          estado: string | null
+          pendiente_cobrar: number | null
+          pendiente_devengar: number | null
+          reconocido: number | null
+          sponsor: string | null
+          sponsor_id: string | null
+          vigente_desde: string | null
+          vigente_hasta: string | null
+        }
+        Relationships: []
       }
       v_tenencia_usd: {
         Row: {
