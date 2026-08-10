@@ -924,8 +924,9 @@ export default function DesignPage() {
               <code className="font-mono">proyectado</code>), que es como viene{' '}
               <code className="font-mono">futura</code> de{' '}
               <code className="font-mono">v_cashflow</code>, así que la pantalla no tiene que
-              calcular dónde parte la serie. Lo que se agregó respecto del SVG a mano de{' '}
-              <code className="font-mono">/proyeccion</code>: el relleno degradado, la grilla y{' '}
+              calcular dónde parte la serie. Lo que agregó respecto del SVG a mano que{' '}
+              <code className="font-mono">/proyeccion</code> tenía antes —y que este componente
+              reemplazó—: el relleno degradado, la grilla y{' '}
               <strong className="font-bold text-ink">el marco que cierra el plot</strong> — antes
               quedaba abierto arriba y a los costados.
             </p>

@@ -40,6 +40,8 @@ declare
   v_contspo   int := 0;
   v_terspo    int := 0;
   v_usdop     int := 0;
+  v_preslin   int := 0;
+  v_pres      int := 0;
   v_lineas    int := 0;
   v_asientos  int := 0;
 begin
@@ -101,12 +103,21 @@ begin
    where c.id in (select id from public._prueba_marca where tipo = 'contrato_sponsor');
   get diagnostics v_contspo = row_count;
 
-  -- 9 · operaciones en dólares (antes que sus asientos)
+  -- 9 · presupuesto: las líneas antes que su cabecera
+  delete from presupuesto_linea pl
+   where pl.id in (select id from public._prueba_marca where tipo = 'presupuesto_linea');
+  get diagnostics v_preslin = row_count;
+
+  delete from presupuesto p
+   where p.id in (select id from public._prueba_marca where tipo = 'presupuesto');
+  get diagnostics v_pres = row_count;
+
+  -- 10 · operaciones en dólares (antes que sus asientos)
   delete from usd_operacion u
    where u.id in (select id from public._prueba_marca where tipo = 'usd_operacion');
   get diagnostics v_usdop = row_count;
 
-  -- 10 · líneas y asientos
+  -- 11 · líneas y asientos
   delete from asiento_linea l
    where l.asiento_id in (select id from public._prueba_marca where tipo = 'asiento');
   get diagnostics v_lineas = row_count;
@@ -115,7 +126,7 @@ begin
    where a.id in (select id from public._prueba_marca where tipo = 'asiento');
   get diagnostics v_asientos = row_count;
 
-  -- 11 · los sponsors como tercero, AL FINAL: asiento_linea.tercero_id los
+  -- 12 · los sponsors como tercero, AL FINAL: asiento_linea.tercero_id los
   --      referencia, así que recién se pueden borrar con las líneas ya idas.
   --      Los socios NO se borran: Guille y Agus son datos reales del seed 03,
   --      lo de prueba eran su sueldo y sus devengos.
@@ -125,9 +136,11 @@ begin
 
   raise notice 'Borrado: % imputaciones, % pagos, % cuotas, % fichas, % gastos, % activos, '
                '% sueldos, % devengos de socio, % devengos de sponsor, % cuotas de sponsor, '
-               '% contratos, % sponsors, % operaciones USD, % líneas, % asientos.',
+               '% contratos, % sponsors, % operaciones USD, % líneas de presupuesto, '
+               '% presupuestos, % líneas, % asientos.',
     v_imput, v_pagos, v_cuotas, v_fichas, v_gastos, v_activos,
-    v_sueldos, v_devsoc, v_devspo, v_cuospo, v_contspo, v_terspo, v_usdop, v_lineas, v_asientos;
+    v_sueldos, v_devsoc, v_devspo, v_cuospo, v_contspo, v_terspo, v_usdop,
+    v_preslin, v_pres, v_lineas, v_asientos;
 end $$;
 
 -- El marcador se va con los datos que marcaba: sin rastro.
