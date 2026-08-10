@@ -62,26 +62,42 @@ const LIENZO = {
   },
 } as const
 
-/** Fecha corta para el eje: "12 mar". */
-const EJE_FECHA = new Intl.DateTimeFormat('es-AR', {
+/**
+ * Fecha corta para el eje: "12 mar".
+ *
+ * Dos formateadores y no uno, porque los dos casos son distintos:
+ *
+ *   · una columna `date` ('2026-07-01') NO tiene hora ni zona. Se arma en UTC y
+ *     se lee en UTC, así el rótulo es el mismo corra donde corra. Antes se
+ *     armaba en hora LOCAL y se leía en Córdoba: en un runtime al este —Vercel
+ *     en UTC, o esta máquina en Madrid— el 1º de julio se dibujaba como
+ *     "30 jun", y el eje entero quedaba corrido un día.
+ *
+ *   · un timestamp sí tiene instante, y ahí la zona correcta es Córdoba: se
+ *     quiere ver la hora local del torneo.
+ */
+const EJE_FECHA_UTC = new Intl.DateTimeFormat('es-AR', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+})
+
+const EJE_INSTANTE = new Intl.DateTimeFormat('es-AR', {
   day: 'numeric',
   month: 'short',
   timeZone: 'America/Argentina/Cordoba',
 })
 
 function fechaCorta(valor: string | Date): string {
-  // Una columna `date` se formatea desde el string: `new Date('2026-07-29')` es
-  // medianoche UTC y en Córdoba se muestra como 28/07. Mismo cuidado que
-  // `formatDate` en lib/format.
   if (typeof valor === 'string') {
     const soloFecha = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor)
     if (soloFecha) {
       const [, a, m, d] = soloFecha
-      return EJE_FECHA.format(new Date(Number(a), Number(m) - 1, Number(d)))
+      return EJE_FECHA_UTC.format(new Date(Date.UTC(Number(a), Number(m) - 1, Number(d))))
     }
   }
   const fecha = valor instanceof Date ? valor : new Date(valor)
-  return Number.isNaN(fecha.getTime()) ? String(valor) : EJE_FECHA.format(fecha)
+  return Number.isNaN(fecha.getTime()) ? String(valor) : EJE_INSTANTE.format(fecha)
 }
 
 /**

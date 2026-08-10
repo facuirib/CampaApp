@@ -1422,7 +1422,7 @@ Sin tablas nuevas, todo derivado:
 | **`v_cashflow_quiebre`** | solo las semanas futuras con `saldo_proyectado < 0` — vacía si no hay quiebre | `v_cashflow` |
 | **`v_saldo_caja_total`** | `saldo_total` y `cajas`: la posición de caja de **hoy**, en un solo número | `v_saldo_caja` |
 
-**Tres de ellas alimentan pantallas hoy:** `v_cashflow` y `v_saldo_caja_total` en `/proyeccion`, y **`v_cashflow_mensual` en `/proyeccion/mensual`** — ésta la construyó Horacio (P3) sobre la semanal.
+**Tres de ellas alimentan pantallas hoy**, y las tres en `/proyeccion`: `v_cashflow` y `v_saldo_caja_total` en la pestaña **semanal**, y `v_cashflow_mensual` —que construyó Horacio (P3) sobre la semanal— en la pestaña **mensual**. Fueron dos rutas hasta que se fusionaron: son la misma pregunta a dos granularidades, comparten encabezado, KpiCards y gráfico, y `/proyeccion/mensual` nunca estuvo enlazada desde ningún lado. Esa ruta sobrevive como redirección a `?vista=mensual`, para no romper un link guardado.
 
 **Por qué `v_saldo_caja_total` existe.** El total de caja no era un número: `v_saldo_caja` devuelve una fila por caja. Sumarlas en el front habría violado la regla 1 —el front nunca calcula totales—, así que la suma vive en una vista. Es **la contracara de `saldo_proyectado`**: `v_saldo_caja_total` responde *cuánta plata hay ahora* y solo cuenta lo que ya tocó caja; `saldo_proyectado` responde *cuánta voy a tener* e incluye lo comprometido todavía sin cobrar.
 
