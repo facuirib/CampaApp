@@ -1,9 +1,10 @@
-'use client'
+"use client"
 
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { createClient } from '@/lib/db/client'
 import { Icon, type NombreIcono } from '@/components/ui'
 
 export interface ItemNav {
@@ -105,7 +106,47 @@ function Lockup() {
   )
 }
 
-export default function Sidebar() {
+export interface SidebarProps {
+  /** El email de quien está adentro. Sin sesión no se renderiza el sidebar. */
+  email?: string | null
+}
+
+/**
+ * El pie: quién está adentro y cómo salir.
+ *
+ * El email va arriba del botón y no adentro: con cinco personas compartiendo
+ * pantallas, saber con qué usuario se está escribiendo importa antes de
+ * apretar nada — el asiento que se genere va a quedar con ese id.
+ */
+function PieSesion({ email }: { email: string }) {
+  const [saliendo, setSaliendo] = useState(false)
+
+  async function salir() {
+    setSaliendo(true)
+    await createClient().auth.signOut()
+    // Navegación dura, por lo mismo que en el login: el layout raíz tiene que
+    // volver a evaluarse sin sesión para desmontar el sidebar.
+    window.location.assign('/login')
+  }
+
+  return (
+    <div className="mt-auto border-t border-line px-4 py-3">
+      <p className="truncate text-[10px] text-muted" title={email}>
+        {email}
+      </p>
+      <button
+        type="button"
+        onClick={salir}
+        disabled={saliendo}
+        className="mt-1 text-[11px] font-bold text-blue-d hover:underline disabled:text-disabled"
+      >
+        {saliendo ? 'Saliendo…' : 'Cerrar sesión'}
+      </button>
+    </div>
+  )
+}
+
+export default function Sidebar({ email }: SidebarProps) {
   const pathname = usePathname()
   const [abierto, setAbierto] = useState(false)
 
@@ -124,6 +165,8 @@ export default function Sidebar() {
         'border-b border-line',
         'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto',
         'md:border-b-0 md:border-r',
+        // Columna flex para que el pie de sesión caiga abajo con `mt-auto`.
+        'md:flex md:flex-col',
       ].join(' ')}
     >
       <div className="flex items-center justify-between px-4 py-3.5 md:py-5">
@@ -182,6 +225,10 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {/* Sólo con sesión: el sidebar no se muestra en /login, pero si algún día
+          se renderizara sin usuario, no tiene que inventar un pie vacío. */}
+      {email && <PieSesion email={email} />}
     </aside>
   )
 }
