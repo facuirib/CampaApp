@@ -1052,6 +1052,52 @@ valuación al costo.
 
 ---
 
+**Bloque 10 mínimo · autenticación, y el fallback de `crear_asiento` afuera.**
+
+La decisión 89 sacó el fallback a `auth.users` de `registrar_cobro`, pero lo dejó
+vivo en **`crear_asiento`**, que es la única vía de escritura al diario. O sea
+que el problema seguía entero: sacarlo de una función y dejarlo en el motor que
+esa función llama no cambia nada. Los dos daños seguían pasando.
+
+*Se cerró construyendo lo mínimo de auth para que se pudiera sacar*, en tres
+pasos (migraciones `20260810185307` y `20260810185405`):
+
+1. **Login real.** `/login` con email y contraseña, `middleware.ts` que refresca
+   la sesión y cierra el paso, y los cinco usuarios creados por la Admin API con
+   emails placeholder `@campa.local`. Sin registro público, sin recuperación de
+   contraseña —cinco personas, se repone del panel—.
+2. **Las seis llamadas de escritura pasan el id de sesión**, leído con
+   `getUser()` en cada handler: `p_responsable_id` en cobro y arqueo,
+   `p_created_by` en gastos.
+3. **El fallback afuera**: `coalesce(p_created_by, auth.uid())` y raise si no
+   hay ninguno. Con sesión, el coalesce corta en `auth.uid()` y el tercer
+   término ni se evalúa — el «permission denied for table users» desaparece por
+   no ejecutarse, no por permiso.
+
+*Verificado, y es la primera vez que se prueba así:* un gasto cargado **desde la
+pantalla, en un navegador, con sesión de Mati**, quedó con `created_by` = el id
+de Mati y no el de `facuubosch@gmail.com` que ponía el fallback. Todo lo probado
+antes de esto había pasado por `service_role` desde MCP, que es un camino que
+ningún usuario recorre.
+
+> **Nota operativa que hay que tener presente en la próxima siembra.** Sembrar
+> por SQL o MCP **ahora exige pasar `p_created_by` explícito**. `service_role`
+> ya no alcanza: antes el fallback lo cubría en silencio. Todo lo cargado hasta
+> hoy —socios, sponsors, USD, presupuesto, gastos— funcionó por esa red que ya
+> no está.
+
+> **⚠ Esto arregla la auditoría, NO la seguridad.** RLS sigue **apagado en las
+> 47 tablas**, y la anon key va en el bundle del navegador: cualquiera con ella
+> puede escribir la base **con o sin login**. El mínimo cambia *quién dice ser*
+> el que escribe; no cambia *quién puede*. Antes de que la app esté en internet,
+> RLS deja de ser "para después".
+
+**Lo que el mínimo NO incluye**, y sigue pendiente del bloque 10 completo: roles
+diferenciados (operador / admin / lectura), RLS por rol, permisos por pantalla, y
+el usuario de sistema para los devengos automáticos.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
@@ -1140,31 +1186,25 @@ Lo natural es agregar `sueldo_vigente` —y quizá `vigente_desde`— a
 *Cuándo:* cuando se construya la escritura de socios (alta de sueldo pactado),
 que es cuando el número pasa a ser editable y no verlo se vuelve incómodo.
 
-**Las puertas de socios, sponsors y USD no aceptan responsable.** Ocho
-funciones llaman a `crear_asiento` con el último argumento en `null`, así que
-sus asientos se anotan con el **fallback a `auth.users`** — la misma auditoría
-falsa que se sacó de `registrar_cobro` (decisión 89) y que la cadena de gastos
-ya resolvió pasando `p_created_by`:
+**~~Las puertas de socios, sponsors y USD no aceptan responsable~~ — PARCIAL.**
+Se resolvió para las dos que lo necesitaban de verdad: `devengar_sueldos_socios`
+y `devengar_sponsors` ahora aceptan `p_created_by` y lo propagan (migración
+`20260810185405`). Sin eso, al sacar el fallback quedaban sin forma de escribir.
 
-| Módulo | Funciones |
-|---|---|
-| Socios (§3.19) | `devengar_sueldos_socios` · `crear_retiro_socio` |
-| Sponsors (§3.20) | `crear_contrato_sponsor` · `cargar_cuotas_sponsor` · `devengar_sponsors` · `registrar_cobro_sponsor` |
-| USD (§3.7) | `comprar_usd` · `vender_usd` |
+Las otras seis —`crear_retiro_socio`, `crear_contrato_sponsor`,
+`registrar_cobro_sponsor`, `cargar_cuotas_sponsor`, `comprar_usd`, `vender_usd`—
+**siguen sin el parámetro**, y desde que se sacó el fallback **no pueden escribir
+sin sesión**. No molesta hoy porque ninguna tiene pantalla: se disparan a mano
+por SQL, y ahí hay que pasar el responsable de otra forma o darles el parámetro.
 
-Las de sponsors y USD ni siquiera usan `auth.uid()`.
+*Cuándo:* cuando cada una tenga UI. El patrón ya está fijado por gastos.
 
-Hoy no se nota porque la base tiene **un solo usuario**, así que el fallback
-acierta por casualidad: al cargar los datos de prueba los asientos quedaron con
-el responsable correcto sin que nadie lo pasara. Con dos usuarios elegiría
-cualquiera, y el síntoma sería un diario que atribuye un retiro a quien no lo
-hizo.
-
-El arreglo es el mismo que en gastos: un `p_created_by` opcional al final de
-cada una. Se hace junto con el resto de los llamadores automáticos, no suelto.
-
-*Cuándo:* bloque 10, con el fallback de `crear_asiento`. La decisión de qué
-responsable llevan los procesos automáticos es una sola.
+> **El `p_created_by` de los devengos es transitorio.** Un proceso mensual no
+> tiene operador: lo correcto es un **usuario de sistema**, y eso depende del
+> modelo de roles del bloque 10 completo. Mientras tanto lo pasa quien dispara
+> el proceso, que hoy es honesto porque alguien aprieta el botón. Las opciones
+> —usuario de sistema en `auth.users`, `created_by` nullable, o las dos— quedan
+> abiertas.
 
 **`fn_audit` audita cambios que no cambian nada.** El trigger inserta una fila
 en `audit_log` por cada UPDATE, sin comparar antes con después. Resultado

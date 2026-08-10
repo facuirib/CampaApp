@@ -1925,9 +1925,33 @@ Se presenta solo la excepción: ascensos, descensos, bajas y altas nuevas. Los e
 | 7 | **Controles** | Arqueo, conciliación, cierre de período |
 | 8 | **Compromisos** | Cheques, planes de pago, calendario de pagos, fondo |
 | 9 | **Societario** | Socios, sponsors, USD, activos y amortización |
-| 10 | **Roles y RLS** | Al final, con entidades estables |
+| 10 | **Roles y RLS** | Al final, con entidades estables. **El mínimo ya está** — ver abajo |
 
 ★ = prioridad del dueño. Todo lo demás sostiene esos dos bloques.
+
+#### Bloque 10 · qué está y qué falta
+
+Se construyó el **mínimo**: lo justo para que una escritura desde la UI quede con
+el id real de quien la hizo, no para cerrar la seguridad.
+
+**Está:** `/login` con email y contraseña · `middleware.ts` que refresca la
+sesión y cierra el paso · los cinco usuarios creados a mano, sin registro
+público · las seis llamadas de escritura pasando el id de sesión
+(`p_responsable_id` en cobro y arqueo, `p_created_by` en gastos) · y el
+**fallback a `auth.users` sacado de `crear_asiento`**, que era la deuda de la
+decisión 89 en el motor.
+
+**Falta:** roles diferenciados, **RLS** —hoy apagado en las 47 tablas—, permisos
+por pantalla, y el usuario de sistema para los devengos automáticos, que por
+ahora reciben un `p_created_by` transitorio.
+
+> **El mínimo arregla la auditoría, no la seguridad.** Con RLS apagado y la anon
+> key en el bundle, cualquiera puede escribir la base con o sin login. Cambia
+> *quién dice ser* el que escribe; no *quién puede*.
+
+> **Consecuencia operativa:** sembrar datos por SQL o MCP ahora exige pasar
+> `p_created_by` explícito. `service_role` ya no alcanza — antes el fallback lo
+> cubría en silencio.
 
 **Fuera de alcance:** IVA discriminado, plan de cuentas como pantalla, balance patrimonial, amortización según tablas fiscales.
 
