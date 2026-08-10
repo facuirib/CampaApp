@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney } from '@/lib/format'
 import { AsientoPreview, Button, Card, Field, Input, Select } from '@/components/ui'
@@ -41,6 +42,12 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
   const [registrando, setRegistrando] = useState(false)
   const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
   const [resultadoExito, setResultadoExito] = useState<string | null>(null)
+
+  const [mostrarAnular, setMostrarAnular] = useState(false)
+  const [motivoAnular, setMotivoAnular] = useState('')
+  const [anulando, setAnulando] = useState(false)
+  const [errorAnular, setErrorAnular] = useState<string | null>(null)
+  const [anuladoExito, setAnuladoExito] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelado = false
@@ -156,6 +163,98 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
     setResultadoExito('Pago registrado correctamente.')
   }
 
+  async function confirmarAnulacion() {
+    if (!motivoAnular.trim()) return
+
+    setAnulando(true)
+    setErrorAnular(null)
+
+    const supabase = createClient()
+
+    const { error } = await supabase.rpc('anular_gasto', {
+      p_gasto_id: gastoId,
+      p_motivo: motivoAnular,
+      // p_created_by: transitorio hasta que exista auth (bloque 10, Roles y
+      // RLS). Mismo patrón que pagar_gasto / registrar_gasto.
+    })
+
+    setAnulando(false)
+
+    if (error) {
+      setErrorAnular(error.message)
+      return
+    }
+
+    setMostrarAnular(false)
+    setAnuladoExito('Gasto anulado.')
+  }
+
+  // Se usa desde 'devengado' (junto al form de pago) y 'pagado' (en vez del
+  // mensaje de solo lectura): un gasto anulado no se puede volver a anular,
+  // así que estos son los dos únicos estados donde tiene sentido ofrecerlo.
+  function bloqueAnular() {
+    if (anuladoExito) {
+      return (
+        <p className="mt-4 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">
+          {anuladoExito}{' '}
+          <Link href="/gastos" className="font-bold underline">
+            Volver a gastos
+          </Link>
+        </p>
+      )
+    }
+
+    if (!mostrarAnular) {
+      return (
+        <div className="mt-4">
+          <Button variant="tertiary" onClick={() => setMostrarAnular(true)}>
+            Anular gasto
+          </Button>
+        </div>
+      )
+    }
+
+    return (
+      <Card title="Anular gasto" icon="alerta" className="mt-4">
+        <Field label="Motivo" required>
+          <Input
+            type="text"
+            value={motivoAnular}
+            onChange={(e) => setMotivoAnular(e.target.value)}
+            placeholder="Por qué se anula…"
+          />
+        </Field>
+
+        {errorAnular && (
+          <p className="mt-3 whitespace-pre-wrap rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
+            {errorAnular}
+          </p>
+        )}
+
+        <div className="mt-3 flex gap-2">
+          <Button
+            variant="secondary"
+            loading={anulando}
+            disabled={!motivoAnular.trim() || anulando}
+            onClick={confirmarAnulacion}
+          >
+            Confirmar anulación
+          </Button>
+          <Button variant="tertiary" disabled={anulando} onClick={() => setMostrarAnular(false)}>
+            Cancelar
+          </Button>
+        </div>
+      </Card>
+    )
+  }
+
+  // El 404 es del recurso, no un estado más de la pantalla: se resuelve acá,
+  // durante el render, para que lo capture el not-found más cercano (el
+  // global, porque gastos/[gastoId] no tiene uno propio todavía).
+  if (!cargando && !errorCarga && !gasto) {
+    notFound()
+  }
+
   return (
     <div className="pb-10">
       <Link href="/gastos" className="text-[11px] font-semibold text-blue-d hover:underline">
@@ -174,15 +273,6 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
       )}
 
       {cargando && <p className="text-[11px] text-muted">Cargando…</p>}
-
-      {!cargando && !errorCarga && !gasto && (
-        <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
-          Gasto no encontrado.{' '}
-          <Link href="/gastos" className="font-bold text-blue-d underline">
-            Volver a gastos
-          </Link>
-        </div>
-      )}
 
       {!cargando && !errorCarga && gasto && (
         <>
@@ -212,12 +302,15 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
           </Card>
 
           {gasto.estado === 'pagado' && (
-            <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
-              Este gasto ya está pagado.{' '}
-              <Link href="/gastos" className="font-bold text-blue-d underline">
-                Volver a gastos
-              </Link>
-            </div>
+            <>
+              <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
+                Este gasto ya está pagado.{' '}
+                <Link href="/gastos" className="font-bold text-blue-d underline">
+                  Volver a gastos
+                </Link>
+              </div>
+              {bloqueAnular()}
+            </>
           )}
 
           {gasto.estado === 'anulado' && (
@@ -314,6 +407,8 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
               >
                 Registrar pago
               </Button>
+
+              {bloqueAnular()}
             </>
           )}
         </>
