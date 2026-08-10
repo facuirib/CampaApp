@@ -217,6 +217,18 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
     setResultadoExito(null)
 
     const supabase = createClient()
+    // El responsable sale de la sesión: el pago y su asiento quedan con este
+    // id, así que tiene que ser el de quien está cobrando.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setRegistrando(false)
+      setErrorRegistro('Sesión vencida. Volvé a entrar para registrar el cobro.')
+      return
+    }
+
     const { error } = await supabase.rpc('registrar_cobro', {
       p_tercero_id: terceroId,
       p_monto: monto,
@@ -224,6 +236,7 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
       p_fecha: fecha,
       p_imputaciones: imputaciones.filter((i) => i.monto > 0) as unknown as Json,
       p_predio_id: medio === 'efectivo' ? (predioId ?? undefined) : undefined,
+      p_responsable_id: user.id,
     })
 
     setRegistrando(false)

@@ -20,11 +20,7 @@ function hoyEnCordoba(): string {
   }).format(new Date())
 }
 
-export default function EntregarArqueoPage({
-  params,
-}: {
-  params: Promise<{ arqueoId: string }>
-}) {
+export default function EntregarArqueoPage({ params }: { params: Promise<{ arqueoId: string }> }) {
   const { arqueoId } = use(params)
 
   const [cargando, setCargando] = useState(true)
@@ -131,9 +127,20 @@ export default function EntregarArqueoPage({
 
     const supabase = createClient()
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setRegistrando(false)
+      setErrorRegistro('Sesión vencida. Volvé a entrar para registrar la entrega.')
+      return
+    }
+
     const { error } = await supabase.rpc('registrar_entrega_central', {
       p_arqueo_id: arqueoId,
       p_fecha: fechaEntrega,
+      p_responsable_id: user.id,
     })
 
     setRegistrando(false)

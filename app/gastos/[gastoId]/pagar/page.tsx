@@ -141,16 +141,22 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
 
     const supabase = createClient()
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setRegistrando(false)
+      setErrorRegistro('Sesión vencida. Volvé a entrar para registrar el pago.')
+      return
+    }
+
     const { error } = await supabase.rpc('pagar_gasto', {
       p_gasto_id: gastoId,
       p_medio: medio,
       p_pagado_at: pagadoAt,
       p_predio_id: medio === 'efectivo' ? (predioId ?? undefined) : undefined,
-      // p_created_by: transitorio hasta que exista auth (bloque 10, Roles y
-      // RLS). Se omite y queda a cargo de auth.uid() en el backend — mismo
-      // patrón que /gastos/nuevo y p_responsable_id en registrar_cobro (B2).
-      // Sin sesión, pagar_gasto va a fallar con "Falta responsable del pago":
-      // es esperable hasta entonces.
+      p_created_by: user.id,
     })
 
     setRegistrando(false)
@@ -171,11 +177,20 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
 
     const supabase = createClient()
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setAnulando(false)
+      setErrorAnular('Sesión vencida. Volvé a entrar para anular el gasto.')
+      return
+    }
+
     const { error } = await supabase.rpc('anular_gasto', {
       p_gasto_id: gastoId,
       p_motivo: motivoAnular,
-      // p_created_by: transitorio hasta que exista auth (bloque 10, Roles y
-      // RLS). Mismo patrón que pagar_gasto / registrar_gasto.
+      p_created_by: user.id,
     })
 
     setAnulando(false)

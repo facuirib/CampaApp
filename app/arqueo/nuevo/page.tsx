@@ -66,7 +66,9 @@ export default function NuevoArqueoPage() {
   // Cálculo de UI para feedback inmediato — el registro real, y su
   // `diferencia` (columna generada), los hace crear_arqueo en base.
   const diferencia =
-    diaCanchaId && diaElegido?.saldo_sistema != null ? saldoContado - diaElegido.saldo_sistema : null
+    diaCanchaId && diaElegido?.saldo_sistema != null
+      ? saldoContado - diaElegido.saldo_sistema
+      : null
 
   const puedeConfirmar = !registrando && !!diaCanchaId && saldoContado >= 0
 
@@ -79,12 +81,20 @@ export default function NuevoArqueoPage() {
 
     const supabase = createClient()
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setRegistrando(false)
+      setErrorRegistro('Sesión vencida. Volvé a entrar para registrar el arqueo.')
+      return
+    }
+
     const { error } = await supabase.rpc('crear_arqueo', {
       p_dia_cancha_id: diaCanchaId,
       p_saldo_contado: saldoContado,
-      // p_responsable_id: transitorio hasta que exista auth (bloque 10, Roles
-      // y RLS). Se omite y queda a cargo de auth.uid() en el backend — mismo
-      // patrón que /gastos/nuevo y p_responsable_id en registrar_cobro (B2).
+      p_responsable_id: user.id,
     })
 
     setRegistrando(false)
@@ -195,12 +205,7 @@ export default function NuevoArqueoPage() {
             </p>
           )}
 
-          <Button
-            icon="check"
-            loading={registrando}
-            disabled={!puedeConfirmar}
-            onClick={confirmar}
-          >
+          <Button icon="check" loading={registrando} disabled={!puedeConfirmar} onClick={confirmar}>
             Registrar arqueo
           </Button>
         </>

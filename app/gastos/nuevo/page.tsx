@@ -285,6 +285,19 @@ export default function CargarGastoPage() {
 
     const supabase = createClient()
 
+    // El responsable sale de la sesión, no de un default del backend: el
+    // asiento va a quedar con este id y tiene que ser el de quien está
+    // apretando el botón.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setRegistrando(false)
+      setErrorRegistro('Sesión vencida. Volvé a entrar para registrar el gasto.')
+      return
+    }
+
     const { error } = await supabase.rpc('registrar_gasto', {
       p_cat_gasto_id: catGastoId,
       p_arancel: arancel,
@@ -296,11 +309,7 @@ export default function CargarGastoPage() {
       p_predio_id: predioId ?? undefined,
       p_jornada_id: jornadaId ?? undefined,
       p_activo_id: activoId ?? undefined,
-      // p_created_by: transitorio hasta que exista auth (bloque 10, Roles y
-      // RLS). Se omite y queda a cargo de auth.uid() en el backend — mismo
-      // patrón que p_responsable_id en registrar_cobro (B2). Sin sesión,
-      // registrar_gasto va a fallar con "Falta responsable del gasto": es
-      // esperable hasta entonces.
+      p_created_by: user.id,
     })
 
     setRegistrando(false)
