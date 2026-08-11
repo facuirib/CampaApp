@@ -1,4 +1,5 @@
 import type { PostgrestError } from '@supabase/supabase-js'
+import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
@@ -141,16 +142,24 @@ export default async function CalendarioPage({
           {serie && (
             <>
               {serieElegida && (
-                <p className="mb-3 text-[11px] text-muted">
-                  <span className="font-bold text-ink">{serieElegida.label}</span> —{' '}
-                  {jornadasDeLaSerie.length} jornadas
-                  {desde && hasta && (
-                    <>
-                      {' '}
-                      · {formatDate(desde)} a {formatDate(hasta)}
-                    </>
-                  )}
-                </p>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-muted">
+                    <span className="font-bold text-ink">{serieElegida.label}</span> —{' '}
+                    {jornadasDeLaSerie.length} jornadas
+                    {desde && hasta && (
+                      <>
+                        {' '}
+                        · {formatDate(desde)} a {formatDate(hasta)}
+                      </>
+                    )}
+                  </p>
+                  <Link
+                    href={`/calendario/nueva?serie=${serie}`}
+                    className="text-[11px] font-semibold text-blue-d hover:underline"
+                  >
+                    + Agregar jornada
+                  </Link>
+                </div>
               )}
 
               <DataTable
