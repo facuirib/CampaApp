@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/server'
+import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
@@ -9,12 +10,32 @@ interface FilaGasto {
   concepto: string | null
   categoria: string | null
   area: string | null
-  naturaleza: string | null
+  naturaleza: string
   predio: string | null
   total: number | null
   devengado_at: string | null
   estado: CeldaBadge
 }
+
+/** Los cuatro valores de cat_gasto.naturaleza, en texto legible. */
+const NATURALEZA_LABEL: Record<string, string> = {
+  por_fecha: 'Por fecha',
+  recurrente: 'Fijo',
+  eventual: 'Eventual',
+  inversion: 'Inversión',
+}
+
+function naturalezaLabel(n: string | null): string {
+  if (n === null) return '—'
+  return NATURALEZA_LABEL[n] ?? n
+}
+
+const NATURALEZA_OPCIONES = [
+  { valor: 'por_fecha', label: 'Por fecha' },
+  { valor: 'recurrente', label: 'Fijo' },
+  { valor: 'eventual', label: 'Eventual' },
+  { valor: 'inversion', label: 'Inversión' },
+]
 
 /**
  * Los tres estados que emite la vista.
@@ -41,7 +62,12 @@ const COL_GASTOS: ColumnDef<FilaGasto>[] = [
   { key: 'estado', label: 'Estado', format: 'badge' },
 ]
 
-export default async function GastosPage() {
+export default async function GastosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ naturaleza?: string }>
+}) {
+  const { naturaleza } = await searchParams
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -49,19 +75,42 @@ export default async function GastosPage() {
     .select('*')
     .order('devengado_at', { ascending: false })
 
-  const gastos: FilaGasto[] = (data ?? []).map((g: GastoDetalleRow) => ({
+  const gastosRaw = data ?? []
+
+  const FILTROS: FiltroUrl[] = [
+    {
+      parametro: 'naturaleza',
+      label: 'Naturaleza',
+      todos: 'Todas las naturalezas',
+      opciones: NATURALEZA_OPCIONES,
+    },
+  ]
+
+  const gastosFiltrados = naturaleza
+    ? gastosRaw.filter((g) => g.naturaleza === naturaleza)
+    : gastosRaw
+
+  const gastos: FilaGasto[] = gastosFiltrados.map((g: GastoDetalleRow) => ({
     // La vista tipa todas sus columnas como nullable, que es lo que hace
     // Supabase con cualquier vista. `gasto_id` viene de `gasto.id`, que es PK.
     gasto_id: g.gasto_id!,
     concepto: g.concepto,
     categoria: g.categoria,
     area: g.area,
-    naturaleza: g.naturaleza,
+    naturaleza: naturalezaLabel(g.naturaleza),
     predio: g.predio,
     total: g.total,
     devengado_at: g.devengado_at,
     estado: estadoGastoABadge(g.estado),
   }))
+
+  // Conteo de filas por naturaleza sobre el padrón COMPLETO, no el filtrado:
+  // es agrupar para mostrar, no sumar plata — el resumen no cambia con el
+  // filtro, muestra siempre la foto general.
+  const conteoPorNaturaleza = NATURALEZA_OPCIONES.map((op) => ({
+    label: op.label,
+    cantidad: gastosRaw.filter((g) => g.naturaleza === op.valor).length,
+  })).filter((c) => c.cantidad > 0)
 
   return (
     <div className="pb-10">
@@ -77,14 +126,26 @@ export default async function GastosPage() {
       )}
 
       {!error && (
-        <DataTable
-          columns={COL_GASTOS}
-          rows={gastos}
-          rowKey="gasto_id"
-          rowHref={(row) => `/gastos/${row.gasto_id}/pagar`}
-          maxHeight={500}
-          emptyMessage="No hay gastos registrados."
-        />
+        <>
+          {conteoPorNaturaleza.length > 0 && (
+            <p className="mb-4 text-[11px] text-muted">
+              {conteoPorNaturaleza.map((c) => `${c.label}: ${c.cantidad}`).join(' · ')}
+            </p>
+          )}
+
+          <FiltrosUrl filtros={FILTROS} />
+
+          <DataTable
+            columns={COL_GASTOS}
+            rows={gastos}
+            rowKey="gasto_id"
+            rowHref={(row) => `/gastos/${row.gasto_id}/pagar`}
+            maxHeight={500}
+            emptyMessage={
+              naturaleza ? 'Ningún gasto coincide con el filtro.' : 'No hay gastos registrados.'
+            }
+          />
+        </>
       )}
     </div>
   )
