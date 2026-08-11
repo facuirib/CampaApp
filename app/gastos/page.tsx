@@ -9,7 +9,7 @@ interface FilaGasto {
   gasto_id: string
   concepto: string | null
   categoria: string | null
-  area: string | null
+  area: string
   naturaleza: string
   predio: string | null
   total: number | null
@@ -28,6 +28,19 @@ const NATURALEZA_LABEL: Record<string, string> = {
 function naturalezaLabel(n: string | null): string {
   if (n === null) return '—'
   return NATURALEZA_LABEL[n] ?? n
+}
+
+/** Los cuatro valores de cat_gasto.area, en texto legible. */
+const AREA_LABEL: Record<string, string> = {
+  torneo: 'Torneo',
+  predio: 'Predio',
+  bar: 'Bar',
+  administracion: 'Administración',
+}
+
+function areaLabel(a: string | null): string {
+  if (a === null) return '—'
+  return AREA_LABEL[a] ?? a
 }
 
 const NATURALEZA_OPCIONES = [
@@ -96,7 +109,7 @@ export default async function GastosPage({
     gasto_id: g.gasto_id!,
     concepto: g.concepto,
     categoria: g.categoria,
-    area: g.area,
+    area: areaLabel(g.area),
     naturaleza: naturalezaLabel(g.naturaleza),
     predio: g.predio,
     total: g.total,
