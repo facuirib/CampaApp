@@ -157,6 +157,7 @@ export default async function CalendarioPage({
                 columns={COL_CALENDARIO}
                 rows={filas}
                 rowKey="jornada_id"
+                rowHref={(row) => `/calendario/${row.jornada_id}/mover`}
                 maxHeight={600}
                 emptyMessage="Esta serie no tiene jornadas."
               />
