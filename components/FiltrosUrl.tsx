@@ -10,6 +10,19 @@ export interface FiltroUrl {
   /** Texto de la opción vacía: el "sin filtrar". */
   todos: string
   opciones: { valor: string; label: string }[]
+  /**
+   * Qué mostrar cuando la URL no trae el parámetro.
+   *
+   * Para los filtros que NO tienen un "todos" real —el año de Resultados, el
+   * torneo del Tarifario— la pantalla elige un valor por defecto y muestra sus
+   * datos. Sin esto, el `<select>` quedaría en la opción vacía mientras la
+   * tabla de abajo muestra otra cosa: el control estaría mintiendo sobre lo
+   * que se está viendo.
+   *
+   * No cambia la URL —sigue limpia hasta que alguien elija— sólo lo que el
+   * control refleja.
+   */
+  valorPorDefecto?: string
 }
 
 export interface FiltrosUrlProps {
@@ -56,7 +69,7 @@ export default function FiltrosUrl({ filtros }: FiltrosUrlProps) {
         <Field key={filtro.parametro} label={filtro.label} className="w-[190px]">
           <Select
             placeholder={filtro.todos}
-            value={searchParams.get(filtro.parametro) ?? ''}
+            value={searchParams.get(filtro.parametro) ?? filtro.valorPorDefecto ?? ''}
             onChange={(e) => cambiar(filtro.parametro, e.target.value)}
           >
             {filtro.opciones.map((o) => (

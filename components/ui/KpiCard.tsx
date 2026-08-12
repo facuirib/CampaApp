@@ -1,6 +1,6 @@
 import Icon, { type NombreIcono } from './Icon'
 import Money from './Money'
-import { formatEntero, formatUSD } from '@/lib/format'
+import { formatEntero, formatPorcentaje, formatUSD } from '@/lib/format'
 
 /**
  * Qué SIGNIFICA el número, no de qué color va.
@@ -20,7 +20,7 @@ export type TonoKpi = 'positivo' | 'alerta' | 'info' | 'neutro'
  * moneda. Una pantalla que armara el string por su cuenta podría mostrar los
  * dólares distinto de la siguiente que los muestre.
  */
-export type FormatoKpi = 'money' | 'entero' | 'usd'
+export type FormatoKpi = 'money' | 'entero' | 'usd' | 'porcentaje'
 
 /** Un número con su etiqueta. Es la unidad que comparten KpiCard y KpiHero. */
 export interface ValorKpi {
@@ -89,6 +89,7 @@ export function valorKpi(valor: number | null, formato: FormatoKpi = 'money') {
   if (valor === null) return <span className="cifra text-muted">—</span>
   if (formato === 'money') return <Money value={valor} />
   if (formato === 'usd') return <span className="cifra">{formatUSD(valor)}</span>
+  if (formato === 'porcentaje') return <span className="cifra">{formatPorcentaje(valor)}</span>
   return <span className="cifra">{formatEntero(valor)}</span>
 }
 

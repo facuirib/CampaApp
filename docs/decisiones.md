@@ -1271,17 +1271,22 @@ se puede desincronizar.
 
 ---
 
-**Los financieros entran al P&L, pero en el rediseño de Resultados — no antes.**
-`FIN_DIF_CAMBIO` tiene **$244.500** de resultado que hoy no aparece en ninguna
-pantalla: las tres vistas de resultado filtran `tipo in ('ingreso','egreso')` y
-lo dejan fuera. Una diferencia de cambio es resultado del ejercicio y tiene que
+**~~Los financieros entran al P&L en el rediseño de Resultados~~ — CERRADA.**
+`FIN_DIF_CAMBIO` tenía **$244.500** de resultado que no aparecían en ninguna
+pantalla: las vistas de resultado filtraban `tipo in ('ingreso','egreso')` y lo
+dejaban fuera. Una diferencia de cambio es resultado del ejercicio y tiene que
 verse.
+
+**Entró en `v_pl_mensual`**, que nació incluyendo las tres clases de cuenta. Era
+el 3.4 del reordenamiento del plan de cuentas, y se resolvió acá.
 
 *El signo.* Para una cuenta de resultado, **haber = ganancia**: la fórmula es
 `haber − debe`, la misma que un ingreso. Una diferencia desfavorable va al debe
-y resta sola, sin condicionales.
+y resta sola, sin condicionales — por eso la vista resuelve el signo una sola
+vez, con un `case` sobre `tipo`, y de ahí en más el monto ya viene con el signo
+que suma al resultado.
 
-*La reconciliación, verificada:*
+*La reconciliación, verificada contra la base:*
 
 | | |
 |---|---|
@@ -1291,24 +1296,109 @@ y resta sola, sin condicionales.
 | Diferencia de cambio | **+$244.500** |
 | **Resultado con financieros** | **−$2.180.500** |
 
-*Por qué se movió al rediseño y no se hizo con el reordenamiento.* Se intentó, y
-las dos mitades no cerraban:
+En la pantalla van como **tercer bloque**, «Resultado financiero», arriba de la
+fila de resultado — así se lee que suman, sin mezclarse con los ingresos
+operativos, que es lo que serían si se los metiera en ese bloque.
 
-· **`v_dashboard` no es el lugar.** Su `resultado` filtra `a.torneo_id = t.id`:
+*Por qué no se hizo en el reordenamiento, que es donde estaba planificado.* Se
+intentó y las dos mitades no cerraban:
+
+· **`v_dashboard` no era el lugar.** Su `resultado` filtra `a.torneo_id = t.id`:
   es por TORNEO, no de la empresa. Y los asientos financieros tienen
   `torneo_id` **null** —una ganancia por tenencia de dólares no es de un
   torneo—, así que agregar `'financiero'` a su array **no habría cambiado un
   solo número**. Una migración sobre la pantalla de inicio que no hace nada es
-  el peor tipo de cambio: riesgo sin beneficio.
+  el peor tipo de cambio: riesgo sin beneficio. **No se tocó, y eso dejó de ser
+  deuda: no es su lugar.**
 
-· **`v_resultado_producto` y `v_comparador_torneos` se van, pero las usa
-  `/resultados`.** Dropearlas antes de que exista el reemplazo deja la pantalla
-  rota por tiempo indefinido.
+· **Las dos vistas por-torneo no se podían dropear antes** de que existiera el
+  reemplazo, porque las usaba `/resultados`. Se fueron en el mismo commit que
+  la pantalla nueva, sin ventana rota.
 
-*Entonces:* la vista de P&L **a nivel empresa** que el rediseño va a crear nace
-incluyendo `financiero` desde el principio, y en ese mismo commit se dropean las
-dos vistas por-torneo, sin ventana rota. `v_dashboard` no se toca — y eso deja
-de ser deuda, porque no es su lugar.
+---
+
+**El resultado se mira a nivel empresa, no por torneo.** Con el rediseño de
+Resultados se dropearon **`v_resultado_producto`** y **`v_comparador_torneos`**,
+que partían el resultado por torneo con «Estructura permanente» como una fila
+más. Contradecían el principio de negocio unificado (§1.d): no hay rentabilidad
+por torneo, predio ni categoría, porque repartir los costos compartidos exigiría
+un criterio arbitrario.
+
+> **`v_comparador_torneos` además estaba mal.** Multiplicaba los importes por la
+> cantidad de equipos —$481.936.000 de ingresos de Clausura contra los
+> $17.212.000 reales, factor exacto 28— por un fan-out de join contra
+> `equipo_torneo`. **No se arregló: se borró.** Arreglar una vista que no
+> debería existir es trabajo que después hay que tirar.
+
+*Lo que las reemplaza* son cuatro vistas a nivel empresa, y el reparto entre
+ellas responde a una sola regla — **cada número que la pantalla muestra sale de
+una vista, incluidas las filas de total**:
+
+| Vista | Grano | Para qué |
+|---|---|---|
+| `v_pl_mensual` | año × mes × cuenta | La matriz. Los 12 meses generados, ceros donde no hubo movimiento |
+| `v_pl_mensual_item` | + ítem | El desglose de cada egreso |
+| `v_pl_mensual_total` | año × mes | Las filas «Total ingresos», «Total egresos» y «Resultado» |
+| `v_pl_kpi` | año | El encabezado. Suma `v_pl_mensual_total` |
+
+`v_pl_mensual_total` apareció construyendo la pantalla, no diseñando las vistas:
+sin ella la matriz tenía que **sumar sus propias columnas en el cliente** para
+dibujar las filas de total — el `.reduce()` que la regla 1 prohíbe, y justo
+donde aparecen las diferencias de centavos contra el encabezado.
+
+*Dos decisiones de la matriz que no son obvias:*
+
+· **Los 12 meses se generan; las cuentas vacías no se muestran.** Un mes en cero
+  es información —el negocio estuvo quieto— y por eso la columna existe aunque
+  `periodo` no tenga la fila. Una CUENTA con doce ceros es otra cosa: no informa
+  nada y dejaría la matriz mayormente blanca.
+
+· **El ítem de `GAS_SOCIOS` sale de `tercero_id`**, no de un concepto de gasto —
+  la decisión que se tomó al sacar a Agus y Guille del catálogo de sueldos. El
+  expandible de esa cuenta se abre por socio, con el dato que el propio asiento
+  guarda.
+
+---
+
+**Un `<select>` de filtro tiene que mostrar lo que la pantalla está mostrando.**
+`FiltrosUrl` sacaba su valor sólo de la query string, así que en las pantallas
+donde **no existe un "todos" real** —el año de Resultados, el torneo del
+Tarifario— el control quedaba en la opción vacía («Año…») mientras la tabla de
+abajo mostraba 2026. El control mentía sobre lo que se estaba viendo.
+
+Se agregó `valorPorDefecto` al tipo `FiltroUrl`: la pantalla dice cuál eligió
+cuando la URL no trae nada. **No cambia la URL** —sigue limpia hasta que alguien
+elija— sólo lo que el control refleja.
+
+Apareció construyendo Resultados y afectaba también al Tarifario, así que se
+arregló en los dos.
+
+> Y en `KpiCard` se agregó el formato `porcentaje`. No existía: el único
+> antecedente —la tasa de cobranza— usa `entero`, que habría redondeado un
+> margen de **−9,5 % a −10 %**. En una cifra de encabezado, medio punto de
+> facturación es un dato, no una aproximación.
+
+---
+
+**Los nombres de archivo de las migraciones tienen que ser la versión que la
+base registra.** Nueve migraciones de agosto quedaron en el repo con un
+timestamp elegido a mano —`20260812190000_…`— mientras la base había registrado
+otro —`20260812141034_…`—, porque al aplicarlas por MCP el timestamp lo pone la
+herramienta.
+
+El orden relativo era el mismo, así que una reconstrucción daba lo mismo. El
+problema es otro: **el CLI compara por versión**, así que `supabase db push`
+habría visto nueve migraciones sin aplicar e intentado correrlas de nuevo. En
+este caso no habrían hecho daño —son `create or replace view` y `update`/`delete`
+acotados por nombres que ya no existen— pero eso es suerte, no diseño.
+
+Se renombraron los nueve archivos a su versión registrada. *Para las que
+vengan:* si se aplica por MCP, el archivo se nombra con la versión que quedó
+registrada, no con una inventada antes.
+
+> Se suma a la deuda de reproducibilidad de § Abiertas: la base ya no se podía
+> reconstruir desde `migrations/` por las cuentas que faltan, y encima el repo
+> y la base numeraban distinto.
 
 ---
 

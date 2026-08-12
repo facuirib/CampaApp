@@ -29,7 +29,9 @@ select naturaleza, area, count(*) from cat_gasto group by naturaleza, area order
 select 'v_saldo_caja' as vista, count(*)::text as filas from v_saldo_caja
 union all select 'v_deuda_equipo', count(*)::text from v_deuda_equipo
 union all select 'v_cobranza_kpi', count(*)::text from v_cobranza_kpi
-union all select 'v_resultado_producto', count(*)::text from v_resultado_producto;
+-- v_resultado_producto se dropeó: partía el resultado por torneo, y el negocio
+-- es unificado. La reemplaza v_pl_mensual, a nivel empresa.
+union all select 'v_pl_mensual', count(*)::text from v_pl_mensual;
 
 \echo ''
 \echo 'Si llegaste hasta acá sin errores, el esquema está bien instalado.'

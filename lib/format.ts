@@ -75,8 +75,25 @@ const ENTERO = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
  * Vive acá y no en el componente por el mismo motivo que `formatMoney`: que
  * haya un solo lugar donde se decide cómo se escribe un número en la app.
  */
+const PORCENTAJE = new Intl.NumberFormat('es-AR', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
 export function formatEntero(n: number): string {
   return ENTERO.format(n)
+}
+
+/**
+ * Un porcentaje, con un decimal y su signo.
+ *
+ * Con decimal y no redondeado a entero: en un margen, la diferencia entre
+ * −9,5 % y −10 % es medio punto de facturación, y en una cifra de encabezado
+ * eso se lee como un dato, no como una aproximación. El espacio antes del `%`
+ * es el de la norma en español.
+ */
+export function formatPorcentaje(n: number): string {
+  return `${PORCENTAJE.format(n)} %`
 }
 
 /** El torneo es en Córdoba: las fechas con hora se muestran en esa zona. */

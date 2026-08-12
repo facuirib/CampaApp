@@ -614,6 +614,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "asiento_linea_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual_item"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
             foreignKeyName: "asiento_linea_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
@@ -745,6 +759,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "caja_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
+            foreignKeyName: "caja_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual_item"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
             foreignKeyName: "caja_predio_id_fkey"
             columns: ["predio_id"]
             isOneToOne: false
@@ -791,6 +819,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cuenta"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cat_gasto_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
+            foreignKeyName: "cat_gasto_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual_item"
+            referencedColumns: ["cuenta_id"]
           },
         ]
       }
@@ -1394,6 +1436,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cuenta"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuenta_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
+            foreignKeyName: "cuenta_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_mensual_item"
+            referencedColumns: ["cuenta_id"]
           },
         ]
       }
@@ -3903,18 +3959,6 @@ export type Database = {
         }
         Relationships: []
       }
-      v_comparador_torneos: {
-        Row: {
-          contribucion: number | null
-          contribucion_por_equipo: number | null
-          costos_directos: number | null
-          equipos: number | null
-          fecha_desde: string | null
-          ingresos: number | null
-          nombre: string | null
-        }
-        Relationships: []
-      }
       v_cuenta_corriente_equipo: {
         Row: {
           categoria: string | null
@@ -4701,6 +4745,55 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pl_kpi: {
+        Row: {
+          anio: number | null
+          egresos: number | null
+          ingresos_cobrados: number | null
+          margen_pct: number | null
+          mejor_mes: number | null
+          mejor_mes_resultado: number | null
+          meses_con_movimiento: number | null
+          resultado: number | null
+          resultado_financiero: number | null
+        }
+        Relationships: []
+      }
+      v_pl_mensual: {
+        Row: {
+          anio: number | null
+          codigo: string | null
+          cuenta_id: string | null
+          mes: number | null
+          monto: number | null
+          nombre: string | null
+          tipo: string | null
+        }
+        Relationships: []
+      }
+      v_pl_mensual_item: {
+        Row: {
+          anio: number | null
+          codigo: string | null
+          cuenta: string | null
+          cuenta_id: string | null
+          item: string | null
+          mes: number | null
+          monto: number | null
+        }
+        Relationships: []
+      }
+      v_pl_mensual_total: {
+        Row: {
+          anio: number | null
+          egresos: number | null
+          financiero: number | null
+          ingresos: number | null
+          mes: number | null
+          resultado: number | null
+        }
+        Relationships: []
+      }
       v_presupuesto_total: {
         Row: {
           base: number | null
@@ -4873,16 +4966,6 @@ export type Database = {
           meses: number | null
           perdidas: number | null
           resultado: number | null
-        }
-        Relationships: []
-      }
-      v_resultado_producto: {
-        Row: {
-          anio: number | null
-          contribucion: number | null
-          egresos: number | null
-          ingresos: number | null
-          producto: string | null
         }
         Relationships: []
       }

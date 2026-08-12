@@ -38,7 +38,7 @@ Tercer módulo de la capa societaria, y **el más liviano: no se crea estructura
 
 **La diferencia de cambio es solo realizada** (§3.7). Los dólares quedan a su costo hasta que se venden; nada de ganancias en papel. **`revaluacion` sale del dominio** de `usd_operacion.tipo` — un valor que el modelo no usa es una trampa, misma limpieza que `por_jornada` en la pieza 5. Esto **reemplaza** la fila "Revaluación → no realizado" que §3.7 traía del schema original.
 
-> **Dos cosas que el relevamiento encontró.** `FIN_DIF_CAMBIO` es de tipo `financiero`, así que `v_resultado_producto` no la toma —correcto por la decisión 12— pero **la "línea aparte" donde debería verse no existe**: ninguna vista la lee, y hoy la diferencia de cambio se registraría sin aparecer en pantalla. Y el promedio cruza **dos fuentes**: si alguien asienta contra `CAJA_USD` sin registrar la operación, el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado.
+> **Dos cosas que el relevamiento encontró.** `FIN_DIF_CAMBIO` es de tipo `financiero`, y durante meses **ninguna vista la leía**: la diferencia de cambio se registraba sin aparecer en pantalla. *Resuelto:* `v_pl_mensual` la incluye y `/resultados` la muestra como bloque propio, «Resultado financiero», separada de los ingresos operativos — que es lo que pedía la decisión 12: una suba del dólar no debe leerse como que el torneo funcionó mejor. Y el promedio cruza **dos fuentes**: si alguien asienta contra `CAJA_USD` sin registrar la operación, el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado.
 
 ---
 
@@ -54,7 +54,7 @@ Segundo módulo de la capa societaria.
 
 **De las tres cuentas, una ya existía.** `ING_SPONSORS` está en el plan desde el schema inicial, sin uso. Se crean `DEUDORES_SPONSORS` e `INGRESO_DIFERIDO`. **Cuenta de deudores propia y no la `DEUDORES` genérica**: ésa se diseñó para equipos y la decisión 1 la sacó de juego, así que reusarla mezclaría deuda de equipos —que no es saldo contable— con deuda de sponsors, que sí lo es.
 
-**Nivel empresa, `torneo_id = NULL`** (§3.20), como los sueldos de socios. El contrato es anual y cubre los dos torneos. **Consecuencia a tener presente:** el ingreso de sponsors no entra en la contribución de ningún torneo, y `v_comparador_torneos` compara sin él.
+**Nivel empresa, `torneo_id = NULL`** (§3.20), como los sueldos de socios. El contrato es anual y cubre los dos torneos. **Consecuencia a tener presente:** el ingreso de sponsors no entra en la contribución de ningún torneo. Desde que el resultado se mira a nivel empresa (§3.2) eso dejó de ser un problema de lectura: no hay pantalla que compare torneos.
 
 > **Un detalle que parece menor y no lo es** (§3.20). `total / meses` no siempre da exacto: 1.000.000 en 12 meses deja 0,04 huérfanos, y `INGRESO_DIFERIDO` nunca cerraría en cero. **El último período devenga el remanente** en vez de la cuota teórica, así el pasivo cierra exacto por construcción.
 
@@ -66,7 +66,7 @@ Primer módulo posterior al rediseño calendario-por-serie. Introduce **dos patr
 
 **El sueldo del socio se devenga — Forma B** (§3.19). Es la **excepción deliberada al percibido puro** de §1.b, y no una inconsistencia: el ingreso de un equipo puede no ocurrir nunca, pero el sueldo del socio es un compromiso cierto que existe cada mes se retire o no. No registrarlo hace que **la caja parezca toda del negocio cuando parte ya está comprometida**.
 
-**Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo)** (§3.19). Egreso y no patrimonio: el sueldo de socios es **costo del negocio**. Cuenta propia separada de `GAS_SUELDOS` para poder distinguir el sueldo operativo del de los dueños. **Ninguna vista se toca**: `v_resultado_producto` filtra por tipo de cuenta, así que `GAS_SOCIOS` entra al P&L y el pasivo no.
+**Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo)** (§3.19). Egreso y no patrimonio: el sueldo de socios es **costo del negocio**. Cuenta propia separada de `GAS_SUELDOS` para poder distinguir el sueldo operativo del de los dueños. **Ninguna vista se toca**: el P&L filtra por tipo de cuenta, así que `GAS_SOCIOS` entra y el pasivo no.
 
 **Es costo de la empresa, no del torneo** (§3.19). El asiento va con `torneo_id = NULL`, a nivel estructura permanente: el sueldo existe todos los meses haya torneo o no, e imputarlo a uno exigiría el prorrateo que la **decisión 5** prohíbe. La contribución de cada torneo queda intacta; lo que baja es el resultado de la empresa.
 
@@ -420,27 +420,28 @@ La distinción vive en una sola columna: `asiento.torneo_id`.
 | con valor | Imputable a ese torneo | Árbitros de la Fecha 9 |
 | `NULL` | Estructura permanente | Alquiler de enero, sueldo administrativo |
 
-Las tres vistas del negocio salen de agrupar por esa columna:
+`asiento.torneo_id` **sigue existiendo y sigue sirviendo** —para saber qué asiento pertenece a qué torneo, y para el drill-down de una jornada—. Lo que ya no existe es una vista que **parta el resultado** por esa columna.
 
-```sql
--- Contribución por torneo y estructura permanente
-create view v_resultado_producto as
-select
-  e.anio,
-  coalesce(t.nombre, 'Estructura permanente') as producto,
-  sum(case when c.tipo = 'ingreso' then l.haber - l.debe else 0 end) as ingresos,
-  sum(case when c.tipo = 'egreso'  then l.debe  - l.haber else 0 end) as egresos,
-  sum(case when c.tipo = 'ingreso' then l.haber - l.debe else 0 end)
-  - sum(case when c.tipo = 'egreso' then l.debe - l.haber else 0 end) as contribucion
-from asiento a
-join periodo p       on p.id = a.periodo_id
-join ejercicio e     on e.id = p.ejercicio_id
-join asiento_linea l on l.asiento_id = a.id
-join cuenta c        on c.id = l.cuenta_id
-left join torneo t   on t.id = a.torneo_id
-where a.anulado_por is null and c.tipo in ('ingreso','egreso')
-group by e.anio, coalesce(t.nombre, 'Estructura permanente');
-```
+> **`v_resultado_producto` y `v_comparador_torneos` se dropearon** con el rediseño de Resultados. Agrupaban por torneo con «Estructura permanente» como una fila más, y eso contradice el principio de negocio unificado (§1.d): no hay rentabilidad por torneo. `v_comparador_torneos` además multiplicaba los importes por la cantidad de equipos —factor 28— por un fan-out de join; no se arregló, se borró.
+
+**El resultado se mira a nivel EMPRESA**, con cuatro vistas cuyo reparto responde a una regla: cada número que la pantalla muestra sale de una vista, **incluidas las filas de total**.
+
+| Vista | Grano | Para qué |
+|---|---|---|
+| `v_pl_mensual` | año × mes × cuenta | La matriz de `/resultados`. Los 12 meses **generados**, con ceros donde no hubo movimiento |
+| `v_pl_mensual_item` | + ítem | El desglose de cada cuenta de egreso |
+| `v_pl_mensual_total` | año × mes | Las filas «Total ingresos», «Total egresos» y «Resultado» |
+| `v_pl_kpi` | año | El encabezado. Suma `v_pl_mensual_total`, no el diario |
+
+Tres cosas de `v_pl_mensual` que conviene saber antes de tocarla:
+
+· **Incluye las cuentas de tipo `financiero`.** El signo se resuelve una sola vez, con un `case` sobre `tipo`: `debe − haber` para egreso, `haber − debe` para ingreso y financiero. De ahí en más el monto ya viene con el signo que suma al resultado.
+
+· **Los 12 meses salen de `generate_series`, no de `periodo`.** Sólo existen los períodos que tuvieron movimiento, así que la matriz tendría columnas salteadas. Y el **año sale de `periodo.anio`, no de `ejercicio`**: hay un solo ejercicio cargado y no se crean más hasta que el estudio lo pida, así que por ahí el selector mostraría siempre lo mismo.
+
+· **No filtra anulados**, según la regla 4: el asiento original y su contraasiento se compensan solos.
+
+En `v_pl_mensual_item`, el ítem sale de `cat_gasto` para los gastos, del **tercero** para los sueldos de socios, y —para un contraasiento— del gasto del asiento anulado, **dos saltos**: `origen_id` de un `ajuste` apunta al asiento que anula, no al gasto. Sin ese rebote la anulación caería en «Sin categoría» y el desglose mostraría el gasto anulado como vigente.
 
 **Regla:** la estructura permanente no se prorratea. Ni por cantidad de equipos, ni por meses, ni mitad y mitad. Se resta una sola vez del resultado de la empresa.
 
@@ -1267,7 +1268,7 @@ VENTA — USD 1.000 a $1.200, con promedio en libros de $1.000
 
 `CAJA_USD` (activo) y **`FIN_DIF_CAMBIO`** (`financiero`) están en el plan desde el schema inicial, sin uso. **No se crea ninguna cuenta.** Ojo con el nombre: es `FIN_DIF_CAMBIO`, no `DIFERENCIA_CAMBIO`.
 
-`FIN_DIF_CAMBIO` es de tipo `financiero` y no `ingreso`/`egreso` operativo, así que **`v_resultado_producto` no la toma** — filtra `c.tipo in ('ingreso','egreso')`. Es exactamente lo que pide la decisión 12: una suba del dólar no debe leerse como que el torneo funcionó mejor.
+`FIN_DIF_CAMBIO` es de tipo `financiero` y no `ingreso`/`egreso` operativo. En el P&L entra al resultado, pero **en su propio bloque**: una suba del dólar suma al resultado del ejercicio y no debe leerse como que el torneo funcionó mejor (decisión 12).
 
 > **Esa "línea aparte" ya existe.** Cuando se escribió esto, ninguna vista leía `FIN_DIF_CAMBIO` y la diferencia de cambio se habría registrado sin verse en ningún lado. Hoy la leen `v_resultado_cambio` —por mes— y `v_resultado_cambio_total` —el acumulado—, y las dos se muestran en `/usd`.
 
@@ -1714,7 +1715,7 @@ Retiro (cuando el socio saca plata):
 
 **Pero es costo de la empresa, no del torneo.** El asiento va con **`torneo_id = NULL`**, o sea a nivel **estructura permanente** (§3.2). El sueldo del socio existe todos los meses, haya torneo o no; imputarlo a un torneo exigiría prorratearlo entre los que corren ese mes, que es exactamente el criterio arbitrario que la **decisión 5** prohíbe.
 
-En `v_resultado_producto` aparece bajo **"Estructura permanente"**: la contribución de cada torneo queda intacta y lo que baja es el **resultado de la empresa**.
+Baja el **resultado de la empresa**, que es el único que se mira (§3.2). En `/resultados` se ve como una fila más de egresos, `GAS_SOCIOS`, que se abre por socio.
 
 **El tipo de cuenta decide el P&L solo.** La vista filtra `where c.tipo in ('ingreso','egreso')`: `GAS_SOCIOS` entra; `SOCIOS_A_PAGAR`, por ser pasivo, no aparece. **No hay que tocar ninguna vista.**
 
@@ -1862,7 +1863,7 @@ Cada pregunta se responde con **su** cuenta, sin cálculos aparte (§1.c):
 
 **Todos los asientos van con `torneo_id = NULL`**, igual que los sueldos de socios. El contrato es anual y cubre los dos torneos; imputarlo a uno exigiría el prorrateo que la **decisión 5** prohíbe.
 
-> **Consecuencia que conviene tener presente:** el ingreso de sponsors **no entra en la contribución de ningún torneo**. Aparece bajo "Estructura permanente" en `v_resultado_producto`, y `v_comparador_torneos` compara torneos **sin** ingresos de sponsor. Es correcto y deliberado, pero hay que saberlo al leer esas pantallas.
+> **Consecuencia que conviene tener presente:** el ingreso de sponsors **no es de ningún torneo** — el contrato es anual y los cubre a los dos. Desde que el resultado se mira a nivel empresa (§3.2) esto ya no exige ninguna advertencia de lectura: en `/resultados` es una fila de ingresos como cualquier otra.
 
 #### Estructura
 

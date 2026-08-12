@@ -139,6 +139,7 @@ export default async function TarifarioPage({
       // torneos" mostraría dos precios distintos para el mismo concepto sin
       // decir de quién es cada uno, que es justo el bug que esto arregla.
       todos: 'Torneo…',
+      valorPorDefecto: torneoElegido ?? undefined,
       opciones: torneos.map((t) => ({
         valor: t.id,
         label: t.activo ? `${t.nombre} (en curso)` : t.nombre,
