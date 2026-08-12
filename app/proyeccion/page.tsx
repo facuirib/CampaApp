@@ -192,6 +192,9 @@ export default async function ProyeccionPage({
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Proyección de caja</h1>
         <p className="mt-1 text-[12px] text-muted">
           Saldo {esMensual ? 'mensual' : 'semanal'}: real hasta hoy, estimado hacia adelante.
+          {/* Sólo en la semanal: la tabla mensual no es clickeable, así que
+              invitar a tocarla sería prometer algo que no pasa. */}
+          {!esMensual && ' Tocá una semana para ver de dónde sale cada peso.'}
         </p>
       </header>
 
@@ -274,10 +277,22 @@ export default async function ProyeccionPage({
               contiene a los anteriores— y las columnas de flujo suman períodos
               reales y estimados mezclados, que no es un número que signifique
               nada. Lo que sí significa está arriba, en los KpiCards. */}
+          {/* El drill-down abre una ventana de SIETE DÍAS desde la fecha que
+              recibe, así que sólo tiene sentido en la vista semanal. Un mes
+              linkeado ahí no fallaría —'2026-08-01' también es una fecha
+              válida— sino que mostraría los primeros siete días como si fueran
+              el mes entero, que es peor que no linkear: no rompe, miente.
+
+              `clave` es el ISO crudo que devuelve la vista ('2026-07-06'), sin
+              pasar por `Date` en ningún punto: se concatena tal cual. Por eso
+              no hay corrimiento de zona posible, que es el bug que apareció en
+              el eje de ChartArea cuando una fecha sin hora se convertía a Date
+              local y se leía en otra zona. */}
           <DataTable
             columns={columnas(esMensual ? 'Mes' : 'Semana')}
             rows={periodos}
             rowKey="clave"
+            rowHref={esMensual ? undefined : (f) => `/proyeccion/${f.clave}`}
             densidad="compacta"
             maxHeight={520}
             emptyMessage="Sin períodos para proyectar."
