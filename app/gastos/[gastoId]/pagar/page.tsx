@@ -23,6 +23,22 @@ function hoyEnCordoba(): string {
   }).format(new Date())
 }
 
+/** Traduce los errores conocidos de pagar_gasto a mensajes en español. Mismo patrón que /gastos/nuevo. */
+function mensajeErrorPago(error: { message: string }): string {
+  const m = error.message.toLowerCase()
+  if (m.includes('permission denied'))
+    return 'No tenés permiso para registrar pagos. Verificá tu sesión.'
+  if (m.includes('violates not-null') || m.includes('null value'))
+    return 'Falta completar un dato obligatorio del pago.'
+  if (m.includes('violates foreign key'))
+    return 'Alguna referencia del pago (categoría, torneo o predio) no es válida.'
+  if (m.includes('violates check constraint'))
+    return 'Los datos del pago no cumplen una validación del sistema. Revisá los montos y campos.'
+  if (m.includes('duplicate key')) return 'Este pago parece ya estar registrado.'
+  // Fallback: mensaje genérico + el técnico entre paréntesis por si sirve para reportar
+  return `No se pudo registrar el pago. (${error.message})`
+}
+
 export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: string }> }) {
   const { gastoId } = use(params)
 
@@ -162,7 +178,7 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
     setRegistrando(false)
 
     if (error) {
-      setErrorRegistro(error.message)
+      setErrorRegistro(mensajeErrorPago(error))
       return
     }
 

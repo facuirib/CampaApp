@@ -48,6 +48,22 @@ function hoyEnCordoba(): string {
   }).format(new Date())
 }
 
+/** Traduce los errores conocidos de registrar_gasto a mensajes en español. */
+function mensajeErrorGasto(error: { message: string }): string {
+  const m = error.message.toLowerCase()
+  if (m.includes('permission denied'))
+    return 'No tenés permiso para registrar gastos. Verificá tu sesión.'
+  if (m.includes('violates not-null') || m.includes('null value'))
+    return 'Falta completar un dato obligatorio del gasto.'
+  if (m.includes('violates foreign key'))
+    return 'Alguna referencia del gasto (categoría, torneo o predio) no es válida.'
+  if (m.includes('violates check constraint'))
+    return 'Los datos del gasto no cumplen una validación del sistema. Revisá los montos y campos.'
+  if (m.includes('duplicate key')) return 'Este gasto parece ya estar registrado.'
+  // Fallback: mensaje genérico + el técnico entre paréntesis por si sirve para reportar
+  return `No se pudo registrar el gasto. (${error.message})`
+}
+
 export default function CargarGastoPage() {
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
@@ -315,7 +331,7 @@ export default function CargarGastoPage() {
     setRegistrando(false)
 
     if (error) {
-      setErrorRegistro(error.message)
+      setErrorRegistro(mensajeErrorGasto(error))
       return
     }
 
