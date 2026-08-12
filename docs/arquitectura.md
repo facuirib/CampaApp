@@ -1723,10 +1723,14 @@ No es una restricción del módulo sino de `crear_asiento`, que exige `predio_id
 |---|---|
 | `v_saldo_socio` | saldo actual por socio: a favor o en contra |
 | `v_socio_detalle_mensual` | por socio y período: devengado, retirado, saldo acumulado |
+| `v_socio_lista` | una fila por socio, con el **sueldo vigente** y el estado derivado |
+| `v_socio_kpi` | los totales de todos, en una fila |
 
-Las dos cosas que hay que poder mirar: el número de hoy y cómo se llegó.
+Las dos primeras son las que hay que poder mirar de un socio: el número de hoy y cómo se llegó. Las dos últimas sostienen la **lista** de `/socios`, que se separó del detalle porque la tabla mensual **no tiene techo** —12 filas por socio por año, para siempre— y con dos socios ya no entraba en una pantalla.
 
-**Alcance:** backend. La pantalla —cargar sueldo, registrar retiro, ver saldos— es front y va después.
+`v_socio_lista` trae el sueldo vigente, que ninguna de las dos primeras tenía: derivan de `SOCIOS_A_PAGAR` y ahí el acuerdo no está. Su `estado` va de lo que más pide atención a lo que menos: `en_contra` (retiró de más) → `sin_sueldo` → `al_dia` → `a_favor`. `v_socio_kpi` **suma `v_socio_lista`** y no `v_saldo_socio`, para que el encabezado y la tabla de la pantalla no puedan discrepar.
+
+**Alcance:** backend y **lectura**. `/socios` es la lista y `/socios/[socioId]` el detalle mes a mes. Falta la **escritura** —cargar sueldo pactado y registrar retiro—: `crear_retiro_socio` existe pero es una de las seis funciones sin `p_created_by`, así que todavía no puede escribir desde una pantalla. El lugar del botón está marcado y deshabilitado en el detalle.
 
 ### 3.20 Sponsors · devengo lineal y dos calendarios
 

@@ -1244,20 +1244,74 @@ nacieron con las dos cosas bien —devuelven `nombre` y derivan los totales de
 las líneas—, y ese es el contrato que `leerPreviewAsiento` (`lib/db/preview.ts`)
 fija para las que vengan. `preview_cobro` es la única que falta alinear.
 
-**El sueldo vigente de un socio no está en ninguna vista.** `sueldo_socio`
-guarda el historial versionado y `sueldo_vigente(socio, fecha)` lo resuelve,
-pero las dos vistas del módulo —`v_saldo_socio` y `v_socio_detalle_mensual`—
-derivan de `SOCIOS_A_PAGAR` y no lo traen. La pantalla de socios muestra
-entonces devengado, retirado y saldo **sin el número que les da contexto**: un
-saldo en cero no distingue "todavía no se devengó nada" de "se retiró todo lo
-devengado", y no hay forma de ver desde la app cuánto cobra cada socio ni desde
-cuándo.
+**~~El sueldo vigente de un socio no está en ninguna vista~~ — CERRADA.**
+`sueldo_socio` guarda el historial versionado y `sueldo_vigente(socio, fecha)`
+lo resuelve, pero las dos vistas del módulo —`v_saldo_socio` y
+`v_socio_detalle_mensual`— derivan de `SOCIOS_A_PAGAR` y no lo traían. La
+pantalla mostraba devengado, retirado y saldo **sin el número que les da
+contexto**: un saldo en cero no distingue "todavía no se devengó nada" de "se
+retiró todo lo devengado".
 
-Lo natural es agregar `sueldo_vigente` —y quizá `vigente_desde`— a
-`v_saldo_socio`, que ya es una fila por socio. Es aditivo y no toca el diario.
+Lo trae **`v_socio_lista`** (migración `20260812140000`), junto con
+`vigente_desde`. **No** se agregó a `v_saldo_socio` como decía esta entrada: la
+lista es una vista nueva y aditiva, y meterle una columna a `v_saldo_socio`
+—que el detalle sigue usando— era tocar algo que anda para no crear algo que no
+existía.
 
-*Cuándo:* cuando se construya la escritura de socios (alta de sueldo pactado),
-que es cuando el número pasa a ser editable y no verlo se vuelve incómodo.
+Se resolvió **antes** de lo que esta entrada preveía —decía "cuando se
+construya la escritura"— porque la lista lo necesitaba primero: una fila por
+socio sin el sueldo al lado no dice si el saldo es mucho o poco.
+
+> **El precio, anotado donde se paga.** `v_socio_lista` resuelve el vigente con
+> un `left join lateral` que **repite la regla** de `sueldo_vigente()` —la
+> misma que usa `devengar_sueldos_socios` para decidir cuánto asentar—. Se
+> eligió así para que el monto y la fecha salgan del MISMO renglón: llamando a
+> la función para el monto y buscando la fecha aparte, podrían venir de filas
+> distintas. **Si la regla cambia, se cambian las dos.** Verificado al aplicar
+> que hoy coinciden en los dos socios.
+
+---
+
+**La pantalla de socios no escalaba, y se partió en lista + detalle.** Nació
+como un bloque grande por socio —tres KpiCards y la tabla mensual completa,
+apilados— y con **dos** socios y **tres** meses ya ocupaba más de una pantalla
+(913px medidos, 1,12 pantallas). Es la misma forma que tenía sponsors antes de
+partirse, y el mismo remedio.
+
+Con un agravante que sponsors no tenía: **la tabla mensual no tiene techo**. Un
+contrato de sponsor se termina; el sueldo de un socio se devenga todos los meses
+mientras sea socio. `devengar_sueldos_socios` corre una vez por mes y
+`v_socio_detalle_mensual` agrupa por período, así que son **12 filas por socio
+por año, para siempre**. Un retiro no agrega fila: se suma al `retirado` del mes
+que le toca.
+
+`/socios` pasa a ser una fila por socio (539px, 0,66 pantallas con los mismos
+datos) y `/socios/[socioId]` se queda con el mes a mes de ESE socio. Las dos
+vistas viejas **no se tocaron**: el detalle las usa tal cual.
+
+Dos decisiones de esas vistas que valen más que su código:
+
+· **`saldo > 0` es el club debiéndole al socio; `saldo < 0` es el socio que
+  retiró de más.** `SOCIOS_A_PAGAR` es pasivo, el devengo va al haber y el
+  retiro al debe. El que pide atención es el negativo, y por eso gana el orden
+  de prioridad del estado. Que ese caso exista no es un bug:
+  `crear_retiro_socio` no valida saldo suficiente a propósito (decisión 71) —
+  pero tenía que verse, y no se veía.
+
+· **`saldo_a_favor` y `saldo_en_contra` van separados, no neteados.** Un club
+  que le debe $3.400.000 a uno y al que otro le debe $450.000 no está en la
+  misma situación que uno con $2.950.000 netos: son dos movimientos de plata en
+  direcciones opuestas, con dos conversaciones distintas. El neto se lee
+  restando; las dos mitades de un neto no se recuperan.
+
+> **El botón "Registrar retiro" está en el detalle y deshabilitado, no
+> ausente.** Facu marcó que no se veía cómo registrar un retiro. El lugar
+> marcado contesta eso sin fingir que ya se puede: `crear_retiro_socio` existe
+> y está completa, pero es una de las seis funciones sin `p_created_by`, así
+> que desde que se sacó el fallback **no puede escribir sin sesión** — un botón
+> cableado hoy explota con "permission denied for table users". La escritura
+> —formulario, Server Action y el parámetro de la función— va junta, y es otro
+> carril.
 
 **~~Las puertas de socios, sponsors y USD no aceptan responsable~~ — PARCIAL.**
 Se resolvió para las dos que lo necesitaban de verdad: `devengar_sueldos_socios`
