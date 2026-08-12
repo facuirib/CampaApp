@@ -554,6 +554,23 @@ Separarlos permite que el P&L y la caja cuenten cosas distintas sin contradecirs
 
 **Coherencia forzada en base.** El trigger `check_gasto_coherente` valida que la naturaleza y el anclaje sean consistentes: un gasto `por_fecha` exige jornada, uno `recurrente` no puede tener torneo, uno `inversion` exige activo.
 
+#### Lo que se lee
+
+| Vista | Grano | Para qué |
+|---|---|---|
+| `v_gasto_detalle` | el gasto | Un gasto por fila: categoría, estado, **la jornada a la que pertenece**, **quién lo pagó y de qué caja** |
+| `v_gasto_kpi` | año · año×mes | Los KPIs y el filtro de período de `/gastos` |
+| `v_gasto_naturaleza_mes` | año×mes×naturaleza | Las cuatro tarjetas y el gráfico por tipo |
+| `v_gasto_categoria_mes` | + categoría | El gráfico por categoría |
+
+**`v_gasto_kpi` devuelve la fila del año Y la de cada mes**, con `grouping sets`: `mes is null` es el año entero. La pantalla **elige** la fila según el filtro, en vez de sumar meses en el cliente.
+
+**Las tres de totales excluyen los anulados; `v_gasto_detalle` no.** Un gasto anulado no puede sumar al total, pero tiene que seguir viéndose en la lista con su badge — esconderlo sería reescribir la historia (regla 4).
+
+**El estado es binario: `pagado` o `devengado`** (más `anulado`). `gasto.pagado_at` es un timestamp único, así que **no existe «parcial»** — a diferencia de las cuotas de equipo, que sí tienen `pago_imputacion`. Un cuarto estado sería cambio de modelo; está encolado en `coordinacion.md`.
+
+**`caja_pago` usa `string_agg`, no `limit 1`:** hoy un pago sale siempre de una caja, pero si algún día saliera de dos, la vista lo dice en vez de mostrar una como si fuera todo.
+
 ### 3.4 Terceros y cuentas corrientes
 
 Equipos, sponsors y socios comparten la misma mecánica: débitos, créditos, saldo. Se modelan como un solo tipo con discriminante.
@@ -2058,6 +2075,16 @@ ahora reciben un `p_created_by` transitorio.
 **Cálculos en base, no en el cliente.** Los totales del P&L, saldos de cuenta corriente y flujo proyectado son vistas SQL. El cliente no suma: consulta. Es la traducción técnica del principio (c) — si el front calcula, en algún momento dos pantallas van a discrepar.
 
 **Numérico, no float.** `numeric(16,2)` en todo lo monetario. Nunca `float8`.
+
+**Los gráficos del sistema, y cuál usar.** Viven en `components/ui` y los tres contestan preguntas distintas — elegir mal es la forma más rápida de dibujar algo que no significa nada:
+
+| Componente | Contesta | Forma |
+|---|---|---|
+| `ChartArea` | «¿cómo evolucionó esto en el tiempo?» | una serie sobre un eje temporal |
+| `Waterfall` | «¿de dónde a dónde llegué?» | sumas y restas encadenadas |
+| `BarrasComposicion` | «¿en qué se reparte el total?» | barras horizontales, sin eje de tiempo |
+
+`BarrasComposicion` se construyó para `/gastos` porque los otros dos no servían: «en qué se va la plata» no tiene eje temporal. Es **CSS y no SVG** —rectángulos proporcionales y texto—, así que el ancho lo resuelve el navegador y el texto queda seleccionable. Su `tope` **agrupa la cola en «Otros (n)» en vez de recortarla**: un gráfico que muestra 7 de 9 sin decirlo hace parecer que el total es lo que se ve.
 
 **Idempotencia del importador.** La importación debe poder correrse dos veces sin duplicar: clave natural `(torneo_id, nombre_equipo)`.
 

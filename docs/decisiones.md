@@ -1402,6 +1402,98 @@ registrada, no con una inventada antes.
 
 ---
 
+**El rediseño de `/gastos` es display puro, sobre el molde de tarjetas + lista.**
+Era una tabla plana de ocho columnas con la naturaleza como una columna más:
+tenía la información y no la mostraba. Facu la marcó como la pantalla que más
+había que trabajar.
+
+*Lo que se pudo hacer sin cruzar carriles.* La lista era **lectura pura** —sin
+`rpc`, sin `useState`, sin `onClick`— y las dos escrituras viven en
+`/gastos/nuevo` y `/gastos/[id]/pagar`. Así que se rehízo entera sin tocar un
+archivo del otro carril. Ver `coordinacion.md`.
+
+*Cuatro vistas nuevas*, porque ningún total puede salir del front:
+
+| Vista | Para qué |
+|---|---|
+| `v_gasto_detalle` *(extendida)* | + jornada, quién pagó, de qué caja |
+| `v_gasto_kpi` | Los KPIs y el filtro de período |
+| `v_gasto_naturaleza_mes` | Las cuatro tarjetas y el gráfico por tipo |
+| `v_gasto_categoria_mes` | El gráfico por categoría |
+
+**`v_gasto_kpi` usa `grouping sets`** para dar la fila del año **y** la de cada
+mes en la misma vista. La pantalla ELIGE la fila según el filtro. Sin eso había
+que elegir cuál de los dos casos rompía la regla 1: o el total anual sumando
+meses, o el filtro por mes sumando días.
+
+**Van dos vistas de gráfico y no una**, aunque `cat_gasto` ya tenga su
+naturaleza: con una sola al grano categoría, el gráfico por naturaleza tendría
+que sumar categorías en el cliente.
+
+*Tres decisiones de la vista que no son obvias:*
+
+· **Los anulados no cuentan en los totales pero sí se listan.** Sin el filtro el
+  total daba $17.887.000 en vez de $15.987.000. La regla 4 lo permite para una
+  vista que lista gastos —una fila anulada no deja contraparte huérfana— pero el
+  gasto sigue en la lista con su badge gris: esconderlo sería reescribir la
+  historia; sumarlo, mentir el total.
+
+· **`caja_pago` usa `string_agg` y no `limit 1`.** Hoy siempre es una sola caja
+  —`pagar_gasto` recibe un único medio— pero con `limit 1` la pantalla mostraría
+  **una caja como si fuera todo el pago**, sin avisar. Con `string_agg` diría
+  «CAJA_EFECTIVO + CAJA_TRANSFERENCIA». No cuesta nada y no puede mentir.
+
+· **`pagado_por` va con su uuid al lado.** `email_usuario` es SECURITY DEFINER y
+  corre por fila; con este volumen no importa, y si algún día pesara el front lo
+  resuelve con una llamada por usuario **sin tocar la vista**.
+
+*La decisión de la tabla, que se discutió dos veces.* Primero la lista mostraba
+**todos** los gastos ignorando el período, con el argumento de que un impago
+viejo no puede esconderse. Pero eso dejaba una parte de la pantalla sin
+responder al filtro que el usuario acababa de mover, que es peor.
+
+Quedó: **la tabla filtra por período** como todo lo demás, **y un toggle «ver
+sólo impagos» que lo ignora a propósito** — la lista de trabajo de qué falta
+pagar. Con el toggle prendido la pantalla queda en dos tiempos a la vez, así que
+lo dice de **tres formas**: el título deja de nombrar el período (`Gastos ·
+agosto 2026` → `Impagos`), el toggle queda en ámbar, y un aviso arriba de la
+tabla explica que los indicadores de arriba sí siguen el mes.
+
+> Probado contra un mes vacío: con el filtro en diciembre —cero gastos— el
+> toggle igual trae los 6 impagos de agosto. El período se ignora de verdad, no
+> por casualidad de los datos.
+
+*Encolado, y anotado en `coordinacion.md`:* **pagos parciales** (hoy
+`gasto.pagado_at` es único, no existe «parcial» — si los gastos empiezan a
+pagarse en cuotas es cambio de modelo, carril de Horacio) y **adjuntar factura**
+(no hay nada de storage; y con RLS apagado un bucket mal configurado deja las
+facturas del club accesibles a cualquiera con la URL — va después de RLS).
+
+---
+
+**`BarrasComposicion`: un gráfico de composición, porque los dos que había no
+contestan «¿en qué se va la plata?».** `ChartArea` dibuja una serie a lo largo
+del tiempo y `Waterfall` encadena sumas y restas; la pregunta de Gastos no tiene
+eje temporal, y con dos meses de datos un gráfico de área serían dos puntos.
+
+Es **CSS y no SVG**: son rectángulos proporcionales y texto. El ancho lo
+resuelve el navegador mejor que un `viewBox` que hay que escalar a mano, el
+texto queda seleccionable y crece con el zoom del sistema.
+
+Dos detalles que lo hacen no mentir:
+
+· **El `tope` agrupa la cola en «Otros (2)», no la recorta.** Un gráfico que
+  muestra 7 de 9 categorías sin decirlo hace parecer que el total es la suma de
+  lo que se ve.
+
+· **No ordena.** El orden lo decide quien llama, para que la correspondencia con
+  la tabla de al lado no se rompa sola.
+
+La barra admite una `parte` más oscura encima —«de estos $4.800.000, $3.000.000
+ya se pagaron»— que evita tener dos gráficos para la misma pregunta.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**

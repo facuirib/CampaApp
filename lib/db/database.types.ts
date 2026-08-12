@@ -4470,6 +4470,20 @@ export type Database = {
           },
         ]
       }
+      v_gasto_categoria_mes: {
+        Row: {
+          adeudado: number | null
+          anio: number | null
+          area: string | null
+          categoria: string | null
+          gastos: number | null
+          mes: number | null
+          naturaleza: string | null
+          pagado: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
       v_gasto_detalle: {
         Row: {
           activo_id: string | null
@@ -4477,6 +4491,7 @@ export type Database = {
           area: string | null
           asiento_dev_id: string | null
           asiento_pag_id: string | null
+          caja_pago: string | null
           cantidad: number | null
           categoria: string | null
           concepto: string | null
@@ -4484,12 +4499,17 @@ export type Database = {
           es_libre: boolean | null
           estado: string | null
           gasto_id: string | null
+          jornada_fecha: string | null
           jornada_id: string | null
+          jornada_numero: number | null
           medio_pago: string | null
           naturaleza: string | null
           pagado_at: string | null
+          pagado_por: string | null
+          pagado_por_id: string | null
           predio: string | null
           predio_id: string | null
+          predio_pago: string | null
           torneo: string | null
           torneo_id: string | null
           total: number | null
@@ -4587,6 +4607,31 @@ export type Database = {
             referencedColumns: ["torneo_id"]
           },
         ]
+      }
+      v_gasto_kpi: {
+        Row: {
+          adeudado: number | null
+          anio: number | null
+          gastos: number | null
+          gastos_impagos: number | null
+          mes: number | null
+          pagado: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
+      v_gasto_naturaleza_mes: {
+        Row: {
+          adeudado: number | null
+          anio: number | null
+          gastos: number | null
+          gastos_impagos: number | null
+          mes: number | null
+          naturaleza: string | null
+          pagado: number | null
+          total: number | null
+        }
+        Relationships: []
       }
       v_inscripcion: {
         Row: {

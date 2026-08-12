@@ -35,6 +35,11 @@ export { default as Button, type ButtonProps, type TamanoBoton, type VarianteBot
 export { default as Card, type CardProps } from './Card'
 export { default as ChartArea, type ChartAreaProps, type PuntoSerie } from './ChartArea'
 export {
+  default as BarrasComposicion,
+  type BarrasComposicionProps,
+  type ItemComposicion,
+} from './BarrasComposicion'
+export {
   default as DataTable,
   type AlineacionCelda,
   type CeldaBadge,
