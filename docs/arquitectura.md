@@ -1311,11 +1311,12 @@ El desvío se calcula por `cat_gasto_id`, que es la misma dimensión con la que 
 
 ```sql
 create table plantilla_mail (
-  id      uuid primary key default gen_random_uuid(),
-  clave   text not null unique,    -- aviso_7dias | reclamo_vencida | reclamo_2 | recibo_pago
-  asunto  text not null,
-  cuerpo  text not null            -- con placeholders {{equipo}}, {{monto}}, {{vence}}
-);
+  id           uuid primary key default gen_random_uuid(),
+  clave        text not null unique,  -- aviso_7dias | reclamo_vencida | reclamo_2 | recibo_pago
+  asunto       text not null,
+  cuerpo       text not null,         -- HTML, para el mail
+  cuerpo_texto text                   -- plano, para WhatsApp. Null si no aplica
+);                                     -- placeholders: {{equipo}} {{cantidad}} {{monto}} {{detalle}}
 
 create table envio (
   id           uuid primary key default gen_random_uuid(),
@@ -1326,7 +1327,47 @@ create table envio (
   enviado_at   timestamptz not null default now(),
   enviado_por  uuid references auth.users(id)   -- NULL si fue automático
 );
+
+create table reclamo (                 -- migración 20260812071827
+  id              uuid primary key default gen_random_uuid(),
+  tercero_id      uuid not null references tercero(id),
+  torneo_id       uuid references torneo(id),   -- NULL = el reclamo abarca varios
+  fecha           date not null default current_date,
+  canal           text not null,       -- mail | whatsapp | manual
+  monto_reclamado numeric(16,2) not null,       -- congelados al reclamar
+  cuotas          integer not null,
+  cuota_ids       uuid[] not null,
+  texto           text,                -- el mensaje tal como salió
+  destino         text,                -- mail o número; NULL en manual
+  created_by      uuid not null references auth.users(id),
+  created_at      timestamptz not null default now()
+);
 ```
+
+#### Reclamos · el módulo construido
+
+`reclamo` es de **sólo inserción**: un reclamo es un hecho, no un estado. Por eso
+no lleva `audit_log` —la fila ya es el registro— y por eso `monto_reclamado`,
+`cuotas` y `texto` quedan **congelados**: si el equipo paga mañana, el reclamo
+tiene que seguir diciendo lo que decía, igual que `arqueo.saldo_sistema`.
+
+**Los dos canales salen de la misma plantilla.** `cuerpo` para el mail (HTML),
+`cuerpo_texto` para WhatsApp (plano), los dos resolviendo los mismos cuatro
+placeholders. La pantalla aporta **sólo los datos**; el saludo, el cuerpo y el
+cierre viven en la fila, que es lo que se puede editar sin un deploy. La
+previsualización que se ve es literalmente lo que se manda.
+
+WhatsApp va por `wa.me`, sin API: abre el chat con el mensaje puesto. Como el
+sistema **no puede saber si se mandó**, el registro es un botón aparte y
+explícito.
+
+`v_reclamo_equipo` da, por equipo, cuántos reclamos y hace cuántos días fue el
+último — es lo que convierte la lista de deudores en cola de trabajo.
+
+> **`envio` quedó sin uso y se superpone con `reclamo`.** Existe desde el schema
+> inicial, con 0 filas, para registrar mails enviados. `reclamo` cubre eso y más
+> —canal manual, montos congelados, las cuotas reclamadas—, así que hoy hay dos
+> tablas para una parte del mismo problema. Ver la nota en `decisiones.md`.
 
 **Reglas de negocio del reclamo:**
 

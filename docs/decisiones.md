@@ -1098,6 +1098,39 @@ el usuario de sistema para los devengos automáticos.
 
 ---
 
+**Las plantillas de mensaje viven en la base, no en TypeScript.** Era la
+decisión que quedó abierta desde julio con las **dos** cosas construidas a la
+vez: `plantilla_mail` modelada y sembrada con cuatro plantillas, y
+`lib/mail/templates.ts` con dos escritas a mano. Ninguna se usaba, y mantener
+las dos era la fábrica de drift que CLAUDE.md advierte.
+
+*Gana la tabla*, por una razón concreta: que Guille o Mati puedan cambiar "te
+pedimos regularizar el pago" sin un deploy. En TypeScript cada palabra distinta
+es un commit, un build y un push — y el texto de un reclamo es exactamente lo
+que se quiere ajustar después de mandarlo dos veces. `templates.ts` se borró
+(verificado antes: no lo importaba nadie).
+
+Con dos consecuencias que se resolvieron en el mismo trabajo:
+
+· **`cuerpo_texto`**, la versión plana para WhatsApp. Va como columna y no como
+  fila aparte: es el mismo reclamo en dos formatos, y con dos filas la primera
+  vez que alguien edite una sola, el mail y el WhatsApp dirían cosas distintas.
+
+· **Los dos canales salen de la plantilla.** Al principio WhatsApp usaba un
+  texto que armaba la pantalla y el mail usaba la plantilla — dos redacciones
+  para el mismo reclamo, o sea el drift que la tabla venía a evitar, reaparecido
+  por otro lado. Ahora la pantalla aporta sólo los datos.
+
+> **El bug que sólo se vio al renderizar con datos reales.** El primer intento
+> pasaba en `{{detalle}}` el mensaje entero que armaba la pantalla —con su
+> saludo y su cierre— y la plantilla le agregaba los suyos: el resultado tenía
+> dos saludos, dos despedidas y "te pedimos regularizar" repetido. Con los
+> placeholders sin resolver, la plantilla parecía correcta. La lección es del
+> proceso, no del código: una plantilla se revisa **renderizada**, no en
+> abstracto.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
@@ -1205,6 +1238,27 @@ por SQL, y ahí hay que pasar el responsable de otra forma o darles el parámetr
 > el proceso, que hoy es honesto porque alguien aprieta el botón. Las opciones
 > —usuario de sistema en `auth.users`, `created_by` nullable, o las dos— quedan
 > abiertas.
+
+**`envio` quedó sin uso y se superpone con `reclamo`.** `envio` existe desde el
+schema inicial —`tercero_id`, `plantilla`, `destinatario`, `payload`,
+`enviado_at`, `enviado_por`— con **0 filas**, para registrar mails mandados.
+
+El módulo de reclamos construyó `reclamo`, que cubre eso y más: el canal
+`manual` —un reclamo por teléfono también es un reclamo—, el monto y las cuotas
+congelados, y los `cuota_ids` reclamados. Hoy hay **dos tablas para una parte
+del mismo problema**.
+
+*Cómo apareció:* al relevar el módulo miré `plantilla_mail` y `lib/mail/`, y no
+`envio`. Debí haberla visto antes de diseñar `reclamo`.
+
+Las salidas posibles: borrar `envio` y que `reclamo` sea el único registro; o
+dejarla para los envíos que **no** son reclamos —`recibo_pago`, `aviso_7dias`—,
+que hoy tampoco se mandan. La segunda tiene sentido si esos avisos se
+construyen; si no, es una tabla vacía que confunde.
+
+*Cuándo:* cuando se construya el primer envío que no sea un reclamo. Mientras
+tanto no molesta, pero está anotada para que nadie la use pensando que es la vía
+del reclamo.
 
 **`fn_audit` audita cambios que no cambian nada.** El trigger inserta una fila
 en `audit_log` por cada UPDATE, sin comparar antes con después. Resultado

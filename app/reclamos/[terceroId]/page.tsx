@@ -5,7 +5,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney, formatDate } from '@/lib/format'
-import { Button, Card, DataTable, type ColumnDef } from '@/components/ui'
+import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { linkWhatsApp, parsearTelefono } from '@/lib/reclamo/contacto'
+import { aplicar } from '@/lib/reclamo/plantilla'
+import { armarValores } from '@/lib/reclamo/valores'
+import { enviarReclamoMail, registrarReclamo, type DatosReclamo } from '../acciones'
 import type { Database } from '@/lib/db/database.types'
 
 type ResumenDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
@@ -35,35 +39,54 @@ function esReclamable(c: CuotaDeuda): boolean {
   return c.estado === 'vencida' || c.estado === 'parcial_vencida'
 }
 
-function armarTexto(equipo: string, deudaVencida: number, cuotas: FilaCuota[]): string {
-  const cantidad = cuotas.length
-  const lista = cuotas
-    .map(
-      (c) =>
-        `- ${c.cuotaLabel} (${c.torneo ?? 'torneo'}) vencida el ${formatDate(c.vence_at)}, ${formatMoney(c.saldo ?? 0)}`,
-    )
-    .join('\n')
+type ReclamoRow = Database['public']['Tables']['reclamo']['Row']
 
-  return [
-    `Hola! Te escribimos de CAMPA por la deuda del equipo ${equipo}.`,
-    `Registrás ${cantidad} cuota${cantidad === 1 ? '' : 's'} vencida${cantidad === 1 ? '' : 's'} por un total de ${formatMoney(deudaVencida)}:`,
-    lista,
-    'Te pedimos regularizar el pago. Cualquier duda, quedamos a disposición.',
-  ].join('\n\n')
+const CANALES: Record<string, CeldaBadge> = {
+  mail: { estado: 'info', label: 'Mail' },
+  whatsapp: { estado: 'ok', label: 'WhatsApp' },
+  manual: { estado: 'neutro', label: 'Manual' },
 }
 
-export default function ArmarReclamoPage({
-  params,
-}: {
-  params: Promise<{ terceroId: string }>
-}) {
+function badgeCanal(canal: string | null): CeldaBadge {
+  return CANALES[canal ?? ''] ?? { estado: 'neutro', label: canal ?? '—' }
+}
+
+interface FilaHistorial {
+  id: string
+  fecha: string | null
+  canal: CeldaBadge
+  monto_reclamado: number | null
+  cuotas: number | null
+  destino: string | null
+}
+
+const COL_HISTORIAL: ColumnDef<FilaHistorial>[] = [
+  { key: 'fecha', label: 'Fecha', format: 'date', width: 108 },
+  { key: 'canal', label: 'Canal', format: 'badge', width: 108 },
+  { key: 'monto_reclamado', label: 'Monto reclamado', format: 'money', width: 150 },
+  { key: 'cuotas', label: 'Cuotas', align: 'right', width: 76 },
+  { key: 'destino', label: 'Destino' },
+]
+
+export default function ArmarReclamoPage({ params }: { params: Promise<{ terceroId: string }> }) {
   const { terceroId } = use(params)
 
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [resumen, setResumen] = useState<ResumenDeuda | null>(null)
   const [cuotas, setCuotas] = useState<CuotaDeuda[]>([])
+  const [contacto, setContacto] = useState<string | null>(null)
+  const [plantilla, setPlantilla] = useState<{
+    asunto: string
+    cuerpo: string
+    cuerpo_texto: string | null
+  } | null>(null)
   const [copiado, setCopiado] = useState(false)
+  const [historial, setHistorial] = useState<ReclamoRow[]>([])
+  const [enviando, setEnviando] = useState(false)
+  const [marcando, setMarcando] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelado = false
@@ -76,14 +99,33 @@ export default function ArmarReclamoPage({
       const [
         { data: resumenData, error: errorResumen },
         { data: cuotasData, error: errorCuotas },
+        { data: contactoData },
+        { data: historialData, error: errorHistorial },
+        { data: plantillaData },
       ] = await Promise.all([
         supabase.from('v_deuda_equipo').select('*').eq('tercero_id', terceroId).maybeSingle(),
         supabase.from('v_deuda_detalle').select('*').eq('tercero_id', terceroId),
+        // v_deuda_equipo trae el email pero no el contacto: el teléfono sale
+        // de `tercero`, y de ahí lo parsea el módulo de reclamo.
+        supabase.from('tercero').select('contacto').eq('id', terceroId).maybeSingle(),
+        supabase
+          .from('reclamo')
+          .select('*')
+          .eq('tercero_id', terceroId)
+          .order('fecha', { ascending: false })
+          .order('created_at', { ascending: false }),
+        // La plantilla es la fuente de los DOS canales: lo que se ve en la
+        // previsualización es exactamente lo que se manda.
+        supabase
+          .from('plantilla_mail')
+          .select('asunto, cuerpo, cuerpo_texto')
+          .eq('clave', 'reclamo_vencida')
+          .maybeSingle(),
       ])
 
       if (cancelado) return
 
-      const error = errorResumen ?? errorCuotas
+      const error = errorResumen ?? errorCuotas ?? errorHistorial
       if (error) {
         setErrorCarga(error.message)
         setCargando(false)
@@ -92,6 +134,9 @@ export default function ArmarReclamoPage({
 
       setResumen(resumenData)
       setCuotas(cuotasData ?? [])
+      setContacto(contactoData?.contacto ?? null)
+      setHistorial(historialData ?? [])
+      setPlantilla(plantillaData)
       setCargando(false)
     }
 
@@ -116,9 +161,61 @@ export default function ArmarReclamoPage({
     }))
     .sort((a, b) => (a.vence_at ?? '').localeCompare(b.vence_at ?? ''))
 
-  const texto = resumen
-    ? armarTexto(resumen.equipo ?? 'el equipo', resumen.deuda_vencida ?? 0, filas)
-    : ''
+  // Los cuatro valores que la plantilla necesita. La pantalla aporta los DATOS;
+  // el saludo, el cuerpo y el cierre los pone la fila de plantilla_mail.
+  const valores = armarValores(resumen?.equipo ?? 'el equipo', resumen?.deuda_vencida ?? 0, filas)
+
+  const resuelto = plantilla ? aplicar(plantilla, valores) : null
+
+  // El plano es el que se previsualiza, el que va al wa.me y el que se guarda.
+  // El HTML del mail sale de la misma fila, resuelto de nuevo en el servidor.
+  const texto = resuelto?.texto ?? ''
+
+  const telefono = parsearTelefono(contacto)
+  const email = resumen?.email ?? null
+
+  // Lo que se congela al registrar: el monto y las cuotas de HOY.
+  const datos: DatosReclamo = {
+    tercero_id: terceroId,
+    // La deuda es del equipo, no del torneo: si las cuotas vencidas son de más
+    // de un torneo, va null — que en esta tabla significa "varios".
+    torneo_id: (() => {
+      const torneos = [...new Set(cuotas.filter(esReclamable).map((c) => c.torneo_id))]
+      return torneos.length === 1 ? (torneos[0] ?? null) : null
+    })(),
+    monto_reclamado: resumen?.deuda_vencida ?? 0,
+    cuotas: filas.length,
+    cuota_ids: filas.map((f) => f.cuota_id),
+    valores,
+  }
+
+  async function conAccion(
+    fn: () => Promise<{ ok: boolean; error?: string; dryRun?: boolean }>,
+    exito: string,
+    marcar: (v: boolean) => void,
+  ) {
+    marcar(true)
+    setErrorAccion(null)
+    setAviso(null)
+    const r = await fn()
+    marcar(false)
+    if (!r.ok) {
+      setErrorAccion(r.error ?? 'No se pudo completar la acción.')
+      return
+    }
+    setAviso(r.dryRun ? `${exito} (modo prueba: el mail no salió, falta la key)` : exito)
+    await recargarHistorial()
+  }
+
+  async function recargarHistorial() {
+    const { data } = await createClient()
+      .from('reclamo')
+      .select('*')
+      .eq('tercero_id', terceroId)
+      .order('fecha', { ascending: false })
+      .order('created_at', { ascending: false })
+    setHistorial(data ?? [])
+  }
 
   async function copiarTexto() {
     await navigator.clipboard.writeText(texto)
@@ -141,7 +238,7 @@ export default function ArmarReclamoPage({
       <header className="mb-6 mt-2">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Armar reclamo</h1>
         <p className="mt-1 text-[12px] text-muted">
-          Texto para copiar y enviar. No se manda ni se registra desde acá.
+          Revisá el texto, elegí el canal y queda registrado en el historial del equipo.
         </p>
       </header>
 
@@ -202,14 +299,106 @@ export default function ArmarReclamoPage({
                 />
               </Card>
 
-              <Button icon={copiado ? 'check' : 'documento'} onClick={copiarTexto}>
-                {copiado ? '¡Copiado!' : 'Copiar texto'}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button icon="documento" variant="secondary" onClick={copiarTexto}>
+                  {copiado ? '¡Copiado!' : 'Copiar texto'}
+                </Button>
 
-              <p className="mt-3 text-[10.5px] text-muted">
-                Este texto es para copiar y enviar por WhatsApp o mail. El envío y registro
-                automático se agregarán más adelante.
+                {/* Mail: el envío es una Server Action. La key de Resend vive
+                    en el servidor y nunca baja al navegador. */}
+                <Button
+                  icon="externo"
+                  loading={enviando}
+                  disabled={!email}
+                  onClick={() =>
+                    conAccion(
+                      () => enviarReclamoMail(datos, email!),
+                      'Mail enviado y reclamo registrado.',
+                      setEnviando,
+                    )
+                  }
+                >
+                  Enviar por mail
+                </Button>
+
+                {/* WhatsApp: el link abre el chat con el texto puesto, pero el
+                    sistema NO puede saber si se mandó. Por eso el registro es
+                    el botón de al lado, explícito. */}
+                {telefono.numero ? (
+                  <a
+                    href={linkWhatsApp(telefono.numero, texto)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-[34px] items-center gap-1.5 rounded-pill bg-ok px-3.5 text-[11px] font-bold text-white hover:opacity-90"
+                  >
+                    Abrir WhatsApp
+                  </a>
+                ) : (
+                  <Button icon="externo" disabled>
+                    Abrir WhatsApp
+                  </Button>
+                )}
+
+                {/* Siempre habilitado: es la salida cuando no hay contacto, y
+                    hoy son 304 equipos de 304. Un reclamo por teléfono o en la
+                    cancha también es un reclamo. */}
+                <Button
+                  variant="secondary"
+                  icon="check"
+                  loading={marcando}
+                  onClick={() =>
+                    conAccion(
+                      () =>
+                        registrarReclamo(
+                          datos,
+                          telefono.numero ? 'whatsapp' : 'manual',
+                          telefono.numero ?? null,
+                        ),
+                      'Reclamo registrado.',
+                      setMarcando,
+                    )
+                  }
+                >
+                  {telefono.numero ? 'Marcar como reclamado' : 'Marcar como reclamado (manual)'}
+                </Button>
+              </div>
+
+              {/* Cada canal deshabilitado dice POR QUÉ. "Sin email cargado" y
+                  el motivo del parser son accionables; un botón gris sin
+                  explicación no. */}
+              <p className="mt-2 text-[10.5px] text-muted">
+                {!email && 'Sin email cargado. '}
+                {!telefono.numero && `WhatsApp no disponible: ${telefono.motivo}. `}
+                {email && telefono.numero && 'Los dos canales están disponibles.'}
               </p>
+
+              {aviso && (
+                <p className="mt-3 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">{aviso}</p>
+              )}
+              {errorAccion && (
+                <p className="mt-3 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
+                  {errorAccion}
+                </p>
+              )}
+
+              <h2 className="mb-2 mt-8 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                Reclamos anteriores
+              </h2>
+              <DataTable
+                columns={COL_HISTORIAL}
+                rows={historial.map((r) => ({
+                  id: r.id,
+                  fecha: r.fecha,
+                  canal: badgeCanal(r.canal),
+                  monto_reclamado: r.monto_reclamado,
+                  cuotas: r.cuotas,
+                  destino: r.destino,
+                }))}
+                rowKey="id"
+                densidad="compacta"
+                maxHeight={300}
+                emptyMessage="A este equipo no se le reclamó todavía."
+              />
             </>
           )}
         </>
