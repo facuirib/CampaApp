@@ -42,6 +42,7 @@ function estadoCuota(codigo: string | null): CeldaBadge {
 interface FilaCuota {
   cuota_id: string
   cuota_numero: number | null
+  torneo: string | null
   vence_at: string | null
   monto: number | null
   pagado: number | null
@@ -51,6 +52,11 @@ interface FilaCuota {
 
 const COLUMNAS: ColumnDef<FilaCuota>[] = [
   { key: 'cuota_numero', label: 'Cuota', align: 'right', width: 70 },
+  // El torneo también está como título de la sección, y aun así va en la fila.
+  // El encabezado se pierde apenas la tabla scrollea: la cuota de la fila 30 no
+  // dice de qué torneo es, y con un equipo anotado en dos torneos —que ahora
+  // existe— eso es exactamente lo que hay que poder leer de un vistazo.
+  { key: 'torneo', label: 'Torneo', width: 132 },
   { key: 'vence_at', label: 'Vence', format: 'date', width: 110 },
   { key: 'monto', label: 'Monto', format: 'money', width: 128 },
   { key: 'pagado', label: 'Pagado', format: 'money', width: 128 },
@@ -115,6 +121,7 @@ export default async function CuentaCorrientePage({
         const filas: FilaCuota[] = suyas.map((c: CuotaRow) => ({
           cuota_id: c.cuota_id!,
           cuota_numero: c.cuota_numero,
+          torneo: c.torneo,
           vence_at: c.vence_at,
           monto: c.monto,
           pagado: c.pagado,

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
+import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { Badge, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
@@ -84,13 +85,36 @@ const BLOQUES: { genero: Genero; concepto: Concepto }[] = [
   { genero: 'femenino', concepto: 'partidos' },
 ]
 
-export default async function TarifarioPage() {
+export default async function TarifarioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ torneo?: string }>
+}) {
+  const { torneo: torneoParam } = await searchParams
   const supabase = await createClient()
+
+  // Los torneos primero: el elegido sale de la URL, y si no hay nada en la URL
+  // se usa el activo. La consulta de planes depende de cuál sea, así que esta
+  // va sola y no en el Promise.all de abajo.
+  const torneosRes = await supabase
+    .from('torneo')
+    .select('id, nombre, activo')
+    .order('anio', { ascending: false })
+    .order('nombre')
+
+  const torneos = torneosRes.data ?? []
+  const torneoElegido = torneoParam ?? torneos.find((t) => t.activo)?.id ?? torneos[0]?.id ?? null
 
   const [planesRes, lineasRes] = await Promise.all([
     supabase
       .from('plan_tarifa')
       .select('*, torneo(nombre)')
+      // Un tarifario es de UN torneo, y esto no estaba: la consulta filtraba
+      // sólo por `plan_tarifa.activo` —la bandera del PLAN, no la del torneo— y
+      // traía los planes de TODOS los torneos mezclados en la misma tabla,
+      // rotulados con el nombre del primero. Con un solo torneo cargado nunca
+      // se notó; con dos, la pantalla mentía.
+      .eq('torneo_id', torneoElegido ?? '')
       .eq('activo', true)
       .order('genero')
       .order('concepto')
@@ -98,13 +122,29 @@ export default async function TarifarioPage() {
     supabase.from('plan_tarifa_linea').select('*').order('linea_orden'),
   ])
 
-  const error = planesRes.error ?? lineasRes.error
+  const error = torneosRes.error ?? planesRes.error ?? lineasRes.error
   const planes = planesRes.data ?? []
   const lineas = lineasRes.data ?? []
 
-  // Un tarifario es de UN torneo. Decir "del torneo" sin nombrarlo se vuelve
-  // ambiguo apenas hay dos cargados, y ya hay dos.
-  const torneo = planes[0]?.torneo?.nombre ?? null
+  // Del torneo elegido, no del primer plan: si el torneo no tiene tarifario
+  // cargado, `planes` viene vacío y el encabezado tiene que decir igual de cuál
+  // está hablando — es la única forma de que "no hay tarifas" se entienda.
+  const torneo = torneos.find((t) => t.id === torneoElegido)?.nombre ?? null
+
+  const FILTROS: FiltroUrl[] = [
+    {
+      parametro: 'torneo',
+      label: 'Torneo',
+      // Sin opción vacía: un tarifario mezclado no significa nada. "Todos los
+      // torneos" mostraría dos precios distintos para el mismo concepto sin
+      // decir de quién es cada uno, que es justo el bug que esto arregla.
+      todos: 'Torneo…',
+      opciones: torneos.map((t) => ({
+        valor: t.id,
+        label: t.activo ? `${t.nombre} (en curso)` : t.nombre,
+      })),
+    },
+  ]
 
   return (
     <div className="pb-10">
@@ -120,9 +160,14 @@ export default async function TarifarioPage() {
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
 
+      {/* Se muestra siempre, también con un solo torneo: es lo que dice de cuál
+          es el tarifario que está abajo. Escondido hasta que haya dos, el día
+          que aparezca el segundo nadie sabría que la pantalla filtra. */}
+      <FiltrosUrl filtros={FILTROS} />
+
       {!error && planes.length === 0 && (
         <div className="rounded-md border border-line bg-white px-4 py-10 text-center text-[11px] text-muted">
-          No hay tarifas cargadas todavía.
+          {torneo ? `${torneo} no tiene tarifas cargadas.` : 'No hay tarifas cargadas todavía.'}
         </div>
       )}
 

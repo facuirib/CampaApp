@@ -218,6 +218,12 @@ Las migraciones 002 y 003 modificaron el modelo. Este documento refleja el estad
 
 **Deuda por equipo** (003). La deuda se consolida por tercero, no por torneo. `v_deuda_equipo` y `v_deuda_detalle`.
 
+> **Y por eso `v_deuda_equipo` no se puede filtrar por torneo** (`20260812160000`). No tiene `torneo_id`, y agregárselo sería peor: filtraría las FILAS dejando los MONTOS de todos los torneos sumados — un equipo que debe $10,5M en un torneo y $11,1M en otro aparecería, filtrado por el primero, mostrando $21,6M. Plausible y falso.
+>
+> La pregunta con el otro grano la contesta **`v_deuda_equipo_torneo`**: una fila por equipo **y torneo**, con los montos restringidos a ese torneo y los mismos criterios de impago y vencido. `/cobranza` usa una u otra según haya filtro.
+>
+> **Con una excepción que es puro concepto 5:** `saldo_a_favor` **no** se restringe al torneo. Un anticipo es del equipo y no tiene torneo — esa es su definición. Se repite en cada fila y **no se suma entre filas**; la pantalla lo muestra por fila y nunca lo totaliza.
+
 **Imputación elegida** (003). `sugerir_imputacion()` propone —priorizando el torneo en curso— e `imputar_pago()` guarda lo que eligió el operador. `imputar_pago_automatico()` queda deprecada: decidía sola en casos ambiguos y podía dejar a un equipo impago en el torneo en curso.
 
 **Anticipos** (003). El sobrante de un pago queda como saldo a favor del equipo. No expira ni se pierde al cambiar de torneo.
@@ -619,18 +625,38 @@ create table cuota (
 **Estado de cobranza — calculado, no almacenado:**
 
 ```sql
-create view v_estado_cuota as
-select c.*,
+create or replace view v_estado_cuota as
+select c.id, c.equipo_torneo_id, c.numero, c.vence_at, c.monto, c.pagado_at,
+  coalesce(i.imputado, 0)            as pagado,
+  c.monto - coalesce(i.imputado, 0)  as saldo,
+  j.id is not null and j.estado = 'suspendida' as jornada_suspendida,
   case
-    when c.pagado_at is not null            then 'al_dia'
-    when c.vence_at < current_date          then 'cuota_vencida'
-    when c.vence_at <= current_date + 7     then 'proxima_a_vencer'
-    else 'al_dia'
-  end as estado
-from cuota c;
+    when c.pagado_at is not null                                  then 'pagada'
+    when j.estado = 'suspendida'                                  then 'suspendida'
+    when coalesce(i.imputado,0) > 0 and c.vence_at < current_date  then 'parcial_vencida'
+    when coalesce(i.imputado,0) > 0                               then 'parcial'
+    when c.vence_at < current_date                                then 'vencida'
+    when c.vence_at <= current_date + 7                           then 'por_vencer'
+    else                                                               'al_dia'
+  end                                as estado,
+  et.torneo_id, t.nombre             as torneo
+from cuota c
+join equipo_torneo et on et.id = c.equipo_torneo_id
+join torneo t         on t.id  = et.torneo_id
+left join jornada j   on j.id  = c.jornada_id
+left join (select cuota_id, sum(monto) as imputado
+             from pago_imputacion group by cuota_id) i on i.cuota_id = c.id;
 ```
 
 No se usan tramos de antigüedad 30/60/90: el vencimiento lo define la modalidad de pago del equipo, así que la antigüedad genérica no significa nada acá.
+
+Tres cosas que el boceto original de este bloque no tenía y la vista sí:
+
+· **Los estados son siete, no tres.** Aparecieron `parcial` y `parcial_vencida` cuando se admitió imputación parcial, y `suspendida` con la gestión de jornadas (decisión 51): una cuota de un partido que no se jugó no vence.
+
+· **`pagado` y `saldo`**, derivados de `pago_imputacion`. Sin ellos, "cuánto falta de esta cuota" había que calcularlo afuera.
+
+· **`torneo_id` y `torneo`** (migración `20260812170000`). Era la base de toda la cobranza y no sabía de qué torneo era la cuota: había que joinear `equipo_torneo` para averiguarlo. Aditivo — las dos van al final, que es lo único que `create or replace view` permite, y su único consumidor SQL (`v_cashflow_comprometido`) selecciona por nombre.
 
 #### De línea del tarifario a cuota · B0
 

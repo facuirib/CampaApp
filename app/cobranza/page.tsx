@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/db/server'
+import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
+type FilaDeudaTorneo = Database['public']['Views']['v_deuda_equipo_torneo']['Row']
 
 interface Deudor {
   tercero_id: string
@@ -11,7 +13,16 @@ interface Deudor {
   deuda_vencida: number | null
   deuda_total: number | null
   vencimiento_mas_antiguo: string | null
-  torneos_con_deuda: number | null
+  /**
+   * Cuántos torneos, o cuántas cuotas.
+   *
+   * Sin filtro la pregunta útil es "¿en cuántos torneos debe?" —lo que avisa
+   * que el reclamo es por más de una cosa—. Filtrando por uno, ese número es
+   * siempre 1 y no dice nada: ahí lo que ubica el tamaño del reclamo es cuántas
+   * cuotas quedan. Es la misma columna con dos preguntas, y por eso el rótulo
+   * también cambia.
+   */
+  contexto: number | null
   saldo_a_favor: number | null
   email: string | null
 }
@@ -35,48 +46,94 @@ function estadoDeudor(vencida: number | null, aFavor: number | null): CeldaBadge
   return { estado: 'porVencer', label: 'Por vencer' }
 }
 
-const COLUMNAS: ColumnDef<Deudor>[] = [
-  { key: 'equipo', label: 'Equipo' },
-  { key: 'estado', label: 'Estado', format: 'badge' },
-  { key: 'deuda_vencida', label: 'Vencida', format: 'money', width: 118 },
-  { key: 'deuda_total', label: 'Deuda total', format: 'money', width: 128 },
-  { key: 'vencimiento_mas_antiguo', label: 'Vence desde', format: 'date', width: 108 },
-  { key: 'torneos_con_deuda', label: 'Torneos', align: 'right', width: 76 },
-  { key: 'saldo_a_favor', label: 'A favor', format: 'money', width: 108 },
-  { key: 'email', label: 'Email' },
-]
+function columnas(filtrado: boolean): ColumnDef<Deudor>[] {
+  return [
+    { key: 'equipo', label: 'Equipo' },
+    { key: 'estado', label: 'Estado', format: 'badge' },
+    { key: 'deuda_vencida', label: 'Vencida', format: 'money', width: 118 },
+    { key: 'deuda_total', label: 'Deuda total', format: 'money', width: 128 },
+    { key: 'vencimiento_mas_antiguo', label: 'Vence desde', format: 'date', width: 108 },
+    { key: 'contexto', label: filtrado ? 'Cuotas' : 'Torneos', align: 'right', width: 76 },
+    { key: 'saldo_a_favor', label: 'A favor', format: 'money', width: 108 },
+    { key: 'email', label: 'Email' },
+  ]
+}
 
-export default async function CobranzaPage() {
+export default async function CobranzaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ torneo?: string }>
+}) {
+  const { torneo: torneoElegido } = await searchParams
   const supabase = await createClient()
 
-  const [deudores, kpis, activo] = await Promise.all([
-    supabase
-      .from('v_deuda_equipo')
-      .select('*')
-      .order('deuda_vencida', { ascending: false })
-      .order('vencimiento_mas_antiguo', { ascending: true }),
+  const [torneosRes, kpis] = await Promise.all([
+    supabase.from('torneo').select('id, nombre, activo').order('anio', { ascending: false }),
     // La misma vista que alimentaba /cobranza/kpis, ahora acá.
     supabase.from('v_cobranza_kpi').select('*').order('nombre'),
-    supabase.from('torneo').select('id').eq('activo', true).order('nombre').limit(1).maybeSingle(),
   ])
 
-  const error = deudores.error ?? kpis.error ?? activo.error
+  const torneos = torneosRes.data ?? []
+  const activo = torneos.find((t) => t.activo) ?? null
 
-  // `v_cobranza_kpi` da una fila por torneo. El encabezado es del torneo en
-  // curso: se elige la fila, no se suman las filas.
-  const kpi = kpis.data?.find((k) => k.torneo_id === activo.data?.id) ?? kpis.data?.[0] ?? null
+  // ── De qué vista se lee ──────────────────────────────────────────────────
+  //
+  // Las dos contestan "cuánto debe este equipo", pero con grano distinto:
+  //
+  //   sin filtro → v_deuda_equipo, una fila por equipo con TODOS sus torneos
+  //                sumados. Es la pregunta de quien reclama: la deuda es del
+  //                equipo, no del torneo (concepto 5).
+  //
+  //   con filtro → v_deuda_equipo_torneo, una fila por equipo y torneo, con los
+  //                montos RESTRINGIDOS a ese torneo.
+  //
+  // No alcanzaba con filtrar la primera: no tiene torneo_id, y agregárselo
+  // habría filtrado las FILAS dejando los MONTOS totales. Un equipo que debe
+  // $10.5M en Clausura y $11.1M en Apertura aparecería, filtrado por Clausura,
+  // mostrando $21.6M — un número plausible y falso.
+  const deudores = torneoElegido
+    ? await supabase
+        .from('v_deuda_equipo_torneo')
+        .select('*')
+        .eq('torneo_id', torneoElegido)
+        .order('deuda_vencida', { ascending: false })
+        .order('vencimiento_mas_antiguo', { ascending: true })
+    : await supabase
+        .from('v_deuda_equipo')
+        .select('*')
+        .order('deuda_vencida', { ascending: false })
+        .order('vencimiento_mas_antiguo', { ascending: true })
 
-  const filas: Deudor[] = (deudores.data ?? []).map((f: FilaDeuda) => ({
+  const error = deudores.error ?? kpis.error ?? torneosRes.error
+
+  // `v_cobranza_kpi` da una fila por torneo. Se ELIGE la fila —la del torneo
+  // filtrado, o la del que está en curso—, no se suman las filas.
+  const kpi =
+    kpis.data?.find((k) => k.torneo_id === (torneoElegido ?? activo?.id)) ?? kpis.data?.[0] ?? null
+
+  const filas: Deudor[] = (deudores.data ?? []).map((f: FilaDeuda | FilaDeudaTorneo) => ({
     tercero_id: f.tercero_id!,
     equipo: f.equipo,
     estado: estadoDeudor(f.deuda_vencida, f.saldo_a_favor),
     deuda_vencida: f.deuda_vencida,
     deuda_total: f.deuda_total,
     vencimiento_mas_antiguo: f.vencimiento_mas_antiguo,
-    torneos_con_deuda: f.torneos_con_deuda,
+    contexto: 'torneos_con_deuda' in f ? f.torneos_con_deuda : f.cuotas_impagas,
     saldo_a_favor: f.saldo_a_favor,
     email: f.email,
   }))
+
+  const FILTROS: FiltroUrl[] = [
+    {
+      parametro: 'torneo',
+      label: 'Torneo',
+      todos: 'Todos los torneos',
+      opciones: torneos.map((t) => ({
+        valor: t.id,
+        label: t.activo ? `${t.nombre} (en curso)` : t.nombre,
+      })),
+    },
+  ]
 
   const tasa = kpi?.tasa_cobranza ?? 0
 
@@ -84,16 +141,25 @@ export default async function CobranzaPage() {
     <div className="pb-10">
       <header className="mb-6">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Deudores</h1>
+        {/* Sin filtro, la TABLA trae la deuda de todos los torneos que cada
+            equipo arrastre, pero los KpiCards son de UNO —`v_cobranza_kpi` es
+            por torneo—. Antes el subtítulo decía sólo el nombre del torneo en
+            curso, y con dos torneos cargados eso se lee como que la tabla es de
+            ese torneo. Son dos alcances distintos en la misma pantalla y hay
+            que decirlo, no elegir uno. */}
         <p className="mt-1 text-[12px] text-muted">
-          {kpi?.nombre
-            ? `${kpi.nombre} — equipos con deuda pendiente, ordenados por urgencia de reclamo.`
-            : 'Equipos con deuda pendiente, ordenados por urgencia de reclamo.'}
+          {torneoElegido
+            ? `${kpi?.nombre ?? 'Torneo'} — sólo la deuda de este torneo, ordenada por urgencia de reclamo.`
+            : 'Todos los torneos que cada equipo arrastre, ordenados por urgencia de reclamo.'}
+          {!torneoElegido && kpi?.nombre && <> Los indicadores de abajo son de {kpi.nombre}.</>}
         </p>
       </header>
 
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
+
+      <FiltrosUrl filtros={FILTROS} />
 
       {/* Tres tajadas que NO se pisan: `por_vencer` y `vencido` son disjuntas
           entre sí, y la tasa es un porcentaje. Ninguna contiene a otra, así que
@@ -132,9 +198,13 @@ export default async function CobranzaPage() {
       {/* Sin fila de total: ninguna vista da el total de exactamente lo que
           esta tabla lista. `v_cobranza_kpi` es por torneo y acá hay deuda de
           todos los torneos que cada equipo arrastre, así que un total pasado
-          desde ahí sería otro número. Sumarlo en el front, peor. */}
+          desde ahí sería otro número. Sumarlo en el front, peor.
+
+          Y con filtro tampoco: `saldo_a_favor` es del EQUIPO y no del torneo
+          —un anticipo no tiene torneo—, así que se repite en cada fila del
+          equipo y sumar esa columna lo contaría de más. */}
       <DataTable
-        columns={COLUMNAS}
+        columns={columnas(Boolean(torneoElegido))}
         rows={filas}
         rowKey="tercero_id"
         rowHref={(f) => `/cobranza/${f.tercero_id}`}
