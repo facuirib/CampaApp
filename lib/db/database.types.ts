@@ -2876,6 +2876,8 @@ export type Database = {
           cuerpo: string
           cuerpo_texto: string | null
           id: string
+          updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           asunto: string
@@ -2883,6 +2885,8 @@ export type Database = {
           cuerpo: string
           cuerpo_texto?: string | null
           id?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           asunto?: string
@@ -2890,6 +2894,8 @@ export type Database = {
           cuerpo?: string
           cuerpo_texto?: string | null
           id?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -4883,6 +4889,7 @@ export type Database = {
         Args: { p_dia_cancha_id: string }
         Returns: undefined
       }
+      email_usuario: { Args: { p_usuario_id: string }; Returns: string }
       generar_cuotas_instancia: {
         Args: { p_jornada_playoff_id: string }
         Returns: number

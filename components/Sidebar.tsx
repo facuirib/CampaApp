@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -11,6 +11,27 @@ export interface ItemNav {
   href: string
   label: string
   icon: NombreIcono
+  /**
+   * Sub-secciones. Con esto el ítem deja de ser un link y pasa a desplegar.
+   *
+   * Es el primer nivel anidado de la nav, y por eso se modela acá y no dentro
+   * de Configuración: el día que Catálogos o Societario necesiten sub-items,
+   * ya existe el patrón.
+   */
+  hijos?: SubItemNav[]
+}
+
+export interface SubItemNav {
+  href: string
+  label: string
+  /**
+   * Una sección planeada que todavía no existe.
+   *
+   * Se muestra en gris y NO navega. Es a propósito: anunciar lo que viene
+   * ubica al que busca —«acá va a estar»— sin mandarlo a un 404. Cuando la
+   * pantalla exista, se saca esta bandera y nada más.
+   */
+  pronto?: boolean
 }
 
 export interface GrupoNav {
@@ -33,9 +54,15 @@ export const GRUPOS: GrupoNav[] = [
     items: [{ href: '/', label: 'Inicio', icon: 'inicio' }],
   },
   {
+    // En el orden en que pasan las cosas: se anota el equipo, se arma el
+    // fixture, se le cobra, y al que no paga se le reclama. El tarifario va
+    // último porque es el catálogo del que sale todo lo anterior, no un paso.
     titulo: 'Torneo',
     items: [
+      { href: '/inscripciones', label: 'Inscripciones', icon: 'inscripciones' },
+      { href: '/calendario', label: 'Calendario', icon: 'calendario' },
       { href: '/cobranza', label: 'Cobranza', icon: 'cobranza' },
+      { href: '/reclamos', label: 'Reclamos', icon: 'reclamos' },
       { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario' },
     ],
   },
@@ -43,6 +70,7 @@ export const GRUPOS: GrupoNav[] = [
     titulo: 'Operación',
     items: [
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
+      { href: '/caja', label: 'Caja', icon: 'caja' },
       { href: '/arqueo', label: 'Arqueo', icon: 'arqueo' },
     ],
   },
@@ -52,7 +80,6 @@ export const GRUPOS: GrupoNav[] = [
       { href: '/proyeccion', label: 'Proyección', icon: 'proyeccion' },
       { href: '/resultados', label: 'Resultados', icon: 'resultados' },
       { href: '/movimientos', label: 'Movimientos', icon: 'movimientos' },
-      { href: '/auditoria', label: 'Auditoría', icon: 'auditoria' },
     ],
   },
   {
@@ -61,6 +88,26 @@ export const GRUPOS: GrupoNav[] = [
       { href: '/socios', label: 'Socios', icon: 'socios' },
       { href: '/sponsors', label: 'Sponsors', icon: 'sponsors' },
       { href: '/usd', label: 'USD', icon: 'usd' },
+    ],
+  },
+  {
+    titulo: 'Sistema',
+    items: [
+      // Auditoría estaba en Finanzas y no es plata: es quién tocó qué. Lo que
+      // audita son movimientos, sí, pero también altas de equipo, cambios de
+      // tarifario y ediciones de plantilla. Es del sistema.
+      { href: '/auditoria', label: 'Auditoría', icon: 'auditoria' },
+      {
+        href: '/configuracion',
+        label: 'Configuración',
+        icon: 'configuracion',
+        hijos: [
+          { href: '/configuracion/plantillas', label: 'Plantillas' },
+          { href: '/configuracion/categorias', label: 'Categorías de gasto', pronto: true },
+          { href: '/configuracion/cierres', label: 'Cierres de período', pronto: true },
+          { href: '/configuracion/usuarios', label: 'Usuarios', pronto: true },
+        ],
+      },
     ],
   },
 ]
@@ -74,7 +121,9 @@ export const GRUPOS: GrupoNav[] = [
  */
 export function hrefActivo(pathname: string, grupos: GrupoNav[] = GRUPOS): string | null {
   const candidatos = grupos
-    .flatMap((g) => g.items.map((i) => i.href))
+    // Los hijos entran en la comparación: estando en /configuracion/plantillas,
+    // el que gana por más largo es el hijo, no el padre.
+    .flatMap((g) => g.items.flatMap((i) => [i.href, ...(i.hijos ?? []).map((h) => h.href)]))
     .filter((href) =>
       href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`),
     )
@@ -149,12 +198,31 @@ function PieSesion({ email }: { email: string }) {
 export default function Sidebar({ email }: SidebarProps) {
   const pathname = usePathname()
   const [abierto, setAbierto] = useState(false)
+  const itemActivo = useRef<HTMLLIElement | null>(null)
+
+  const activo = hrefActivo(pathname)
+
+  // Traer a la vista el ítem de la pantalla en la que estás.
+  //
+  // La lista no entra entera en una laptop, así que estando en las últimas
+  // secciones —Configuración, por ejemplo— la nav cargaba mostrando el
+  // principio y el ítem activo quedaba abajo, fuera de cuadro: la barra no
+  // decía dónde estás, que es lo único que tiene que hacer.
+  //
+  // `block: 'nearest'` mueve lo mínimo indispensable: si el ítem ya se ve, no
+  // toca nada. Y `scrollIntoView` acá sólo mueve el contenedor que scrollea
+  // —el <nav>—, no la página.
+  useEffect(() => {
+    itemActivo.current?.scrollIntoView({ block: 'nearest' })
+  }, [activo])
 
   // /design/mobile se embebe en un iframe angosto dentro de /design para
   // mostrar el colapso a cards del DataTable. Ahí la navegación es ruido.
+  //
+  // Va DESPUÉS de los hooks: un `return` temprano antes de un `useEffect` los
+  // dejaría corriendo en distinto orden según la ruta, que es exactamente lo
+  // que las reglas de hooks prohíben.
   if (pathname.startsWith('/design/mobile')) return null
-
-  const activo = hrefActivo(pathname)
 
   return (
     <aside
@@ -163,7 +231,8 @@ export default function Sidebar({ email }: SidebarProps) {
         // Mobile: una franja arriba, en el flujo. Desktop: columna fija de
         // 256px que no scrollea con el contenido.
         'border-b border-line',
-        'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto',
+        // El que scrollea es la lista, no el sidebar: ver el <nav> de abajo.
+        'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-hidden',
         'md:border-b-0 md:border-r',
         // Columna flex para que el pie de sesión caiga abajo con `mt-auto`.
         'md:flex md:flex-col',
@@ -182,7 +251,17 @@ export default function Sidebar({ email }: SidebarProps) {
         </button>
       </div>
 
-      <nav className={`${abierto ? 'block' : 'hidden'} px-2 pb-4 md:block`}>
+      {/* La zona que scrollea es ESTA, no el <aside>.
+          Con veinte ítems la nav no entra en una laptop de 900px, y si
+          scrolleara el sidebar entero el pie de sesión —o sea "Cerrar
+          sesión"— quedaría abajo de todo, invisible hasta que alguien
+          scrollee la barra lateral, que es lo último que se le ocurre a
+          nadie. Acá el pie queda fijo y se mueve sólo la lista.
+          `min-h-0` es lo que le permite encogerse: sin eso, un hijo de flex
+          no baja de su alto de contenido y el overflow no llega a activarse. */}
+      <nav
+        className={`${abierto ? 'block' : 'hidden'} px-2 pb-4 md:block md:min-h-0 md:flex-1 md:overflow-y-auto`}
+      >
         {GRUPOS.map((grupo, i) => (
           <div key={grupo.titulo ?? 'inicio'} className={i > 0 ? 'mt-4' : ''}>
             {grupo.titulo && (
@@ -194,8 +273,12 @@ export default function Sidebar({ email }: SidebarProps) {
             <ul className="grid gap-0.5">
               {grupo.items.map((item) => {
                 const esActivo = item.href === activo
+                // Un padre con hijos se marca cuando la ruta cae en cualquiera
+                // de ellos: al estar en Plantillas, Configuración sigue activa.
+                const enLaRama = esActivo || (item.hijos ?? []).some((h) => h.href === activo)
+
                 return (
-                  <li key={item.href}>
+                  <li key={item.href} ref={enLaRama ? itemActivo : undefined}>
                     <Link
                       href={item.href}
                       aria-current={esActivo ? 'page' : undefined}
@@ -203,7 +286,7 @@ export default function Sidebar({ email }: SidebarProps) {
                       className={[
                         'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-[12.5px]',
                         'transition-colors',
-                        esActivo
+                        enLaRama
                           ? 'bg-blue-tint font-bold text-blue-d'
                           : // El inactivo va en --ink a 80%, no en gris lavado:
                             // la mejora de la decisión 7a era justamente que se
@@ -214,10 +297,58 @@ export default function Sidebar({ email }: SidebarProps) {
                       <Icon
                         name={item.icon}
                         size={16}
-                        className={esActivo ? 'shrink-0 text-blue' : 'shrink-0 text-muted'}
+                        className={enLaRama ? 'shrink-0 text-blue' : 'shrink-0 text-muted'}
                       />
                       {item.label}
                     </Link>
+
+                    {/* Las sub-secciones se muestran SIEMPRE, no al hacer clic.
+                        Con cuatro ítems y uno solo activo, un desplegable que
+                        haya que abrir esconde justamente lo que se está
+                        buscando. El sangrado y la línea alcanzan para que se
+                        lean como dependientes. */}
+                    {item.hijos && (
+                      <ul className="ml-[26px] mt-0.5 grid gap-0.5 border-l border-line pl-2">
+                        {item.hijos.map((hijo) =>
+                          hijo.pronto ? (
+                            <li
+                              key={hijo.href}
+                              // No es un link: no navega, no recibe foco y el
+                              // cursor lo dice. Mandar a un 404 sería peor que
+                              // no mostrarlo.
+                              //
+                              // Sin `aria-disabled`: no hay nada que
+                              // deshabilitar —un <li> no es interactivo— y el
+                              // atributo no aplica a ese rol. Quien lee con
+                              // lector de pantalla se entera por la etiqueta
+                              // "pronto", que es texto de verdad.
+                              className="flex cursor-not-allowed items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-[11.5px] text-disabled"
+                            >
+                              {hijo.label}
+                              <span className="shrink-0 rounded-pill bg-line2 px-1.5 py-px text-[8.5px] font-bold uppercase tracking-[.04em] text-muted">
+                                pronto
+                              </span>
+                            </li>
+                          ) : (
+                            <li key={hijo.href}>
+                              <Link
+                                href={hijo.href}
+                                aria-current={hijo.href === activo ? 'page' : undefined}
+                                onClick={() => setAbierto(false)}
+                                className={[
+                                  'block rounded-sm px-2.5 py-1.5 text-[11.5px] transition-colors',
+                                  hijo.href === activo
+                                    ? 'font-bold text-blue-d'
+                                    : 'font-semibold text-ink/70 hover:bg-row-hover hover:text-ink',
+                                ].join(' ')}
+                              >
+                                {hijo.label}
+                              </Link>
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    )}
                   </li>
                 )
               })}

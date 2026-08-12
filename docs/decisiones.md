@@ -1131,6 +1131,46 @@ Con dos consecuencias que se resolvieron en el mismo trabajo:
 
 ---
 
+**`email_usuario()` es `security definer` y expone `auth.users.email` a
+cualquier `authenticated`.** Es una decisión de acceso tomada a conciencia, no
+un descuido, y está atada al pendiente de RLS de más arriba.
+
+*El problema.* `plantilla_mail` guarda `updated_by uuid` para poder contestar
+quién cambió el texto que se le manda a 300 equipos. Pero un uuid no le dice
+nada a nadie, y `authenticated` **no puede leer `auth.users`** —da "permission
+denied for table users"—, así que resolverlo a un email desde la app es
+imposible sin cruzar esa pared. Es la misma pared que hizo caer el fallback de
+`crear_asiento` (decisión del bloque 10 mínimo), y la razón por la que
+`/auditoria` muestra hoy los primeros ocho caracteres del uuid en vez de un
+nombre.
+
+*La forma elegida.* Una función `security definer` con `search_path` fijo, un
+solo dato de salida —el email— y `execute` únicamente para `authenticated`. Es
+lo más chico que resuelve el caso: no da acceso a la tabla, sólo contesta una
+pregunta puntual.
+
+> **`revoke ... from public` NO alcanza.** Supabase tiene *default privileges*
+> que le dan `execute` a `anon` y a `authenticated` sobre toda función nueva de
+> `public`, y son grants directos a esos roles, no al pseudo-rol `PUBLIC`.
+> Verificado con `has_function_privilege` **después** de aplicar: sin un
+> `revoke ... from anon` explícito, `anon` podía ejecutarla — o sea que
+> cualquiera con la anon key, sin loguearse, obtenía el email de un usuario a
+> partir de su uuid. La migración lleva los dos revoke.
+
+*Qué queda para revisar con RLS.* Hoy **cualquier logueado ve el email de
+cualquier otro**. Con cinco personas de la comisión eso es lo que se quiere: la
+pregunta "¿quién tocó esto?" no se contesta con `a1b2c3d4`. Cuando llegue RLS
+—o cuando entre al sistema gente que no es de la comisión— hay que decidir
+**quién puede ver el email de quién**, y esta función es el primer lugar donde
+mirar.
+
+*Y el corolario útil:* cuando eso se resuelva, **`/auditoria` puede usar
+`email_usuario()`** y dejar de mostrar uuids recortados. La herramienta ya
+está; no se cambió esa pantalla en el mismo commit a propósito, para no mezclar
+carriles.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**

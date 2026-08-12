@@ -11,6 +11,7 @@ import {
   IconChartBar,
   IconChartLine,
   IconCheck,
+  IconClipboardList,
   IconChevronDown,
   IconChevronRight,
   IconClock,
@@ -27,6 +28,8 @@ import {
   IconReceipt,
   IconRefresh,
   IconSearch,
+  IconSend,
+  IconSettings,
   IconShieldCheck,
   IconTag,
   IconTrash,
@@ -52,6 +55,8 @@ import {
  */
 const ICONOS = {
   alerta: IconAlertTriangle,
+  reclamos: IconSend,
+  inscripciones: IconClipboardList,
   inicio: IconHome,
   cobranza: IconCash,
   tarifario: IconTag,
@@ -60,6 +65,7 @@ const ICONOS = {
   resultados: IconChartBar,
   movimientos: IconArrowsExchange,
   auditoria: IconShieldCheck,
+  configuracion: IconSettings,
   socios: IconUserHeart,
   sponsors: IconBuildingStore,
   usd: IconCurrencyDollar,

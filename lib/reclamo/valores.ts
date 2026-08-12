@@ -1,4 +1,5 @@
 import { formatDate, formatMoney } from '@/lib/format'
+import type { Placeholder } from './plantilla'
 
 /**
  * Los datos que la plantilla necesita, armados una sola vez.
@@ -45,7 +46,7 @@ export function armarValores(
   equipo: string,
   montoTotal: number,
   cuotas: CuotaReclamada[],
-): Record<string, string> {
+): Record<Placeholder, string> {
   return {
     equipo,
     cantidad: armarCantidad(cuotas.length),
@@ -53,3 +54,20 @@ export function armarValores(
     detalle: armarDetalle(cuotas),
   }
 }
+
+/**
+ * El equipo de muestra del preview de configuración.
+ *
+ * Fijo y no traído de la base: quien edita la plantilla tiene que ver siempre
+ * lo mismo, para comparar antes y después de su cambio. Con datos reales, el
+ * preview cambiaría solo cuando alguien cobra una cuota.
+ */
+export const VALORES_EJEMPLO: Record<Placeholder, string> = armarValores(
+  'Equipo Ejemplo',
+  1240000,
+  [
+    { cuotaLabel: 'Cuota 1', torneo: 'Clausura 2026', vence_at: '2026-07-10', saldo: 400000 },
+    { cuotaLabel: 'Cuota 2', torneo: 'Clausura 2026', vence_at: '2026-08-01', saldo: 350000 },
+    { cuotaLabel: 'Cuota 3', torneo: 'Clausura 2026', vence_at: '2026-08-08', saldo: 490000 },
+  ],
+)
