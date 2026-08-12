@@ -1,0 +1,42 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Plan de cuentas · 3.3 · borrar `DEUDORES`
+--
+-- `DEUDORES` («Deudores por servicios») nació para el devengo de ingresos: se
+-- armaba la ficha, se devengaba la deuda del equipo contra esta cuenta, y el
+-- cobro la cancelaba.
+--
+-- **Ese modelo se descartó.** Con percibido puro (§1.b, concepto 1 de
+-- CLAUDE.md) el único evento que genera ingreso es el cobro: `Caja` al debe e
+-- `Ingresos` al haber, sin `Deudores` en el medio. Lo que un equipo debe no
+-- vive en el libro diario, vive en `cuota`.
+--
+-- Así que la cuenta no espera ningún circuito por construir —como sí esperan
+-- `CAJA_CENTRAL`, `VALORES_A_DEPOSITAR` o `BIENES_USO`—: quedó sin sentido al
+-- cambiar el modelo, y es la única del plan en esa situación.
+--
+-- ── Verificado que está huérfana ───────────────────────────────────────────
+--
+-- Las cuatro tablas que referencian `cuenta` —`asiento_linea`, `caja`,
+-- `cat_gasto` y `cuenta.padre_id`— están en CERO para esta cuenta.
+--
+-- Y `'DEUDORES'` como literal exacto no aparece en ninguna función ni vista.
+-- Las tres que lo mencionaban —`v_estado_sponsor`, `crear_contrato_sponsor`,
+-- `registrar_cobro_sponsor`— usan `DEUDORES_SPONSORS`, que es otra cuenta y no
+-- se toca. Por eso el `where` va por `codigo` exacto y no por `like`.
+--
+-- Sin `cascade`: no hay nada colgando, y si lo hubiera queremos que falle.
+--
+-- ── La otra mitad de este cambio está fuera de la migración ────────────────
+--
+-- `supabase/seed.sql` crea esta cuenta (era su única alta en todo el repo).
+-- Borrar la fila acá y dejar la línea allá haría que el plan de cuentas de la
+-- base y el del repo dijeran cosas distintas. **La línea se saca del seed en
+-- el mismo commit.**
+--
+-- No corre ningún riesgo inmediato —nada ejecuta `seed.sql`: no hay
+-- `config.toml`, y el flujo del README lista 3 de las 54 migraciones— pero es
+-- de donde saldrían las cuentas el día que alguien reconstruya. Ver la entrada
+-- de reproducibilidad en `decisiones.md § Abiertas`.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+delete from cuenta where codigo = 'DEUDORES';

@@ -1171,6 +1171,147 @@ carriles.
 
 ---
 
+**Reordenamiento del plan de cuentas.** El plan había crecido por acumulación:
+categorías duplicadas, gastos clasificados bajo cuentas que no les
+correspondían, y una cuenta que el cambio de modelo había dejado sin sentido. Se
+reordenó en tres pasos, de menor a mayor riesgo, cada uno ensayado con
+`begin`/`rollback` antes de aplicar.
+
+**El principio que ordenó todo:** *un renombre o un cambio de `cat_gasto` no
+toca el libro diario.* `registrar_gasto` resuelve la cuenta del asiento desde
+`cat_gasto.cuenta_id`, así que mientras la cuenta no cambie, el asiento no se
+entera. Por eso la verificación de cada paso fue la misma —que el total de la
+cuenta afectada no se moviera— y por eso la regla 4 nunca entró en juego: no se
+editó ningún asiento, se reclasificaron gastos.
+
+*Grupo 1 · renombres y limpieza.* «Extras» existía **dos veces** —en `GAS_BAR` y
+en `GAS_FECHA`— y en la matriz del P&L habrían sido dos filas idénticas sin
+nada que las distinga: pasaron a «Extras Bar» y «Otros Gastos Fecha».
+«Mantenimiento» → «Mantenimiento Predio» y «Mantenimiento - Personal» →
+«Sueldos Predio», que convivían y no se distinguían. Se borraron los 7 conceptos
+de «Viáticos» —duplicaban categorías que ya existen por su cuenta:
+Estacionamiento, Guardias y Limpieza son de `GAS_PREDIO`— y la categoría
+«Mantenimiento eventual», que nunca se usó: lo eventual es la `naturaleza` del
+gasto, no una categoría aparte.
+
+> Los `update` van acotados por `cuenta_id`, y no es defensivo: con dos «Extras»
+> que se renombran distinto, un `where nombre = 'Extras'` los pisa a los dos.
+
+*Grupo 2 · categorías que cambiaron de cuenta.* `GAS_SUELDOS` tenía adentro
+cosas que no son sueldos: «Impositivos» (IVA, IIBB, F931, UTEDYC…) y «Planes de
+Pago» (ARCA, Municipalidad, Rentas) se fueron a `GAS_IMPUESTOS`, que estaba
+vacía; «Nafta» a `GAS_PREDIO`. Las tres tenían **0 gastos y 0 líneas de
+presupuesto**, así que nada histórico se reclasificó.
+
+> **El riesgo de este grupo no estaba en la cuenta sino en el `area`:**
+> `cat_gasto` tiene `unique (area, nombre)` —por ÁREA, no por cuenta—, que es
+> además la razón por la que los dos «Extras» podían convivir. «Nafta» fue la
+> única que cambió de área y se verificó que no chocara.
+>
+> Impositivos y Planes de Pago **no** cambiaron de área: `area` sólo admite
+> torneo, predio, bar y administración, y los impuestos son administración. La
+> cuenta dice *qué* gasto es; el área, *de qué parte del negocio* sale la plata.
+> Son los dos ejes del concepto 4, y sólo uno se movió.
+
+*Grupo 3 · lo delicado.* «Alquiler» y «Alquileres» eran la misma cosa con dos
+criterios de subdivisión —género y lugar—: **queda el de lugar**, porque se
+alquila un predio, no un género. Los 2 gastos y la línea de presupuesto se
+reapuntaron **antes** de borrar: `concepto_gasto` tiene `on delete cascade`
+desde `cat_gasto`, pero la FK de `gasto` no, así que un borrado prematuro habría
+fallado — que es lo correcto. `GAS_PREDIO` quedó en $2.227.000 antes y después.
+
+Y se borró **`DEUDORES`**: nació para el devengo de ingresos, y con percibido
+puro ese modelo no existe —lo que un equipo debe vive en `cuota`, no en el
+diario—. Es la única cuenta del plan que no esperaba ningún circuito por
+construir. Verificada huérfana en las cuatro tablas que referencian `cuenta`, y
+sacada también de `supabase/seed.sql`, que era su única alta en el repo.
+
+> **Las dos «naftas» quedan separadas a propósito.** «Nafta» (categoría, con
+> «Nafta Agus» y «Nafta Guille») es combustible de los autos; «Nafta maquinaria»
+> (concepto dentro de «Mantenimiento Predio») es del equipamiento. Son cosas
+> distintas y el parecido de los nombres no las hace duplicados.
+
+---
+
+**El sueldo de cada socio en el P&L sale de `tercero_id`, no de un concepto de
+gasto.** Y por eso **no se deben crear conceptos de sueldo de socio en
+`cat_gasto` / `concepto_gasto`**.
+
+*Cómo apareció.* «Agus» y «Guille» estaban cargados **dos veces**: como
+`tercero` tipo `socio` —con sueldo acordado, devengos y $9.450.000 asentados
+contra `GAS_SOCIOS`— y como `concepto_gasto` de «Sueldos administrativos», bajo
+`GAS_SUELDOS`. Nada impedía cargar un gasto contra el concepto: el sueldo habría
+quedado contado dos veces, en dos cuentas, por dos circuitos que no se hablan.
+No llegó a pasar porque ningún gasto usa `concepto_id` todavía.
+
+*Por qué el concepto no es el lugar.* `devengar_sueldos_socios` **no crea un
+`gasto`**: llama a `crear_asiento` directo, con `GAS_SOCIOS` al debe y
+`tercero_id` = el socio. Los asientos de la cuenta tienen `origen_id` en null y
+no hay ningún `gasto` que apunte a `GAS_SOCIOS`. Y `asiento_linea` no tiene
+columna de concepto: es `(asiento_id, cuenta_id, debe, haber, tercero_id)`. El
+concepto llega al diario sólo por `asiento.origen_id → gasto → cat_gasto`, y el
+módulo de socios no pasa por ahí.
+
+Entonces un concepto «Sueldo Agus» sería un lugar que **nadie escribe nunca** —
+el devengo mensual no lo mira— y que **cualquiera puede cargar a mano** desde
+`/gastos`. Es la misma duplicación, mudada de cuenta.
+
+*Lo que sí resuelve la pregunta.* «Ver el sueldo de cada socio por separado» se
+contesta **agrupando `asiento_linea` por `tercero_id`**, que ya está en cada
+línea que el devengo escribe. El expandible de `GAS_SOCIOS` en Resultados sale
+de ahí, no del catálogo — y como el dato es el que el propio asiento guarda, no
+se puede desincronizar.
+
+> Es la tercera de las tres opciones que se habían planteado para el ítem de
+> sueldos (`tercero` tipo empleado · tabla `empleado` · derivar de
+> `tercero_id`). Para **socios** queda decidida acá. Para los **empleados** que
+> hoy son conceptos a mano —Augusto, Estudio contable, Jero, Mati, Rodri, Yas—
+> sigue abierta: ninguno tiene otro circuito, así que el concepto no miente,
+> pero tampoco hay un padrón de empleados del que salgan.
+
+---
+
+**Los financieros entran al P&L, pero en el rediseño de Resultados — no antes.**
+`FIN_DIF_CAMBIO` tiene **$244.500** de resultado que hoy no aparece en ninguna
+pantalla: las tres vistas de resultado filtran `tipo in ('ingreso','egreso')` y
+lo dejan fuera. Una diferencia de cambio es resultado del ejercicio y tiene que
+verse.
+
+*El signo.* Para una cuenta de resultado, **haber = ganancia**: la fórmula es
+`haber − debe`, la misma que un ingreso. Una diferencia desfavorable va al debe
+y resta sola, sin condicionales.
+
+*La reconciliación, verificada:*
+
+| | |
+|---|---|
+| Ingresos (cobrados) | $23.012.000 |
+| Egresos (devengados) | $25.437.000 |
+| **Resultado operativo** | **−$2.425.000** |
+| Diferencia de cambio | **+$244.500** |
+| **Resultado con financieros** | **−$2.180.500** |
+
+*Por qué se movió al rediseño y no se hizo con el reordenamiento.* Se intentó, y
+las dos mitades no cerraban:
+
+· **`v_dashboard` no es el lugar.** Su `resultado` filtra `a.torneo_id = t.id`:
+  es por TORNEO, no de la empresa. Y los asientos financieros tienen
+  `torneo_id` **null** —una ganancia por tenencia de dólares no es de un
+  torneo—, así que agregar `'financiero'` a su array **no habría cambiado un
+  solo número**. Una migración sobre la pantalla de inicio que no hace nada es
+  el peor tipo de cambio: riesgo sin beneficio.
+
+· **`v_resultado_producto` y `v_comparador_torneos` se van, pero las usa
+  `/resultados`.** Dropearlas antes de que exista el reemplazo deja la pantalla
+  rota por tiempo indefinido.
+
+*Entonces:* la vista de P&L **a nivel empresa** que el rediseño va a crear nace
+incluyendo `financiero` desde el principio, y en ese mismo commit se dropean las
+dos vistas por-torneo, sin ventana rota. `v_dashboard` no se toca — y eso deja
+de ser deuda, porque no es su lugar.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
@@ -1183,6 +1324,77 @@ Pendientes de definir con el cliente. **No inventar la respuesta:**
 ### Técnicas
 
 No dependen del cliente; se resuelven entre nosotros.
+
+**⚠ La base NO se puede reconstruir desde `supabase/migrations/`.** Es la deuda
+más seria de las abiertas, y se descubrió relevando si `seed.sql` seguía vivo
+(reordenamiento del plan de cuentas, 3.3).
+
+Corriendo las 54 migraciones sobre una base limpia, el plan de cuentas queda con
+**unas 5 cuentas en vez de 29**. `001_schema.sql` crea la tabla `cuenta` y
+**ninguna fila**: verificado, cero `insert into cuenta`. Las únicas altas en
+migraciones son `GAS_SOCIOS`, `SOCIOS_A_PAGAR`, `DEUDORES_SPONSORS`,
+`INGRESO_DIFERIDO` y `CAJA_CENTRAL`, cada una en la suya.
+
+**Las otras trece —todas las de ingreso, casi todas las de egreso y las tres
+cajas— viven sólo en `supabase/seed.sql`**, que ningún automatismo ejecuta:
+
+· **No hay `supabase/config.toml`.** No es que le falte `[db.seed]`: el archivo
+  no existe, así que `supabase start` y `supabase db reset` no tienen entorno
+  local que levantar. El CLI se usa sólo linkeado a la base hosted, para
+  `gen types` y aplicar migraciones.
+
+· **El README documenta un flujo con `psql` que lista 3 migraciones** —`001`,
+  `002`, `003`— más `seed.sql`. Hay **54** en el repo. Está desactualizado por
+  51 y no reconstruye nada desde hace meses. (`arquitectura.md` §3.3 citaba
+  además un `campa_schema.sql` que no existe; corregido al reordenar el plan.)
+
+**La falla es silenciosa**, que es lo peor: aplicar las migraciones no da ningún
+error. Rompe después, en el primer `crear_asiento`, con "cuenta no encontrada" —
+un mensaje que habla de una cuenta y no de que falta medio plan.
+
+Choca de frente con el checklist de CLAUDE.md, *"si tocaste SQL: la migración
+corre sobre base limpia"*: **la línea de base misma no es reproducible**. No se
+notó nunca porque no hay entorno local — todo se aplicó incremental sobre la
+hosted, donde las cuentas ya estaban desde el primer día.
+
+*Opciones, para decidir después:*
+
+- **(a) Una migración que siembre el plan de cuentas** con `on conflict do
+  nothing`. Lo vuelve reproducible **sin tocar la base hosted**: sobre la
+  existente no hace nada, sobre una limpia lo crea. Es la que menos riesgo
+  tiene.
+- **(b) Formalizar `seed.sql` como parte del arranque** y arreglar el README.
+  Más barato de escribir, pero deja el plan de cuentas partido entre dos
+  fuentes y depende de que alguien se acuerde de correr el seed.
+
+*Cuándo:* **ahora es el momento.** El reordenamiento del plan de cuentas ya
+cerró (28 cuentas, categorías reordenadas), así que la foto final está quieta:
+una migración que la siembre con `on conflict do nothing` la deja consolidada,
+en vez de ser el resultado de un seed viejo más cinco migraciones de
+corrección. Cuanto más se demore, más larga es la cadena a replicar.
+
+---
+
+**Los sueldos de empleados son seis nombres escritos a mano, sin padrón detrás.**
+«Sueldos administrativos» tiene como conceptos a Augusto, Estudio contable,
+Jero, Mati, Rodri y Yas. Ninguno es `tercero`, ninguno tiene otro circuito que
+lo pague, y ninguno tiene gastos ni presupuesto cargados — o sea que **hoy no
+duplican nada**. (Los que sí duplicaban, Agus y Guille, se sacaron: eran socios
+con su propio devengo.)
+
+Pero que no dupliquen no los hace un buen modelo. Son texto libre en un catálogo:
+nada impide escribir el mismo nombre dos veces con distinta grafía, ni
+relacionarlos con quien efectivamente cobra. «Mati» además existe como usuario
+del sistema (`mati@campa.local`) sin ninguna relación entre los dos registros.
+
+*Las tres opciones,* de menor a mayor: un `tercero` tipo `empleado`; una tabla
+`empleado` con sueldo versionado, espejo de `sueldo_socio`; o que el ítem del
+P&L salga de `asiento_linea.tercero_id`, como ya quedó decidido para socios.
+
+*Cuándo:* cuando se cargue el primer gasto de sueldo de verdad. Hasta entonces
+son inofensivos, y elegir sin saber cómo se van a pagar sería adivinar.
+
+---
 
 **Política de ejercicios futuros.** Hoy el ejercicio se carga a mano: hay un
 seed para 2026 (`supabase/seeds/00_ejercicio_2026.sql`) y nada más.

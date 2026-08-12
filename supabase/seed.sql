@@ -6,7 +6,10 @@ insert into cuenta (codigo,nombre,tipo) values
   ('CAJA_TRANSFERENCIA','Caja Transferencia','activo'),
   ('CAJA_USD','Caja USD','activo'),
   ('VALORES_A_DEPOSITAR','Valores a depositar','activo'),
-  ('DEUDORES','Deudores por servicios','activo'),
+  -- `DEUDORES` se sacó acá y de la base (migración 20260812230000). Con
+  -- percibido puro no hay devengo de ingresos: lo que un equipo debe vive en
+  -- `cuota`, no en el diario. No espera ningún circuito — quedó sin sentido
+  -- al cambiar el modelo.
   ('BIENES_USO','Bienes de uso','activo'),
   ('AMORT_ACUM','Amortización acumulada','activo'),
   ('FONDO_INVERSION','Fondo de inversión','activo'),

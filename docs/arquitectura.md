@@ -504,7 +504,31 @@ Total 16 ✓ — `3 + 8 + 5`.
 
 **Por qué dos ejes y no uno.** El modelo anterior usaba `grupo ∈ {fecha, recurrente, bar}`, que mezclaba temporalidad con área. El sueldo del encargado de bar es recurrente y de área bar; el hielo de la jornada es por fecha y de área bar; una heladera es inversión y de área bar. Los tres caían en `grupo='bar'` y no se podían presupuestar con la lógica correcta.
 
-Ver `campa_schema.sql` §3 para el DDL y `seed.sql` para el contenido completo.
+Ver `001_schema.sql` para el DDL de `cat_gasto`. El contenido del catálogo vive hoy repartido: las cuentas base en `supabase/seed.sql` y las nuevas en sus propias migraciones — ver la deuda de reproducibilidad en `decisiones.md § Abiertas`.
+
+> *Esta línea citaba un `campa_schema.sql` que **no existe** en el repo. Corregida al reordenar el plan de cuentas.*
+
+#### El plan de cuentas, después del reordenamiento
+
+**28 cuentas**, en un árbol de **un solo nivel**: `cuenta.padre_id` existe y no se usa —ninguna fila lo tiene— y todas son `imputable`. La jerarquía de egresos no vive en `cuenta` sino en tablas satélite: `cuenta → cat_gasto → concepto_gasto`.
+
+| Cuenta | Categorías (`cat_gasto`) |
+|---|---|
+| `GAS_FECHA` | 9 — Arbitros Femenino · Arbitros Masculino · Coordinación · Media · Medicinal · Operativos · **Otros Gastos Fecha** · Tribunal · Viáticos |
+| `GAS_PREDIO` | 10 — **Alquileres** · Compras e insumos de predio · Equipamiento · Estacionamiento · Guardias · Limpieza · **Mantenimiento Predio** · **Nafta** · Seguridad · Servicios |
+| `GAS_BAR` | 8 — Activaciones · Encargado de bar · **Extras Bar** · Limpieza · Personal · Productos · Proveedores · Sistema y equipamiento |
+| `GAS_SUELDOS` | 3 — Administración · Sueldos administrativos · **Sueldos Predio** |
+| `GAS_IMPUESTOS` | 2 — **Impositivos** · **Planes de Pago** |
+| `GAS_SOCIOS` | **0** — su ítem es el socio, vía `tercero_id` (ver `decisiones.md`) |
+| `GAS_AMORT` | **0** — espera el módulo de Activos |
+
+*En negrita, lo que cambió en el reordenamiento.*
+
+**Ingresos: 4 cuentas, sin segundo nivel.** `ING_PARTIDOS`, `ING_INSCRIPCIONES`, `ING_BAR`, `ING_SPONSORS`. Es una decisión, no un pendiente: con percibido puro no se distinguen sub-conceptos de ingreso, así que el expandible del P&L existe sólo en egresos.
+
+**Financiero: 2 cuentas** —`FIN_DIF_CAMBIO`, `FIN_RENDIMIENTOS`— que **hoy quedan fuera del P&L** porque las vistas de resultado filtran `tipo in ('ingreso','egreso')`. Entran en el rediseño de Resultados.
+
+**`DEUDORES` ya no existe.** Con percibido puro no hay devengo de ingresos: lo que un equipo debe vive en `cuota`, no en el diario.
 
 **Normalizaciones aplicadas al importar:**
 
