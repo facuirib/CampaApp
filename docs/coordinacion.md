@@ -54,7 +54,7 @@ Es una capacidad nueva que cruza tres carriles —infra (bucket y políticas),
 modelo (tabla o columna), escritura (el upload en el formulario) y display
 (mostrar y descargar)— pero eso no es lo que la frena.
 
-**Lo que la frena es la seguridad.** Con RLS apagado en las 47 tablas y la anon
+**Lo que la frena es la seguridad.** Con RLS apagado en las 48 tablas y la anon
 key en el bundle del navegador, un bucket mal configurado deja las facturas del
 club —CUIT, razón social, montos— accesibles a cualquiera con la URL. **Va
 después de RLS**, o con bucket privado y URLs firmadas desde el servidor.

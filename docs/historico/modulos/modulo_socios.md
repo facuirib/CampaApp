@@ -84,7 +84,7 @@ Saldo a favor del socio = saldo de SOCIOS_A_PAGAR imputado a ese socio
   empresa.]]
 - SOCIOS_A_PAGAR (tipo pasivo) — el pasivo devengado no retirado.
 
-El tipo de cuenta decide el P&L solo (v_resultado_producto filtra ingreso/egreso).
+El tipo de cuenta decide el P&L solo (el P&L filtra por cuenta.tipo).
 GAS_SOCIOS como egreso aparece; si fuera patrimonio no aparecería. No se toca ninguna
 vista.
 

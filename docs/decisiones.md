@@ -665,13 +665,11 @@ no como distribución de utilidad.
 *Costo de la EMPRESA, no del torneo:* el asiento va con **`torneo_id = NULL`**, a
 nivel estructura permanente (§3.2). El sueldo existe todos los meses, haya torneo
 o no; imputarlo a uno exigiría prorratearlo entre los que corren ese mes, que es
-exactamente el criterio arbitrario que la **decisión 5** prohíbe. En
-`v_resultado_producto` cae bajo "Estructura permanente": la contribución de cada
-torneo queda intacta y lo que baja es el resultado de la empresa.
-*Cómo se implementa el P&L:* solo con el tipo de cuenta.
-`v_resultado_producto` filtra `c.tipo in ('ingreso','egreso')`, así que
-`GAS_SOCIOS` entra y baja la contribución, y `SOCIOS_A_PAGAR` no aparece por ser
-pasivo. **Ninguna vista se toca.** Si la cuenta fuera `patrimonio` —valor que el
+exactamente el criterio arbitrario que la **decisión 5** prohíbe. Baja el resultado de la **empresa**, que desde el rediseño de Resultados es el
+único que se mira: no hay vista que parta el resultado por torneo.
+*Cómo se implementa el P&L:* solo con el tipo de cuenta. El P&L filtra por
+`cuenta.tipo`, así que `GAS_SOCIOS` entra y baja el resultado, y
+`SOCIOS_A_PAGAR` no aparece por ser pasivo. **Ninguna vista se toca.** Si la cuenta fuera `patrimonio` —valor que el
 CHECK admite y que hoy no usa nadie— simplemente no aparecería.
 *Cuenta propia y no `GAS_SUELDOS`:* el total del P&L es el mismo, pero separarlas
 permite leer el sueldo operativo aparte del de los dueños, que es justo la
@@ -764,10 +762,10 @@ de la cuota teórica: el pasivo cierra exacto por construcción.
 Todos los asientos con **`torneo_id = NULL`**, igual que los sueldos de socios.
 *Por qué:* el contrato es **anual y cubre los dos torneos**; imputarlo a uno
 exigiría el prorrateo que la decisión 5 prohíbe.
-*Consecuencia a tener presente al leer las pantallas:* el ingreso de sponsors
-**no entra en la contribución de ningún torneo** — aparece bajo "Estructura
-permanente", y `v_comparador_torneos` compara torneos **sin** ingresos de
-sponsor. Es correcto y deliberado, pero sorprende si no se sabe.
+*Consecuencia a tener presente:* el ingreso de sponsors **no es de ningún
+torneo** — el contrato es anual y los cubre a los dos. Desde que el resultado se
+mira a nivel empresa esto dejó de exigir una advertencia de lectura: en
+`/resultados` es una fila de ingresos como cualquier otra.
 *Cuenta de deudores propia y no la `DEUDORES` genérica:* ésa se diseñó para
 equipos y la **decisión 1 la sacó de juego** —bajo percibido puro, lo que un
 equipo debe no está en el diario—. Reusarla resucitaría un concepto retirado a
@@ -851,9 +849,11 @@ desde el schema inicial, sin uso. **El código es `FIN_DIF_CAMBIO`**, no
 `DIFERENCIA_CAMBIO`.
 
 **82 · Hace falta una vista de resultado de cambio, porque hoy no se ve**
-`FIN_DIF_CAMBIO` es `financiero`, así que `v_resultado_producto` **no la toma** —
-filtra `ingreso`/`egreso`. Eso es correcto y deliberado (decisión 12: una suba
-del dólar no debe leerse como que el torneo funcionó mejor).
+`FIN_DIF_CAMBIO` es `financiero` y durante meses **ninguna vista de resultado la
+tomaba**: se registraba sin aparecer en pantalla. *Resuelto:* entra al P&L en su
+propio bloque, separada de los ingresos operativos — que es lo que pedía la
+decisión 12 (una suba del dólar no debe leerse como que el torneo funcionó
+mejor).
 *El problema:* la "línea aparte" donde debería verse **no existe**. Ninguna vista
 lee `FIN_DIF_CAMBIO`, así que hoy la diferencia de cambio se registraría y no
 aparecería en ninguna pantalla.
@@ -1087,7 +1087,7 @@ ningún usuario recorre.
 > no está.
 
 > **⚠ Esto arregla la auditoría, NO la seguridad.** RLS sigue **apagado en las
-> 47 tablas**, y la anon key va en el bundle del navegador: cualquiera con ella
+> 48 tablas**, y la anon key va en el bundle del navegador: cualquiera con ella
 > puede escribir la base **con o sin login**. El mínimo cambia *quién dice ser*
 > el que escribe; no cambia *quién puede*. Antes de que la app esté en internet,
 > RLS deja de ser "para después".

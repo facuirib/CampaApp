@@ -16,7 +16,7 @@
 # Rediseño: Calendario / Jornada por Serie
 
 > Draft para integrar a `arquitectura.md`. Reemplaza el modelo de jornada-por-género.
-> Estado: diseño aprobado, pendiente de construir.
+> Estado al escribirse: diseño aprobado, pendiente de construir. **Ya está construido** — ver el encabezado.
 
 ## El problema
 
