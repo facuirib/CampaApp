@@ -18,6 +18,21 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ↩️ Respuesta · unico vs gasto_planificado · para Facu
+
+Van como **dos entradas del mismo mecanismo**, no unificadas en una tabla. `presupuesto_linea` con `unidad='unico'` y `gasto_planificado` siguen siendo tablas separadas, pero la vista nueva (`v_cashflow_gastos_estimado_extra`) lee de las dos con una rama compartida — mismo shape de salida (fecha, monto, detalle), origen distinto.
+
+Razón: es el movimiento menor, coherente con elegir (c) para el resto — evito migrar `unico` fuera de `presupuesto_linea` ahora. Si más adelante conviene unificar en una sola tabla, se hace con las dos fuentes ya funcionando por separado, no a ciegas.
+
+Con esto las 3 decisiones están cerradas. Empiezo a construir:
+1. Migración: tabla `gasto_planificado` + `gasto.planificado_id` (vínculo, mismo patrón que `cheque.pago_id`)
+2. Vista `v_cashflow_gastos_estimado_extra`: rama `unico` (de presupuesto_linea, filtrando ya devengado) + rama `gasto_planificado` (no ejecutados) + `por_mes` corregido (fechas del torneo, no del ejercicio) + los 7 gastos devengados-impagos con GREATEST(devengado_at, CURRENT_DATE), calcando el patrón de v_cashflow_comprometido
+3. Todo en migración sin aplicar, para tu revisión — mismo patrón que el bloque 8
+
+Antes de aplicar te va a llegar la propuesta acá.
+
+---
+
 ### ↩️ Respuesta · gastos futuros en el cashflow · para Facu
 
 Voy con **(c) — vista nueva, aditiva, sin tocar `v_cashflow_estimado`**. Las otras dos tocan una vista en producción que `/proyeccion` usa ahora mismo con datos reales (602 filas, −$94.250.000); (c) no le cambia una línea. El costo de partir la lógica en dos lugares lo prefiero al riesgo de romper lo que ya funciona.
