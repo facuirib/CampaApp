@@ -1494,6 +1494,87 @@ ya se pagaron»— que evita tener dos gráficos para la misma pregunta.
 
 ---
 
+**✅ La base se reconstruye desde `supabase/migrations/`.** *(cierra la deuda de
+reproducibilidad que estaba en § Abiertas › Técnicas)*
+
+Era la más seria de las abiertas: corriendo las migraciones sobre una base
+limpia, el plan de cuentas quedaba en **5 cuentas de 28**. `001_schema.sql` crea
+la tabla `cuenta` y ninguna fila; sólo cinco cuentas tenían alta en migraciones
+—`GAS_SOCIOS`, `SOCIOS_A_PAGAR`, `DEUDORES_SPONSORS`, `INGRESO_DIFERIDO`,
+`CAJA_CENTRAL`—. **Las otras 23** vivían sólo en `seed.sql`, que ningún
+automatismo corría.
+
+*(La entrada abierta decía «trece». Eran 23: el conteo salió de un grep que sólo
+matcheaba ciertos prefijos.)*
+
+**Cómo se cerró:** una migración de siembra —`20260816162556_siembra_estructura`—
+**generada leyendo la base**, no escrita a mano. Sale de ahí la estructura que el
+sistema necesita para arrancar: plan de cuentas, predios, cajas, `cat_gasto` y
+`concepto_gasto`, formatos, plantillas de mail, `config_contable` y el ejercicio
+2026. Todo idempotente, así que sobre la hosted no hace nada y sobre una limpia
+la construye.
+
+Aplicada a producción y verificada: **28 cuentas, 66 asientos, 12 gastos, 32
+`cat_gasto` — idéntico antes y después.** Lo único que cambió fue el registro de
+la migración.
+
+**Se probó de verdad**, en una preview branch con Postgres vacío: 61/61
+migraciones, plan de cuentas en 28, y dos smoke tests que recorren el circuito
+—`crear_asiento`, que resolvió su período desde el ejercicio sembrado, y
+`registrar_gasto`, que atraviesa `cat_gasto → cuenta → asiento → período`—.
+Branch borrada al terminar.
+
+*Dos hallazgos que sólo aparecen corriendo las migraciones de verdad:*
+
+· **`20260802133417_modulo_cashflow.sql` nunca se había ejecutado.** Tenía cinco
+  `comment on view … as` donde va `is`, y **abortó la reconstrucción en la
+  migración 24 de 61**. En producción los comentarios existen: se aplicaron por
+  MCP, con el SQL correcto, y el archivo del repo quedó con la versión rota. O
+  sea que el repo tenía una migración que **nunca corrió en ninguna base**.
+  Corregido.
+
+· **Faltaba una migración entera en el repo.** `20260810120000
+  registrar_entrega_central_responsable` está registrada en producción y **no
+  tenía archivo `.sql`**. La única definición que quedaba en `migrations/` era la
+  de `20260802095023`, **con dos parámetros**: una base reconstruida quedaba con
+  una `registrar_entrega_central` sin `p_responsable_id`, o sea con el asiento de
+  la entrega atribuido a nadie — justo lo que la decisión 89 vino a impedir.
+  Recuperada de la base con `pg_get_functiondef()` y agregada al repo.
+
+  El archivo recuperado necesitó además el `drop function ...(uuid, date)`:
+  agregar un parámetro **crea una función nueva en vez de reemplazar la
+  anterior**, y la llamada de un argumento quedaría ambigua. `anular_asiento`,
+  `devengar_sponsors` y `devengar_sueldos_socios` ya lo hacían así en sus
+  migraciones; era el único de los cuatro sin el drop.
+
+· **Once archivos no coinciden entre repo y base.** `001`–`004` nunca se
+  registraron, y siete (`20260802140000`–`20260802210000`) están registrados con
+  otras versiones (`20260805101748`–`20260805122444`), con correspondencia 1:1
+  por nombre. El CLI compara **por versión**, así que **`supabase db push` contra
+  producción querría re-aplicarlos**. Por eso la siembra se aplicó por MCP y no
+  por push. Queda como deuda aparte — es renombrar los siete y `migration repair
+  --status applied` los cuatro.
+
+*El barrido, para no ir descubriéndolos de a uno:* se compararon las **41
+funciones** de producción contra su última definición en `migrations/` y las **53
+vistas** contra las que crea alguna migración. `registrar_entrega_central` fue el
+único drift de firma; las vistas dieron limpias (las dos que sobran en
+`migrations/` son `v_comparador_torneos` y `v_resultado_producto`, dropeadas a
+propósito al rediseñar Resultados).
+
+*Lo que quedó de cada lado:* `seed.sql` ya no tiene estructura, sólo datos de
+prueba marcados `DEMO ·` —un torneo, una categoría con su serie y un tarifario—.
+Y `[db.seed]` quedó **encendido**: se probó en `false` justamente para que no
+tapara el agujero, pero cerrado el agujero, encenderlo es lo que evita que se
+repita. `seed.sql` se desactualizó —conservaba el catálogo previo al
+reordenamiento— *porque nada lo corría*: no fallaba cuando dejaba de andar.
+Corriendo en cada `db reset`, se rompe a la vista.
+
+**La condición para que esto siga siendo cierto: en `seed.sql` no entra nada
+estructural.** Lo que el sistema necesita para arrancar va en una migración.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
@@ -1506,56 +1587,6 @@ Pendientes de definir con el cliente. **No inventar la respuesta:**
 ### Técnicas
 
 No dependen del cliente; se resuelven entre nosotros.
-
-**⚠ La base NO se puede reconstruir desde `supabase/migrations/`.** Es la deuda
-más seria de las abiertas, y se descubrió relevando si `seed.sql` seguía vivo
-(reordenamiento del plan de cuentas, 3.3).
-
-Corriendo las 54 migraciones sobre una base limpia, el plan de cuentas queda con
-**unas 5 cuentas en vez de 29**. `001_schema.sql` crea la tabla `cuenta` y
-**ninguna fila**: verificado, cero `insert into cuenta`. Las únicas altas en
-migraciones son `GAS_SOCIOS`, `SOCIOS_A_PAGAR`, `DEUDORES_SPONSORS`,
-`INGRESO_DIFERIDO` y `CAJA_CENTRAL`, cada una en la suya.
-
-**Las otras trece —todas las de ingreso, casi todas las de egreso y las tres
-cajas— viven sólo en `supabase/seed.sql`**, que ningún automatismo ejecuta:
-
-· **No hay `supabase/config.toml`.** No es que le falte `[db.seed]`: el archivo
-  no existe, así que `supabase start` y `supabase db reset` no tienen entorno
-  local que levantar. El CLI se usa sólo linkeado a la base hosted, para
-  `gen types` y aplicar migraciones.
-
-· **El README documenta un flujo con `psql` que lista 3 migraciones** —`001`,
-  `002`, `003`— más `seed.sql`. Hay **54** en el repo. Está desactualizado por
-  51 y no reconstruye nada desde hace meses. (`arquitectura.md` §3.3 citaba
-  además un `campa_schema.sql` que no existe; corregido al reordenar el plan.)
-
-**La falla es silenciosa**, que es lo peor: aplicar las migraciones no da ningún
-error. Rompe después, en el primer `crear_asiento`, con "cuenta no encontrada" —
-un mensaje que habla de una cuenta y no de que falta medio plan.
-
-Choca de frente con el checklist de CLAUDE.md, *"si tocaste SQL: la migración
-corre sobre base limpia"*: **la línea de base misma no es reproducible**. No se
-notó nunca porque no hay entorno local — todo se aplicó incremental sobre la
-hosted, donde las cuentas ya estaban desde el primer día.
-
-*Opciones, para decidir después:*
-
-- **(a) Una migración que siembre el plan de cuentas** con `on conflict do
-  nothing`. Lo vuelve reproducible **sin tocar la base hosted**: sobre la
-  existente no hace nada, sobre una limpia lo crea. Es la que menos riesgo
-  tiene.
-- **(b) Formalizar `seed.sql` como parte del arranque** y arreglar el README.
-  Más barato de escribir, pero deja el plan de cuentas partido entre dos
-  fuentes y depende de que alguien se acuerde de correr el seed.
-
-*Cuándo:* **ahora es el momento.** El reordenamiento del plan de cuentas ya
-cerró (28 cuentas, categorías reordenadas), así que la foto final está quieta:
-una migración que la siembre con `on conflict do nothing` la deja consolidada,
-en vez de ser el resultado de un seed viejo más cinco migraciones de
-corrección. Cuanto más se demore, más larga es la cadena a replicar.
-
----
 
 **Los sueldos de empleados son seis nombres escritos a mano, sin padrón detrás.**
 «Sueldos administrativos» tiene como conceptos a Augusto, Estudio contable,

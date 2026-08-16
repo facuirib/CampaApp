@@ -272,9 +272,9 @@ Total 16 ✓ — `3 + 8 + 5`.
 
 **Por qué dos ejes y no uno.** El modelo anterior usaba `grupo ∈ {fecha, recurrente, bar}`, que mezclaba temporalidad con área. El sueldo del encargado de bar es recurrente y de área bar; el hielo de la jornada es por fecha y de área bar; una heladera es inversión y de área bar. Los tres caían en `grupo='bar'` y no se podían presupuestar con la lógica correcta.
 
-Ver `001_schema.sql` para el DDL de `cat_gasto`. El contenido del catálogo vive hoy repartido: las cuentas base en `supabase/seed.sql` y las nuevas en sus propias migraciones — ver la deuda de reproducibilidad en `decisiones.md § Abiertas`.
+Ver `001_schema.sql` para el DDL de `cat_gasto`. El **contenido** del catálogo —las 32 categorías y sus 100 conceptos— lo siembra `20260816162556_siembra_estructura.sql`, junto con el plan de cuentas: una base limpia queda con el catálogo completo.
 
-> *Esta línea citaba un `campa_schema.sql` que **no existe** en el repo. Corregida al reordenar el plan de cuentas.*
+> *Esta línea citaba un `campa_schema.sql` que **no existe** en el repo, y después dijo que el catálogo vivía repartido entre `seed.sql` y las migraciones. Lo primero se corrigió al reordenar el plan de cuentas; lo segundo, al cerrar la reproducibilidad — el catálogo ya no está partido.*
 
 #### El plan de cuentas, después del reordenamiento
 

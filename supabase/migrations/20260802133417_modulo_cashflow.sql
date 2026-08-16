@@ -54,7 +54,7 @@ where c.id in (select cuenta_id from caja where activo)
 group by a.fecha, a.origen
 having sum(l.debe - l.haber) <> 0;
 
-comment on view v_cashflow_real as
+comment on view v_cashflow_real is
   'Movimiento neto de la posición de caja por fecha. Agrega TODAS las cajas, así '
   'los traslados internos (predio->central, compra/venta USD) se netean solos.';
 
@@ -131,7 +131,7 @@ from cheque ch
 left join tercero t on t.id = ch.tercero_id
 where ch.estado = 'pendiente';
 
-comment on view v_cashflow_comprometido as
+comment on view v_cashflow_comprometido is
   'Lo pactado con fecha. Las cuotas usan el SALDO pendiente, no el monto. Las '
   'vencidas impagas se arrastran a hoy —se siguen esperando— conservando '
   'fecha_original para el drill-down.';
@@ -211,7 +211,7 @@ cross join lateral (
 where pt.unidad = 'por_mes'
   and m.fin > current_date;
 
-comment on view v_cashflow_estimado as
+comment on view v_cashflow_estimado is
   'Presupuesto distribuido por el calendario, SOLO a futuro. El corte por fecha '
   'es lo que impide duplicar con lo real ya pagado (decisión 86). Las unidades '
   'anual y unico no entran: no tienen fecha natural.';
@@ -264,7 +264,7 @@ select s.semana,
        s.semana >= date_trunc('week', current_date)::date as futura
 from por_semana s;
 
-comment on view v_cashflow as
+comment on view v_cashflow is
   'Línea de tiempo semanal con los tres niveles, el flujo neto y el saldo '
   'proyectado (caja de hoy + flujo futuro acumulado). La semana se deriva con '
   'date_trunc; no hay tabla de semanas (decisión 87).';
@@ -279,6 +279,6 @@ where futura
   and saldo_proyectado < 0
 order by semana;
 
-comment on view v_cashflow_quiebre as
+comment on view v_cashflow_quiebre is
   'Semanas futuras en las que el saldo proyectado perfora cero. Vacía = no hay '
   'quiebre previsto.';

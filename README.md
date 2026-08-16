@@ -13,9 +13,9 @@ npm install
 npm run dev
 ```
 
-La base **ya existe** y es compartida por los dos desarrolladores. No hay
-entorno local: el CLI de Supabase se usa linkeado al proyecto hosted, para
-regenerar tipos y aplicar migraciones.
+La base **ya existe** y es compartida por los dos desarrolladores. El día a día
+se trabaja contra ella: el CLI de Supabase se usa linkeado al proyecto hosted,
+para regenerar tipos y aplicar migraciones.
 
 ```bash
 npx supabase gen types typescript --project-id <ref> --schema public > lib/db/database.types.ts
@@ -24,19 +24,29 @@ npx supabase gen types typescript --project-id <ref> --schema public > lib/db/da
 > ⚠ **Aplicar una migración se avisa y se confirma antes** — por CLI, por MCP o
 > desde el panel. La base es compartida. Es la regla 11 de `CLAUDE.md`.
 
-### ⚠ La base no se puede reconstruir desde cero
+### Levantar una base desde cero
 
-Corriendo las migraciones de `supabase/migrations/` sobre una base limpia, **el
-plan de cuentas queda con 5 cuentas en vez de 28**: trece viven sólo en
-`supabase/seed.sql`, que ningún automatismo ejecuta —no hay `supabase/config.toml`—.
+`supabase/migrations/` reconstruye la base entera. Con Docker corriendo:
 
-La falla es **silenciosa**: aplicar no da error, rompe después en el primer
-`crear_asiento` con "cuenta no encontrada".
+```bash
+npx supabase start      # levanta Postgres, API, Studio y aplica las migraciones
+npx supabase db reset   # rehace desde cero: migraciones + seed.sql
+```
 
-**Es deuda conocida y está viva.** El detalle, las dos opciones para resolverla
-y por qué no se notó antes están en `docs/decisiones.md` § Abiertas › Técnicas,
-bajo *«La base NO se puede reconstruir desde `supabase/migrations/`»*. **No
-borrar esa entrada al limpiar docs.**
+Queda con el plan de cuentas completo (28 cuentas), predios, cajas, catálogo de
+gastos, formatos, plantillas de mail y el ejercicio 2026 — todo eso lo siembra
+`20260816162556_siembra_estructura.sql`, generada leyendo la base.
+
+**La estructura va en migraciones; `seed.sql` es sólo datos de prueba** (un
+torneo `DEMO ·` con su tarifario, para que las pantallas no estén vacías). Si
+algo que el sistema necesita para arrancar termina en el seed, la base deja de
+reconstruirse y **la falla es silenciosa**: aplicar no da error, rompe después
+en el primer `crear_asiento`. Ya pasó una vez — el caso está en
+`docs/decisiones.md` § Correcciones posteriores.
+
+> ⚠ **`supabase db push` contra la base compartida todavía no.** Once archivos
+> no están registrados con la versión que tienen en el repo, así que el push
+> querría re-aplicarlos. Mismo lugar en `decisiones.md`.
 
 ## Documentación
 
