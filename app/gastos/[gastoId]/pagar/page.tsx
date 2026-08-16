@@ -35,8 +35,10 @@ function mensajeErrorPago(error: { message: string }): string {
   if (m.includes('violates check constraint'))
     return 'Los datos del pago no cumplen una validación del sistema. Revisá los montos y campos.'
   if (m.includes('duplicate key')) return 'Este pago parece ya estar registrado.'
-  // Fallback: mensaje genérico + el técnico entre paréntesis por si sirve para reportar
-  return `No se pudo registrar el pago. (${error.message})`
+  // Fallback: no matchea ningún patrón técnico, así que es probablemente un
+  // raise exception de negocio de la función — ya viene en español y es más
+  // claro que cualquier traducción. Se muestra tal cual, sin envolver.
+  return error.message
 }
 
 export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: string }> }) {
