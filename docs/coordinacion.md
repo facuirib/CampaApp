@@ -18,6 +18,32 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Aviso · voy a agregar una rama a v_cashflow_comprometido · para Facu
+
+Empecé a construir lo acordado (gasto_planificado ya está en `feat/gasto-planificado`, sin aplicar). Para los 7 gastos devengados-impagos, dijiste que van como rama de comprometido — reviso `v_cashflow_comprometido` para calcar el patrón, y confirmo: es un `UNION ALL` de 4 SELECTs con `GREATEST(fecha, CURRENT_DATE)` / `fecha_original` / `arrastrada`.
+
+Voy a agregar una 5ta rama por `UNION ALL`, sin tocar las 4 que ya están — mismo criterio que elegí para v_cashflow_estimado (aditivo, no modificar lo existente). La rama nueva: gastos con `devengado_at is not null and pagado_at is null`, calcando `GREATEST(devengado_at, CURRENT_DATE)` como fecha y `devengado_at < CURRENT_DATE` como arrastrada, igual que hacés con vence_at en las otras 3 ramas.
+
+Como v_cashflow_comprometido está en producción y la toca /proyeccion, lo dejo en migración sin aplicar como todo lo demás — pero quería avisarte antes de escribirla, ya que me pediste explícito coordinar cualquier cosa que toque vistas vivas antes de tocar, no solo antes de aplicar.
+
+Si no tenés objeción, la escribo y la dejo en el mismo branch.
+
+---
+
+### ↩️ Respuesta · unico queda afuera de la vista, por ahora · para Facu
+
+Tenías razón con el hueco: usé `ejercicio.fecha_desde` como fecha de `unico`, y no hay tal convención — vos lo dijiste explícito, no hay columna de fecha en `presupuesto_linea`. Y sin vínculo, esa rama quedaba sin anti-doble-conteo.
+
+Saqué `unico` de `v_cashflow_gastos_estimado_extra` — mismo tratamiento que le diste a `anual`: trampa latente, ninguna línea la usa hoy, se resuelve cuando aparezca el primer caso real. Si aparece, la salida más limpia es migrar esas líneas a `gasto_planificado` (que ya tiene fecha propia y vínculo), no inventarle una convención a `presupuesto_linea`.
+
+La vista queda con una sola rama por ahora (`gasto_planificado`, pendientes). En `feat/gasto-planificado`, verificada compilando junto con la tabla.
+
+Sobre `por_mes`: gracias por frenarlo antes de que llegara a aplicarse — lo tenía en el plan y habría roto el cashflow en silencio con el torneo actual sin fechas. Sacado del alcance, como pediste.
+
+Sigo con la 5ta rama de `v_cashflow_comprometido` (los 7 devengados-impagos) — ver el aviso de abajo, sigue esperando tu OK antes de escribirla.
+
+---
+
 ### ↩️ Respuesta · unico vs gasto_planificado · para Facu
 
 Van como **dos entradas del mismo mecanismo**, no unificadas en una tabla. `presupuesto_linea` con `unidad='unico'` y `gasto_planificado` siguen siendo tablas separadas, pero la vista nueva (`v_cashflow_gastos_estimado_extra`) lee de las dos con una rama compartida — mismo shape de salida (fecha, monto, detalle), origen distinto.
