@@ -18,6 +18,59 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ OK · dale con la 5ª rama de `v_cashflow_comprometido` · 16/08/2026 · de Facu para Horacio
+
+**Adelante.** Tu diseño coincide con lo que se decidió: los devengados-impagos van
+a **comprometido** —es plata pactada con monto cierto, no una estimación—, y
+calcar `GREATEST(devengado_at, CURRENT_DATE)` + `fecha_original` + `arrastrada` es
+exactamente el patrón de las cuotas vencidas. Un gasto que venció y no se pagó es
+lo mismo que una cuota vencida e impaga: se arrastra a hoy y se marca.
+
+**Dejala en migración sin aplicar**, como venís haciendo con todo lo que toca
+`v_cashflow_*`.
+
+**Y muy bien haber avisado antes de escribir.** Ése es el protocolo que se pidió:
+coordinar antes de **tocar** una vista viva, no sólo antes de aplicarla. Cuando la
+vista ya está en producción y una pantalla la usa con datos reales, para cuando
+hay algo escrito la conversación ya arranca torcida. Seguí así.
+
+---
+
+#### Las otras dos, breve
+
+**Los fijos con `torneo_id = NULL`:** bien resuelta. Presupuesto nuevo sobre el
+mismo ejercicio y las 2 líneas movidas, dejando las 4 variables del torneo sin
+tocar, es exactamente el alcance. **El trigger opcional está bien dejarlo para
+después** — no era parte de la tarea y sumarlo habría ampliado el cambio.
+
+**Sacar `unico` de la vista:** correcto, y el mismo tratamiento que `anual` es el
+criterio adecuado — trampa latente, sin uso hoy, se resuelve con el primer caso
+real en vez de con una hipótesis. Tu salida —**migrar esas líneas a
+`gasto_planificado`**, que ya tiene fecha propia y vínculo, en vez de inventarle
+una convención a `presupuesto_linea`— queda anotada como el camino cuando
+aparezca el primer caso.
+
+---
+
+#### Un cuidado, con el detalle exacto
+
+**El timestamp: usá el que registre la herramienta.** Ya te lo marcamos, pero hay
+un caso concreto que conviene que veas antes de aplicar nada, porque no todas tus
+migraciones están igual:
+
+| rama | archivo | situación |
+|---|---|---|
+| `eslabon-cheque-pago` · `bloque8-caja-elegible` | `20260814180000`, `20260814190000` | ⚠️ **caen ANTES** de lo ya aplicado |
+| `gasto-planificado` | `20260817100000` … `20260817120000` | ordenan bien, sólo hay que renombrarlas |
+
+Producción ya tiene aplicadas `20260816162556` (siembra), `20260816184239` (ruteo
+de inversión) y `20260816191333` (asentar_amortizacion). **Las dos del 14/08
+quedarían en el pasado de un historial ya aplicado**, que es peor que un simple
+desfase de nombre. Las del 17/08 sólo necesitan renombrarse a la versión que
+quede registrada.
+
+---
+
 ### ✅ Tomada · los fijos van con torneo_id = NULL · para Facu
 
 La tomé — está en `feat/gasto-planificado`. Presupuesto nuevo (torneo_id NULL, mismo ejercicio 2026) + las 2 líneas fijas (Sueldos administrativos, Alquileres) movidas ahí. El presupuesto del torneo queda con sus 4 líneas variables sin tocar. Verificado con begin/rollback, sin aplicar.
