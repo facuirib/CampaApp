@@ -1312,6 +1312,8 @@ Sin tablas nuevas, todo derivado:
 
 ### 3.11 Activos y amortización
 
+*Backend completo — las tres patas del circuito están construidas: el ruteo de la compra (`20260816184239_ruteo_inversion_bienes_uso.sql`), el pago (`pagar_gasto`, que ya funcionaba) y `asentar_amortizacion` (`20260816191333`). **Falta la pantalla.***
+
 Compras grandes se activan y amortizan mensualmente en lugar de impactar íntegras en el mes de pago.
 
 **Umbral de materialidad.** `config_contable.umbral_activacion` (default $500.000). Por debajo, el gasto va directo al período. Por encima, la UI **ofrece** activar sin forzarlo.
@@ -1328,11 +1330,23 @@ El riesgo del módulo no es contable sino de adopción: si hay que dar de alta c
 
 La compra **no toca el resultado** —cambia un activo por otro—. Lo que impacta el P&L es la cuota mensual.
 
-**Generación con revisión.** Al cerrar el período, `proponer_amortizaciones()` calcula las cuotas del mes y las deja en estado `propuesta`. Alguien revisa y confirma. Sin confirmar no se cierra el período.
+**El ruteo de la compra vive en `registrar_gasto`, no en el catálogo.** La función resuelve la cuenta del devengo desde `cat_gasto.cuenta_id` y **la sobrescribe con `BIENES_USO` cuando la naturaleza es `inversion`**. `preview_gasto` hace lo mismo, para que el preview no muestre una cuenta y el asiento use otra. Se eligió la función y no repuntar `cat_gasto.cuenta_id` porque «una inversión se activa» es una **regla contable**, no un atributo de una categoría: en el catálogo taparía sólo la categoría de hoy y dejaría `cuenta_id` significando dos cosas distintas.
 
-**La amortización no va al flujo de caja.** Es gasto sin movimiento de dinero: la salida ocurrió al pagar el bien. Confundirlos duplicaría el impacto.
+> Antes de esto la única categoría `inversion` apuntaba a `GAS_PREDIO`, así que **la compra de un bien tocaba el resultado entero**. La Desmalezadora ($1.450.000) se corrigió por contraasiento —regla 4— y el resultado del ejercicio bajó de $31.104.767 a $29.654.767.
 
-**Imputación:** siempre estructura permanente (`torneo_id = NULL`). El bien sirve a todos los torneos que dura.
+**Generación con revisión, en un solo paso.** `proponer_amortizaciones(periodo)` es **lectura pura**: calcula las cuotas del mes y **no escribe nada**. La revisión que pide la decisión 23 ocurre en la pantalla —muestra la propuesta, el operador confirma— y recién entonces `asentar_amortizacion(periodo, created_by, [activo])` escribe, ya como `confirmada`.
+
+`asentar_amortizacion` **llama** a `proponer_amortizaciones` en vez de repetir su filtro, así la pantalla y el asiento nunca proponen cosas distintas. Es **idempotente** en tres capas —el filtro de la propuesta, `unique (activo_id, periodo_id)` y el loop—: correrla dos veces devuelve **0**, no error. Devuelve cuántas asentó. Con `p_activo_id` confirma un activo puntual.
+
+> **`estado = 'propuesta'` quedó vestigial.** La tabla anticipaba materializar las propuestas antes de confirmarlas, pero ese camino crea un problema propio: una fila `propuesta` abandonada **bloquea al activo para siempre**, porque `proponer_amortizaciones` deja de proponerlo —ya tiene fila en ese período— y el `unique` impide reintentar limpio. Con el flujo de un paso nada se escribe hasta que hay asiento.
+
+> **La reversa quedó fuera.** Anular una amortización sería `anular_asiento` + marcar la fila, pero `estado` sólo admite `propuesta|confirmada` —no hay `anulada`—, así que implica tocar el modelo. Tampoco hay precedente: `devengo_socio` tiene 6 filas y ninguna función que lo anule. Es pasada aparte.
+
+**La amortización no va al flujo de caja.** Es gasto sin movimiento de dinero: la salida ocurrió al pagar el bien. Confundirlos duplicaría el impacto. No hay que excluirla de ningún lado: `v_cashflow_real` sólo mira las cuentas que apunta `caja.cuenta_id`, y `GAS_AMORT` / `AMORT_ACUM` no son caja.
+
+**Imputación:** siempre estructura permanente (`torneo_id = NULL`, decisión 24). El bien sirve a todos los torneos que dura.
+
+*Nota operativa:* `asentar_amortizacion` recibe un `periodo_id`, así que **no se puede amortizar un mes cuyo período todavía no existe** — los períodos se crean solos al primer movimiento del mes (`periodo_de_fecha`). La pantalla tiene que ofrecer sólo los que existen.
 
 ### 3.12 Compromisos
 
@@ -1791,7 +1805,7 @@ ellas ya están alimentando Proyección sin que exista dónde cargarlas.
 |---|---|---|
 | **Cheques** | tabla `cheque`; `v_cashflow_comprometido` ya la lee | La plata de los cheques **ya se proyecta**, pero no hay dónde cargarlos |
 | **Calendario de pagos** | `compromiso`, `plan_pago`, y `v_calendario_pagos` completa —con `criticidad`— | Ídem: las moratorias ya entran al cashflow |
-| **Activos** | `activo`, `amortizacion` y `proponer_amortizaciones()` | Es lo que `GAS_AMORT` está esperando: hoy tiene 0 movimientos porque nada dispara la amortización |
+| **Activos** | **circuito contable completo** (§3.11): compra ruteada a `BIENES_USO`, `pagar_gasto`, y `asentar_amortizacion` instalada | La única de las cuatro donde de verdad **falta sólo el front**. `GAS_AMORT` sigue en 0 porque asentar es acción de pantalla y todavía no hay quién la dispare |
 | **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | Falta la pantalla de **carga**: el presupuesto se siembra por SQL |
 
 ### Lo que falta · y empieza por modelar
