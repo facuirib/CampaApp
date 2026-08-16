@@ -27,6 +27,7 @@ Voy a agregar una 5ta rama por `UNION ALL`, sin tocar las 4 que ya están — mi
 Como v_cashflow_comprometido está en producción y la toca /proyeccion, lo dejo en migración sin aplicar como todo lo demás — pero quería avisarte antes de escribirla, ya que me pediste explícito coordinar cualquier cosa que toque vistas vivas antes de tocar, no solo antes de aplicar.
 
 Si no tenés objeción, la escribo y la dejo en el mismo branch.
+<<<<<<< HEAD
 
 ---
 
@@ -41,6 +42,148 @@ La vista queda con una sola rama por ahora (`gasto_planificado`, pendientes). En
 Sobre `por_mes`: gracias por frenarlo antes de que llegara a aplicarse — lo tenía en el plan y habría roto el cashflow en silencio con el torneo actual sin fechas. Sacado del alcance, como pediste.
 
 Sigo con la 5ta rama de `v_cashflow_comprometido` (los 7 devengados-impagos) — ver el aviso de abajo, sigue esperando tu OK antes de escribirla.
+=======
+### ❌ Corrección · `por_mes` NO se toca · 16/08/2026 · de Facu para Horacio
+
+**Leé esto antes de escribir la vista.** La propuesta de gastos futuros te pedía
+*«corregir `por_mes` a los meses del torneo»*. **Ese punto estaba equivocado**, y
+lo tomaste en tu plan de construcción. **Sacalo.**
+
+**Lo actual es lo correcto.** `v_cashflow_estimado` genera los fines de mes sobre
+`ejercicio.fecha_desde..fecha_hasta` —los 12 meses del año— y así tiene que
+quedar: **los gastos fijos son anuales por diseño.** Alquiler y sueldos se pagan
+los 12 meses, **haya torneo o no**. Por eso el estimado muestra −$4.700.000 en
+diciembre aunque el torneo termine en noviembre: no es un desborde, es la
+estructura corriendo todo el año.
+
+**Y el cambio habría roto el cashflow hoy mismo, en silencio:**
+
+| torneo | `fecha_desde` | `fecha_hasta` | |
+|---|---|---|---|
+| **Clausura 2026** | **NULL** | **NULL** | ⚠️ `generate_series` daría **cero filas** |
+| Apertura 2027 | 2027-03-01 | 2027-07-31 | ok |
+
+**El torneo en curso no tiene fechas cargadas.** Usar las del torneo habría
+borrado los −$4.700.000/mes sin error y sin advertencia — el peor modo de falla,
+porque el número que queda sigue siendo plausible.
+
+*El punto ya quedó corregido dentro de la propuesta misma, más abajo.*
+
+---
+
+### ↩️ Respuesta · las 3 del cashflow · 16/08/2026 · de Facu para Horacio
+
+Van las tres que pediste para arrancar.
+
+---
+
+#### 1 · ¿Qué fecha lleva un gasto `unico`?
+
+**Fecha propia**, la que se planea gastarlo. **No** el arranque del ejercicio.
+
+*El dato que te falta:* **`presupuesto_linea` no tiene ninguna columna de fecha.**
+Así que un `unico` sale de una convención, o migra a `gasto_planificado`.
+
+> **⚠️ El cabo suelto de tu decisión.** Elegiste que `unico` y `gasto_planificado`
+> vayan como **dos entradas del mismo mecanismo**, en tablas separadas. Con eso,
+> **sólo `gasto_planificado` tiene dónde colgar `planificado_id`** — un `unico` de
+> `presupuesto_linea` no tiene columna para el vínculo, y **queda sin
+> anti-doble-conteo** (ver respuesta 3: es justo la rama que lo necesita).
+>
+> O migran los `unico` a `gasto_planificado`, o esa rama queda descubierta.
+> **Decisión tuya**, pero conviene tomarla antes de escribir la vista.
+
+---
+
+#### 2 · `por_mes` corregido
+
+**No lo toques.** Ver la corrección de arriba.
+
+---
+
+#### 3 · Excluir lo ya devengado
+
+Es **más simple de lo que asumías**, y la respuesta cambia según la rama.
+
+**Para `por_partido`, `por_dia_cancha` y `por_mes`: no hace falta nada.** Ni
+modelo nuevo ni restar por monto. **La fecha ya lo resuelve estructuralmente** —
+`v_cashflow_estimado` proyecta sólo `fecha > CURRENT_DATE`, y lo ya gastado
+corresponde a jornadas cumplidas, que el estimado no toca. Verificado:
+
+| | |
+|---|---|
+| hoy | 2026-08-16 |
+| fecha mínima del estimado | 2026-08-22 |
+| gastos con `devengado_at` futuro | **0** (los 12 son pasados) |
+| filas del estimado en fecha pasada | **0 — cero solapamiento** |
+| jornadas ya jugadas / futuras | 33 no se proyectan / 250 sí |
+
+**No filtres por monto acumulado en estas tres:** agregaría una resta sobre algo
+que ya está excluido, y **descontaría dos veces**.
+
+**Para `unico` y `gasto_planificado`: sí hace falta, y por vínculo.** Van a una
+fecha elegida que puede ser futura, así que el solapamiento es real. Se resuelve
+con **el vínculo que ya creaste** en `feat/gasto-planificado`: es la opción (a),
+**acotada a donde hace falta** — no un `presupuesto_linea_id` global.
+
+> *Nota:* lo modelaste como **`gasto_planificado.gasto_id`**, al revés de lo que
+> decía la propuesta (`gasto.planificado_id`). **Está bien así** — la FK vive en
+> la tabla nueva y no le agrega una columna a `gasto`. Sólo lo dejo dicho para que
+> no crees las dos: **con la tuya alcanza.**
+
+**Descartá la opción (b) —acumulado por categoría.** Dos razones medidas:
+
+· **El cruce por torneo falla.** Alquileres está presupuestado bajo Clausura 2026
+  y sus gastos reales van con `torneo_id = NULL`: **$777.000 que el cruce no ve**
+  (ver la tarea de abajo, que es esta misma causa).
+· **No hay ningún `unique`** que garantice una línea por categoría — ni en
+  `presupuesto_linea` ni en `presupuesto`. Dos líneas de la misma `cat_gasto` son
+  legales, y ahí el acumulado no sabe a cuál restarle.
+
+**El borde a vigilar:** un gasto atado a una jornada **futura** sí duplicaría.
+**Hoy hay 0 casos** —los 7 gastos con jornada son todos de jornadas ya jugadas—
+pero es el caso a tener presente.
+
+---
+
+### 🔧 Tarea · los fijos van con `torneo_id = NULL` · sin dueño asignado
+
+**Arreglo de datos, zona libre — a coordinar quién la toma.**
+
+*El problema:* las líneas de presupuesto de gastos fijos —**Sueldos
+administrativos** y **Alquileres**— están cargadas bajo **Clausura 2026**. Pero
+los gastos fijos **reales** van con `torneo_id = NULL`, y no por criterio de quien
+carga: **el trigger lo obliga**.
+
+```sql
+-- check_gasto_coherente
+if nat = 'recurrente' and new.torneo_id is not null then
+  raise exception 'Los gastos recurrentes son de estructura, no de un torneo';
+end if;
+```
+
+Es la regla 3: la estructura permanente no se prorratea entre torneos.
+
+*Por qué quedó así:* **`presupuesto` y `presupuesto_linea` no tienen ningún
+trigger.** Nada valida del lado del plan lo que la base sí exige del lado real.
+
+*Qué rompe:* el cruce presupuesto ↔ real. Es la causa exacta de los **$777.000**
+de Alquileres que no cruzan. Y **11 de las 32 categorías son `recurrente`** —las
+11 con `unidad_default = 'por_mes'`—, así que en cuanto se presupuesten, todas
+caen en lo mismo.
+
+*El arreglo:* un presupuesto con **`torneo_id = NULL`** para el ejercicio 2026, y
+mover ahí las 2 líneas `por_mes`. El modelo ya lo admite: `presupuesto.torneo_id`
+es anulable y el DDL lo documenta como *«NULL = presupuesto de estructura anual»*.
+
+*Opcional, para que no vuelva a pasar:* un trigger en `presupuesto_linea` que
+espeje `check_gasto_coherente` — una línea `recurrente` no puede colgar de un
+presupuesto con torneo.
+
+> **No afecta al cashflow.** `por_mes` cuelga del **ejercicio**, y `ejercicio_id`
+> es `NOT NULL` en todo presupuesto, así que el reparto temporal sale bien igual.
+> Lo que arregla es el **cruce con lo real** y la lectura por torneo.
+>>>>>>> aebd3d2aa21d81086b35c2d5a69184a9f00514b1
 
 ---
 
@@ -136,11 +279,15 @@ Los que salen del presupuesto y escalan con el torneo.
 |---|---|---|
 | `por_partido` | por los partidos de cada jornada, en la fecha de esa jornada | **ya funciona así** |
 | `por_dia_cancha` | ídem, por día de cancha | **ya funciona así** |
-| `por_mes` | **parejo por los meses del TORNEO** | ⚠️ hoy se reparte por los meses del **ejercicio** |
+| `por_mes` | parejo por los **meses del ejercicio** (los 12 del año) | **ya funciona así — NO tocar** |
 
-Las dos primeras ya reusan el mecanismo de ingresos. La tercera es un cambio: hoy
-`por_mes` genera los fines de mes sobre `ejercicio.fecha_desde..fecha_hasta`, por
-eso aparece diciembre con −4.700.000 aunque el torneo termine en noviembre.
+Las tres ya reusan el mecanismo de ingresos. **Ninguna hay que cambiarla.**
+
+> **❌ CORREGIDO · esta propuesta decía «`por_mes` parejo por los meses del
+> TORNEO», y estaba MAL.** Ver *«Corrección · `por_mes` no se toca»* arriba de
+> todo en Avisos abiertos. El comportamiento actual —los meses del **ejercicio**—
+> es el correcto: los gastos fijos son anuales por diseño. **Si tomaste ese punto
+> en tu plan de construcción, sacalo.**
 
 *Nota de precisión:* `presupuesto_linea` **no tiene `naturaleza`** — tiene
 **`unidad`** (`por_partido`, `por_dia_cancha`, `por_mes`, `anual`, `unico`).
