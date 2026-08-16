@@ -18,6 +18,122 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 📋 Plan de trabajo · 16/08/2026 · acordado por Facu
+
+**Para avanzar en paralelo.** Cada uno en su carril, en zonas que no se cruzan,
+este archivo como canal, y **lo compartido se agenda para sentarse juntos**.
+
+La sesión pasada lo probó: los dos tocamos `/gastos` —Horacio el formulario de
+alta, Facu la lista y las tarjetas— y **no hubo un solo conflicto**. Sus dos
+ramas siguen mergeando limpio contra `main`. Con las líneas trazadas, la misma
+zona aguanta a los dos.
+
+> **Horacio: hacé `pull` antes de retomar.** Tus dos ramas salen de `ec27a2a`,
+> que es anterior a la respuesta al bloque 8 — está más abajo en este mismo
+> archivo, con los cuatro asientos revisados uno por uno.
+
+---
+
+#### 🔧 Carril Horacio · escritura y motor
+
+**1 · El eslabón cobro-cheque.** *Lo primero: todo lo demás del circuito cuelga
+de acá.*
+
+Que `registrar_cobro` con `p_medio = 'cheque'` **cree la fila en `cheque`** —
+número, banco, fecha de cobro— y la **vincule al pago con una columna nueva**.
+
+Hoy no existe: cero `insert into cheque` en todo el repo, y la tabla tiene 0
+filas. Por eso **tu `cambiar_estado_cheque` no tiene de dónde partir**: recibe un
+`p_cheque_id` de una fila que nadie crea. Y sin el vínculo, **cuando un cheque
+rebota no se sabe qué pago canceló, ni por lo tanto qué cuota reabrir** — las FK
+de `cheque` son a `tercero` y a los dos asientos, nada más.
+
+**2 · Los 3 asientos aprobados del bloque 8**, con el único cambio pedido: **la
+caja va elegible, no hardcodeada.** Vale para el caso 1 (cheque acreditado) y el
+caso 3 (cheque debitado), que hoy fijan `CAJA_TRANSFERENCIA`. Es exactamente lo
+que ya hiciste bien en el caso 4, sacándola de `p_caja_id`. El día que haya dos
+bancos, la versión fija miente.
+
+**3 · Pagos parciales de gasto** — *antes de construir, confirmá con Facu si pasa
+de verdad.* Hoy `gasto.pagado_at` es un timestamp único: un gasto está pagado o
+no lo está, no existe «parcial». Si los gastos del torneo se pagan en cuotas es
+cambio de modelo (tabla de pagos de gasto, tocar `pagar_gasto`, rehacer el estado
+en `v_gasto_detalle`). Si siempre se pagan de una, no se toca nada.
+
+**4 · Tu `fix/gastos-errores-humanos`: que no tape tus propios mensajes.**
+Traduce bien los errores genéricos de Postgres, pero **los `raise exception` de
+tus funciones caen en el fallback**. El mensaje cuidado que escribiste vos —*«Un
+retiro en efectivo tiene que decir de qué predio salió la plata, o el arqueo de
+ese día no cierra»*— termina mostrándose como *«No se pudo registrar el pago»*,
+que es peor que el original. Dejá pasar el mensaje crudo cuando no matchea ningún
+patrón conocido, o detectá los propios primero.
+
+**5 · El timestamp de la migración: el que registre la herramienta, no uno a
+mano.** Es regla nueva y ya está documentada en el README. **El CLI compara por
+versión**, así que un número elegido antes hace que `db push` quiera correr de
+nuevo una migración ya aplicada. Se acaba de sincronizar el historial por
+exactamente esto: había once archivos desalineados. Si aplicás por MCP o desde el
+panel, **renombrá el archivo a la versión que quedó registrada**.
+
+---
+
+#### 🎨 Carril Facu · display puro
+
+No toca la escritura de Horacio: son vistas de lectura, listas, tarjetas, filtros
+y gráficos.
+
+| | pantalla | estado del backend |
+|---|---|---|
+| **1** | **Presupuesto por fecha** *(arranca por acá)* | Completo y **con datos**: 6 líneas cargadas. `/proyeccion` ya lo usa vía `v_cashflow_estimado` |
+| **2** | **Activos** | `proponer_amortizaciones()` listo. Es lo que `GAS_AMORT` espera: hoy 0 movimientos |
+| **3** | **Cheques** *(pantalla de LECTURA)* | La tabla y el backend de lectura están. **En paralelo con la escritura de Horacio — no choca** |
+| **4** | **Calendario de pagos** | `v_calendario_pagos` completa, con `tercero` y `criticidad` |
+
+> **Nota de secuencia, no de bloqueo.** Tres de estas cuatro leen tablas que hoy
+> están **vacías** —`cheque` 0 filas, `compromiso` 0 filas, `amortizacion` 0
+> filas— porque todavía nada las escribe. Las pantallas se pueden construir igual
+> y **es deliberado que vayan en paralelo**: cuando el carril de escritura llegue,
+> la pantalla ya está esperando. Presupuesto va primera justamente porque es la
+> única con datos reales para mirar mientras se construye.
+
+---
+
+#### 🤝 Compartido · se agenda, NO se hace en paralelo
+
+**RLS — el grande de seguridad.** Alto riesgo y **cruza todas las tablas**: la
+lectura de Facu y la escritura de Horacio a la vez. Hoy hay **0 tablas con RLS** y
+la anon key viaja en el bundle del navegador, así que cualquiera con esa clave
+puede leer y escribir **con o sin login**. Merece una sesión dedicada de los dos,
+no un reparto.
+
+**Los pop-ups de «agregar movimiento».** Los formularios son de Horacio, la UI del
+modal es de Facu. **Hay que acordar el enfoque antes de tocar:** envolver los
+formularios que ya existen, o reescribirlos. Es la decisión que define quién toca
+qué.
+
+**Ventas de bar — empieza por modelar.** `ING_BAR` existe con **0 movimientos** y
+**no hay ninguna tabla de ventas** (cero tablas con `venta`, `producto` o `stock`
+en el nombre). El club **sí** registra ventas, así que es roadmap real. Falta
+decidir el **grano** —¿venta individual, cierre de caja por día, por jornada?—,
+la tabla, y cómo entra al diario. Probablemente el modelo lo hace Horacio y la
+pantalla Facu, pero **la decisión de negocio va primero**.
+
+> Los **gastos** de bar ya están cubiertos: `GAS_BAR` con 8 categorías, se cargan
+> desde `/gastos` como cualquier otro. Lo que falta es sólo el ingreso.
+
+---
+
+#### La regla del paralelo
+
+| | |
+|---|---|
+| **Display** — listas, tarjetas, filtros, gráficos, vistas de lectura | **Facu** |
+| **Escritura** — funciones, formularios de alta y pago, motor SQL | **Horacio** |
+
+**Si algo cruza, se agenda acá antes de tocar.**
+
+---
+
 ### ✅ Bloque 8 · revisión de la propuesta · 14/08/2026 · de Facu para Horacio
 
 **Revisada `feat/bloque8-funciones-propuesta`.** Respetaste la regla 11: la
