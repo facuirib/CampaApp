@@ -29,6 +29,12 @@ ingresos comprometidos en vez de inventar uno nuevo.
 **Es propuesta, no orden.** Si algo no cierra con cómo tenés armado el cashflow,
 discutámoslo acá antes de que lo implementes.
 
+> **Estado · las tres decisiones abiertas quedaron resueltas** (16/08). Están
+> marcadas **✅ Resuelto** donde corresponde: el doble conteo del Tipo A, la fecha
+> del gasto `unico`, y la fecha de los gastos impagos. Queda **una sola cosa para
+> que decidas vos**, dentro del Tipo A: **cómo** garantizar que el presupuesto no
+> se duplique. El **qué** ya está cerrado.
+
 ---
 
 #### Punto de partida · qué hay hoy
@@ -88,31 +94,61 @@ en ingresos, donde la cuota entra por `saldo` y no por `monto`. **Hoy no está:*
 **Las dos unidades que faltan.** `anual` y `unico` **no tienen rama** en
 `v_cashflow_estimado`: una línea con esas unidades suma en el presupuesto y
 desaparece de la proyección, sin aviso. Hoy es trampa latente —ninguna línea las
-usa— pero **10 de las 32 categorías las tienen como `unidad_default`**, y son
+usa— pero **10 de las 32 categorías tienen `unico` como `unidad_default`**, y son
 justo las de gastos grandes de una vez (Compras e insumos, Equipamiento,
-Proveedores). Hace falta decidir a qué fecha van.
+Proveedores).
+
+> **✅ Resuelto · `unico` va a la fecha en que se planea.**
+>
+> Un gasto `unico` **no se distribuye**: no lo multiplica la escala ni lo ubica el
+> calendario. Tiene **fecha propia**, y esa fecha es cuando se planea gastarlo.
+>
+> **Y acá está lo importante: eso es exactamente el TIPO B.** Un gasto `unico` del
+> presupuesto **es** un gasto planificado con fecha — mismo patrón, monto y fecha
+> propios, sin fórmula detrás. Las dos cosas que parecían separadas son una.
+>
+> **Mirá si conviene unificarlos** —que `unico` deje de ser una unidad de
+> `presupuesto_linea` y pase a ser una fila de `gasto_planificado`— **o tratarlos
+> como dos entradas del mismo mecanismo**, con una sola rama en el cashflow que
+> lea de las dos fuentes. Lo segundo toca menos; lo primero deja un solo lugar
+> donde vive «gasto con fecha propia». Es tu llamada.
+>
+> El costo de no unificarlos: la misma idea modelada en dos tablas, y el día que
+> haya que cambiarla hay que acordarse de las dos.
+>
+> **`anual` queda pendiente aparte.** Sin rama y sin uso — **no bloquea nada**. Se
+> resuelve cuando aparezca la primera línea que la necesite, y ahí habrá un caso
+> real con el que decidir en vez de una hipótesis.
 
 **Límite:** sólo torneos **con calendario**. Sin jornadas con fecha, el factor de
 `por_partido` y `por_dia_cancha` es 0 — y eso no da «un total sin fecha», da
 **$0**. Ojo también con que `jornada.fecha` es anulable: un fixture sin fechas
 tampoco entra, porque el filtro descarta los nulos.
 
-> **⚠️ Decisión a resolver antes de implementar.** La propuesta original pedía una
-> vista **nueva** `v_cashflow_gastos_estimado`, aditiva al `UNION ALL`, sin tocar
-> `v_cashflow_estimado`. **Tal cual, duplicaría los egresos:** las mismas líneas
-> de presupuesto entrarían dos veces a `v_cashflow` —una por cada vista— y los
-> −$94.250.000 pasarían a −$188.500.000, sin error y sin advertencia.
+> **✅ Resuelto · la salida técnica la elegís vos; el invariante no se negocia.**
 >
-> Tres salidas, para elegir una:
+> **El invariante: el presupuesto tiene que aparecer UNA sola vez en
+> `v_cashflow`.** Hoy da **−$94.250.000**. No puede pasar a −$188.500.000.
+>
+> Esto importa porque la propuesta original pedía una vista **nueva** aditiva sin
+> tocar `v_cashflow_estimado`, y tal cual duplicaba: las mismas líneas entrarían
+> dos veces al `UNION ALL`, **sin error y sin advertencia**. Un egreso proyectado
+> al doble sigue siendo un número plausible, y por eso no se cuestiona.
+>
+> **Cómo lo garantices es decisión tuya.** Tres salidas que sirven — cualquiera
+> de las tres, o una cuarta que se te ocurra:
 >
 > **(a)** Extender `v_cashflow_estimado` con los cambios de arriba. Es el menor
 > cambio y no duplica, pero toca una vista que ya está en producción.
 > **(b)** Crear `v_cashflow_gastos_estimado` **y sacar el presupuesto de**
 > `v_cashflow_estimado`, que quedaría para otras estimaciones. Más limpio de leer,
 > más movimiento.
-> **(c)** Vista nueva sólo para lo que hoy **no** está —`anual`, `unico`, y la
-> corrección de `por_mes`— dejando las dos ramas que ya funcionan donde están.
-> Aditivo de verdad, al costo de partir la misma lógica en dos lugares.
+> **(c)** Vista nueva sólo para lo que hoy **no** está —`unico` y la corrección de
+> `por_mes`— dejando las dos ramas que ya funcionan donde están. Aditivo de
+> verdad, al costo de partir la misma lógica en dos lugares.
+>
+> Facu no tiene preferencia entre ellas: **el requisito es el resultado, no el
+> camino.** Si elegís otra, decila acá y listo.
 
 ---
 
@@ -129,6 +165,11 @@ verificado: no existe ninguna tabla para esto.
 gastos **de escala** —una tarifa que se multiplica por partidos o meses—, y un
 gasto puntual no tiene ni tarifa ni multiplicador. Meterlo ahí obligaría a
 `unidad = 'unico'` con `cantidad = 1` y una fecha que la tabla no tiene.
+
+> **↑ Ojo con el Tipo A:** un gasto de unidad `unico` **es este mismo patrón**
+> —monto y fecha propios, sin fórmula—. Ver *«`unico` va a la fecha en que se
+> planea»* más arriba: hay que decidir si se unifican en esta tabla o si son dos
+> entradas del mismo mecanismo. **Las dos mitades de esa decisión son una sola.**
 
 **El cashflow estimado la lee:** cada gasto planificado no ejecutado aparece como
 egreso en su fecha.
@@ -161,9 +202,29 @@ para los planificados (tipo B).
 devengados e impagos por $12.194.767** que no están en **ningún** nivel del
 cashflow. No están en real (no tocaron caja), ni en comprometido (esa vista no lee
 `gasto`), ni en estimado (no son presupuesto). Es plata pactada con monto cierto,
-así que iría como rama de **comprometido** — pero antes hay que decidir con qué
-fecha, porque **`gasto` no tiene vencimiento**: tiene `devengado_at` y `pagado_at`
-y nada más. Probablemente necesite una columna.
+así que va como rama de **comprometido**.
+
+> **✅ Resuelto · van «ya»: al corto plazo inmediato.**
+>
+> Están **vencidos e impagos**, así que no se proyectan a una fecha futura: entran
+> en **la próxima semana / el próximo período**. Es plata que hay que pagar ahora,
+> y el cashflow tiene que mostrarla ahora.
+>
+> **Esto NO es agregarle vencimiento a `gasto`.** Son dos cosas distintas y
+> conviene no mezclarlas:
+>
+> · **Lo de acá** — «ya venció, va al cashflow inmediato». No necesita columna
+>   nueva: se resuelve con la fecha que ya existe.
+> · **Fecha de pago pactada por gasto** —«a este proveedor le pagamos a 30 días»—
+>   sí necesitaría una columna de vencimiento. **Es otra cosa, y va aparte** si
+>   algún día se quiere.
+>
+> *Un dato que te ahorra trabajo:* el patrón que ya usás en
+> `v_cashflow_comprometido` **hace exactamente esto**. `GREATEST(vence_at,
+> CURRENT_DATE)` arrastra lo vencido a hoy, `fecha_original` conserva la fecha
+> real y `arrastrada` marca que se movió. La rama de gastos impagos puede calcarlo
+> con `devengado_at` en lugar de `vence_at` — y de yapa quedan marcados como
+> arrastrados, que es justo lo que son.
 
 **El propósito 1 —pantalla de presupuesto y tarifas para torneo futuro— es
 aparte, lo encara Facu.**
