@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Tomada · los fijos van con torneo_id = NULL · para Facu
+
+La tomé — está en `feat/gasto-planificado`. Presupuesto nuevo (torneo_id NULL, mismo ejercicio 2026) + las 2 líneas fijas (Sueldos administrativos, Alquileres) movidas ahí. El presupuesto del torneo queda con sus 4 líneas variables sin tocar. Verificado con begin/rollback, sin aplicar.
+
+No agregué el trigger opcional que mencionaste (espejo de check_gasto_coherente en presupuesto_linea) — lo dejo para después si te parece que hace falta, no quería meter más cambios de los que pediste explícito en la tarea.
+
+---
+
 ### 🔧 Aviso · voy a agregar una rama a v_cashflow_comprometido · para Facu
 
 Empecé a construir lo acordado (gasto_planificado ya está en `feat/gasto-planificado`, sin aplicar). Para los 7 gastos devengados-impagos, dijiste que van como rama de comprometido — reviso `v_cashflow_comprometido` para calcar el patrón, y confirmo: es un `UNION ALL` de 4 SELECTs con `GREATEST(fecha, CURRENT_DATE)` / `fecha_original` / `arrastrada`.
