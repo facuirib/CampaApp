@@ -18,6 +18,158 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta · gastos futuros en el cashflow · 16/08/2026 · de Facu para Horacio
+
+**Diseño de Facu, implementación de Horacio.** Toca `v_cashflow_*` y necesita
+modelo nuevo, así que es tu carril.
+
+Cubre **dos tipos de gasto futuro**, y se apoya en el patrón que ya usás para los
+ingresos comprometidos en vez de inventar uno nuevo.
+
+**Es propuesta, no orden.** Si algo no cierra con cómo tenés armado el cashflow,
+discutámoslo acá antes de que lo implementes.
+
+---
+
+#### Punto de partida · qué hay hoy
+
+Para que no construyas dos veces, el estado medido en producción:
+
+| nivel | qué proyecta | hoy |
+|---|---|---|
+| `v_cashflow_real` | lo que ya tocó caja | 14 filas · +$11.552.000 |
+| `v_cashflow_comprometido` | cuotas de equipo y sponsor | 277 filas · +$267.453.000 |
+| `v_cashflow_estimado` | **gastos del presupuesto** | 602 filas · **−$94.250.000** |
+
+**El nivel estimado ya proyecta gastos del presupuesto, y ya los ubica en el
+tiempo** — hace `join` contra las fechas del calendario, con una rama por unidad:
+
+| mes | por_partido | por_dia_cancha | mensual |
+|---|---|---|---|
+| 2026-08 | −6.300.000 | −3.200.000 | −4.700.000 |
+| 2026-09 | −15.900.000 | −6.400.000 | −4.700.000 |
+| 2026-10 | −18.000.000 | −6.400.000 | −4.700.000 |
+| 2026-11 | −12.150.000 | −2.400.000 | −4.700.000 |
+| 2026-12 | — | — | −4.700.000 |
+
+Y las dos ramas de **egreso comprometido** ya están escritas: `compromiso` con
+`sentido='pagar'` y `cheque` con `sentido='emitido'`. No aportan nada porque las
+dos tablas están vacías, no porque falte el código.
+
+Lo que sigue **extiende esto**, no lo reemplaza.
+
+---
+
+#### TIPO A · gastos estructurales, de fórmula
+
+Los que salen del presupuesto y escalan con el torneo.
+
+**Distribución por unidad de `presupuesto_linea`:**
+
+| unidad | cómo se ubica en el tiempo | estado |
+|---|---|---|
+| `por_partido` | por los partidos de cada jornada, en la fecha de esa jornada | **ya funciona así** |
+| `por_dia_cancha` | ídem, por día de cancha | **ya funciona así** |
+| `por_mes` | **parejo por los meses del TORNEO** | ⚠️ hoy se reparte por los meses del **ejercicio** |
+
+Las dos primeras ya reusan el mecanismo de ingresos. La tercera es un cambio: hoy
+`por_mes` genera los fines de mes sobre `ejercicio.fecha_desde..fecha_hasta`, por
+eso aparece diciembre con −4.700.000 aunque el torneo termine en noviembre.
+
+*Nota de precisión:* `presupuesto_linea` **no tiene `naturaleza`** — tiene
+**`unidad`** (`por_partido`, `por_dia_cancha`, `por_mes`, `anual`, `unico`).
+`naturaleza` vive en `cat_gasto` y es otro eje.
+
+**Excluir lo ya devengado.** Proyectar sólo lo que falta gastar, para no contar
+dos veces lo que ya entró como gasto real. Es el mismo principio que ya aplicás
+en ingresos, donde la cuota entra por `saldo` y no por `monto`. **Hoy no está:**
+`v_cashflow_estimado` filtra sólo `fecha > CURRENT_DATE`.
+
+**Las dos unidades que faltan.** `anual` y `unico` **no tienen rama** en
+`v_cashflow_estimado`: una línea con esas unidades suma en el presupuesto y
+desaparece de la proyección, sin aviso. Hoy es trampa latente —ninguna línea las
+usa— pero **10 de las 32 categorías las tienen como `unidad_default`**, y son
+justo las de gastos grandes de una vez (Compras e insumos, Equipamiento,
+Proveedores). Hace falta decidir a qué fecha van.
+
+**Límite:** sólo torneos **con calendario**. Sin jornadas con fecha, el factor de
+`por_partido` y `por_dia_cancha` es 0 — y eso no da «un total sin fecha», da
+**$0**. Ojo también con que `jornada.fecha` es anulable: un fixture sin fechas
+tampoco entra, porque el filtro descarta los nulos.
+
+> **⚠️ Decisión a resolver antes de implementar.** La propuesta original pedía una
+> vista **nueva** `v_cashflow_gastos_estimado`, aditiva al `UNION ALL`, sin tocar
+> `v_cashflow_estimado`. **Tal cual, duplicaría los egresos:** las mismas líneas
+> de presupuesto entrarían dos veces a `v_cashflow` —una por cada vista— y los
+> −$94.250.000 pasarían a −$188.500.000, sin error y sin advertencia.
+>
+> Tres salidas, para elegir una:
+>
+> **(a)** Extender `v_cashflow_estimado` con los cambios de arriba. Es el menor
+> cambio y no duplica, pero toca una vista que ya está en producción.
+> **(b)** Crear `v_cashflow_gastos_estimado` **y sacar el presupuesto de**
+> `v_cashflow_estimado`, que quedaría para otras estimaciones. Más limpio de leer,
+> más movimiento.
+> **(c)** Vista nueva sólo para lo que hoy **no** está —`anual`, `unico`, y la
+> corrección de `por_mes`— dejando las dos ramas que ya funcionan donde están.
+> Aditivo de verdad, al costo de partir la misma lógica en dos lugares.
+
+---
+
+#### TIPO B · gastos puntuales planificados
+
+El caso *«se rompió un arco y hay que comprarlo el mes que viene»*: monto y fecha
+propios, **sin fórmula ni escala detrás**. Hoy **no hay dónde guardarlos** —
+verificado: no existe ninguna tabla para esto.
+
+**Tabla nueva `gasto_planificado`**, con monto, fecha esperada, descripción,
+`cat_gasto` y estado/flag de ejecutado.
+
+*Decisión de Facu: tabla propia, no reusar `presupuesto_linea`.* Esa tabla modela
+gastos **de escala** —una tarifa que se multiplica por partidos o meses—, y un
+gasto puntual no tiene ni tarifa ni multiplicador. Meterlo ahí obligaría a
+`unidad = 'unico'` con `cantidad = 1` y una fecha que la tabla no tiene.
+
+**El cashflow estimado la lee:** cada gasto planificado no ejecutado aparece como
+egreso en su fecha.
+
+**Al pagarse de verdad, sale del estimado.** Se marca ejecutado y el gasto real lo
+reemplaza — mismo principio anti-doble-conteo que el tipo A.
+
+> **Pieza a modelar: el vínculo.** Para saber cuál marcar al pagar hace falta una
+> columna tipo `gasto.planificado_id`. **Es el mismo tipo de eslabón que falta en
+> `cheque` ↔ `pago`** — y ese caso ya mostró qué pasa cuando no está: la función
+> que cambia el estado recibe un id de una fila que nadie vinculó. Vale la pena
+> resolverlo de entrada acá.
+
+---
+
+#### Notas
+
+**Todo aditivo a propósito.** La tabla es nueva y la vista se enchufa al
+`UNION ALL` — `v_cashflow` sólo consume `fecha, nivel, origen, detalle, monto`,
+así que cualquier rama nueva entra sola respetando esas cinco columnas y el signo
+(**no hay columna `sentido`: el signo del monto ES el sentido**). **No choca con
+el bloque 8.**
+
+**El principio unificado de todo el cashflow futuro:** *lo estimado es lo que
+todavía no ocurrió; cuando ocurre, pasa al real y sale del estimado.* Vale para
+ingresos (ya lo hacés, vía `saldo`), para los gastos de presupuesto (tipo A) y
+para los planificados (tipo B).
+
+**Un hueco aparte, que no cubre ninguno de los dos tipos:** hay **7 gastos
+devengados e impagos por $12.194.767** que no están en **ningún** nivel del
+cashflow. No están en real (no tocaron caja), ni en comprometido (esa vista no lee
+`gasto`), ni en estimado (no son presupuesto). Es plata pactada con monto cierto,
+así que iría como rama de **comprometido** — pero antes hay que decidir con qué
+fecha, porque **`gasto` no tiene vencimiento**: tiene `devengado_at` y `pagado_at`
+y nada más. Probablemente necesite una columna.
+
+**El propósito 1 —pantalla de presupuesto y tarifas para torneo futuro— es
+aparte, lo encara Facu.**
+
+---
+
 ### 📋 Plan de trabajo · 16/08/2026 · acordado por Facu
 
 **Para avanzar en paralelo.** Cada uno en su carril, en zonas que no se cruzan,
