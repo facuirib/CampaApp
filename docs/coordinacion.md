@@ -18,6 +18,114 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 LEER ANTES DE TOCAR NADA · tu bloque 8 ya está en main · 16/08/2026 · de Facu para Horacio
+
+**Todo el contenido de tus ramas del bloque 8, el eslabón, el fondo y
+gasto-planificado ESTÁ EN MAIN** (`9f26264`). Pero entró **por otra vía**, no
+mergeando tus ramas.
+
+**Tus cinco ramas quedaron intactas, con los mismos shas. No las mergees ni las
+apliques tal cual: pisarían lo que ya entró.** Abajo está exactamente qué hacer.
+
+> **Nada tuyo se descartó.** El eslabón resuelve bien el hueco del caso 2 —con
+> `pago_id` se llega del cheque al pago y del pago a las cuotas a reabrir— y la
+> caja elegible es tu commit tal cual. Lo que se reorganizó es **cómo** entró,
+> por dos cosas que se habrían roto al mergear derecho. Están explicadas al
+> final.
+
+---
+
+#### Qué entró, y cómo
+
+| | qué pasó |
+|---|---|
+| **`registrar_cobro`** | Tu eslabón **combinado sobre la versión del repo** — ver abajo |
+| **`cambiar_estado_cheque`** | **Cherry-pick de tu commit `c0a73d3`**, tal cual, con tu autoría |
+| **`registrar_movimiento_fondo`** | Tu lógica del fondo, **extraída** a una migración limpia |
+| **`gasto-planificado`** | **Mergeado completo**, sin tocar nada |
+
+**`registrar_cobro` · `20260816200000_eslabon_cheque_pago_sobre_repo.sql`**
+
+Tus tres injertos —los params de cheque, la validación de número/banco/fecha, y
+el `insert into cheque` con `pago_id`— entraron **exactos**. Lo que cambió es la
+base sobre la que se escribieron.
+
+Tu rama lo escribió sobre la versión de **producción**. Pero el repo tenía otra,
+mejor, que nunca se había aplicado —era la divergencia repo↔base que veníamos
+arrastrando, documentada en `decisiones.md`—. Aplicar la tuya habría perdido, en
+silencio:
+
+· la validación `v_agrupado <> v_imputado` con su mensaje *«El asiento cubriría %
+  de los % imputados: alguna cuota no resolvió su concepto»*, que dice **qué**
+  pasó y no sólo que no cuadra;
+· ~44 líneas de comentarios que explican por qué el débito se deriva de los
+  grupos y no de `p_monto`, por qué se sacó el fallback a `auth.users`
+  (decisión 89) y por qué la imputación tiene que cubrir el pago completo.
+
+**La versión en main tiene las dos cosas: tu funcionalidad y esos comentarios.**
+De paso cierra la divergencia, hacia el lado bueno.
+
+**`registrar_movimiento_fondo`** salía de `20260812210000`, que traía **dos**
+funciones: el fondo (aprobado) y la `cambiar_estado_cheque` con la caja
+hardcodeada (la que la revisión pidió cambiar). Se extrajo **sólo el fondo**, sin
+tocarle una línea. Traer el archivo entero habría metido en main una migración
+que aplica algo rechazado para corregirlo dos migraciones después.
+
+---
+
+#### 🔴 Lo que tenés que hacer para no pisar main
+
+**1 · `feat/eslabon-cheque-pago` — NO la apliques tal cual.** Su
+`registrar_cobro` pisaría el de main con la versión sin comentarios. Al traer
+main a tu rama, **borrá `20260814180000_eslabon_cheque_pago.sql`**: su contenido
+ya está en main, mejorado.
+
+**2 · `feat/bloque8-caja-elegible` — ídem.** Su `cambiar_estado_cheque` ya está
+en main por cherry-pick, y la rama arrastra el eslabón viejo. Al traer main,
+**resolvé quedándote con lo de main**.
+
+**3 · `feat/bloque8-funciones-propuesta` — quedó obsoleta.** Su
+`cambiar_estado_cheque` fue reemplazada y su fondo está extraído. **Se puede
+borrar.**
+
+**4 · Traé main a tus ramas activas antes de seguir**, para partir de lo que ya
+está y no reconstruir sobre una base vieja.
+
+---
+
+#### Por qué no se mergeó derecho
+
+Dos cosas se habrían roto, y ninguna tiene que ver con la calidad de tu trabajo:
+
+**La versión buena de `registrar_cobro`** — explicado arriba. Es una divergencia
+vieja, anterior a tu rama; te tocó a vos porque tu migración pasaba justo por ahí.
+
+**El orden del historial.** Tus migraciones del bloque 8 tenían timestamps del
+**14/08**, que caen **antes** de lo que ya estaba aplicado (`20260816162556` la
+siembra, `20260816184239` el ruteo de inversión, `20260816193835` las vistas de
+activos). Mergearlas así habría vuelto a meter migraciones nuevas en el pasado
+del historial aplicado — el mismo desorden que se acababa de arreglar. Se
+renombraron a `20260816201000` y `20260816202000`.
+
+Las de `gasto-planificado` son `20260817*`, ordenan bien, y **no se tocaron**.
+
+---
+
+#### Estado
+
+`supabase db push --dry-run` → **«Remote database is up to date»**. Historial: 73
+migraciones, **todas con archivo y registradas, en orden creciente**.
+
+Producción intacta y con las capacidades instaladas **en cero** —`cheque`,
+`movimiento_fondo` y `gasto_planificado` sin filas—: 68 asientos, diario
+cuadrando en $124.841.267.
+
+**Y el caso 2 del bloque 8 ya se puede construir.** Con `pago_id` en `cheque`, un
+cheque rechazado llega al pago y del pago a las cuotas. Era lo único que faltaba
+—lo dejaste anotado vos mismo en tu migración— y ahora está.
+
+---
+
 ### ✅ OK · dale con la 5ª rama de `v_cashflow_comprometido` · 16/08/2026 · de Facu para Horacio
 
 **Adelante.** Tu diseño coincide con lo que se decidió: los devengados-impagos van
