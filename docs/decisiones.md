@@ -168,7 +168,7 @@ No se escribe. Se elimina cuando el bloque 3 (Cobranza) esté terminado.
 
 **Todas construidas.** `crear_equipo_torneo` (`20260731070827`) y
 `registrar_cobro` (`20260731100343`, sin fallback de usuario desde
-`20260802170000`). Detalle y razonamiento en `arquitectura.md` §3.4 → El
+`20260805102032`). Detalle y razonamiento en `arquitectura.md` §3.4 → El
 circuito de cobro.
 
 **29 · `cuota.plan_tarifa_linea_id`, FK NOT NULL**
@@ -665,13 +665,11 @@ no como distribución de utilidad.
 *Costo de la EMPRESA, no del torneo:* el asiento va con **`torneo_id = NULL`**, a
 nivel estructura permanente (§3.2). El sueldo existe todos los meses, haya torneo
 o no; imputarlo a uno exigiría prorratearlo entre los que corren ese mes, que es
-exactamente el criterio arbitrario que la **decisión 5** prohíbe. En
-`v_resultado_producto` cae bajo "Estructura permanente": la contribución de cada
-torneo queda intacta y lo que baja es el resultado de la empresa.
-*Cómo se implementa el P&L:* solo con el tipo de cuenta.
-`v_resultado_producto` filtra `c.tipo in ('ingreso','egreso')`, así que
-`GAS_SOCIOS` entra y baja la contribución, y `SOCIOS_A_PAGAR` no aparece por ser
-pasivo. **Ninguna vista se toca.** Si la cuenta fuera `patrimonio` —valor que el
+exactamente el criterio arbitrario que la **decisión 5** prohíbe. Baja el resultado de la **empresa**, que desde el rediseño de Resultados es el
+único que se mira: no hay vista que parta el resultado por torneo.
+*Cómo se implementa el P&L:* solo con el tipo de cuenta. El P&L filtra por
+`cuenta.tipo`, así que `GAS_SOCIOS` entra y baja el resultado, y
+`SOCIOS_A_PAGAR` no aparece por ser pasivo. **Ninguna vista se toca.** Si la cuenta fuera `patrimonio` —valor que el
 CHECK admite y que hoy no usa nadie— simplemente no aparecería.
 *Cuenta propia y no `GAS_SUELDOS`:* el total del P&L es el mismo, pero separarlas
 permite leer el sueldo operativo aparte del de los dueños, que es justo la
@@ -764,10 +762,10 @@ de la cuota teórica: el pasivo cierra exacto por construcción.
 Todos los asientos con **`torneo_id = NULL`**, igual que los sueldos de socios.
 *Por qué:* el contrato es **anual y cubre los dos torneos**; imputarlo a uno
 exigiría el prorrateo que la decisión 5 prohíbe.
-*Consecuencia a tener presente al leer las pantallas:* el ingreso de sponsors
-**no entra en la contribución de ningún torneo** — aparece bajo "Estructura
-permanente", y `v_comparador_torneos` compara torneos **sin** ingresos de
-sponsor. Es correcto y deliberado, pero sorprende si no se sabe.
+*Consecuencia a tener presente:* el ingreso de sponsors **no es de ningún
+torneo** — el contrato es anual y los cubre a los dos. Desde que el resultado se
+mira a nivel empresa esto dejó de exigir una advertencia de lectura: en
+`/resultados` es una fila de ingresos como cualquier otra.
 *Cuenta de deudores propia y no la `DEUDORES` genérica:* ésa se diseñó para
 equipos y la **decisión 1 la sacó de juego** —bajo percibido puro, lo que un
 equipo debe no está en el diario—. Reusarla resucitaría un concepto retirado a
@@ -851,9 +849,11 @@ desde el schema inicial, sin uso. **El código es `FIN_DIF_CAMBIO`**, no
 `DIFERENCIA_CAMBIO`.
 
 **82 · Hace falta una vista de resultado de cambio, porque hoy no se ve**
-`FIN_DIF_CAMBIO` es `financiero`, así que `v_resultado_producto` **no la toma** —
-filtra `ingreso`/`egreso`. Eso es correcto y deliberado (decisión 12: una suba
-del dólar no debe leerse como que el torneo funcionó mejor).
+`FIN_DIF_CAMBIO` es `financiero` y durante meses **ninguna vista de resultado la
+tomaba**: se registraba sin aparecer en pantalla. *Resuelto:* entra al P&L en su
+propio bloque, separada de los ingresos operativos — que es lo que pedía la
+decisión 12 (una suba del dólar no debe leerse como que el torneo funcionó
+mejor).
 *El problema:* la "línea aparte" donde debería verse **no existe**. Ninguna vista
 lee `FIN_DIF_CAMBIO`, así que hoy la diferencia de cambio se registraría y no
 aparecería en ninguna pantalla.
@@ -974,7 +974,7 @@ con sesión válida la subconsulta nunca se evaluaba.
 *⚠ Pendiente:* `crear_asiento` tiene **el mismo fallback**, y lo llaman nueve
 funciones que le pasan `p_created_by => null`. Es el mismo problema en el lugar
 más central —la única vía de escritura al diario—. Queda para el bloque 10.
-*Commit `0cbad99`, migración `20260802170000`.*
+*Commit `0cbad99`, migración `20260805102032`.*
 
 **90 · El corte por fecha del cashflow** *(cierra la 86)*
 `REAL <= hoy` · `COMPROMETIDO >= hoy` + las vencidas arrastradas · `ESTIMADO >
@@ -1018,7 +1018,7 @@ Clausura se parten cuatro semanas y tres ya tienen flujo.
 *`v_cashflow_mensual` se corrigió sola:* solo lee `saldo_proyectado`. Sus
 columnas de flujo siguen bien — ahí sumar flujos **sí** corresponde; el error era
 sumar un flujo sobre un stock.
-*Commit `6e8e236`, migración `20260802200000`.*
+*Commit `6e8e236`, migración `20260805121912`.*
 
 ---
 
@@ -1087,7 +1087,7 @@ ningún usuario recorre.
 > no está.
 
 > **⚠ Esto arregla la auditoría, NO la seguridad.** RLS sigue **apagado en las
-> 47 tablas**, y la anon key va en el bundle del navegador: cualquiera con ella
+> 48 tablas**, y la anon key va en el bundle del navegador: cualquiera con ella
 > puede escribir la base **con o sin login**. El mínimo cambia *quién dice ser*
 > el que escribe; no cambia *quién puede*. Antes de que la app esté en internet,
 > RLS deja de ser "para después".
@@ -1396,9 +1396,9 @@ Se renombraron los nueve archivos a su versión registrada. *Para las que
 vengan:* si se aplica por MCP, el archivo se nombra con la versión que quedó
 registrada, no con una inventada antes.
 
-> Se suma a la deuda de reproducibilidad de § Abiertas: la base ya no se podía
-> reconstruir desde `migrations/` por las cuentas que faltan, y encima el repo
-> y la base numeraban distinto.
+> ✅ **Cerrado del todo.** Aquella pasada arregló nueve archivos, pero quedaban
+> once más desalineados; se sincronizaron después junto con la reproducibilidad
+> —ver *«El historial de migraciones quedó sincronizado»* más abajo—.
 
 ---
 
@@ -1494,6 +1494,151 @@ ya se pagaron»— que evita tener dos gráficos para la misma pregunta.
 
 ---
 
+**✅ La base se reconstruye desde `supabase/migrations/`.** *(cierra la deuda de
+reproducibilidad que estaba en § Abiertas › Técnicas)*
+
+Era la más seria de las abiertas: corriendo las migraciones sobre una base
+limpia, el plan de cuentas quedaba en **5 cuentas de 28**. `001_schema.sql` crea
+la tabla `cuenta` y ninguna fila; sólo cinco cuentas tenían alta en migraciones
+—`GAS_SOCIOS`, `SOCIOS_A_PAGAR`, `DEUDORES_SPONSORS`, `INGRESO_DIFERIDO`,
+`CAJA_CENTRAL`—. **Las otras 23** vivían sólo en `seed.sql`, que ningún
+automatismo corría.
+
+*(La entrada abierta decía «trece». Eran 23: el conteo salió de un grep que sólo
+matcheaba ciertos prefijos.)*
+
+**Cómo se cerró:** una migración de siembra —`20260816162556_siembra_estructura`—
+**generada leyendo la base**, no escrita a mano. Sale de ahí la estructura que el
+sistema necesita para arrancar: plan de cuentas, predios, cajas, `cat_gasto` y
+`concepto_gasto`, formatos, plantillas de mail, `config_contable` y el ejercicio
+2026. Todo idempotente, así que sobre la hosted no hace nada y sobre una limpia
+la construye.
+
+Aplicada a producción y verificada: **28 cuentas, 66 asientos, 12 gastos, 32
+`cat_gasto` — idéntico antes y después.** Lo único que cambió fue el registro de
+la migración.
+
+**Se probó de verdad**, en una preview branch con Postgres vacío: 61/61
+migraciones, plan de cuentas en 28, y dos smoke tests que recorren el circuito
+—`crear_asiento`, que resolvió su período desde el ejercicio sembrado, y
+`registrar_gasto`, que atraviesa `cat_gasto → cuenta → asiento → período`—.
+Branch borrada al terminar.
+
+*Dos hallazgos que sólo aparecen corriendo las migraciones de verdad:*
+
+· **`20260802133417_modulo_cashflow.sql` nunca se había ejecutado.** Tenía cinco
+  `comment on view … as` donde va `is`, y **abortó la reconstrucción en la
+  migración 24 de 61**. En producción los comentarios existen: se aplicaron por
+  MCP, con el SQL correcto, y el archivo del repo quedó con la versión rota. O
+  sea que el repo tenía una migración que **nunca corrió en ninguna base**.
+  Corregido.
+
+· **Faltaba una migración entera en el repo.** `20260810120000
+  registrar_entrega_central_responsable` está registrada en producción y **no
+  tenía archivo `.sql`**. La única definición que quedaba en `migrations/` era la
+  de `20260802095023`, **con dos parámetros**: una base reconstruida quedaba con
+  una `registrar_entrega_central` sin `p_responsable_id`, o sea con el asiento de
+  la entrega atribuido a nadie — justo lo que la decisión 89 vino a impedir.
+  Recuperada de la base con `pg_get_functiondef()` y agregada al repo.
+
+  El archivo recuperado necesitó además el `drop function ...(uuid, date)`:
+  agregar un parámetro **crea una función nueva en vez de reemplazar la
+  anterior**, y la llamada de un argumento quedaría ambigua. `anular_asiento`,
+  `devengar_sponsors` y `devengar_sueldos_socios` ya lo hacían así en sus
+  migraciones; era el único de los cuatro sin el drop.
+
+· **Once archivos no coincidían entre repo y base.** `001`–`004` nunca se
+  registraron, y siete (`20260802140000`–`20260802210000`) estaban registrados
+  con otras versiones (`20260805101748`–`20260805122444`). El CLI compara **por
+  versión**, así que `supabase db push` contra producción quería re-aplicarlos —
+  por eso la siembra se aplicó por MCP y no por push. **Resuelto en una pasada
+  aparte**, abajo.
+
+*El barrido, para no ir descubriéndolos de a uno:* se compararon las **41
+funciones** de producción contra su última definición en `migrations/` y las **53
+vistas** contra las que crea alguna migración. `registrar_entrega_central` fue el
+único drift de firma; las vistas dieron limpias (las dos que sobran en
+`migrations/` son `v_comparador_torneos` y `v_resultado_producto`, dropeadas a
+propósito al rediseñar Resultados).
+
+*Lo que quedó de cada lado:* `seed.sql` ya no tiene estructura, sólo datos de
+prueba marcados `DEMO ·` —un torneo, una categoría con su serie y un tarifario—.
+Y `[db.seed]` quedó **encendido**: se probó en `false` justamente para que no
+tapara el agujero, pero cerrado el agujero, encenderlo es lo que evita que se
+repita. `seed.sql` se desactualizó —conservaba el catálogo previo al
+reordenamiento— *porque nada lo corría*: no fallaba cuando dejaba de andar.
+Corriendo en cada `db reset`, se rompe a la vista.
+
+**La condición para que esto siga siendo cierto: en `seed.sql` no entra nada
+estructural.** Lo que el sistema necesita para arrancar va en una migración.
+
+---
+
+**✅ El historial de migraciones quedó sincronizado: `db push` no tiene nada que
+aplicar.** *(cierra los once archivos desalineados de la entrada anterior)*
+
+Eran dos problemas distintos con la misma consecuencia — el CLI compara **por
+versión**, así que veía once migraciones sin aplicar y quería correrlas de nuevo
+sobre producción:
+
+· **Siete archivos con timestamp propio.** `20260802140000`–`20260802210000` en
+  el repo, registrados en la base como `20260805101748`–`20260805122444`. Es el
+  mismo caso que los nueve de agosto: se aplicaron por MCP, que pone su propio
+  timestamp. Se renombraron a la versión registrada.
+
+· **`001`–`004` nunca se registraron.** Se marcaron con `migration repair
+  --status applied`, que **sólo escribe la fila de registro**: no re-ejecuta el
+  DDL.
+
+*Cómo se verificó antes de tocar nada* —porque un renombre a ciegas oculta una
+divergencia en vez de resolverla—:
+
+**Los siete, por contenido.** Supabase guarda el SQL aplicado en
+`schema_migrations.statements`, así que se comparó archivo contra texto aplicado,
+normalizando comentarios y espacios. Seis idénticos; el séptimo, abajo.
+
+**Los cuatro, por efecto.** Se extrajeron los **70 objetos** que crean `001`–`004`
+y se verificó su existencia en producción: **67 están**. Los tres que faltan los
+borró una migración posterior a propósito —`sync_total_facturado` la reemplaza
+`sync_total_plan`, y `v_resultado_producto` / `v_comparador_torneos` se dropearon
+al rediseñar Resultados—. O sea que `repair` no saltea nada pendiente.
+
+*El resultado:* `supabase migration list` da 62 filas con local y remoto
+poblados, y `db push --dry-run` responde **«Remote database is up to date»**.
+Producción intacta: 28 cuentas, 66 asientos, 12 gastos, 32 `cat_gasto`,
+`total_debe` $121.941.267 — lo único que cambió son las cuatro filas del repair
+(58 → 62 migraciones registradas).
+
+---
+
+**`registrar_cobro_sin_fallback` difiere entre el repo y lo aplicado, y se dejó
+así a propósito.** Fue el séptimo de los renombres: el único cuyo SQL no coincide.
+
+La divergencia está en la validación final. **Producción corre**
+`if v_agrupado <> p_monto` con el mensaje *«Las líneas del asiento suman % y el
+pago es de %»*. **El archivo del repo** invierte el orden de los dos chequeos
+finales, usa `if v_agrupado <> v_imputado`, y trae un mensaje mejor —*«El asiento
+cubriría % de los % imputados: alguna cuota no resolvió su concepto»*— con un
+comentario que explica el caso: el agrupamiento por concepto atraviesa tres joins,
+y si alguno perdiera filas el asiento cuadraría igual pero asentaría menos plata
+de la cobrada, en silencio.
+
+**Son lógicamente equivalentes.** Antes de ese punto la función ya hace
+`if v_imputado <> p_monto then raise`, así que ahí `v_imputado = p_monto` está
+garantizado. Cambia el texto del error y el orden, no qué acepta o rechaza.
+
+Es el mismo patrón que `modulo_cashflow`: **el archivo del repo nunca corrió** —
+parece una mejora escrita sobre el archivo después de haberlo aplicado—. Pero es
+menos grave: aquel tenía un error de sintaxis y abortaba la reconstrucción; éste
+corre bien y hace lo mismo.
+
+*Se renombró igual, sin tocar producción.* El repo queda como fuente, y una base
+nueva nace con el mensaje mejor. **Si algún día se quiere alinear producción, es
+un `create or replace` aparte** — toca el motor de cobros, así que es carril de
+Horacio y no entra en un commit de historial.
+
+---
+
 ## Abiertas
 
 Pendientes de definir con el cliente. **No inventar la respuesta:**
@@ -1506,56 +1651,6 @@ Pendientes de definir con el cliente. **No inventar la respuesta:**
 ### Técnicas
 
 No dependen del cliente; se resuelven entre nosotros.
-
-**⚠ La base NO se puede reconstruir desde `supabase/migrations/`.** Es la deuda
-más seria de las abiertas, y se descubrió relevando si `seed.sql` seguía vivo
-(reordenamiento del plan de cuentas, 3.3).
-
-Corriendo las 54 migraciones sobre una base limpia, el plan de cuentas queda con
-**unas 5 cuentas en vez de 29**. `001_schema.sql` crea la tabla `cuenta` y
-**ninguna fila**: verificado, cero `insert into cuenta`. Las únicas altas en
-migraciones son `GAS_SOCIOS`, `SOCIOS_A_PAGAR`, `DEUDORES_SPONSORS`,
-`INGRESO_DIFERIDO` y `CAJA_CENTRAL`, cada una en la suya.
-
-**Las otras trece —todas las de ingreso, casi todas las de egreso y las tres
-cajas— viven sólo en `supabase/seed.sql`**, que ningún automatismo ejecuta:
-
-· **No hay `supabase/config.toml`.** No es que le falte `[db.seed]`: el archivo
-  no existe, así que `supabase start` y `supabase db reset` no tienen entorno
-  local que levantar. El CLI se usa sólo linkeado a la base hosted, para
-  `gen types` y aplicar migraciones.
-
-· **El README documenta un flujo con `psql` que lista 3 migraciones** —`001`,
-  `002`, `003`— más `seed.sql`. Hay **54** en el repo. Está desactualizado por
-  51 y no reconstruye nada desde hace meses. (`arquitectura.md` §3.3 citaba
-  además un `campa_schema.sql` que no existe; corregido al reordenar el plan.)
-
-**La falla es silenciosa**, que es lo peor: aplicar las migraciones no da ningún
-error. Rompe después, en el primer `crear_asiento`, con "cuenta no encontrada" —
-un mensaje que habla de una cuenta y no de que falta medio plan.
-
-Choca de frente con el checklist de CLAUDE.md, *"si tocaste SQL: la migración
-corre sobre base limpia"*: **la línea de base misma no es reproducible**. No se
-notó nunca porque no hay entorno local — todo se aplicó incremental sobre la
-hosted, donde las cuentas ya estaban desde el primer día.
-
-*Opciones, para decidir después:*
-
-- **(a) Una migración que siembre el plan de cuentas** con `on conflict do
-  nothing`. Lo vuelve reproducible **sin tocar la base hosted**: sobre la
-  existente no hace nada, sobre una limpia lo crea. Es la que menos riesgo
-  tiene.
-- **(b) Formalizar `seed.sql` como parte del arranque** y arreglar el README.
-  Más barato de escribir, pero deja el plan de cuentas partido entre dos
-  fuentes y depende de que alguien se acuerde de correr el seed.
-
-*Cuándo:* **ahora es el momento.** El reordenamiento del plan de cuentas ya
-cerró (28 cuentas, categorías reordenadas), así que la foto final está quieta:
-una migración que la siembre con `on conflict do nothing` la deja consolidada,
-en vez de ser el resultado de un seed viejo más cinco migraciones de
-corrección. Cuanto más se demore, más larga es la cadena a replicar.
-
----
 
 **Los sueldos de empleados son seis nombres escritos a mano, sin padrón detrás.**
 «Sueldos administrativos» tiene como conceptos a Augusto, Estudio contable,
@@ -1646,7 +1741,7 @@ pantalla mostraba devengado, retirado y saldo **sin el número que les da
 contexto**: un saldo en cero no distingue "todavía no se devengó nada" de "se
 retiró todo lo devengado".
 
-Lo trae **`v_socio_lista`** (migración `20260812140000`), junto con
+Lo trae **`v_socio_lista`** (migración `20260812111231`), junto con
 `vigente_desde`. **No** se agregó a `v_saldo_socio` como decía esta entrada: la
 lista es una vista nueva y aditiva, y meterle una columna a `v_saldo_socio`
 —que el detalle sigue usando— era tocar algo que anda para no crear algo que no

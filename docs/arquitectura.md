@@ -10,245 +10,12 @@
 
 La partida doble está por debajo de todo el sistema, pero como **garantía de consistencia**, no como producto: es lo que impide que dos pantallas muestren números distintos.
 
-## Qué cambió desde el Draft 21
 
-La pieza que integra todo, y **la última grande de backend**. Es mayormente lectura: junta en una línea de tiempo las fuentes que los módulos anteriores ya producen. **Sin estructura nueva.**
-
-**Tres niveles de certeza, automáticos** (§3.10). **REAL** —movimientos de caja del diario—, **COMPROMETIDO** —cuotas de equipos y sponsors, con fecha pactada— y **ESTIMADO** —el presupuesto—. El nivel lo determina el **estado** del flujo, sin clasificación a mano, y **la confianza es una columna del modelo**, no una convención de la pantalla.
-
-**REAL sale de las cajas, no de `ingreso`/`egreso`** (§3.10). Los gastos van por devengo y los sueldos de socios también, así que esas cuentas no son caja. Y **se agregan todas las cajas**, lo que resuelve un problema solo: los traslados predio → central y las compras de USD mueven plata entre dos cuentas de caja, así que en el agregado **suman cero y no ensucian el flujo**.
-
-**ESTIMADO se distribuye por el calendario** (§3.10). `v_presupuesto_total` da un total sin dimensión temporal; se reparte con el calendario que ya existe — `por_partido` en las fechas de las jornadas, `por_dia_cancha` en los días de cancha, `por_mes` parejo. El costo cae donde el calendario dice que ocurre la actividad.
-
-**La semana se deriva de las fechas** (§3.10), con `date_trunc`. Sin tabla de semanas: una semana no es un período contable y no debería serlo.
-
-> **⚠ La anti-duplicación no alcanza del lado de egresos** (§3.10). Funciona sola en ingresos —la cuota cobrada tiene `saldo = 0` y sale de COMPROMETIDO—, pero **ESTIMADO sale del presupuesto, no de los gastos**: pagar un gasto no achica el presupuesto, así que 100.000 presupuestados y 100.000 pagados en el mismo mes darían **200.000**. La asimetría es de fondo: una cuota es un compromiso individual con estado; una línea de presupuesto es un agregado sin estado. **Resolución propuesta:** cortar la línea de tiempo por fecha —pasado REAL, futuro proyectado—, que hace la exclusión estructural. Se cierra al construir.
-
-**§3.10 se reemplaza por completo.** La `v_flujo_proyectado` que documentaba **no existía**, y su SQL **no compilaría**: referencia `cat_gasto.grupo`, `presupuesto_linea.monto_mensual`/`cantidad_x_fecha` y `jornada.torneo_id`, todo eliminado. Cuarta aparición del drift doc↔schema, y la más grande porque parecía código construido.
-
----
-
-## Qué cambió desde el Draft 20
-
-Tercer módulo de la capa societaria, y **el más liviano: no se crea estructura**. La tabla `usd_operacion`, la caja USD y las cuentas `CAJA_USD` y `FIN_DIF_CAMBIO` ya existían desde el schema inicial, sin uso. Solo faltaba la lógica.
-
-**El diario es monomoneda, y se explicita como principio** (§3.7). `asiento_linea` no tiene moneda ni cantidad, y no hay ninguna columna de divisa en el schema. La complejidad del dólar queda **aislada en `usd_operacion`**: la **tenencia** sale de ahí, el **costo en libros** del diario, y el PPP es el puente. Ya estaba así; ahora está dicho.
-
-**Valuación por promedio ponderado** (§3.7). `costo_libros / tenencia_usd`, **derivado y no guardado**. Se mantiene solo: al vender, `CAJA_USD` baja exactamente por el costo de salida, así que lo que queda conserva el promedio.
-
-**La diferencia de cambio es solo realizada** (§3.7). Los dólares quedan a su costo hasta que se venden; nada de ganancias en papel. **`revaluacion` sale del dominio** de `usd_operacion.tipo` — un valor que el modelo no usa es una trampa, misma limpieza que `por_jornada` en la pieza 5. Esto **reemplaza** la fila "Revaluación → no realizado" que §3.7 traía del schema original.
-
-> **Dos cosas que el relevamiento encontró.** `FIN_DIF_CAMBIO` es de tipo `financiero`, y durante meses **ninguna vista la leía**: la diferencia de cambio se registraba sin aparecer en pantalla. *Resuelto:* `v_pl_mensual` la incluye y `/resultados` la muestra como bloque propio, «Resultado financiero», separada de los ingresos operativos — que es lo que pedía la decisión 12: una suba del dólar no debe leerse como que el torneo funcionó mejor. Y el promedio cruza **dos fuentes**: si alguien asienta contra `CAJA_USD` sin registrar la operación, el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado.
-
----
-
-## Qué cambió desde el Draft 19
-
-Segundo módulo de la capa societaria.
-
-**Devengo lineal · el tercer patrón de reconocimiento** (§3.20). Equipos por percibido puro, socios por devengo mensual de un fijo, sponsors por **devengo lineal prorrateado**: el contrato se reconoce repartido en los meses que cubre. Tres naturalezas distintas, tres tratamientos, cada uno argumentado.
-
-**Dos calendarios separados** (§3.20). El **reconocimiento** es parejo y mensual —responde *cuánto ganó el negocio este mes*—; el **cobro** son las cuotas en sus fechas —responde *cuándo entra la plata*—. Un contrato de 1.200.000 reconoce 100.000 por mes y puede cobrarse en tres cuotas de 400.000. Colapsarlos obligaría a mentir en una de las dos preguntas.
-
-**Ingreso diferido como pasivo que se libera** (§3.20). Al firmar se asienta `DEUDORES_SPONSORS` / `INGRESO_DIFERIDO` **sin tocar el P&L**: se firmó, no se ganó nada aún. Cada mes el devengo libera una porción contra `ING_SPONSORS`.
-
-**De las tres cuentas, una ya existía.** `ING_SPONSORS` está en el plan desde el schema inicial, sin uso. Se crean `DEUDORES_SPONSORS` e `INGRESO_DIFERIDO`. **Cuenta de deudores propia y no la `DEUDORES` genérica**: ésa se diseñó para equipos y la decisión 1 la sacó de juego, así que reusarla mezclaría deuda de equipos —que no es saldo contable— con deuda de sponsors, que sí lo es.
-
-**Nivel empresa, `torneo_id = NULL`** (§3.20), como los sueldos de socios. El contrato es anual y cubre los dos torneos. **Consecuencia a tener presente:** el ingreso de sponsors no entra en la contribución de ningún torneo. Desde que el resultado se mira a nivel empresa (§3.2) eso dejó de ser un problema de lectura: no hay pantalla que compare torneos.
-
-> **Un detalle que parece menor y no lo es** (§3.20). `total / meses` no siempre da exacto: 1.000.000 en 12 meses deja 0,04 huérfanos, y `INGRESO_DIFERIDO` nunca cerraría en cero. **El último período devenga el remanente** en vez de la cuota teórica, así el pasivo cierra exacto por construcción.
-
----
-
-## Qué cambió desde el Draft 18
-
-Primer módulo posterior al rediseño calendario-por-serie. Introduce **dos patrones que el sistema no tenía**.
-
-**El sueldo del socio se devenga — Forma B** (§3.19). Es la **excepción deliberada al percibido puro** de §1.b, y no una inconsistencia: el ingreso de un equipo puede no ocurrir nunca, pero el sueldo del socio es un compromiso cierto que existe cada mes se retire o no. No registrarlo hace que **la caja parezca toda del negocio cuando parte ya está comprometida**.
-
-**Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo)** (§3.19). Egreso y no patrimonio: el sueldo de socios es **costo del negocio**. Cuenta propia separada de `GAS_SUELDOS` para poder distinguir el sueldo operativo del de los dueños. **Ninguna vista se toca**: el P&L filtra por tipo de cuenta, así que `GAS_SOCIOS` entra y el pasivo no.
-
-**Es costo de la empresa, no del torneo** (§3.19). El asiento va con `torneo_id = NULL`, a nivel estructura permanente: el sueldo existe todos los meses haya torneo o no, e imputarlo a uno exigiría el prorrateo que la **decisión 5** prohíbe. La contribución de cada torneo queda intacta; lo que baja es el resultado de la empresa.
-
-**El sueldo acordado se versiona con historial** (§3.19). **Primer parámetro versionado de verdad**: `config_contable` tiene `vigente_desde` pero es una fila única sin historial —y no la lee nadie—, así que no servía de molde. Cambiar el sueldo es insertar una fila, no editar: es lo que permite recalcular un mes viejo con el sueldo que regía entonces.
-
-**El devengo mensual escribe solo** (§3.19). **Rompe con el único precedente** de proceso mensual: `proponer_amortizaciones` propone y el operador confirma (decisión 23), porque una amortización es una estimación. El sueldo es un monto acordado y conocido — no hay nada que revisar. Idempotente por `(socio, período)` y disparado explícitamente, no por cron.
-
-**El retiro de sueldo no se mezcla con el fondo de inversión** (§3.15, §3.19). El fondo ya modela plata de socios en el sentido contrario. Uno cancela un pasivo devengado, el otro mueve respaldo: cuentas y conceptos separados, o `v_dependencia_fondo` deja de significar lo que dice.
-
----
-
-## Qué cambió desde el Draft 17
-
-**Los playoffs ya colgaban de serie** (§3.5). La pieza 1 movió *toda* `jornada`, no solo la liga. La pieza 6 **no mueve nada**: cierra tres agujeros que quedaron abiertos porque la rama `es_playoff` nunca se ejercitó — no hay puerta de creación (`crear_jornada` hardcodea `es_playoff = false`), el `unique (serie_id, numero)` no protege playoffs porque `numero` es `NULL`, e `instancia` no tiene dominio.
-
-**El formato de instancia es una tabla, no un CHECK** (§3.5). `formato_instancia (nombre, cantidad_partidos, orden)`, sembrada con cuartos=4 / semifinal=2 / final=1. Cerrarlo con literales sería violar la regla 12: otro torneo puede tener octavos, repechaje o final a ida y vuelta, y tiene que entrar con sus datos sin tocar código.
-
-**`crear_playoff` es la cuarta puerta** (§3.5). Extiende la decisión 49 al playoff. Valida contra el formato y contra `(serie_id, instancia)`, que es la identidad natural que faltaba. `mover_jornada` y `suspender_jornada` ya servían.
-
-**`equipo_playoff` — quién juega cada instancia** (§3.5). En la liga juegan todos los de la serie siempre; en playoff **la clasificación es dato** y no se deriva de nada. Sin esa tabla no hay a quién cobrarle.
-
-**La cuota de playoff se genera después de la ficha, por instancia jugada** (§3.5). B0 sigue excluyéndolas y está bien: al armar la ficha no se sabe si el equipo va a clasificar, y facturarle a 16 equipos una final que juegan 2 sería inventar deuda. Se cobra lo que se juega a medida que se juega.
-
-> **⚠ Bug latente que esta pieza destapa** (§3.3, §3.5). `v_torneo_escala.partidos` calcula `equipos ÷ 2` por jornada **sin excluir playoffs**: la final de Libre A daría 8 partidos en vez de 1. Con 3 instancias × 20 series el presupuesto `por_partido` se infla mucho y **en silencio** — misma clase que la bomba del 284. Hoy no molesta porque hay 0 playoffs. **La decisión 45 queda acotada a la liga**: en un cuadro la cantidad de partidos depende del formato, no del tamaño de la serie.
-
----
-
-## Qué cambió desde el Draft 16
-
-**El arqueo cuelga de `dia_cancha`** (§3.6). `jornada_id` + `predio_id` → `dia_cancha_id`, más el `unique` que hoy falta. Implementa la decisión 46, que estaba escrita en presente sin estar construida. La tabla tiene 0 filas y ningún consumidor: no hay backfill.
-
-**El efectivo se consolida en dos etapas** (§3.6). Cobro y arqueo pasan el fin de semana en el predio; la entrega a central es el lunes. **No hay estado contable intermedio "en tránsito"**: el arqueo pendiente *es* el estado, y el saldo sin rendir de una persona sale de sumar sus arqueos pendientes. Inventarle una cuenta sería modelar un pasivo que se resuelve solo el lunes.
-
-**Escenario A: la plata baja al entregar, no al arquear** (§3.6). Un único asiento predio → central en la entrega. **El arqueo del fin de semana es control puro y no mueve plata.**
-
-**`saldo_sistema` se congela** (§3.6). El arqueo es un acta histórica: si mañana se corrige un asiento viejo, el saldo esperado de ese arqueo no cambia. Se deriva del diario al calcularlo; lo que se guarda es la foto.
-
-**La diferencia se registra, no se resuelve** (§3.6). Faltante o sobrante quedan asentados y ahí se detienen. Quién se hace cargo es un paso posterior, y puede no ocurrir nunca. **Reemplaza** al criterio anterior, que la resolvía con un asiento como parte del arqueo.
-
-> **Dos bloqueos estructurales encontrados al relevar** (§3.6). El asiento predio → central **no se puede expresar hoy**: `asiento_linea` no tiene `predio_id` —el predio está en la cabecera—, así que con una sola cuenta `CAJA_EFECTIVO` las dos líneas del traslado se netean a cero y el saldo del predio no baja. Y `check_caja_predio` rechaza una caja de efectivo sin predio, que es exactamente lo que sería la central. La salida propuesta es una cuenta `CAJA_CENTRAL` propia; se cierra al construir.
-
-**Correcciones doc↔schema** (§3.6). `caja` se documentaba como `(id, tipo unique)` y la tabla real siempre fue `(id, tipo, nombre, predio_id, activo)` — `tipo` no es único porque hay una caja de efectivo por predio. Y `arqueo` se documentaba con `fecha date not null`, que nunca existió. **Tercera aparición del mismo patrón** (antes: `presupuesto_linea`): conviene una pasada de verificación doc↔schema.
-
----
-
-## Qué cambió desde el Draft 15
-
-**El costo variable tiene tres unidades, y `por_jornada` no es ninguna de ellas** (§3.3). `por_jornada` **sale del dominio**: era la unidad correcta cuando una jornada era la fecha N de un género, y dejó de serlo cuando pasó a ser la fecha N de una serie. La reemplazan **`por_partido`** y **`por_dia_cancha`**. `por_mes`, `anual` y `unico` no se tocan.
-
-**La unidad vive en el catálogo, con override en la línea** (§3.3). Un concepto tiene *naturalmente* su unidad —un arbitraje es por partido, siempre— así que el default va en `cat_gasto`/`concepto_gasto` y se hereda. La línea de presupuesto puede sobrescribirlo para el caso raro. Sin el default, cada línea nueva vuelve a decidir algo que ya estaba decidido, y basta una mal cargada para que el total se corra.
-
-**`dia_cancha` es una tabla propia** (§3.5). La entidad `(fecha, predio)` que el Draft 15 nombró no existía en la base: `jornada` no tiene predio, y las únicas tablas con fecha *y* predio son de movimiento —`asiento`, `gasto`, `pago`—. No se puede contar los días de cancha de un torneo mirando los gastos ya cargados. **Es compartida**: el presupuesto la cuenta, el arqueo (§3.6) cuelga de ella. Una sola definición de "día de operación de un predio", no dos.
-
-**Se desarma la bomba de `v_presupuesto_total`** (§3.8). Hoy multiplica por `count(*) from jornada … estado <> 'suspendida'`. Con jornadas por género daba 28; con jornadas por serie da **284**. Un presupuesto se habría mostrado **diez veces más grande** sin que nada fallara ni avisara. Pasa a multiplicar por la unidad que corresponde a cada línea. **Las tablas de presupuesto están vacías** —0 filas en `presupuesto`, `presupuesto_linea` y `gasto`—, así que se arregla antes de que exista el primer número mal.
-
-**Clasificación inicial de las 16 categorías `por_fecha`** (§3.3): 3 por partido, 8 por día de cancha, 5 aparte (4 de bar + 1 de administración). El bar no escala con partidos ni con días de cancha —escala con consumo— y tiene su propio tratamiento.
-
----
-
-## Qué cambió desde el Draft 14
-
-**Gestión de jornadas por funciones validadas** (§3.5). `crear_jornada`, `mover_jornada` y `suspender_jornada`. **Una lógica, dos puertas**: el seed que carga el Clausura y el módulo de calendario que vendrá después llaman a las mismas funciones. No hay dos caminos que validen distinto. Son agnósticas del torneo (regla 12): reciben serie, número y fecha.
-
-**La autonomía de la cuota es parcial** (§3.4). Refina la decisión 41 sin contradecirla: el **monto** se copia siempre, pero el **vencimiento** solo en las cuotas fijas. La cuota de liga lo **deriva de `jornada.fecha`** en vivo. La inscripción vence un día administrativo fijo; la de liga vence cuando se juega esa fecha, y esa fecha puede moverse.
-
-**Suspender una jornada saca su cuota del circuito de cobro** (§3.5). Un equipo cuya fecha se suspendió **no es moroso de esa cuota**: no se jugó, no corresponde reclamarla. Vuelve al circuito al reprogramar, con el vencimiento nuevo.
-
-**Las vistas de deuda tienen que distinguir los dos tipos de cuota.** Fija por `vence_at` propio; de liga derivando de la jornada y excluyendo las suspendidas. Es el punto de la pieza que más cuidado necesita: si una vista se olvida, un equipo aparece debiendo algo que nadie le va a cobrar.
-
-**Queda por resolver al construir:** `cuota.vence_at` es hoy `NOT NULL`. Derivar el vencimiento obliga a elegir entre dejarlo nulo para las cuotas de liga —fuente única— o mantenerlo como caché sincronizada por trigger.
-
-**Construido.** Pieza 2 del rediseño, migración `20260801131425_gestion_jornadas.sql`: las funciones, los cambios de vista y el seed de las 284 jornadas se aplicaron juntos.
-
----
-
-## Qué cambió desde el Draft 13
-
-**La jornada cuelga de la serie, no del género.** Identidad `(serie_id, numero)`; el género y el torneo se derivan subiendo `serie → categoria`. El modelo anterior no podía representar el calendario real: distintas series del mismo género juegan la misma fecha en días distintos —Libre A su fecha 3 el 15/8, +35 B el 29/8— y `(torneo, genero, numero)` colapsaba fechas que en la realidad difieren. **Clausura 2026: 284 jornadas** en lugar de 28.
-
-**Fecha de calendario ≠ jornada.** Una *fecha* es un día concreto en el que juegan muchas series; una *jornada* es la fecha N de **una** serie. 29 fechas, 284 jornadas en el Clausura. De ahí emerge `(fecha, predio)` —el día de operación de un predio— como entidad natural.
-
-**Tres unidades de costo variable** (§3.3). Los gastos `por_fecha` dejan de escalar todos igual: **por partido** (árbitros, veedores, ballboys — se multiplica por `equipos ÷ 2`), **por día de cancha** (fotografía — 1 por `(fecha, predio)`) y **fijo mensual**. Un sábado con 6 series en un predio son 48 arbitrajes y un solo servicio de fotografía.
-
-**El arqueo cuelga de `(fecha, predio)`**, no de la jornada. Controla la caja física de un predio en un día, y ese día jugaron varias series: la plata no distingue de cuál vino.
-
-**Playoffs también por serie.** La final de Libre A y la de Libre B son jornadas distintas. No están en el calendario validado —no tienen fecha aún— y se cargan cuando se definan.
-
-**⚠ `v_presupuesto_total` — la pieza 5 tiene que llegar antes que el primer presupuesto cargado.** La vista cuenta jornadas del torneo sin distinguir la unidad del costo. Con jornadas por género daba 28; con jornadas por serie da **284**. Un presupuesto `por_jornada` se multiplicaría por diez **sin fallar ni avisar** — no es un error de schema, es un número diez veces más grande en pantalla.
-
-La bomba se arma en la **pieza 2**, cuando se cargue la grilla: hoy la vista da 0 porque `jornada` está vacía. La desarma la **pieza 5**, implementando las tres unidades (decisión 44). Entre una y otra, cualquier presupuesto que se cargue va a estar mal. Las tablas `presupuesto` y `presupuesto_linea` están vacías hoy, así que todavía no hay ningún número incorrecto — pero es una ventana que hay que cerrar antes de abrirla.
-
-**La PK de `jornada` no cambia.** Sigue siendo `id`, así que las siete FKs que la apuntan —`asiento`, `pago`, `gasto`, `arqueo`, `cuota`, `plan_tarifa_linea.hito_jornada_id` y el `reprograma_a` propio— no se tocan. Cambia la identidad natural y la columna.
-
-**Construido, las seis piezas.** `jornada` cuelga de serie (`20260801121708`), gestión de jornadas (`20260801131425`), la rama `por_partido` de B0 ejercitada por primera vez, unidades de costo y `dia_cancha` (`20260802075345`, `20260802075631`), arqueo y consolidación (`20260802094852`, `20260802095023`) y playoffs por serie (`20260802103856`). La base tiene las 284 jornadas del Clausura y 58 días de cancha.
-
----
-
-## Qué cambió desde el Draft 12
-
-**Capa nueva en el modelo: `categoria` → `serie`.** Catálogos por torneo, clonados del anterior al crear uno nuevo. La jerarquía pasa a ser `torneo → categoria → serie → equipo_torneo`. **El género es atributo de la categoría**, no del equipo ni del tercero: Libre/+30/+40 son masculinas, Femenino/Flex femeninas.
-
-**`equipo_torneo.categoria` deja de ser texto libre.** El `'+40 A'` de string suelto se reemplaza por `serie_id`, FK al nivel más específico; categoría y género se derivan subiendo. Sale también `modalidad` —su `CHECK` quedó de un modelo anterior al tarifario y no alcanza para expresar las dos elecciones que exige el plan—, reemplazada por una FK a `plan_tarifa` por concepto.
-
-**Traducción de tarifario a cuotas, definida.** El motor de generación mira la **regla** de cada línea, no el concepto: `fecha_fija` → 1 cuota con fecha propia, `por_partido` de liga → una cuota por fecha atada a la jornada, `bloque_adelantado` → 1 cuota con el total, playoffs → ninguna. El concepto solo se usa después, para rutear el asiento del cobro.
-
-**La cobranza queda atada al calendario.** Las cuotas `por_partido` vencen con su jornada y se mueven si se reprograma. Mover una jornada recalcula el cashflow proyectado y los vencimientos de equipo desde la misma fuente — principio (i) alcanzando a la cobranza.
-
-**El monto se copia, no se lee.** El tarifario es el molde; la cuota, la pieza ya fundida. Editar el tarifario no recalcula cuotas ya generadas, y una cuota puntual se puede ajustar a mano sin marca especial.
-
-Todo esto está en §3.4. **Es diseño asentado, pendiente de implementar**: no hay migración ni código. El orden de construcción es estructura → ficha (B0) → cobro, y cada bloque necesita al anterior.
-
----
-
-## Qué cambió desde el Draft 11
-
-**Ingresos por percibido puro.** El único evento que genera ingreso contable es el pago: `Caja` al debe, `Ingresos` al haber. Las cuotas **no generan ningún asiento** — quedan como términos de pago: cronograma, mora y base del cashflow. `DEUDORES` sale del circuito de equipos. La cuota hereda el concepto (inscripción / partidos) de la línea del plan, que es lo que resuelve a qué cuenta de ingreso se imputa el cobro.
-
-**⚠ El cambio es asimétrico.** Pasan a percibido **los ingresos**. Los **gastos siguen por devengo**, con sus dos asientos —devengo al cargar, pago al pagar— sin ninguna modificación (§3.3, regla 7 de CLAUDE.md, decisión 12). Un reemplazo ciego de la palabra "devengo" rompería el modelo de gastos. Consecuencia: para ingresos el P&L y la caja muestran lo mismo; para gastos siguen contando cosas distintas.
-
-**Se cierra la pregunta abierta del Draft 11.** Qué disparaba el asiento de devengo dejó de tener sentido: el disparador es el pago. El bloque de §3.4 se eliminó.
-
-Toca el principio (b), el (h), §3.3, §3.4, §3.10, §3.17, §3.18, §5 y la decisión cerrada 1. El razonamiento —y qué decía cada versión anterior— queda en §8 → Decisiones reemplazadas, que ahora registra las dos vueltas.
-
-Nada de esto está implementado todavía: es cambio de documentación. El código y las vistas siguen sin implementar ningún reconocimiento de ingresos — `crear_asiento()` no se invoca desde ninguna función de negocio, así que hoy no hay ni percibido ni devengado.
-
----
-
-## Qué cambió desde el Draft 10
-
-> **⚠ Superado por el Draft 12.** El devengo progresivo que se describe acá duró un solo draft: los ingresos pasaron a percibido puro. Se conserva como registro de lo que se decidió entonces. El razonamiento del cambio está en §8.
-
-**Devengo progresivo por vencimiento (Camino 2).** Reemplaza a la Opción A, que facturaba el torneo completo al armar la ficha. Ahora las cuotas se siguen creando todas juntas —el plan de pago queda cerrado desde el inicio— pero cada una se devenga al vencer. **La deuda de un equipo es su mora**: cuotas vencidas e impagas. El cashflow se deriva de la estructura de vencimientos, no de sumar fichas. Toca el principio (b), §3.4, §3.18, §5 y la decisión cerrada 1. El razonamiento del cambio, y qué decía la decisión anterior, quedan registrados en §8 → Decisiones reemplazadas.
-
-**Abierto: qué dispara el asiento de devengo** (§3.4). El principio dice que cada cuota se devenga al vencer, pero no qué genera ese asiento. Tres opciones —proceso agendado, devengo perezoso, devengo por jornada— con un trade-off que toca el principio (c). **Hay que definirlo antes de implementar B0.**
-
-Nada de esto está implementado todavía: es cambio de documentación. El código y las vistas siguen calculando como en el Draft 10.
-
----
-
-## Qué cambió desde el Draft 7
-
-Las migraciones 002 y 003 modificaron el modelo. Este documento refleja el estado real.
-
-**Integridad de períodos** (002). La fecha del asiento se valida contra su período; un período cerrado no se puede reabrir; `cerrado_por` y `cerrado_at` se completan solos.
-
-**Pagos parciales** (002). Tabla `pago_imputacion`: un pago se reparte entre varias cuotas, una cuota recibe varios pagos. `cuota.pagado_at` pasa a ser derivado.
-
-**Caja por predio** (002). Efectivo tiene una caja por predio; transferencia y USD son globales. El arqueo es por jornada + predio.
-
-**Deuda por equipo** (003). La deuda se consolida por tercero, no por torneo. `v_deuda_equipo` y `v_deuda_detalle`.
-
-> **Y por eso `v_deuda_equipo` no se puede filtrar por torneo** (`20260812160000`). No tiene `torneo_id`, y agregárselo sería peor: filtraría las FILAS dejando los MONTOS de todos los torneos sumados — un equipo que debe $10,5M en un torneo y $11,1M en otro aparecería, filtrado por el primero, mostrando $21,6M. Plausible y falso.
->
-> La pregunta con el otro grano la contesta **`v_deuda_equipo_torneo`**: una fila por equipo **y torneo**, con los montos restringidos a ese torneo y los mismos criterios de impago y vencido. `/cobranza` usa una u otra según haya filtro.
->
-> **Con una excepción que es puro concepto 5:** `saldo_a_favor` **no** se restringe al torneo. Un anticipo es del equipo y no tiene torneo — esa es su definición. Se repite en cada fila y **no se suma entre filas**; la pantalla lo muestra por fila y nunca lo totaliza.
-
-**Imputación elegida** (003). `sugerir_imputacion()` propone —priorizando el torneo en curso— e `imputar_pago()` guarda lo que eligió el operador. `imputar_pago_automatico()` queda deprecada: decidía sola en casos ambiguos y podía dejar a un equipo impago en el torneo en curso.
-
-**Anticipos** (003). El sobrante de un pago queda como saldo a favor del equipo. No expira ni se pierde al cambiar de torneo.
-
----
-
-## Qué cambió desde el Draft 6
-
-**Reenfoque financiero.** Decisión del dueño: el foco es financiero, no contable. El libro diario baja a `Configuración → Registro de movimientos`; el P&L pasa a llamarse Resultados y se reordena por pregunta de negocio. Salen del alcance el IVA discriminado, el plan de cuentas como pantalla y el balance patrimonial.
-
-**Prioridades confirmadas del dueño**, en este orden:
-1. Previsión de caja a 6-12 meses con escenarios
-2. Cobranza: cuánto falta cobrar y cuándo entra
-3. Rentabilidad real por torneo
-4. Punto de equilibrio
-
-Las dos primeras son la misma pregunta —cuándo entra la plata— y la cobranza alimenta la previsión, así que reforzar una mejora la otra.
-
-**Rediseño de la estructura de gastos.** `cat_gasto.grupo` se reemplaza por dos ejes independientes: `naturaleza` (por_fecha / recurrente / eventual / inversion) y `area` (torneo / predio / bar / administracion). Resuelve el hueco del gasto eventual —mantenimiento, compras de predio— que el modelo anterior no podía representar.
-
-**Activos y amortización.** Compras grandes se activan y amortizan mensualmente, con umbral de materialidad para no ahogar la carga.
-
-**Compromisos, cheques y fondo de inversión.** Tres tipos de obligación que faltaban: cuotas de moratoria, cheques emitidos, facturas con vencimiento. Más el calendario de pagos que los integra.
-
----
+> **El historial de cambios entre drafts está al final**, en «Historial de
+> drafts». Son catorce bloques que ocupaban las primeras 240 líneas de este
+> archivo: quien abría el doc leía catorce changelogs antes de llegar al
+> modelo. **No se borró nada** — se movió, porque explica por qué el modelo es
+> como es y eso hace falta al cambiarlo, no al conocerlo.
 
 ## 1. Principios de diseño
 
@@ -505,9 +272,9 @@ Total 16 ✓ — `3 + 8 + 5`.
 
 **Por qué dos ejes y no uno.** El modelo anterior usaba `grupo ∈ {fecha, recurrente, bar}`, que mezclaba temporalidad con área. El sueldo del encargado de bar es recurrente y de área bar; el hielo de la jornada es por fecha y de área bar; una heladera es inversión y de área bar. Los tres caían en `grupo='bar'` y no se podían presupuestar con la lógica correcta.
 
-Ver `001_schema.sql` para el DDL de `cat_gasto`. El contenido del catálogo vive hoy repartido: las cuentas base en `supabase/seed.sql` y las nuevas en sus propias migraciones — ver la deuda de reproducibilidad en `decisiones.md § Abiertas`.
+Ver `001_schema.sql` para el DDL de `cat_gasto`. El **contenido** del catálogo —las 32 categorías y sus 100 conceptos— lo siembra `20260816162556_siembra_estructura.sql`, junto con el plan de cuentas: una base limpia queda con el catálogo completo.
 
-> *Esta línea citaba un `campa_schema.sql` que **no existe** en el repo. Corregida al reordenar el plan de cuentas.*
+> *Esta línea citaba un `campa_schema.sql` que **no existe** en el repo, y después dijo que el catálogo vivía repartido entre `seed.sql` y las migraciones. Lo primero se corrigió al reordenar el plan de cuentas; lo segundo, al cerrar la reproducibilidad — el catálogo ya no está partido.*
 
 #### El plan de cuentas, después del reordenamiento
 
@@ -577,7 +344,7 @@ Equipos, sponsors y socios comparten la misma mecánica: débitos, créditos, sa
 
 #### Estructura del torneo · categoría y serie
 
-*Diseño asentado, pendiente de implementar.*
+*Construido. Migración `20260730165451_estructura_categoria_serie.sql`.*
 
 Capa de catálogos **por torneo**, igual que el tarifario: cada torneo tiene la suya y se clona del anterior al crearlo.
 
@@ -658,7 +425,7 @@ create table cuota (
 
 **`total_plan` no es la deuda.** Es la suma de las cuotas, mantenida por trigger (`sync_total_plan`, decisión 27). Mide el tamaño del plan de pago, no lo que el equipo debe hoy. **La deuda es la mora**: cuotas con `vence_at < current_date` y sin cancelar. Es el número que se reclama.
 
-> *Se llamaba `total_facturado`. Bajo percibido puro no se factura nada al armar la ficha, así que el nombre heredado obligaba a aclarar en cada mención que no era ni deuda ni facturación — un nombre que necesita nota al pie para no engañar es un nombre mal puesto. Renombrado de raíz —columna, función, trigger y vista— en `20260802190000_total_plan.sql`.*
+> *Se llamaba `total_facturado`. Bajo percibido puro no se factura nada al armar la ficha, así que el nombre heredado obligaba a aclarar en cada mención que no era ni deuda ni facturación — un nombre que necesita nota al pie para no engañar es un nombre mal puesto. Renombrado de raíz —columna, función, trigger y vista— en `20260805110059_total_plan.sql`.*
 
 **`equipo_torneo.asiento_id` quedó sin uso.** Nació para apuntar al asiento del devengo total. Sin devengo de ingresos no hay ningún asiento que colgar de la ficha: el asiento del cobro pertenece a `pago`, que ya tiene su propia columna `asiento_id`. Nada la escribe hoy, así que no hay dato que migrar.
 
@@ -698,11 +465,11 @@ Tres cosas que el boceto original de este bloque no tenía y la vista sí:
 
 · **`pagado` y `saldo`**, derivados de `pago_imputacion`. Sin ellos, "cuánto falta de esta cuota" había que calcularlo afuera.
 
-· **`torneo_id` y `torneo`** (migración `20260812170000`). Era la base de toda la cobranza y no sabía de qué torneo era la cuota: había que joinear `equipo_torneo` para averiguarlo. Aditivo — las dos van al final, que es lo único que `create or replace view` permite, y su único consumidor SQL (`v_cashflow_comprometido`) selecciona por nombre.
+· **`torneo_id` y `torneo`** (migración `20260812114422`). Era la base de toda la cobranza y no sabía de qué torneo era la cuota: había que joinear `equipo_torneo` para averiguarlo. Aditivo — las dos van al final, que es lo único que `create or replace view` permite, y su único consumidor SQL (`v_cashflow_comprometido`) selecciona por nombre.
 
 #### De línea del tarifario a cuota · B0
 
-*Diseño asentado, pendiente de implementar.*
+*Construido: `crear_equipo_torneo()`, migración `20260731070827`, reescrita para jornada-por-serie en `20260801121708`. Es una de las puertas de CLAUDE.md.*
 
 Armar la ficha genera todas sus cuotas, traduciendo las líneas de las dos opciones elegidas (`plan_inscripcion_id` y `plan_partidos_id`).
 
@@ -769,9 +536,11 @@ No hay nada que refactorizar. Esta nota existe para que el parecido de los nombr
 
 **El asiento lo dispara el pago, y nada más.** Armar la ficha, crear las cuotas y vencer una cuota no escriben en el libro diario. Quien implemente B0 (`crear_equipo_torneo`) no emite ningún asiento: la función arma la ficha y su cronograma, y ahí termina su responsabilidad contable.
 
-#### El circuito de cobro — decisiones tomadas, pendientes de implementar
+#### El circuito de cobro — las cinco decisiones, ya construidas
 
-Ninguna de las cinco está construida. Se asientan para que quien implemente no las vuelva a discutir.
+*Las cinco están implementadas.* Se dejan escritas con su razón porque el
+razonamiento sigue valiendo: es lo que hay que releer antes de cambiar algo del
+circuito, no una lista de trabajo pendiente.
 
 **1 · `cuota.plan_tarifa_linea_id`, FK `NOT NULL`.** Toda cuota de equipo nace de una línea del tarifario y hereda de ella el concepto (`inscripcion` / `partidos`), el precio y la regla de vencimiento. Es lo que resuelve a qué cuenta de ingreso se imputa el cobro.
 
@@ -804,7 +573,7 @@ Por eso el anticipo prácticamente no ocurre: el excedente se absorbe en el cron
 
 *Dependencia de implementación.* La regla exige que `imputar_pago()` pueda imputar a cuotas **no vencidas**: cuando el excedente baja la cuota siguiente, esa cuota normalmente todavía no venció. Hoy la función no filtra por vencimiento, pero hay que confirmarlo contra el resto del circuito y ajustar al construir `registrar_cobro()`.
 
-**5 · Orden de construcción: estructura → ficha → cobro.**
+**5 · Orden de construcción: estructura → ficha → cobro.** *(Los tres bloques están construidos; queda como registro de por qué ese orden.)*
 
 | # | Bloque | Qué incluye |
 |---|---|---|
@@ -1445,7 +1214,7 @@ explícito.
 
 ### 3.10 Cashflow · flujo de fondos con niveles de certeza
 
-*Construido — migraciones `20260802133417_modulo_cashflow.sql` y `20260802200000_cashflow_stock_vs_flujo.sql` (esta última corrige el doble conteo del saldo). Cinco vistas.*
+*Construido — migraciones `20260802133417_modulo_cashflow.sql` y `20260805121912_cashflow_stock_vs_flujo.sql` (esta última corrige el doble conteo del saldo). Cinco vistas.*
 
 La pieza que integra todo. Es **mayormente lectura**: junta en una línea de tiempo las fuentes que ya existen, sin estructura nueva.
 
@@ -1986,25 +1755,78 @@ comparar dos sin recordarlos.
 
 ## 4. Navegación
 
-Seis secciones; los módulos son pestañas internas. En el header: selector de **ámbito** (Empresa / Torneo) y de torneo.
+**Esta sección describe la navegación REAL** —lo que existe hoy— y, al final, lo
+que falta. No es un boceto: si una pantalla figura acá arriba, se puede abrir.
 
-| Sección | Pestañas |
+*Antes describía seis secciones con pestañas internas y un selector de ámbito
+Empresa/Torneo que nunca se construyó — y que además contradecía §1.d, porque el
+resultado se mira a nivel empresa y no hay nada que cambiar de ámbito.*
+
+### Lo que hay · 18 pantallas en cinco grupos
+
+El Sidebar es plano: cinco grupos, sin pestañas internas.
+
+| Grupo | Pantallas |
 |---|---|
-| **Inicio** | Dashboard · Flujo de caja · **Proyección** |
-| **Torneo** | Equipos y pagos · Padrón / Alta masiva · Inscripciones · Deudores · Reclamos · Calendario · Tarifario |
-| **Operación** | Gastos por fecha · Gastos de estructura · Bar · **Calendario de pagos** |
-| **Finanzas** | **Resultados** · Cuentas corrientes · Caja y banco · **Cheques** · Impuestos · Socios · Sponsors · Moneda extranjera |
-| **Planificación** | Presupuesto · Presupuesto por fecha · **Escenarios** · **Punto de equilibrio** |
-| **Configuración** | Torneo · Categorías de gastos · **Activos** · Predios · Cierre de período · **Registro de movimientos** · Auditoría · Usuarios |
+| **Torneo** | Inscripciones · Calendario · Cobranza · Reclamos · Tarifario |
+| **Operación** | Gastos · Caja · Arqueo |
+| **Finanzas** | Proyección · Resultados · Movimientos |
+| **Societario** | Socios · Sponsors · USD |
+| **Sistema** | Auditoría · Configuración › Plantillas *(+ Categorías, Cierres y Usuarios, anunciadas y no construidas)* |
 
-**Cambios respecto del Draft 6:**
+Fuera del Sidebar: `/login`, `/design` (el catálogo del sistema de diseño) y las
+rutas de detalle —`/cobranza/[id]`, `/gastos/[id]/pagar`, `/socios/[id]`,
+`/sponsors/[id]`, `/reclamos/[id]`— a las que se llega desde su lista.
 
-- El **libro diario** baja de Finanzas a Configuración, renombrado `Registro de movimientos`. Sigue siendo la fuente de todo; deja de ocupar lugar de privilegio.
-- **P&L → Resultados**, reordenado por pregunta de negocio: ingresos por fuente → costos directos → **contribución del torneo** → estructura → resultado operativo → financieros.
-- **Impuestos** pierde el toggle simple/detallado. Queda solo la vista simple.
-- Pantallas nuevas: Proyección, Escenarios, Punto de equilibrio, Calendario de pagos, Cheques, Activos.
+**El orden de «Torneo» es el orden en que pasan las cosas:** se anota el equipo,
+se arma el fixture, se le cobra, y al que no paga se le reclama. El tarifario va
+último porque es el catálogo del que sale todo lo anterior, no un paso.
 
-El preview del asiento en los modales de carga **se conserva colapsado** tras un "ver detalle contable". Sirve como prueba de rigor cuando alguien pregunta cómo se garantiza que los números cierren.
+### Lo que falta · backend construido, sin pantalla
+
+Las cuatro tienen el modelo y la lógica hechos: **falta sólo el front**. Dos de
+ellas ya están alimentando Proyección sin que exista dónde cargarlas.
+
+| Pantalla | Qué hay ya | Por qué importa |
+|---|---|---|
+| **Cheques** | tabla `cheque`; `v_cashflow_comprometido` ya la lee | La plata de los cheques **ya se proyecta**, pero no hay dónde cargarlos |
+| **Calendario de pagos** | `compromiso`, `plan_pago`, y `v_calendario_pagos` completa —con `criticidad`— | Ídem: las moratorias ya entran al cashflow |
+| **Activos** | `activo`, `amortizacion` y `proponer_amortizaciones()` | Es lo que `GAS_AMORT` está esperando: hoy tiene 0 movimientos porque nada dispara la amortización |
+| **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | Falta la pantalla de **carga**: el presupuesto se siembra por SQL |
+
+### Lo que falta · y empieza por modelar
+
+**Ventas de bar.** No es lo mismo que las cuatro de arriba: **no tiene backend**.
+La cuenta `ING_BAR` existe con **cero movimientos** y **no hay ninguna tabla de
+ventas**. El club sí registra ventas, así que es roadmap — pero arranca por
+**modelar el ingreso**: qué tabla, con qué grano, y cómo entra al diario. Es
+bastante más trabajo que las otras cuatro, y una decisión de negocio antes que
+de front.
+
+> Los **gastos** de bar sí están cubiertos: `GAS_BAR` tiene 8 categorías y 25
+> conceptos, y se cargan desde `/gastos` como cualquier otro.
+
+### Planificación · a futuro
+
+**Escenarios.** La tabla `escenario` existe **vacía y sin ninguna vista ni
+función que la use**. Es la única pieza de planificación que quedó a mitad de
+camino: hay dónde guardarlos y nada que los calcule. Queda anotado como
+intención, no como roadmap activo.
+
+### Lo que NO va a existir como pantalla propia
+
+| | Por qué |
+|---|---|
+| **Impuestos** | Un impuesto **es un gasto** y entra por el mismo circuito. `GAS_IMPUESTOS` tiene «Impositivos» y «Planes de Pago» con sus 11 conceptos. Una pantalla aparte sería `/gastos` filtrada por una cuenta |
+| **Padrón / Alta masiva** | Lo cubre `/inscripciones` sobre `v_inscripcion`; el padrón es `tercero`. La **importación masiva desde Excel** sí falta, pero es una **función**, no una pantalla — mejora menor |
+| **Bar (gastos)** | Cubierto por `/gastos`, ver arriba |
+| **Punto de equilibrio** | **Descartado.** No tenía tabla, vista, función ni ruta: existía sólo en el boceto de navegación |
+
+### Una convención que vale para todas
+
+El preview del asiento en los modales de carga **se conserva colapsado** tras un
+"ver detalle contable". Sirve como prueba de rigor cuando alguien duda de un
+número, sin poner contabilidad delante de quien sólo quiere cargar un gasto.
 
 ## 5. Alta de equipos y transición entre torneos
 
@@ -2025,7 +1847,11 @@ Se presenta solo la excepción: ascensos, descensos, bajas y altas nuevas. Los e
 
 **La deuda no se arrastra.** Si un equipo quedó en mora en Apertura, esa mora sigue viva en su cuenta corriente pero imputada al torneo donde nació. Arrastrarla contaminaría el resultado del torneo nuevo. Bajo percibido puro, lo que se arrastra es cronograma impago, no un saldo contable: el cobro que llegue tarde se reconoce como ingreso del torneo al que pertenece la cuota, en la fecha en que entra la plata. **Consecuencia: el resultado de un torneo no se congela al cerrar.** Los cobros atrasados entran en su fecha real, así que un torneo terminado puede seguir sumando ingresos meses después. Es deliberado —es lo que significa reconocer por percibido— y las pantallas de resultado tienen que poder mostrarlo sin que parezca un error.
 
-## 6. Orden de implementación
+## 6. Orden de construcción · qué está y qué falta
+
+*El orden en que se construyó y por qué: cada bloque necesitaba al anterior.
+**Nueve de los diez están hechos**; el que falta es el 10. La tabla queda porque
+las dependencias siguen valiendo si mañana se reordena el backlog.*
 
 | # | Bloque | Contenido |
 |---|---|---|
@@ -2054,7 +1880,7 @@ público · las seis llamadas de escritura pasando el id de sesión
 **fallback a `auth.users` sacado de `crear_asiento`**, que era la deuda de la
 decisión 89 en el motor.
 
-**Falta:** roles diferenciados, **RLS** —hoy apagado en las 47 tablas—, permisos
+**Falta:** roles diferenciados, **RLS** —hoy apagado en las 48 tablas—, permisos
 por pantalla, y el usuario de sistema para los devengos automáticos, que por
 ahora reciben un `p_created_by` transitorio.
 
@@ -2070,7 +1896,13 @@ ahora reciben un `p_created_by` transitorio.
 
 ## 7. Notas de implementación
 
-**RLS.** Todas las tablas con RLS activo. El rol `administracion` tiene `select` sobre todo y `update` solo sobre `periodo.estado`. `encargado_bar` filtra por `predio_id`. `operador` no accede a `socio`, `usd_operacion` ni `cfg_*`.
+**⚠ RLS — esto es el DISEÑO, no el estado.** Hoy **RLS está apagado en las 48 tablas y hay 0 políticas**, y los roles `operador`, `administracion` y `encargado_bar` **no existen** ni en el schema ni en el código: la app tiene un solo tipo de usuario, cualquiera con sesión puede todo. Verificado contra la base.
+
+Lo que sigue es cómo tiene que quedar cuando se construya:
+
+> Todas las tablas con RLS activo. El rol `administracion` tiene `select` sobre todo y `update` solo sobre `periodo.estado`. `encargado_bar` filtra por `predio_id`. `operador` no accede a `socio`, `usd_operacion` ni `cfg_*`.
+
+**Y no es una postergación menor:** la anon key viaja en el bundle del navegador, así que con RLS apagado cualquiera con esa clave puede leer y escribir la base **con o sin login**. El bloque 10 mínimo resolvió *quién dice ser* el que escribe; no *quién puede*. Ver `decisiones.md` § Abiertas.
 
 **Cálculos en base, no en el cliente.** Los totales del P&L, saldos de cuenta corriente y flujo proyectado son vistas SQL. El cliente no suma: consulta. Es la traducción técnica del principio (c) — si el front calcula, en algún momento dos pantallas van a discrepar.
 
@@ -2194,3 +2026,254 @@ Se registran acá con su razonamiento. Una decisión derogada sin explicación e
 - Proveedor de mail (Resend / Postmark) y dominio de envío.
 - Formato fiscal del recibo: si necesita numeración formal o alcanza comprobante interno.
 - Comparaciones C3 (torneo vs torneo), C4 (diferencias de caja por responsable) y C5 (inscripción como cobertura de costo fijo): siguen de interés, no priorizadas.
+
+
+---
+
+## Historial de drafts
+
+Qué cambió en cada versión de este documento, de la más reciente a la más
+vieja. **No es el estado del sistema** —para eso está todo lo de arriba— sino
+el registro de cómo se llegó: qué se probó, qué se descartó y por qué.
+
+Se lee cuando hay que **cambiar** algo y conviene saber si ya se intentó antes.
+
+## Qué cambió desde el Draft 21
+
+La pieza que integra todo, y **la última grande de backend**. Es mayormente lectura: junta en una línea de tiempo las fuentes que los módulos anteriores ya producen. **Sin estructura nueva.**
+
+**Tres niveles de certeza, automáticos** (§3.10). **REAL** —movimientos de caja del diario—, **COMPROMETIDO** —cuotas de equipos y sponsors, con fecha pactada— y **ESTIMADO** —el presupuesto—. El nivel lo determina el **estado** del flujo, sin clasificación a mano, y **la confianza es una columna del modelo**, no una convención de la pantalla.
+
+**REAL sale de las cajas, no de `ingreso`/`egreso`** (§3.10). Los gastos van por devengo y los sueldos de socios también, así que esas cuentas no son caja. Y **se agregan todas las cajas**, lo que resuelve un problema solo: los traslados predio → central y las compras de USD mueven plata entre dos cuentas de caja, así que en el agregado **suman cero y no ensucian el flujo**.
+
+**ESTIMADO se distribuye por el calendario** (§3.10). `v_presupuesto_total` da un total sin dimensión temporal; se reparte con el calendario que ya existe — `por_partido` en las fechas de las jornadas, `por_dia_cancha` en los días de cancha, `por_mes` parejo. El costo cae donde el calendario dice que ocurre la actividad.
+
+**La semana se deriva de las fechas** (§3.10), con `date_trunc`. Sin tabla de semanas: una semana no es un período contable y no debería serlo.
+
+> **⚠ La anti-duplicación no alcanza del lado de egresos** (§3.10). Funciona sola en ingresos —la cuota cobrada tiene `saldo = 0` y sale de COMPROMETIDO—, pero **ESTIMADO sale del presupuesto, no de los gastos**: pagar un gasto no achica el presupuesto, así que 100.000 presupuestados y 100.000 pagados en el mismo mes darían **200.000**. La asimetría es de fondo: una cuota es un compromiso individual con estado; una línea de presupuesto es un agregado sin estado. **Resolución propuesta:** cortar la línea de tiempo por fecha —pasado REAL, futuro proyectado—, que hace la exclusión estructural. Se cierra al construir.
+
+**§3.10 se reemplaza por completo.** La `v_flujo_proyectado` que documentaba **no existía**, y su SQL **no compilaría**: referencia `cat_gasto.grupo`, `presupuesto_linea.monto_mensual`/`cantidad_x_fecha` y `jornada.torneo_id`, todo eliminado. Cuarta aparición del drift doc↔schema, y la más grande porque parecía código construido.
+
+---
+
+## Qué cambió desde el Draft 20
+
+Tercer módulo de la capa societaria, y **el más liviano: no se crea estructura**. La tabla `usd_operacion`, la caja USD y las cuentas `CAJA_USD` y `FIN_DIF_CAMBIO` ya existían desde el schema inicial, sin uso. Solo faltaba la lógica.
+
+**El diario es monomoneda, y se explicita como principio** (§3.7). `asiento_linea` no tiene moneda ni cantidad, y no hay ninguna columna de divisa en el schema. La complejidad del dólar queda **aislada en `usd_operacion`**: la **tenencia** sale de ahí, el **costo en libros** del diario, y el PPP es el puente. Ya estaba así; ahora está dicho.
+
+**Valuación por promedio ponderado** (§3.7). `costo_libros / tenencia_usd`, **derivado y no guardado**. Se mantiene solo: al vender, `CAJA_USD` baja exactamente por el costo de salida, así que lo que queda conserva el promedio.
+
+**La diferencia de cambio es solo realizada** (§3.7). Los dólares quedan a su costo hasta que se venden; nada de ganancias en papel. **`revaluacion` sale del dominio** de `usd_operacion.tipo` — un valor que el modelo no usa es una trampa, misma limpieza que `por_jornada` en la pieza 5. Esto **reemplaza** la fila "Revaluación → no realizado" que §3.7 traía del schema original.
+
+> **Dos cosas que el relevamiento encontró.** `FIN_DIF_CAMBIO` es de tipo `financiero`, y durante meses **ninguna vista la leía**: la diferencia de cambio se registraba sin aparecer en pantalla. *Resuelto:* `v_pl_mensual` la incluye y `/resultados` la muestra como bloque propio, «Resultado financiero», separada de los ingresos operativos — que es lo que pedía la decisión 12: una suba del dólar no debe leerse como que el torneo funcionó mejor. Y el promedio cruza **dos fuentes**: si alguien asienta contra `CAJA_USD` sin registrar la operación, el promedio queda mal **en silencio** y todas las ventas posteriores salen a un costo equivocado.
+
+---
+
+## Qué cambió desde el Draft 19
+
+Segundo módulo de la capa societaria.
+
+**Devengo lineal · el tercer patrón de reconocimiento** (§3.20). Equipos por percibido puro, socios por devengo mensual de un fijo, sponsors por **devengo lineal prorrateado**: el contrato se reconoce repartido en los meses que cubre. Tres naturalezas distintas, tres tratamientos, cada uno argumentado.
+
+**Dos calendarios separados** (§3.20). El **reconocimiento** es parejo y mensual —responde *cuánto ganó el negocio este mes*—; el **cobro** son las cuotas en sus fechas —responde *cuándo entra la plata*—. Un contrato de 1.200.000 reconoce 100.000 por mes y puede cobrarse en tres cuotas de 400.000. Colapsarlos obligaría a mentir en una de las dos preguntas.
+
+**Ingreso diferido como pasivo que se libera** (§3.20). Al firmar se asienta `DEUDORES_SPONSORS` / `INGRESO_DIFERIDO` **sin tocar el P&L**: se firmó, no se ganó nada aún. Cada mes el devengo libera una porción contra `ING_SPONSORS`.
+
+**De las tres cuentas, una ya existía.** `ING_SPONSORS` está en el plan desde el schema inicial, sin uso. Se crean `DEUDORES_SPONSORS` e `INGRESO_DIFERIDO`. **Cuenta de deudores propia y no la `DEUDORES` genérica**: ésa se diseñó para equipos y la decisión 1 la sacó de juego, así que reusarla mezclaría deuda de equipos —que no es saldo contable— con deuda de sponsors, que sí lo es.
+
+**Nivel empresa, `torneo_id = NULL`** (§3.20), como los sueldos de socios. El contrato es anual y cubre los dos torneos. **Consecuencia a tener presente:** el ingreso de sponsors no entra en la contribución de ningún torneo. Desde que el resultado se mira a nivel empresa (§3.2) eso dejó de ser un problema de lectura: no hay pantalla que compare torneos.
+
+> **Un detalle que parece menor y no lo es** (§3.20). `total / meses` no siempre da exacto: 1.000.000 en 12 meses deja 0,04 huérfanos, y `INGRESO_DIFERIDO` nunca cerraría en cero. **El último período devenga el remanente** en vez de la cuota teórica, así el pasivo cierra exacto por construcción.
+
+---
+
+## Qué cambió desde el Draft 18
+
+Primer módulo posterior al rediseño calendario-por-serie. Introduce **dos patrones que el sistema no tenía**.
+
+**El sueldo del socio se devenga — Forma B** (§3.19). Es la **excepción deliberada al percibido puro** de §1.b, y no una inconsistencia: el ingreso de un equipo puede no ocurrir nunca, pero el sueldo del socio es un compromiso cierto que existe cada mes se retire o no. No registrarlo hace que **la caja parezca toda del negocio cuando parte ya está comprometida**.
+
+**Dos cuentas nuevas: `GAS_SOCIOS` (egreso) y `SOCIOS_A_PAGAR` (pasivo)** (§3.19). Egreso y no patrimonio: el sueldo de socios es **costo del negocio**. Cuenta propia separada de `GAS_SUELDOS` para poder distinguir el sueldo operativo del de los dueños. **Ninguna vista se toca**: el P&L filtra por tipo de cuenta, así que `GAS_SOCIOS` entra y el pasivo no.
+
+**Es costo de la empresa, no del torneo** (§3.19). El asiento va con `torneo_id = NULL`, a nivel estructura permanente: el sueldo existe todos los meses haya torneo o no, e imputarlo a uno exigiría el prorrateo que la **decisión 5** prohíbe. La contribución de cada torneo queda intacta; lo que baja es el resultado de la empresa.
+
+**El sueldo acordado se versiona con historial** (§3.19). **Primer parámetro versionado de verdad**: `config_contable` tiene `vigente_desde` pero es una fila única sin historial —y no la lee nadie—, así que no servía de molde. Cambiar el sueldo es insertar una fila, no editar: es lo que permite recalcular un mes viejo con el sueldo que regía entonces.
+
+**El devengo mensual escribe solo** (§3.19). **Rompe con el único precedente** de proceso mensual: `proponer_amortizaciones` propone y el operador confirma (decisión 23), porque una amortización es una estimación. El sueldo es un monto acordado y conocido — no hay nada que revisar. Idempotente por `(socio, período)` y disparado explícitamente, no por cron.
+
+**El retiro de sueldo no se mezcla con el fondo de inversión** (§3.15, §3.19). El fondo ya modela plata de socios en el sentido contrario. Uno cancela un pasivo devengado, el otro mueve respaldo: cuentas y conceptos separados, o `v_dependencia_fondo` deja de significar lo que dice.
+
+---
+
+## Qué cambió desde el Draft 17
+
+**Los playoffs ya colgaban de serie** (§3.5). La pieza 1 movió *toda* `jornada`, no solo la liga. La pieza 6 **no mueve nada**: cierra tres agujeros que quedaron abiertos porque la rama `es_playoff` nunca se ejercitó — no hay puerta de creación (`crear_jornada` hardcodea `es_playoff = false`), el `unique (serie_id, numero)` no protege playoffs porque `numero` es `NULL`, e `instancia` no tiene dominio.
+
+**El formato de instancia es una tabla, no un CHECK** (§3.5). `formato_instancia (nombre, cantidad_partidos, orden)`, sembrada con cuartos=4 / semifinal=2 / final=1. Cerrarlo con literales sería violar la regla 12: otro torneo puede tener octavos, repechaje o final a ida y vuelta, y tiene que entrar con sus datos sin tocar código.
+
+**`crear_playoff` es la cuarta puerta** (§3.5). Extiende la decisión 49 al playoff. Valida contra el formato y contra `(serie_id, instancia)`, que es la identidad natural que faltaba. `mover_jornada` y `suspender_jornada` ya servían.
+
+**`equipo_playoff` — quién juega cada instancia** (§3.5). En la liga juegan todos los de la serie siempre; en playoff **la clasificación es dato** y no se deriva de nada. Sin esa tabla no hay a quién cobrarle.
+
+**La cuota de playoff se genera después de la ficha, por instancia jugada** (§3.5). B0 sigue excluyéndolas y está bien: al armar la ficha no se sabe si el equipo va a clasificar, y facturarle a 16 equipos una final que juegan 2 sería inventar deuda. Se cobra lo que se juega a medida que se juega.
+
+> **⚠ Bug latente que esta pieza destapa** (§3.3, §3.5). `v_torneo_escala.partidos` calcula `equipos ÷ 2` por jornada **sin excluir playoffs**: la final de Libre A daría 8 partidos en vez de 1. Con 3 instancias × 20 series el presupuesto `por_partido` se infla mucho y **en silencio** — misma clase que la bomba del 284. Hoy no molesta porque hay 0 playoffs. **La decisión 45 queda acotada a la liga**: en un cuadro la cantidad de partidos depende del formato, no del tamaño de la serie.
+
+---
+
+## Qué cambió desde el Draft 16
+
+**El arqueo cuelga de `dia_cancha`** (§3.6). `jornada_id` + `predio_id` → `dia_cancha_id`, más el `unique` que hoy falta. Implementa la decisión 46, que estaba escrita en presente sin estar construida. La tabla tiene 0 filas y ningún consumidor: no hay backfill.
+
+**El efectivo se consolida en dos etapas** (§3.6). Cobro y arqueo pasan el fin de semana en el predio; la entrega a central es el lunes. **No hay estado contable intermedio "en tránsito"**: el arqueo pendiente *es* el estado, y el saldo sin rendir de una persona sale de sumar sus arqueos pendientes. Inventarle una cuenta sería modelar un pasivo que se resuelve solo el lunes.
+
+**Escenario A: la plata baja al entregar, no al arquear** (§3.6). Un único asiento predio → central en la entrega. **El arqueo del fin de semana es control puro y no mueve plata.**
+
+**`saldo_sistema` se congela** (§3.6). El arqueo es un acta histórica: si mañana se corrige un asiento viejo, el saldo esperado de ese arqueo no cambia. Se deriva del diario al calcularlo; lo que se guarda es la foto.
+
+**La diferencia se registra, no se resuelve** (§3.6). Faltante o sobrante quedan asentados y ahí se detienen. Quién se hace cargo es un paso posterior, y puede no ocurrir nunca. **Reemplaza** al criterio anterior, que la resolvía con un asiento como parte del arqueo.
+
+> **Dos bloqueos estructurales encontrados al relevar** (§3.6). El asiento predio → central **no se puede expresar hoy**: `asiento_linea` no tiene `predio_id` —el predio está en la cabecera—, así que con una sola cuenta `CAJA_EFECTIVO` las dos líneas del traslado se netean a cero y el saldo del predio no baja. Y `check_caja_predio` rechaza una caja de efectivo sin predio, que es exactamente lo que sería la central. La salida propuesta es una cuenta `CAJA_CENTRAL` propia; se cierra al construir.
+
+**Correcciones doc↔schema** (§3.6). `caja` se documentaba como `(id, tipo unique)` y la tabla real siempre fue `(id, tipo, nombre, predio_id, activo)` — `tipo` no es único porque hay una caja de efectivo por predio. Y `arqueo` se documentaba con `fecha date not null`, que nunca existió. **Tercera aparición del mismo patrón** (antes: `presupuesto_linea`): conviene una pasada de verificación doc↔schema.
+
+---
+
+## Qué cambió desde el Draft 15
+
+**El costo variable tiene tres unidades, y `por_jornada` no es ninguna de ellas** (§3.3). `por_jornada` **sale del dominio**: era la unidad correcta cuando una jornada era la fecha N de un género, y dejó de serlo cuando pasó a ser la fecha N de una serie. La reemplazan **`por_partido`** y **`por_dia_cancha`**. `por_mes`, `anual` y `unico` no se tocan.
+
+**La unidad vive en el catálogo, con override en la línea** (§3.3). Un concepto tiene *naturalmente* su unidad —un arbitraje es por partido, siempre— así que el default va en `cat_gasto`/`concepto_gasto` y se hereda. La línea de presupuesto puede sobrescribirlo para el caso raro. Sin el default, cada línea nueva vuelve a decidir algo que ya estaba decidido, y basta una mal cargada para que el total se corra.
+
+**`dia_cancha` es una tabla propia** (§3.5). La entidad `(fecha, predio)` que el Draft 15 nombró no existía en la base: `jornada` no tiene predio, y las únicas tablas con fecha *y* predio son de movimiento —`asiento`, `gasto`, `pago`—. No se puede contar los días de cancha de un torneo mirando los gastos ya cargados. **Es compartida**: el presupuesto la cuenta, el arqueo (§3.6) cuelga de ella. Una sola definición de "día de operación de un predio", no dos.
+
+**Se desarma la bomba de `v_presupuesto_total`** (§3.8). Hoy multiplica por `count(*) from jornada … estado <> 'suspendida'`. Con jornadas por género daba 28; con jornadas por serie da **284**. Un presupuesto se habría mostrado **diez veces más grande** sin que nada fallara ni avisara. Pasa a multiplicar por la unidad que corresponde a cada línea. **Las tablas de presupuesto están vacías** —0 filas en `presupuesto`, `presupuesto_linea` y `gasto`—, así que se arregla antes de que exista el primer número mal.
+
+**Clasificación inicial de las 16 categorías `por_fecha`** (§3.3): 3 por partido, 8 por día de cancha, 5 aparte (4 de bar + 1 de administración). El bar no escala con partidos ni con días de cancha —escala con consumo— y tiene su propio tratamiento.
+
+---
+
+## Qué cambió desde el Draft 14
+
+**Gestión de jornadas por funciones validadas** (§3.5). `crear_jornada`, `mover_jornada` y `suspender_jornada`. **Una lógica, dos puertas**: el seed que carga el Clausura y el módulo de calendario que vendrá después llaman a las mismas funciones. No hay dos caminos que validen distinto. Son agnósticas del torneo (regla 12): reciben serie, número y fecha.
+
+**La autonomía de la cuota es parcial** (§3.4). Refina la decisión 41 sin contradecirla: el **monto** se copia siempre, pero el **vencimiento** solo en las cuotas fijas. La cuota de liga lo **deriva de `jornada.fecha`** en vivo. La inscripción vence un día administrativo fijo; la de liga vence cuando se juega esa fecha, y esa fecha puede moverse.
+
+**Suspender una jornada saca su cuota del circuito de cobro** (§3.5). Un equipo cuya fecha se suspendió **no es moroso de esa cuota**: no se jugó, no corresponde reclamarla. Vuelve al circuito al reprogramar, con el vencimiento nuevo.
+
+**Las vistas de deuda tienen que distinguir los dos tipos de cuota.** Fija por `vence_at` propio; de liga derivando de la jornada y excluyendo las suspendidas. Es el punto de la pieza que más cuidado necesita: si una vista se olvida, un equipo aparece debiendo algo que nadie le va a cobrar.
+
+**Queda por resolver al construir:** `cuota.vence_at` es hoy `NOT NULL`. Derivar el vencimiento obliga a elegir entre dejarlo nulo para las cuotas de liga —fuente única— o mantenerlo como caché sincronizada por trigger.
+
+**Construido.** Pieza 2 del rediseño, migración `20260801131425_gestion_jornadas.sql`: las funciones, los cambios de vista y el seed de las 284 jornadas se aplicaron juntos.
+
+---
+
+## Qué cambió desde el Draft 13
+
+**La jornada cuelga de la serie, no del género.** Identidad `(serie_id, numero)`; el género y el torneo se derivan subiendo `serie → categoria`. El modelo anterior no podía representar el calendario real: distintas series del mismo género juegan la misma fecha en días distintos —Libre A su fecha 3 el 15/8, +35 B el 29/8— y `(torneo, genero, numero)` colapsaba fechas que en la realidad difieren. **Clausura 2026: 284 jornadas** en lugar de 28.
+
+**Fecha de calendario ≠ jornada.** Una *fecha* es un día concreto en el que juegan muchas series; una *jornada* es la fecha N de **una** serie. 29 fechas, 284 jornadas en el Clausura. De ahí emerge `(fecha, predio)` —el día de operación de un predio— como entidad natural.
+
+**Tres unidades de costo variable** (§3.3). Los gastos `por_fecha` dejan de escalar todos igual: **por partido** (árbitros, veedores, ballboys — se multiplica por `equipos ÷ 2`), **por día de cancha** (fotografía — 1 por `(fecha, predio)`) y **fijo mensual**. Un sábado con 6 series en un predio son 48 arbitrajes y un solo servicio de fotografía.
+
+**El arqueo cuelga de `(fecha, predio)`**, no de la jornada. Controla la caja física de un predio en un día, y ese día jugaron varias series: la plata no distingue de cuál vino.
+
+**Playoffs también por serie.** La final de Libre A y la de Libre B son jornadas distintas. No están en el calendario validado —no tienen fecha aún— y se cargan cuando se definan.
+
+**⚠ `v_presupuesto_total` — la pieza 5 tiene que llegar antes que el primer presupuesto cargado.** La vista cuenta jornadas del torneo sin distinguir la unidad del costo. Con jornadas por género daba 28; con jornadas por serie da **284**. Un presupuesto `por_jornada` se multiplicaría por diez **sin fallar ni avisar** — no es un error de schema, es un número diez veces más grande en pantalla.
+
+La bomba se arma en la **pieza 2**, cuando se cargue la grilla: hoy la vista da 0 porque `jornada` está vacía. La desarma la **pieza 5**, implementando las tres unidades (decisión 44). Entre una y otra, cualquier presupuesto que se cargue va a estar mal. Las tablas `presupuesto` y `presupuesto_linea` están vacías hoy, así que todavía no hay ningún número incorrecto — pero es una ventana que hay que cerrar antes de abrirla.
+
+**La PK de `jornada` no cambia.** Sigue siendo `id`, así que las siete FKs que la apuntan —`asiento`, `pago`, `gasto`, `arqueo`, `cuota`, `plan_tarifa_linea.hito_jornada_id` y el `reprograma_a` propio— no se tocan. Cambia la identidad natural y la columna.
+
+**Construido, las seis piezas.** `jornada` cuelga de serie (`20260801121708`), gestión de jornadas (`20260801131425`), la rama `por_partido` de B0 ejercitada por primera vez, unidades de costo y `dia_cancha` (`20260802075345`, `20260802075631`), arqueo y consolidación (`20260802094852`, `20260802095023`) y playoffs por serie (`20260802103856`). La base tiene las 284 jornadas del Clausura y 58 días de cancha.
+
+---
+
+## Qué cambió desde el Draft 12
+
+**Capa nueva en el modelo: `categoria` → `serie`.** Catálogos por torneo, clonados del anterior al crear uno nuevo. La jerarquía pasa a ser `torneo → categoria → serie → equipo_torneo`. **El género es atributo de la categoría**, no del equipo ni del tercero: Libre/+30/+40 son masculinas, Femenino/Flex femeninas.
+
+**`equipo_torneo.categoria` deja de ser texto libre.** El `'+40 A'` de string suelto se reemplaza por `serie_id`, FK al nivel más específico; categoría y género se derivan subiendo. Sale también `modalidad` —su `CHECK` quedó de un modelo anterior al tarifario y no alcanza para expresar las dos elecciones que exige el plan—, reemplazada por una FK a `plan_tarifa` por concepto.
+
+**Traducción de tarifario a cuotas, definida.** El motor de generación mira la **regla** de cada línea, no el concepto: `fecha_fija` → 1 cuota con fecha propia, `por_partido` de liga → una cuota por fecha atada a la jornada, `bloque_adelantado` → 1 cuota con el total, playoffs → ninguna. El concepto solo se usa después, para rutear el asiento del cobro.
+
+**La cobranza queda atada al calendario.** Las cuotas `por_partido` vencen con su jornada y se mueven si se reprograma. Mover una jornada recalcula el cashflow proyectado y los vencimientos de equipo desde la misma fuente — principio (i) alcanzando a la cobranza.
+
+**El monto se copia, no se lee.** El tarifario es el molde; la cuota, la pieza ya fundida. Editar el tarifario no recalcula cuotas ya generadas, y una cuota puntual se puede ajustar a mano sin marca especial.
+
+Todo esto está en §3.4, y **está construido**: estructura → ficha (B0) → cobro, en ese orden porque cada bloque necesitaba al anterior. Hoy corre con datos reales — 7 categorías, 21 series, 34 fichas, 297 cuotas y 20 pagos.
+
+---
+
+## Qué cambió desde el Draft 11
+
+**Ingresos por percibido puro.** El único evento que genera ingreso contable es el pago: `Caja` al debe, `Ingresos` al haber. Las cuotas **no generan ningún asiento** — quedan como términos de pago: cronograma, mora y base del cashflow. `DEUDORES` sale del circuito de equipos. La cuota hereda el concepto (inscripción / partidos) de la línea del plan, que es lo que resuelve a qué cuenta de ingreso se imputa el cobro.
+
+**⚠ El cambio es asimétrico.** Pasan a percibido **los ingresos**. Los **gastos siguen por devengo**, con sus dos asientos —devengo al cargar, pago al pagar— sin ninguna modificación (§3.3, regla 7 de CLAUDE.md, decisión 12). Un reemplazo ciego de la palabra "devengo" rompería el modelo de gastos. Consecuencia: para ingresos el P&L y la caja muestran lo mismo; para gastos siguen contando cosas distintas.
+
+**Se cierra la pregunta abierta del Draft 11.** Qué disparaba el asiento de devengo dejó de tener sentido: el disparador es el pago. El bloque de §3.4 se eliminó.
+
+Toca el principio (b), el (h), §3.3, §3.4, §3.10, §3.17, §3.18, §5 y la decisión cerrada 1. El razonamiento —y qué decía cada versión anterior— queda en §8 → Decisiones reemplazadas, que ahora registra las dos vueltas.
+
+Nada de esto está implementado todavía: es cambio de documentación. El código y las vistas siguen sin implementar ningún reconocimiento de ingresos — `crear_asiento()` no se invoca desde ninguna función de negocio, así que hoy no hay ni percibido ni devengado.
+
+---
+
+## Qué cambió desde el Draft 10
+
+> **⚠ Superado por el Draft 12.** El devengo progresivo que se describe acá duró un solo draft: los ingresos pasaron a percibido puro. Se conserva como registro de lo que se decidió entonces. El razonamiento del cambio está en §8.
+
+**Devengo progresivo por vencimiento (Camino 2).** Reemplaza a la Opción A, que facturaba el torneo completo al armar la ficha. Ahora las cuotas se siguen creando todas juntas —el plan de pago queda cerrado desde el inicio— pero cada una se devenga al vencer. **La deuda de un equipo es su mora**: cuotas vencidas e impagas. El cashflow se deriva de la estructura de vencimientos, no de sumar fichas. Toca el principio (b), §3.4, §3.18, §5 y la decisión cerrada 1. El razonamiento del cambio, y qué decía la decisión anterior, quedan registrados en §8 → Decisiones reemplazadas.
+
+**Abierto: qué dispara el asiento de devengo** (§3.4). El principio dice que cada cuota se devenga al vencer, pero no qué genera ese asiento. Tres opciones —proceso agendado, devengo perezoso, devengo por jornada— con un trade-off que toca el principio (c). **Hay que definirlo antes de implementar B0.**
+
+Nada de esto está implementado todavía: es cambio de documentación. El código y las vistas siguen calculando como en el Draft 10.
+
+---
+
+## Qué cambió desde el Draft 7
+
+Las migraciones 002 y 003 modificaron el modelo. Este documento refleja el estado real.
+
+**Integridad de períodos** (002). La fecha del asiento se valida contra su período; un período cerrado no se puede reabrir; `cerrado_por` y `cerrado_at` se completan solos.
+
+**Pagos parciales** (002). Tabla `pago_imputacion`: un pago se reparte entre varias cuotas, una cuota recibe varios pagos. `cuota.pagado_at` pasa a ser derivado.
+
+**Caja por predio** (002). Efectivo tiene una caja por predio; transferencia y USD son globales. El arqueo es por jornada + predio.
+
+**Deuda por equipo** (003). La deuda se consolida por tercero, no por torneo. `v_deuda_equipo` y `v_deuda_detalle`.
+
+> **Y por eso `v_deuda_equipo` no se puede filtrar por torneo** (`20260812114152`). No tiene `torneo_id`, y agregárselo sería peor: filtraría las FILAS dejando los MONTOS de todos los torneos sumados — un equipo que debe $10,5M en un torneo y $11,1M en otro aparecería, filtrado por el primero, mostrando $21,6M. Plausible y falso.
+>
+> La pregunta con el otro grano la contesta **`v_deuda_equipo_torneo`**: una fila por equipo **y torneo**, con los montos restringidos a ese torneo y los mismos criterios de impago y vencido. `/cobranza` usa una u otra según haya filtro.
+>
+> **Con una excepción que es puro concepto 5:** `saldo_a_favor` **no** se restringe al torneo. Un anticipo es del equipo y no tiene torneo — esa es su definición. Se repite en cada fila y **no se suma entre filas**; la pantalla lo muestra por fila y nunca lo totaliza.
+
+**Imputación elegida** (003). `sugerir_imputacion()` propone —priorizando el torneo en curso— e `imputar_pago()` guarda lo que eligió el operador. `imputar_pago_automatico()` queda deprecada: decidía sola en casos ambiguos y podía dejar a un equipo impago en el torneo en curso.
+
+**Anticipos** (003). El sobrante de un pago queda como saldo a favor del equipo. No expira ni se pierde al cambiar de torneo.
+
+---
+
+## Qué cambió desde el Draft 6
+
+**Reenfoque financiero.** Decisión del dueño: el foco es financiero, no contable. El libro diario baja a `Configuración → Registro de movimientos`; el P&L pasa a llamarse Resultados y se reordena por pregunta de negocio. Salen del alcance el IVA discriminado, el plan de cuentas como pantalla y el balance patrimonial.
+
+**Prioridades confirmadas del dueño**, en este orden:
+1. Previsión de caja a 6-12 meses con escenarios
+2. Cobranza: cuánto falta cobrar y cuándo entra
+3. Rentabilidad real por torneo
+4. Punto de equilibrio
+
+Las dos primeras son la misma pregunta —cuándo entra la plata— y la cobranza alimenta la previsión, así que reforzar una mejora la otra.
+
+**Rediseño de la estructura de gastos.** `cat_gasto.grupo` se reemplaza por dos ejes independientes: `naturaleza` (por_fecha / recurrente / eventual / inversion) y `area` (torneo / predio / bar / administracion). Resuelve el hueco del gasto eventual —mantenimiento, compras de predio— que el modelo anterior no podía representar.
+
+**Activos y amortización.** Compras grandes se activan y amortizan mensualmente, con umbral de materialidad para no ahogar la carga.
+
+**Compromisos, cheques y fondo de inversión.** Tres tipos de obligación que faltaban: cuotas de moratoria, cheques emitidos, facturas con vencimiento. Más el calendario de pagos que los integra.
+
+---

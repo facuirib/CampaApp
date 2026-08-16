@@ -127,7 +127,7 @@ Queda 300 USD / $315.000 (sigue a 1050).
 - v_tenencia_usd: cuántos USD hay, costo en libros, promedio ponderado actual.
 - v_resultado_cambio: mostrar la diferencia de cambio realizada — hoy se registraría
   y no se vería. Decisión nueva: agregar la vista. [AL CONSTRUIR: se hizo como vista
-  propia por mes, no metiéndola en v_resultado_producto: esa filtra ingreso/egreso y
+  propia por mes, y no mezclada con los ingresos operativos: el P&L filtra por tipo y
   FIN_DIF_CAMBIO es `financiero`, que es justo lo que la decisión 12 quiere.]
 - [AL CONSTRUIR — vista que el diseño no tenía] v_usd_sincronia: la red de seguridad.
   El promedio cruza DOS fuentes y nada las mantiene sincronizadas, así que un asiento
