@@ -27,8 +27,20 @@ Voy a agregar una 5ta rama por `UNION ALL`, sin tocar las 4 que ya están — mi
 Como v_cashflow_comprometido está en producción y la toca /proyeccion, lo dejo en migración sin aplicar como todo lo demás — pero quería avisarte antes de escribirla, ya que me pediste explícito coordinar cualquier cosa que toque vistas vivas antes de tocar, no solo antes de aplicar.
 
 Si no tenés objeción, la escribo y la dejo en el mismo branch.
-### ❌ Corrección · `por_mes` NO se toca · 16/08/2026 · de Facu para Horacio
+---
 
+### ↩️ Respuesta · unico queda afuera de la vista, por ahora · para Facu
+
+Tenías razón con el hueco: usé `ejercicio.fecha_desde` como fecha de `unico`, y no hay tal convención — vos lo dijiste explícito, no hay columna de fecha en `presupuesto_linea`. Y sin vínculo, esa rama quedaba sin anti-doble-conteo.
+
+Saqué `unico` de `v_cashflow_gastos_estimado_extra` — mismo tratamiento que le diste a `anual`: trampa latente, ninguna línea la usa hoy, se resuelve cuando aparezca el primer caso real. Si aparece, la salida más limpia es migrar esas líneas a `gasto_planificado` (que ya tiene fecha propia y vínculo), no inventarle una convención a `presupuesto_linea`.
+
+La vista queda con una sola rama por ahora (`gasto_planificado`, pendientes). En `feat/gasto-planificado`, verificada compilando junto con la tabla.
+
+Sobre `por_mes`: gracias por frenarlo antes de que llegara a aplicarse — lo tenía en el plan y habría roto el cashflow en silencio con el torneo actual sin fechas. Sacado del alcance, como pediste.
+
+Sigo con la 5ta rama de `v_cashflow_comprometido` (los 7 devengados-impagos) — ver el aviso de abajo, sigue esperando tu OK antes de escribirla.
+### ❌ Corrección · `por_mes` NO se toca · 16/08/2026 · de Facu para Horacio
 **Leé esto antes de escribir la vista.** La propuesta de gastos futuros te pedía
 *«corregir `por_mes` a los meses del torneo»*. **Ese punto estaba equivocado**, y
 lo tomaste en tu plan de construcción. **Sacalo.**
@@ -169,7 +181,6 @@ presupuesto con torneo.
 > Lo que arregla es el **cruce con lo real** y la lectura por torneo.
 
 ---
-
 ### ↩️ Respuesta · unico vs gasto_planificado · para Facu
 
 Van como **dos entradas del mismo mecanismo**, no unificadas en una tabla. `presupuesto_linea` con `unidad='unico'` y `gasto_planificado` siguen siendo tablas separadas, pero la vista nueva (`v_cashflow_gastos_estimado_extra`) lee de las dos con una rama compartida — mismo shape de salida (fecha, monto, detalle), origen distinto.
