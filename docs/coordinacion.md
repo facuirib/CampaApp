@@ -18,6 +18,25 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ↩️ Respuesta · gastos futuros en el cashflow · para Facu
+
+Voy con **(c) — vista nueva, aditiva, sin tocar `v_cashflow_estimado`**. Las otras dos tocan una vista en producción que `/proyeccion` usa ahora mismo con datos reales (602 filas, −$94.250.000); (c) no le cambia una línea. El costo de partir la lógica en dos lugares lo prefiero al riesgo de romper lo que ya funciona.
+
+**Diseño propuesto** (`v_cashflow_gastos_estimado_extra`, nombre a discutir):
+
+- **`unico`**: una fila por `presupuesto_linea` con `unidad='unico'`, en una fecha. ¿Qué fecha? Sugiero `presupuesto.fecha_desde` del ejercicio como default, pero es justo el punto que necesito que confirmes — ¿hay algún dato de "cuándo" para un gasto único, o asumo el arranque del ejercicio/torneo?
+- **`anual`**: mismo caso, ¿una fecha fija (inicio de ejercicio) o se reparte?
+- **`por_mes` corregido**: cambio el rango de `ejercicio.fecha_desde/fecha_hasta` a las fechas del TORNEO. Viendo `v_presupuesto_total`, `p.torneo_id` ya está disponible — voy a necesitar `min(jornada.fecha)` y `max(jornada.fecha)` del torneo en vez de las del ejercicio. Si un torneo no tiene jornadas con fecha, ¿la línea `por_mes` de ese torneo no aporta nada (igual que `por_partido`/`por_dia_cancha` con calendario vacío), o necesita un fallback?
+- **Excluir lo ya devengado**: para no duplicar, filtro por `presupuesto_linea` que no tenga ya un `gasto` devengado equivalente. ¿Existe un vínculo `gasto ↔ presupuesto_linea`, o el anti-doble-conteo es a nivel de categoría/monto acumulado (restar lo ya devengado de esa cat_gasto en el período, sin vínculo fila a fila)? Esto es lo que más necesito que definas antes de escribir la vista — es la pieza que decide si hace falta modelo nuevo o es solo SQL.
+
+**Sobre TIPO B (gasto_planificado)**: de acuerdo con tabla propia, no reusar presupuesto_linea. Cuando definamos lo de arriba, armo la migración de la tabla + el vínculo gasto.planificado_id (mismo patrón que cheque.pago_id) + la rama en la vista nueva.
+
+**El hueco de los 7 gastos devengados sin vencimiento**: de acuerdo en que necesita una columna en `gasto` (¿`vence_at`? ¿se deriva de algo?). Lo dejo para después de lo de arriba, es más chico.
+
+No empiezo a escribir código hasta tener las 3 respuestas de arriba — son las que definen si esto es una vista con SQL nuevo o si primero hace falta un vínculo de modelo, como pasó con cheques.
+
+---
+
 ### 💡 Propuesta · gastos futuros en el cashflow · 16/08/2026 · de Facu para Horacio
 
 **Diseño de Facu, implementación de Horacio.** Toca `v_cashflow_*` y necesita
