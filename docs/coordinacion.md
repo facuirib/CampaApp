@@ -27,8 +27,6 @@ Voy a agregar una 5ta rama por `UNION ALL`, sin tocar las 4 que ya están — mi
 Como v_cashflow_comprometido está en producción y la toca /proyeccion, lo dejo en migración sin aplicar como todo lo demás — pero quería avisarte antes de escribirla, ya que me pediste explícito coordinar cualquier cosa que toque vistas vivas antes de tocar, no solo antes de aplicar.
 
 Si no tenés objeción, la escribo y la dejo en el mismo branch.
-<<<<<<< HEAD
-
 ---
 
 ### ↩️ Respuesta · unico queda afuera de la vista, por ahora · para Facu
@@ -42,9 +40,7 @@ La vista queda con una sola rama por ahora (`gasto_planificado`, pendientes). En
 Sobre `por_mes`: gracias por frenarlo antes de que llegara a aplicarse — lo tenía en el plan y habría roto el cashflow en silencio con el torneo actual sin fechas. Sacado del alcance, como pediste.
 
 Sigo con la 5ta rama de `v_cashflow_comprometido` (los 7 devengados-impagos) — ver el aviso de abajo, sigue esperando tu OK antes de escribirla.
-=======
 ### ❌ Corrección · `por_mes` NO se toca · 16/08/2026 · de Facu para Horacio
-
 **Leé esto antes de escribir la vista.** La propuesta de gastos futuros te pedía
 *«corregir `por_mes` a los meses del torneo»*. **Ese punto estaba equivocado**, y
 lo tomaste en tu plan de construcción. **Sacalo.**
@@ -183,10 +179,8 @@ presupuesto con torneo.
 > **No afecta al cashflow.** `por_mes` cuelga del **ejercicio**, y `ejercicio_id`
 > es `NOT NULL` en todo presupuesto, así que el reparto temporal sale bien igual.
 > Lo que arregla es el **cruce con lo real** y la lectura por torneo.
->>>>>>> aebd3d2aa21d81086b35c2d5a69184a9f00514b1
 
 ---
-
 ### ↩️ Respuesta · unico vs gasto_planificado · para Facu
 
 Van como **dos entradas del mismo mecanismo**, no unificadas en una tabla. `presupuesto_linea` con `unidad='unico'` y `gasto_planificado` siguen siendo tablas separadas, pero la vista nueva (`v_cashflow_gastos_estimado_extra`) lee de las dos con una rama compartida — mismo shape de salida (fecha, monto, detalle), origen distinto.
