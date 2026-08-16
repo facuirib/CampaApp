@@ -1312,7 +1312,7 @@ Sin tablas nuevas, todo derivado:
 
 ### 3.11 Activos y amortización
 
-*Backend completo — las tres patas del circuito están construidas: el ruteo de la compra (`20260816184239_ruteo_inversion_bienes_uso.sql`), el pago (`pagar_gasto`, que ya funcionaba) y `asentar_amortizacion` (`20260816191333`). **Falta la pantalla.***
+*Construido de punta a punta — backend y pantalla. Las tres patas del circuito: el ruteo de la compra (`20260816184239_ruteo_inversion_bienes_uso.sql`), el pago (`pagar_gasto`, que ya funcionaba) y `asentar_amortizacion` (`20260816191333`). Las vistas de lectura en `20260816193512` y `20260816193835`. La pantalla en `/activos`.*
 
 Compras grandes se activan y amortizan mensualmente en lugar de impactar íntegras en el mes de pago.
 
@@ -1346,7 +1346,39 @@ La compra **no toca el resultado** —cambia un activo por otro—. Lo que impac
 
 **Imputación:** siempre estructura permanente (`torneo_id = NULL`, decisión 24). El bien sirve a todos los torneos que dura.
 
-*Nota operativa:* `asentar_amortizacion` recibe un `periodo_id`, así que **no se puede amortizar un mes cuyo período todavía no existe** — los períodos se crean solos al primer movimiento del mes (`periodo_de_fecha`). La pantalla tiene que ofrecer sólo los que existen.
+*Nota operativa:* `asentar_amortizacion` recibe un `periodo_id`, así que **no se puede amortizar un mes cuyo período todavía no existe** — los períodos se crean solos al primer movimiento del mes (`periodo_de_fecha`). La pantalla ofrece sólo los que existen.
+
+#### Las vistas de lectura
+
+| Vista | Qué da |
+|---|---|
+| `v_activo` | Un activo por fila con lo que la pantalla no puede calcular: `cuota_mensual`, `cuotas_confirmadas`, `cuotas_restantes`, `amortizado`, `residual`, `avance_pct`, más `compra_registrada` y `gasto_id` |
+| `v_amortizacion` | Las cuotas **ya asentadas**, por activo y período. Las propuestas no salen de acá: salen de `proponer_amortizaciones()`, que es función |
+| `v_activo_kpi` | Los totales de la posición: `en_activos`, `amortizado`, `residual`, `sin_compra`. Una fila siempre, también sin activos |
+
+**Todas las derivadas de `v_activo` son subconsultas correlacionadas, no joins.** Un activo con N cuotas y un gasto daría N×1 filas si se joinearan las dos cosas; así la vista tiene una fila por activo pase lo que pase con los datos.
+
+**Y el gasto se busca ignorando los anulados.** No es teórico: la Desmalezadora tiene dos gastos apuntándola —el original mal imputado y el que lo corrige— y un join ingenuo mostraría un valor de compra de $2.900.000. El filtro sale de `v_gasto_detalle.estado`, para no reimplementar la regla de anulación en un segundo lugar.
+
+`cuota_mensual` usa **la misma expresión** que `proponer_amortizaciones`; si se calculara distinto, la pantalla mostraría una cuota y se asentaría otra. Y `numero_cuota` se deriva de `fecha_alta` y no de un `row_number()`: contarlas por orden daría mal apenas se saltee un período.
+
+#### La pantalla · `/activos`
+
+Lista con los tres KPIs y el detalle por activo, que abre su plan de amortización —las cuotas confirmadas y, destacada, la propuesta pendiente del período abierto—.
+
+**Dos acciones, y el alta no asienta nada.** Dar de alta un activo sólo registra el bien: `gasto` apunta al activo y no al revés, así que **el activo tiene que existir antes que la compra**. La compra se carga después desde `/gastos/nuevo` con una categoría de naturaleza `inversion`, y ahí el ruteo la manda a `BIENES_USO`. La pantalla del alta termina en ese enlace, no en un "listo".
+
+Mientras el gasto no entre, el activo queda **dado de alta sin compra registrada** — un estado real, que `v_activo_kpi.sin_compra` cuenta y la lista avisa.
+
+`/activos/amortizar` hace el flujo de un paso: elegir período → ver la propuesta con su `AsientoPreview` → confirmar. **Los períodos se muestran todos y en orden**, incluso los que no tienen pendientes: nada impide asentar agosto y noviembre salteando septiembre —el `unique` es por `(activo, período)`, no una secuencia— y verlos en fila es lo que hace visible el hueco. El preview va **uno por activo**, porque `asentar_amortizacion` crea un asiento por cada uno y mostrar uno solo por el total sería previsualizar algo que no se escribe.
+
+#### Lo que quedó afuera, a propósito
+
+| | Por qué |
+|---|---|
+| **Baja de activo** | Dar de baja un bien parcialmente amortizado deja un residual en `BIENES_USO` que habría que dar de baja también. **Esa decisión contable no está tomada**, y la pantalla no la puede inventar |
+| **Reversa de la amortización** | `amortizacion.estado` sólo admite `propuesta\|confirmada`: no hay `anulada`, así que implica tocar el modelo. Sin precedente —`devengo_socio` tampoco tiene con qué anularse— |
+| **El umbral como validación** | `umbral_activacion` se muestra como **referencia** y no se fuerza: el doc dice que la UI *ofrece* activar. Su lugar natural es `/gastos/nuevo` —«este gasto supera el umbral, ¿lo activás?»—, que es carril de Horacio |
 
 ### 3.12 Compromisos
 
@@ -1776,14 +1808,14 @@ que falta. No es un boceto: si una pantalla figura acá arriba, se puede abrir.
 Empresa/Torneo que nunca se construyó — y que además contradecía §1.d, porque el
 resultado se mira a nivel empresa y no hay nada que cambiar de ámbito.*
 
-### Lo que hay · 18 pantallas en cinco grupos
+### Lo que hay · 19 pantallas en cinco grupos
 
 El Sidebar es plano: cinco grupos, sin pestañas internas.
 
 | Grupo | Pantallas |
 |---|---|
 | **Torneo** | Inscripciones · Calendario · Cobranza · Reclamos · Tarifario |
-| **Operación** | Gastos · Caja · Arqueo |
+| **Operación** | Gastos · Caja · Arqueo · Activos |
 | **Finanzas** | Proyección · Resultados · Movimientos |
 | **Societario** | Socios · Sponsors · USD |
 | **Sistema** | Auditoría · Configuración › Plantillas *(+ Categorías, Cierres y Usuarios, anunciadas y no construidas)* |
@@ -1798,14 +1830,17 @@ se arma el fixture, se le cobra, y al que no paga se le reclama. El tarifario va
 
 ### Lo que falta · backend construido, sin pantalla
 
-Las cuatro tienen el modelo y la lógica hechos: **falta sólo el front**. Dos de
+Las tres tienen el modelo y la lógica hechos: **falta sólo el front**. Dos de
 ellas ya están alimentando Proyección sin que exista dónde cargarlas.
+
+> **Activos salió de esta lista: está construida** (§3.11). Era la cuarta, y la
+> única donde de verdad faltaba sólo el front — las otras tres necesitan además
+> que algo escriba, porque hoy leen tablas vacías.
 
 | Pantalla | Qué hay ya | Por qué importa |
 |---|---|---|
 | **Cheques** | tabla `cheque`; `v_cashflow_comprometido` ya la lee | La plata de los cheques **ya se proyecta**, pero no hay dónde cargarlos |
 | **Calendario de pagos** | `compromiso`, `plan_pago`, y `v_calendario_pagos` completa —con `criticidad`— | Ídem: las moratorias ya entran al cashflow |
-| **Activos** | **circuito contable completo** (§3.11): compra ruteada a `BIENES_USO`, `pagar_gasto`, y `asentar_amortizacion` instalada | La única de las cuatro donde de verdad **falta sólo el front**. `GAS_AMORT` sigue en 0 porque asentar es acción de pantalla y todavía no hay quién la dispare |
 | **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | Falta la pantalla de **carga**: el presupuesto se siembra por SQL |
 
 ### Lo que falta · y empieza por modelar

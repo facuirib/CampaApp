@@ -72,6 +72,7 @@ export const GRUPOS: GrupoNav[] = [
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
       { href: '/caja', label: 'Caja', icon: 'caja' },
       { href: '/arqueo', label: 'Arqueo', icon: 'arqueo' },
+      { href: '/activos', label: 'Activos', icon: 'activos' },
     ],
   },
   {

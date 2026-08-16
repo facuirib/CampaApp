@@ -116,6 +116,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "amortizacion_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "v_activo"
+            referencedColumns: ["activo_id"]
+          },
+          {
             foreignKeyName: "amortizacion_asiento_id_fkey"
             columns: ["asiento_id"]
             isOneToOne: false
@@ -2343,6 +2350,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gasto_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "v_activo"
+            referencedColumns: ["activo_id"]
+          },
+          {
             foreignKeyName: "gasto_asiento_dev_id_fkey"
             columns: ["asiento_dev_id"]
             isOneToOne: false
@@ -3613,6 +3627,118 @@ export type Database = {
       }
     }
     Views: {
+      v_activo: {
+        Row: {
+          activo_id: string | null
+          amortizado: number | null
+          avance_pct: number | null
+          categoria: string | null
+          compra_registrada: boolean | null
+          cuota_mensual: number | null
+          cuotas_confirmadas: number | null
+          cuotas_restantes: number | null
+          estado: string | null
+          fecha_alta: string | null
+          fecha_baja: string | null
+          gasto_id: string | null
+          motivo_baja: string | null
+          nombre: string | null
+          predio: string | null
+          predio_id: string | null
+          residual: number | null
+          valor_origen: number | null
+          vida_util_meses: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activo_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_activo_kpi: {
+        Row: {
+          activos: number | null
+          amortizado: number | null
+          avance_pct: number | null
+          cuota_mensual_total: number | null
+          dados_de_baja: number | null
+          en_activos: number | null
+          residual: number | null
+          sin_compra: number | null
+        }
+        Relationships: []
+      }
+      v_amortizacion: {
+        Row: {
+          activo: string | null
+          activo_id: string | null
+          amortizacion_id: string | null
+          anio: number | null
+          asiento_fecha: string | null
+          asiento_id: string | null
+          cuotas_total: number | null
+          estado: string | null
+          mes: number | null
+          monto: number | null
+          numero_cuota: number | null
+          periodo_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amortizacion_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "activo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amortizacion_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "v_activo"
+            referencedColumns: ["activo_id"]
+          },
+          {
+            foreignKeyName: "amortizacion_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amortizacion_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "amortizacion_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "periodo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amortizacion_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_detalle_mensual"
+            referencedColumns: ["periodo_id"]
+          },
+          {
+            foreignKeyName: "amortizacion_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_detalle_mensual"
+            referencedColumns: ["periodo_id"]
+          },
+        ]
+      }
       v_anticipo_saldo: {
         Row: {
           equipo: string | null
@@ -4523,6 +4649,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gasto_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "v_activo"
+            referencedColumns: ["activo_id"]
+          },
+          {
             foreignKeyName: "gasto_asiento_dev_id_fkey"
             columns: ["asiento_dev_id"]
             isOneToOne: false
@@ -5287,6 +5420,14 @@ export type Database = {
       }
       aplicar_anticipo: {
         Args: { p_cuota_id: string; p_monto: number; p_tercero_id: string }
+        Returns: number
+      }
+      asentar_amortizacion: {
+        Args: {
+          p_activo_id?: string
+          p_created_by?: string
+          p_periodo_id: string
+        }
         Returns: number
       }
       cargar_cuotas_sponsor: {
