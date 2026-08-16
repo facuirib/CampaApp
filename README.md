@@ -44,9 +44,15 @@ reconstruirse y **la falla es silenciosa**: aplicar no da error, rompe después
 en el primer `crear_asiento`. Ya pasó una vez — el caso está en
 `docs/decisiones.md` § Correcciones posteriores.
 
-> ⚠ **`supabase db push` contra la base compartida todavía no.** Once archivos
-> no están registrados con la versión que tienen en el repo, así que el push
-> querría re-aplicarlos. Mismo lugar en `decisiones.md`.
+Repo y base están sincronizados: `npx supabase db push --dry-run` responde
+*«Remote database is up to date»*. **Si alguna vez no lo hace, hay divergencia** —
+y antes de renombrar o repairar nada hay que ver de dónde sale, porque un
+renombre a ciegas la oculta en vez de resolverla.
+
+> ⚠ **El nombre del archivo tiene que ser la versión que la base registra.** Si
+> aplicás por MCP o desde el panel, el timestamp lo pone la herramienta: renombrá
+> el archivo al que quedó registrado. El CLI compara por versión, así que un
+> número inventado antes hace que `db push` quiera correrla de nuevo.
 
 ## Documentación
 

@@ -168,7 +168,7 @@ No se escribe. Se elimina cuando el bloque 3 (Cobranza) esté terminado.
 
 **Todas construidas.** `crear_equipo_torneo` (`20260731070827`) y
 `registrar_cobro` (`20260731100343`, sin fallback de usuario desde
-`20260802170000`). Detalle y razonamiento en `arquitectura.md` §3.4 → El
+`20260805102032`). Detalle y razonamiento en `arquitectura.md` §3.4 → El
 circuito de cobro.
 
 **29 · `cuota.plan_tarifa_linea_id`, FK NOT NULL**
@@ -974,7 +974,7 @@ con sesión válida la subconsulta nunca se evaluaba.
 *⚠ Pendiente:* `crear_asiento` tiene **el mismo fallback**, y lo llaman nueve
 funciones que le pasan `p_created_by => null`. Es el mismo problema en el lugar
 más central —la única vía de escritura al diario—. Queda para el bloque 10.
-*Commit `0cbad99`, migración `20260802170000`.*
+*Commit `0cbad99`, migración `20260805102032`.*
 
 **90 · El corte por fecha del cashflow** *(cierra la 86)*
 `REAL <= hoy` · `COMPROMETIDO >= hoy` + las vencidas arrastradas · `ESTIMADO >
@@ -1018,7 +1018,7 @@ Clausura se parten cuatro semanas y tres ya tienen flujo.
 *`v_cashflow_mensual` se corrigió sola:* solo lee `saldo_proyectado`. Sus
 columnas de flujo siguen bien — ahí sumar flujos **sí** corresponde; el error era
 sumar un flujo sobre un stock.
-*Commit `6e8e236`, migración `20260802200000`.*
+*Commit `6e8e236`, migración `20260805121912`.*
 
 ---
 
@@ -1396,9 +1396,9 @@ Se renombraron los nueve archivos a su versión registrada. *Para las que
 vengan:* si se aplica por MCP, el archivo se nombra con la versión que quedó
 registrada, no con una inventada antes.
 
-> Se suma a la deuda de reproducibilidad de § Abiertas: la base ya no se podía
-> reconstruir desde `migrations/` por las cuentas que faltan, y encima el repo
-> y la base numeraban distinto.
+> ✅ **Cerrado del todo.** Aquella pasada arregló nueve archivos, pero quedaban
+> once más desalineados; se sincronizaron después junto con la reproducibilidad
+> —ver *«El historial de migraciones quedó sincronizado»* más abajo—.
 
 ---
 
@@ -1547,13 +1547,12 @@ Branch borrada al terminar.
   `devengar_sponsors` y `devengar_sueldos_socios` ya lo hacían así en sus
   migraciones; era el único de los cuatro sin el drop.
 
-· **Once archivos no coinciden entre repo y base.** `001`–`004` nunca se
-  registraron, y siete (`20260802140000`–`20260802210000`) están registrados con
-  otras versiones (`20260805101748`–`20260805122444`), con correspondencia 1:1
-  por nombre. El CLI compara **por versión**, así que **`supabase db push` contra
-  producción querría re-aplicarlos**. Por eso la siembra se aplicó por MCP y no
-  por push. Queda como deuda aparte — es renombrar los siete y `migration repair
-  --status applied` los cuatro.
+· **Once archivos no coincidían entre repo y base.** `001`–`004` nunca se
+  registraron, y siete (`20260802140000`–`20260802210000`) estaban registrados
+  con otras versiones (`20260805101748`–`20260805122444`). El CLI compara **por
+  versión**, así que `supabase db push` contra producción quería re-aplicarlos —
+  por eso la siembra se aplicó por MCP y no por push. **Resuelto en una pasada
+  aparte**, abajo.
 
 *El barrido, para no ir descubriéndolos de a uno:* se compararon las **41
 funciones** de producción contra su última definición en `migrations/` y las **53
@@ -1572,6 +1571,71 @@ Corriendo en cada `db reset`, se rompe a la vista.
 
 **La condición para que esto siga siendo cierto: en `seed.sql` no entra nada
 estructural.** Lo que el sistema necesita para arrancar va en una migración.
+
+---
+
+**✅ El historial de migraciones quedó sincronizado: `db push` no tiene nada que
+aplicar.** *(cierra los once archivos desalineados de la entrada anterior)*
+
+Eran dos problemas distintos con la misma consecuencia — el CLI compara **por
+versión**, así que veía once migraciones sin aplicar y quería correrlas de nuevo
+sobre producción:
+
+· **Siete archivos con timestamp propio.** `20260802140000`–`20260802210000` en
+  el repo, registrados en la base como `20260805101748`–`20260805122444`. Es el
+  mismo caso que los nueve de agosto: se aplicaron por MCP, que pone su propio
+  timestamp. Se renombraron a la versión registrada.
+
+· **`001`–`004` nunca se registraron.** Se marcaron con `migration repair
+  --status applied`, que **sólo escribe la fila de registro**: no re-ejecuta el
+  DDL.
+
+*Cómo se verificó antes de tocar nada* —porque un renombre a ciegas oculta una
+divergencia en vez de resolverla—:
+
+**Los siete, por contenido.** Supabase guarda el SQL aplicado en
+`schema_migrations.statements`, así que se comparó archivo contra texto aplicado,
+normalizando comentarios y espacios. Seis idénticos; el séptimo, abajo.
+
+**Los cuatro, por efecto.** Se extrajeron los **70 objetos** que crean `001`–`004`
+y se verificó su existencia en producción: **67 están**. Los tres que faltan los
+borró una migración posterior a propósito —`sync_total_facturado` la reemplaza
+`sync_total_plan`, y `v_resultado_producto` / `v_comparador_torneos` se dropearon
+al rediseñar Resultados—. O sea que `repair` no saltea nada pendiente.
+
+*El resultado:* `supabase migration list` da 62 filas con local y remoto
+poblados, y `db push --dry-run` responde **«Remote database is up to date»**.
+Producción intacta: 28 cuentas, 66 asientos, 12 gastos, 32 `cat_gasto`,
+`total_debe` $121.941.267 — lo único que cambió son las cuatro filas del repair
+(58 → 62 migraciones registradas).
+
+---
+
+**`registrar_cobro_sin_fallback` difiere entre el repo y lo aplicado, y se dejó
+así a propósito.** Fue el séptimo de los renombres: el único cuyo SQL no coincide.
+
+La divergencia está en la validación final. **Producción corre**
+`if v_agrupado <> p_monto` con el mensaje *«Las líneas del asiento suman % y el
+pago es de %»*. **El archivo del repo** invierte el orden de los dos chequeos
+finales, usa `if v_agrupado <> v_imputado`, y trae un mensaje mejor —*«El asiento
+cubriría % de los % imputados: alguna cuota no resolvió su concepto»*— con un
+comentario que explica el caso: el agrupamiento por concepto atraviesa tres joins,
+y si alguno perdiera filas el asiento cuadraría igual pero asentaría menos plata
+de la cobrada, en silencio.
+
+**Son lógicamente equivalentes.** Antes de ese punto la función ya hace
+`if v_imputado <> p_monto then raise`, así que ahí `v_imputado = p_monto` está
+garantizado. Cambia el texto del error y el orden, no qué acepta o rechaza.
+
+Es el mismo patrón que `modulo_cashflow`: **el archivo del repo nunca corrió** —
+parece una mejora escrita sobre el archivo después de haberlo aplicado—. Pero es
+menos grave: aquel tenía un error de sintaxis y abortaba la reconstrucción; éste
+corre bien y hace lo mismo.
+
+*Se renombró igual, sin tocar producción.* El repo queda como fuente, y una base
+nueva nace con el mensaje mejor. **Si algún día se quiere alinear producción, es
+un `create or replace` aparte** — toca el motor de cobros, así que es carril de
+Horacio y no entra en un commit de historial.
 
 ---
 
@@ -1677,7 +1741,7 @@ pantalla mostraba devengado, retirado y saldo **sin el número que les da
 contexto**: un saldo en cero no distingue "todavía no se devengó nada" de "se
 retiró todo lo devengado".
 
-Lo trae **`v_socio_lista`** (migración `20260812140000`), junto con
+Lo trae **`v_socio_lista`** (migración `20260812111231`), junto con
 `vigente_desde`. **No** se agregó a `v_saldo_socio` como decía esta entrada: la
 lista es una vista nueva y aditiva, y meterle una columna a `v_saldo_socio`
 —que el detalle sigue usando— era tocar algo que anda para no crear algo que no

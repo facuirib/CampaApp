@@ -425,7 +425,7 @@ create table cuota (
 
 **`total_plan` no es la deuda.** Es la suma de las cuotas, mantenida por trigger (`sync_total_plan`, decisión 27). Mide el tamaño del plan de pago, no lo que el equipo debe hoy. **La deuda es la mora**: cuotas con `vence_at < current_date` y sin cancelar. Es el número que se reclama.
 
-> *Se llamaba `total_facturado`. Bajo percibido puro no se factura nada al armar la ficha, así que el nombre heredado obligaba a aclarar en cada mención que no era ni deuda ni facturación — un nombre que necesita nota al pie para no engañar es un nombre mal puesto. Renombrado de raíz —columna, función, trigger y vista— en `20260802190000_total_plan.sql`.*
+> *Se llamaba `total_facturado`. Bajo percibido puro no se factura nada al armar la ficha, así que el nombre heredado obligaba a aclarar en cada mención que no era ni deuda ni facturación — un nombre que necesita nota al pie para no engañar es un nombre mal puesto. Renombrado de raíz —columna, función, trigger y vista— en `20260805110059_total_plan.sql`.*
 
 **`equipo_torneo.asiento_id` quedó sin uso.** Nació para apuntar al asiento del devengo total. Sin devengo de ingresos no hay ningún asiento que colgar de la ficha: el asiento del cobro pertenece a `pago`, que ya tiene su propia columna `asiento_id`. Nada la escribe hoy, así que no hay dato que migrar.
 
@@ -465,7 +465,7 @@ Tres cosas que el boceto original de este bloque no tenía y la vista sí:
 
 · **`pagado` y `saldo`**, derivados de `pago_imputacion`. Sin ellos, "cuánto falta de esta cuota" había que calcularlo afuera.
 
-· **`torneo_id` y `torneo`** (migración `20260812170000`). Era la base de toda la cobranza y no sabía de qué torneo era la cuota: había que joinear `equipo_torneo` para averiguarlo. Aditivo — las dos van al final, que es lo único que `create or replace view` permite, y su único consumidor SQL (`v_cashflow_comprometido`) selecciona por nombre.
+· **`torneo_id` y `torneo`** (migración `20260812114422`). Era la base de toda la cobranza y no sabía de qué torneo era la cuota: había que joinear `equipo_torneo` para averiguarlo. Aditivo — las dos van al final, que es lo único que `create or replace view` permite, y su único consumidor SQL (`v_cashflow_comprometido`) selecciona por nombre.
 
 #### De línea del tarifario a cuota · B0
 
@@ -1214,7 +1214,7 @@ explícito.
 
 ### 3.10 Cashflow · flujo de fondos con niveles de certeza
 
-*Construido — migraciones `20260802133417_modulo_cashflow.sql` y `20260802200000_cashflow_stock_vs_flujo.sql` (esta última corrige el doble conteo del saldo). Cinco vistas.*
+*Construido — migraciones `20260802133417_modulo_cashflow.sql` y `20260805121912_cashflow_stock_vs_flujo.sql` (esta última corrige el doble conteo del saldo). Cinco vistas.*
 
 La pieza que integra todo. Es **mayormente lectura**: junta en una línea de tiempo las fuentes que ya existen, sin estructura nueva.
 
@@ -2246,7 +2246,7 @@ Las migraciones 002 y 003 modificaron el modelo. Este documento refleja el estad
 
 **Deuda por equipo** (003). La deuda se consolida por tercero, no por torneo. `v_deuda_equipo` y `v_deuda_detalle`.
 
-> **Y por eso `v_deuda_equipo` no se puede filtrar por torneo** (`20260812160000`). No tiene `torneo_id`, y agregárselo sería peor: filtraría las FILAS dejando los MONTOS de todos los torneos sumados — un equipo que debe $10,5M en un torneo y $11,1M en otro aparecería, filtrado por el primero, mostrando $21,6M. Plausible y falso.
+> **Y por eso `v_deuda_equipo` no se puede filtrar por torneo** (`20260812114152`). No tiene `torneo_id`, y agregárselo sería peor: filtraría las FILAS dejando los MONTOS de todos los torneos sumados — un equipo que debe $10,5M en un torneo y $11,1M en otro aparecería, filtrado por el primero, mostrando $21,6M. Plausible y falso.
 >
 > La pregunta con el otro grano la contesta **`v_deuda_equipo_torneo`**: una fila por equipo **y torneo**, con los montos restringidos a ese torneo y los mismos criterios de impago y vencido. `/cobranza` usa una u otra según haya filtro.
 >

@@ -4,7 +4,7 @@
 >
 > **Esto es registro histórico, no trabajo pendiente.** Los grupos 1, 2, 3.1,
 > 3.2 y 3.3 están **aplicados**, cada uno en su migración
-> (`20260812190000` … `20260812230000`).
+> (`20260812141034` … `20260812153804`).
 >
 > **El 3.4 —financieros al P&L— NO se hizo acá:** se movió al rediseño de
 > Resultados, donde la vista de P&L a nivel empresa nace incluyéndolos y se
