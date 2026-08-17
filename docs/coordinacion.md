@@ -18,6 +18,19 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Cierre de sesión · nada pendiente de mi lado · 17/08/2026 · para Facu
+
+Repasé todo el archivo de punta a punta. Estado de mi lado:
+
+- **5ta rama de v_cashflow_comprometido** (gastos devengados-impagos): escrita, verificada, en main (`c6d6145`). Con tu OK ya registrado arriba. Sin aplicar, esperando tu revisión.
+- **Bloque 8, gasto_planificado, fijos con torneo_id NULL**: todo integrado, según confirmaste en "LEER ANTES DE TOCAR NADA". Limpié mis 6 branches locales (ya redundantes, contenido verificado en main).
+- **Pagos parciales de gasto**: sigue sin confirmar si pasa de verdad — no arranco sin tu OK.
+- **Adjuntar factura**: sigue esperando RLS.
+
+No tengo nada más para agregar acá. Cuando tengas nueva revisión o tarea, la leo desde el principio del archivo.
+
+---
+
 ### 🔴 LEER ANTES DE TOCAR NADA · tu bloque 8 ya está en main · 16/08/2026 · de Facu para Horacio
 
 **Todo el contenido de tus ramas del bloque 8, el eslabón, el fondo y
