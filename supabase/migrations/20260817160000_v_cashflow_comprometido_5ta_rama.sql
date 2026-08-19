@@ -18,6 +18,22 @@
 --
 -- Monto negativo (egreso), mismo criterio que compromiso 'pagar' y
 -- cheque 'emitido'.
+--
+-- ── Corregido antes de aplicar (Facu, 19/08) ──────────────────────────────
+--
+-- Faltaba excluir los gastos ANULADOS. `anular_gasto` limpia `pagado_at`, así
+-- que un gasto anulado cumple `pagado_at is null` y entraba a la proyección:
+-- con los datos de hoy sobreestimaba los egresos comprometidos en $3.350.000
+-- (proyectaba 9 gastos por $15.544.767 en vez de 7 por $12.194.767).
+--
+-- El filtro sale de `v_gasto_detalle.estado`, que ya deriva la anulación desde
+-- `asiento.anulado_por` — la fuente de verdad, sin reimplementarla. Es el mismo
+-- patrón que usa `v_activo` para no contar la compra de un activo cuyo gasto
+-- fue anulado. El join es 1:1 (una fila por gasto), así que no multiplica.
+--
+-- Se corrige el archivo EN EL LUGAR y no con una migración aparte: todavía no
+-- se había aplicado, así que la vista nunca llega a existir con el error y el
+-- historial no queda con un bug seguido de su parche.
 -- ═══════════════════════════════════════════════════════════════
 
 create or replace view public.v_cashflow_comprometido as
@@ -79,8 +95,10 @@ union all
     g.devengado_at < CURRENT_DATE as arrastrada
    from gasto g
      join cat_gasto cg on cg.id = g.cat_gasto_id
+     join v_gasto_detalle d on d.gasto_id = g.id
   where g.pagado_at is null
-    and g.devengado_at is not null;
+    and g.devengado_at is not null
+    and d.estado <> 'anulado';
 
 comment on view public.v_cashflow_comprometido is
   '5 ramas de plata comprometida (monto cierto, no estimación): cuotas '

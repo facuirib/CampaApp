@@ -18,6 +18,94 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Corregido · la 5ª rama excluía mal los gastos anulados · 19/08/2026 · de Facu para Horacio
+
+**La rama estaba bien hecha.** Tres cosas que salieron derecho y vale marcarlas:
+
+· **El timestamp ordena.** `20260817160000`, posterior a lo último aplicado
+  (`20260817150000`). La regla quedó.
+· **El `UNION` es aditivo de verdad.** Las cuatro ramas anteriores —cuotas de
+  equipo y sponsor, compromisos, cheques— quedaron **idénticas**. Verificado
+  contando filas por origen antes y después: 274 y 3, iguales.
+· **El patrón está calcado.** `GREATEST(devengado_at, CURRENT_DATE)`,
+  `fecha_original`, `arrastrada`, monto negativo. Es exactamente el criterio de
+  las otras ramas, con `devengado_at` en lugar de `vence_at` — y la explicación
+  de por qué en el encabezado.
+
+---
+
+#### Lo que faltaba: excluir los gastos anulados
+
+El filtro era `pagado_at is null and devengado_at is not null`. **`anular_gasto`
+limpia `pagado_at`**, así que un gasto anulado cumple las dos condiciones y
+entraba a la proyección.
+
+Con los datos de hoy:
+
+| | filas | monto |
+|---|---|---|
+| devengados impagos (correcto) | 7 | −12.194.767 |
+| **anulados, que se colaban** | **2** | **−3.350.000** |
+| lo que proyectaba | 9 | **−15.544.767** |
+
+Sobreestimaba los egresos comprometidos en **$3.350.000**, y del modo que no se
+nota: el número sigue siendo plausible.
+
+**El fix son dos líneas:**
+
+```sql
+     join v_gasto_detalle d on d.gasto_id = g.id
+...
+   and d.estado <> 'anulado';
+```
+
+---
+
+#### La regla, para las próximas vistas que lean `gasto`
+
+**Toda vista que lea `gasto` tiene que excluir los anulados**, y el filtro sale
+de **`v_gasto_detalle.estado`** — no de reimplementarlo.
+
+Esa vista ya deriva la anulación desde `asiento.anulado_por`, que es la fuente de
+verdad: un gasto está anulado si su asiento de devengo lo está. Escribir la
+condición a mano en cada vista es tener la misma regla en varios lugares, y
+alcanza con que una quede vieja.
+
+**Es la segunda vez que aparece.** La primera fue en `v_activo`: la Desmalezadora
+tiene dos gastos apuntándola —el original mal imputado y el que lo corrige— y un
+join ingenuo mostraba un valor de compra de $2.900.000 en vez de $1.450.000. El
+mismo filtro lo resolvió.
+
+---
+
+#### Cómo se corrigió, y por qué así
+
+**En el archivo, no con una migración aparte.** Todavía no estaba aplicada, así
+que la vista **nunca llegó a existir con el error** y el historial no queda con
+un bug seguido de su parche. Si ya hubiera estado aplicada, iría una migración
+nueva — la regla 4 vale para asientos, pero una migración sin aplicar todavía es
+un borrador.
+
+Tu commit `c6d6145` y el contenido actual del archivo difieren por eso; está
+explicado en el encabezado del propio `.sql`.
+
+**Ya aplicado.** `v_cashflow_comprometido` quedó con sus 5 ramas y 284 filas, la
+nueva con 7 filas por −$12.194.767. `db push --dry-run` volvió a **«Remote
+database is up to date»**.
+
+---
+
+#### Y una cosa del modo de trabajo
+
+**Commitear a main sin aplicar, para revisión, funciona mejor que las ramas.** Se
+ve el cambio en su lugar definitivo, el timestamp ya queda fijado, y no hay que
+resolver después cómo entra. Lo único a tener presente es que mientras haya algo
+sin aplicar el `--dry-run` no da limpio — así que conviene avisar, como hiciste.
+
+Seguí así.
+
+---
+
 ### ✅ Cierre de sesión · nada pendiente de mi lado · 17/08/2026 · para Facu
 
 Repasé todo el archivo de punta a punta. Estado de mi lado:
