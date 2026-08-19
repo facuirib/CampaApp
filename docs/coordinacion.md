@@ -18,6 +18,131 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 📋 Presupuesto · estado y plan · 19/08/2026 · de Facu para Horacio
+
+*Doble función: el aviso de un cambio en `v_presupuesto_total` (tuya) y el
+panorama del módulo, para que sepas qué sigue y qué te toca. La bitácora de
+Notion no está disponible, así que esto es el canal.*
+
+#### Lo que ya está bien
+
+`v_presupuesto_total` está bien resuelta y conviene decirlo antes del cambio:
+expone **`unidad` y `factor`** además del total, o sea que la pantalla puede
+mostrar **de dónde sale** el número y no sólo el número —«$240.000 × 199
+partidos»—. Eso es exactamente lo que una pantalla de presupuesto necesita, y no
+es lo que uno encuentra por defecto.
+
+Y la cadena completa **funciona**: `presupuesto → v_presupuesto_total →
+v_cashflow_estimado → v_cashflow`. Cuando relevé la proyección de gastos por
+jornada, resultó que ya estaba construida ahí.
+
+#### El cambio de hoy · `20260819200000`
+
+Un **borrador entraba a la proyección**. Verificado: creando un segundo
+presupuesto del mismo torneo+ejercicio, en `borrador`, con UNA línea, el
+estimado pasaba de −$93.473.000 a −$135.353.000. **$41.880.000 de una planilla
+que nadie aprobó.**
+
+Dos agujeros que se sumaban:
+
+- **`v_presupuesto_total` no filtraba por `estado`.** El campo existía con su
+  check `('borrador','aprobado')` y no lo leía nadie.
+- **No había unique de negocio.** Los únicos índices únicos eran las dos PK, así
+  que nada impedía dos cabeceras del mismo ámbito ni dos líneas de la misma
+  categoría — y la vista las sumaba todas.
+
+**No es error tuyo**, y es el patrón que venimos encontrando toda la semana: un
+campo sin lector y una rama que **nunca se ejecutó**, porque nadie creó jamás un
+borrador. No se notaba porque las 2 cabeceras que hay están en `aprobado`.
+
+Lo aplicado:
+
+```sql
+create unique index presupuesto_ambito_uniq
+  on presupuesto (torneo_id, ejercicio_id) nulls not distinct;
+create unique index presupuesto_linea_uniq
+  on presupuesto_linea (presupuesto_id, cat_gasto_id, concepto_id) nulls not distinct;
+
+-- y en v_presupuesto_total, una sola línea:
+  WHERE p.estado = 'aprobado'::text;
+```
+
+**`NULLS NOT DISTINCT` no es adorno.** `torneo_id` es NULL para la estructura
+permanente y `concepto_id` es NULL en **las 6 líneas que existen**: con un unique
+común, la línea no habría protegido nada. Postgres 17.6 lo soporta.
+
+`v_cashflow_estimado` **no se tocó**: hereda el filtro por leer de esta vista.
+Efecto hoy: **ninguno** — $139.300.000 y 602 filas, igual que antes, porque los
+dos presupuestos están aprobados.
+
+> Al escribir esto reconstruí tu vista de memoria en el primer intento y me
+> quedó distinta en tres puntos silenciosos: el `COALESCE` de `unidad` tiene
+> **tres** niveles (línea → concepto → categoría) y yo había salteado el del
+> concepto; el factor `por_mes` usa `age()`; y el cálculo va en un `CROSS JOIN
+> LATERAL` para resolverse una vez. Ninguno habría fallado — habría devuelto
+> otros números. La migración lleva el cuerpo textual de `pg_get_viewdef` con el
+> `WHERE` agregado, y la advertencia escrita para el próximo.
+
+#### El plan de Presupuesto y el reparto
+
+| Quién | Qué | Cuándo |
+|---|---|---|
+| **Facu** | Las 5 funciones de escritura: `crear_presupuesto`, `agregar_linea_presupuesto`, `editar_linea_presupuesto`, `borrar_linea_presupuesto`, `aprobar_presupuesto` | ya |
+| **Facu** | `/presupuesto` — la pantalla de **carga** | ya, no depende de vos |
+| **Horacio** | `cat_gasto_id` en `v_gasto_detalle`; `cat_gasto_id` + `torneo_id` en `v_gasto_categoria_mes` | **sin apuro, no bloquea nada** |
+| **Facu** | `v_presupuesto_vs_real` + la pestaña de comparación | después de lo tuyo |
+
+**Lo tuyo, con detalle.** Son dos columnas aditivas, misma clase que `origen_id`
+y `tercero_id` de esta semana: `gasto` ya las tiene, es exponerlas.
+
+Para qué: el **«presupuesto vs real»** cruza `presupuesto_linea.cat_gasto_id`
+contra el gasto ejecutado. Pero `v_gasto_detalle` **sólo expone `categoria`
+(texto)**, así que hoy la comparación únicamente se puede armar **uniendo por
+nombre** — y un renombre la rompe **en silencio**: la categoría desaparece del
+comparativo y su desvío pasa a ser el 100% del presupuesto. No es hipotético:
+este repo tiene el commit **`776ddf9` «reordenamiento del plan de cuentas —
+renombres, mover categorías»**.
+
+Y `v_gasto_categoria_mes` **no tiene `torneo_id`**, mientras que el presupuesto
+se organiza justamente por torneo vs estructura (`torneo_id NULL`). Sin ese eje
+no se puede comparar «Clausura 2026» contra su propio gasto.
+
+**La carga no depende de esto**, así que tomate el tiempo.
+
+#### Decisiones tomadas
+
+- **(A) Sólo el aprobado entra al cashflow.** Un borrador es planificación en
+  curso: se arma, se discute, se corrige. No mueve la proyección.
+- **(B) El aprobado se edita libremente.** El estado controla **qué proyecta**,
+  no **qué se puede tocar**. Corregir un número de un presupuesto vigente es
+  normal y no debería exigir desaprobar y reaprobar. Por eso la migración **no
+  agrega ningún trigger que bloquee escrituras**.
+
+#### Decisiones abiertas · si tenés opinión, es el momento
+
+**1 · El precio duplicado.** `concepto_gasto.arancel_ref` existe y está **vacío
+en los 100 conceptos**; el precio real vive en `presupuesto_linea.base`. Si la
+pantalla edita `base`, `arancel_ref` queda muerto. Las opciones son depreciarla
+o definirla como **default que la línea hereda** (que encaja con el patrón de
+`unidad_default`, que sí se usa). Dos lugares para el mismo número es fábrica de
+drift.
+
+**2 · La cobertura.** El presupuesto cubre **6 de 32 categorías**. Lo no
+presupuestado no se proyecta y **nada lo avisa**. ¿Deberían estar todas, o hay
+naturalezas —`eventual`, `inversion`— que por definición no se presupuestan?
+
+#### Nota de diseño, para que no sorprenda
+
+Con el filtro puesto, **desaprobar un presupuesto le saca su monto al cashflow
+sin aviso**: probado, pasar «Clausura 2026» a borrador mueve el estimado de
+−$93.473.000 a −$22.723.000. Es el comportamiento correcto por la decisión (A),
+pero la pantalla lo va a advertir antes de confirmar —mismo criterio que el
+diálogo de rechazo de cheques—, y `/proyeccion` debería avisar cuando hay
+borradores que no está contando.
+
+> Como siempre: si algo de esto choca con lo que tenías pensado, avisá y lo
+> revisamos antes de que crezca.
+
 ### 🔧 Aplicado · `por_mes` del estimado, por diferencia · 19/08/2026 · de Facu para Horacio
 
 Cierra el pendiente del aviso de más abajo. **Las tres ramas de
