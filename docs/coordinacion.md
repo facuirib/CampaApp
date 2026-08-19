@@ -18,6 +18,108 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Aplicado · doble conteo en `v_cashflow_estimado` · 19/08/2026 · de Facu para Horacio
+
+**Otra vista tuya que toqué.** Ya está aplicada (`20260819180000`).
+
+**El contexto:** relevando la proyección de gastos por jornada me encontré con que
+`v_cashflow_estimado` **ya hace** lo que íbamos a construir —cruza presupuesto ×
+calendario, respeta las suspensiones y proyecta por fecha de jornada—. Muy bien
+resuelto. Lo que no hacía era descontar lo que ya está cargado.
+
+#### El problema
+
+La vista proyecta cada jornada futura, pero **no miraba si el gasto real de esa
+jornada ya existía**. Cuando existe, la jornada se cuenta dos veces: una acá y
+otra en `v_cashflow_comprometido` (rama `gasto_impago`).
+
+Probado en rollback antes de tocar nada: cargando el gasto real de árbitros de
+la jornada del 22/08 por $1.200.000, **el estimado no se movía** y el
+comprometido sumaba. $1.200.000 duplicados en la misma fecha.
+
+**No es un error de diseño tuyo.** La única defensa era temporal —`fecha >
+CURRENT_DATE`— y con los 7 gastos reales que hay, todos de fechas pasadas, la
+rama **nunca se ejecutó**. El doble conteo aparece recién cuando se carga el
+gasto de una jornada que todavía no se jugó, que es lo normal cuando la factura
+del árbitro entra por adelantado. Es el mismo patrón que ya nos mordió tres
+veces: una rama que nadie ejecutó esconde su error.
+
+#### El fix
+
+`NOT EXISTS` contra `gasto`, en las dos ramas que cruzan calendario:
+
+| rama | clave de exclusión |
+|---|---|
+| `por_partido` | `(cat_gasto_id, jornada_id)` |
+| `por_dia_cancha` | `(cat_gasto_id, predio_id, devengado_at)` |
+
+**Exclusión binaria** —decisión de Facu—: si hay gasto real de esa categoría en
+esa jornada, se saca la estimación **entera** de esa jornada. No se descuenta el
+importe ni se compara contra lo presupuestado, porque las facturas vienen por
+jornada completa.
+
+**Por (categoría, ocurrencia), nunca por jornada entera.** Si se carga árbitros
+pero no operativos de la misma jornada, operativos sigue estimado. Verificado:
+árbitros del 22/08 bajó $240.000 —una jornada exacta— y operativos quedó igual.
+
+**El filtro de anulados va por `v_gasto_detalle.estado`**, que deriva de
+`asiento.anulado_por`. No es decorativo: `anular_gasto` limpia `pagado_at`, así
+que sin el filtro un gasto anulado sacaría su jornada del estimado y **la plata
+desaparecería de la proyección** — el espejo del bug de la 5ª rama. Verificado:
+al anular, la estimación vuelve entera.
+
+#### Contra `gasto_planificado`, que vos ya resolviste bien
+
+Ese caso no tenía el problema: `estado = 'pendiente'` + `marcar_gasto_planificado_ejecutado`
+es un **vínculo explícito, uno a uno**. No se pudo calcar porque una línea de
+presupuesto **no materializa filas**: no representa un pago sino N pagos
+repartidos por el calendario, así que no hay fila que apagar. Hay que apagar la
+*ocurrencia*, y eso sólo se puede hacer con un `NOT EXISTS` en la vista. Mismo
+principio —lo real desplaza a lo estimado—, mecanismo distinto.
+
+#### Dos cosas que quedan abiertas, y una corrección
+
+**1 · La rama `por_dia_cancha` está cubierta a medias.** Compara contra
+`g.predio_id`, y `check_gasto_coherente` exige `jornada_id` pero **no** exige
+predio: los 3 gastos `por_dia_cancha` que hay lo tienen en NULL. La cláusula es
+correcta y no da falsos positivos, pero **hoy no dispara**.
+
+No lo resolví por `(categoría, fecha)` porque las **29 fechas de días de cancha
+tienen los 2 predios**: un solo gasto mataría las dos filas y cambiaría
+sobreestimar por subestimar — que es peor, porque un cashflow que subestima
+gastos no dispara ninguna alarma.
+
+> **Tarea para vos:** que `predio_id` pase a obligatorio en gastos de categorías
+> con `unidad_default = 'por_dia_cancha'`. Con eso la cláusula empieza a
+> funcionar sola, sin volver a tocar la vista.
+
+**2 · `por_mes` NO se tocó — y NO está protegida.** Acá corrijo algo que
+circuló mal de mi lado: se dejó fuera del fix **por alcance, no porque estuviera
+cubierta**. Tiene un doble conteo **activo hoy**:
+
+```
+comprometido  10/08  Alquileres    −$333.000
+comprometido  10/08  Alquileres    −$444.000
+estimado      31/08  Alquileres  −$1.900.000   ← el mes entero, igual
+```
+
+Cerrarlo es una condición más —`date_trunc('month', g.devengado_at) =
+date_trunc('month', m.fin)`— y con los datos de hoy excluiría 1 fila. Queda para
+una migración aparte, con su propia aprobación. **Lo dejo escrito acá para que
+nadie lea la vista y crea que las tres ramas están cubiertas.**
+
+#### Efecto medido
+
+Ninguno, todavía: **602 filas y −$94.250.000, igual que antes**. Los 7 gastos
+reales son de jornadas pasadas y el estimado sólo mira adelante. El fix no
+cambia un solo número hoy — cambia lo que va a pasar en cuanto alguien cargue el
+gasto de una fecha que no se jugó.
+
+> **Si ves un caso donde la exclusión binaria descuenta de más o de menos,
+> avisá.** La decisión de que sea binaria asume que la factura cubre la jornada
+> completa; si hay categorías donde se factura parcial, el criterio hay que
+> revisarlo.
+
 ### 🔧 Aplicado · dos cambios a `v_cashflow_comprometido` · 19/08/2026 · de Facu para Horacio
 
 **Es tu vista y la toqué.** Las dos ya están aplicadas y pusheadas
