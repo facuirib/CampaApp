@@ -1893,7 +1893,23 @@ están alimentando Proyección sin que exista dónde cargarlas.
 
 | Pantalla | Qué hay ya | Por qué importa |
 |---|---|---|
-| **Calendario de pagos** | `compromiso`, `plan_pago`, y `v_calendario_pagos` completa —con `criticidad`— | Las moratorias ya entran al cashflow y no hay dónde cargarlas |
+| **Calendario de pagos** | **`v_cashflow_comprometido`** — las 5 ramas de lo que vence, con 284 filas reales. ⚠️ **NO `v_calendario_pagos`**, ver abajo | Es lo único del backlog que ya tiene datos de sobra para mostrar |
+
+> **`v_calendario_pagos` no es el calendario de pagos.** El nombre promete de
+> más: lee **una sola tabla** —`compromiso`, con `estado = 'pendiente'`— y le
+> agrega una columna `criticidad` derivada del tipo. Es **1 de las 5 ramas** de
+> `v_cashflow_comprometido`: no ve cheques, ni cuotas de equipo, ni sponsors, ni
+> gastos impagos.
+>
+> Y `compromiso` tiene **0 filas**, con un único escritor —`generar_cuotas_plan(p_plan_id)`—
+> que pide un `plan_pago`… que **nada inserta**. O sea que la vista devuelve 0
+> filas y va a seguir devolviendo 0 hasta que exista quién escriba `plan_pago`.
+> Es el mismo dibujo que tenía `cambiar_estado_cheque` esperando un `p_cheque_id`
+> que nadie creaba.
+>
+> **Quien construya la pantalla debe leer `v_cashflow_comprometido`**, no esta.
+> `v_calendario_pagos` queda como lo que es: la vista de compromisos, útil el día
+> que `compromiso` tenga filas.
 | **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | Falta la pantalla de **carga**: el presupuesto se siembra por SQL |
 
 ### Lo que falta · y empieza por modelar

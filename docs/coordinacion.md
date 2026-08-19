@@ -18,6 +18,95 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Aplicado · dos cambios a `v_cashflow_comprometido` · 19/08/2026 · de Facu para Horacio
+
+**Es tu vista y la toqué.** Las dos ya están aplicadas y pusheadas
+(`20260819120000` y `20260819130000`). Te cuento qué y por qué, y una parte es
+para que la revises vos.
+
+**El contexto:** arranqué el **Calendario de pagos**, y la fuente correcta es
+`v_cashflow_comprometido` — no `v_calendario_pagos`, que a pesar del nombre lee
+sólo `compromiso` (1 de las 5 ramas, tabla vacía). Construyendo encima
+aparecieron dos cosas.
+
+#### 1 · `origen_id` en las 5 ramas — aditivo
+
+La vista daba 7 columnas y ninguna era un id. Para el cashflow no hacía falta
+—ahí se suma por fecha y nivel—, pero un calendario necesita dos cosas que sin
+id no se pueden: una **clave de fila** y el **enlace al origen** (poder clickear
+un vencimiento e ir al equipo, al cheque o al gasto).
+
+Cada rama ya tenía su id a mano, así que fue exponer lo que estaba:
+`ec.id` · `q.cuota_id` · `cm.id` · `ch.id` · `g.id`.
+
+Tres cosas que quizá te ahorren una duda:
+
+- **Va última, no al lado de `origen`.** `create or replace view` no deja
+  reordenar ni cambiar columnas existentes: sólo agregar al final.
+- **Lo que identifica es el PAR `(origen, origen_id)`.** Los ids vienen de
+  tablas distintas y solos no son únicos.
+- **No rompió a nadie.** Tus dos consumidores leen por columna nombrada:
+  `v_cashflow` enumera `(fecha, nivel, origen, detalle, monto)` en su `UNION ALL`
+  —una columna nueva no entra ni descuadra el arity— y `/proyeccion/[periodo]`
+  hace `.select('*')` y mapea por nombre. Verificado antes y después: 284 filas,
+  mismo neto, `v_cashflow` idéntico.
+
+#### 2 · La rama de sponsors ahora arrastra lo vencido — esta miralá
+
+**El síntoma:** la rama de sponsors leía `v_cuotas_sponsor_futuras`, que filtra
+`fecha_cobro >= current_date`. Por eso tenía `false as arrastrada` fijo: no es
+que no arrastrara, es que lo vencido no llegaba. Resultado, **una cuota de
+sponsor vencida e impaga —$4.000.000 de Bodega Los Cerros, vencida el 05/08—
+no aparecía en la proyección ni en ningún lado.**
+
+**Ahora lee `v_cuotas_sponsor` con `where cobrado_at is null`**, y aplica el
+mismo patrón `GREATEST` / `fecha_original` / `arrastrada` que las otras cuatro.
+
+**Que quede claro: no es un error tuyo.** Esa rama es de la migración original
+de cashflow; tu 5ª rama heredó el filtro tal cual y calcó bien el patrón de las
+demás. Lo que estaba viejo era la **elección de fuente**, no tu trabajo.
+
+**Y no es un cambio de criterio, es deuda de sincronización.** Cuando se escribió
+esa rama (**decisión 77**) el mecanismo de arrastre **no existía**: filtrar el
+pasado era la única forma de que una fecha vieja no ensuciara la proyección.
+`GREATEST`/`fecha_original`/`arrastrada` llegó después, las cuatro ramas nuevas
+lo usan, y sponsors quedó atrás.
+
+La evidencia de que esconder lo vencido no era la regla:
+
+- `v_cuotas_sponsor` deriva un estado **`'vencida'`** explícito — el modelo sí
+  reconoce el vencimiento de una cuota de sponsor.
+- La migración `20260809155729` ya lo había marcado, con todas las letras: *«una
+  cuota VENCIDA E IMPAGA —el caso que más importa mirar— desaparecía de la
+  pantalla el día que se vencía. Un sponsor moroso era invisible.»* Se arregló
+  para la pantalla y se **difirió** para el cashflow. No se decidió que estuviera
+  bien.
+- No hay asimetría de negocio: un equipo que no pagó cuenta como plata por
+  cobrar; un sponsor que no pagó, también. Si la diferencia fuera la
+  cobrabilidad, eso se expresa con el **nivel** (comprometido vs estimado), no
+  borrando la fila.
+
+**`v_cuotas_sponsor_futuras` NO se tocó.** Su nombre, su comentario y la decisión
+77 que la referencia siguen honestos: es «cuotas por vencer» y eso sigue siendo.
+Lo único que cambió es de dónde **lee** la rama del cashflow. Verificado después
+de aplicar: sigue con sus 3 filas, su filtro y su comentario intactos.
+
+**Efecto medido:**
+
+| | antes | después |
+|---|---|---|
+| filas | 284 | **285** |
+| neto | $255.258.233 | **$259.258.233** |
+| arrastradas | 67 | **68** |
+| ramas | `cuota_equipo=274 · cuota_sponsor=3 · gasto_impago=7` | `cuota_equipo=274 · cuota_sponsor=4 · gasto_impago=7` |
+
+Sube el comprometido a cobrar en $4.000.000. Es plata que se debe de verdad;
+que aparezca es el punto.
+
+> **Si ves una razón por la que sponsors debía filtrar lo vencido —algo que no
+> vimos—, avisá y lo revisamos.** La evidencia dice inconsistencia, no criterio,
+> pero la rama es de tu módulo y la última palabra sobre el porqué la tenés vos.
+
 ### 🔧 Corregido · la 5ª rama excluía mal los gastos anulados · 19/08/2026 · de Facu para Horacio
 
 **La rama estaba bien hecha.** Tres cosas que salieron derecho y vale marcarlas:
