@@ -107,6 +107,47 @@ que aparezca es el punto.
 > vimos—, avisá y lo revisamos.** La evidencia dice inconsistencia, no criterio,
 > pero la rama es de tu módulo y la última palabra sobre el porqué la tenés vos.
 
+#### 3 · `tercero_id` en las 5 ramas — aditivo, mismo espíritu que `origen_id`
+
+`origen_id` identifica el **registro** que vence, y alcanza para enlazar donde la
+pantalla de destino se abre por ese registro: `/cheques/[cheque_id]`, `/gastos`.
+Pero para una cuota de equipo el destino natural es la cuenta corriente del
+**equipo**, y ahí `origen_id` es el id de la CUOTA. Con sólo ese id el calendario
+podía decir «vence una cuota de Alayama LF» y no poder llevarte a Alayama LF.
+
+Se puebla donde existe, y donde no, va NULL:
+
+| rama | `tercero_id` | enlace de la pantalla |
+|---|---|---|
+| `cuota_equipo` | **siempre** · 274/274 | `/cobranza/[tercero_id]` |
+| `cuota_sponsor` | **siempre** · 4/4 | `/sponsors/[tercero_id]` |
+| `compromiso_*` | a veces (la columna es nullable) | según tipo |
+| `cheque_*` | sólo **recibido** | `/cheques/[origen_id]` |
+| `gasto_impago` | **nunca** · 0/7 | `/gastos` |
+
+Dos aclaraciones para que los NULL no se lean mal:
+
+- **En cheques el enlace NO va por tercero**, va a `/cheques/[origen_id]`, que es
+  donde está el circuito. `tercero_id` se expone igual porque es dato real —de
+  quién es el cheque recibido— y porque habilita filtrar «todo lo de este
+  tercero» cruzando ramas. En un **emitido** es NULL, por lo mismo que /cheques
+  rotula «Categoría» y no «Contraparte»: `gasto` no registra a quién se le paga.
+
+- **En `gasto_impago` es NULL siempre y no es un olvido**: `gasto` no tiene
+  `tercero_id`. Es la limitación conocida del modelo de gastos. El día que tenga
+  proveedor, la rama se puebla cambiando una línea.
+
+> **Un NULL no significa «no se puede enlazar»: significa «no se enlaza por
+> tercero».** La pantalla resuelve el destino por `origen`, no por si el
+> `tercero_id` vino o no.
+
+**Verificado con la vista dependiente encima.** `v_calendario_dia` —la vista
+nueva del calendario, que agrupa `v_cashflow_comprometido` por día— ya estaba
+creada cuando se hizo el `create or replace` de la base. No la rompió: no
+selecciona `tercero_id` y agrupa por `fecha_original`. Después de aplicar: 285
+filas y neto $259.258.233 en la base, 36 días en `v_calendario_dia`, y
+`v_cashflow` en 26 filas con el mismo comprometido. Ningún consumidor se movió.
+
 ### 🔧 Corregido · la 5ª rama excluía mal los gastos anulados · 19/08/2026 · de Facu para Horacio
 
 **La rama estaba bien hecha.** Tres cosas que salieron derecho y vale marcarlas:
