@@ -1409,6 +1409,58 @@ Un cheque **no es un pago**: es una promesa de pago con fecha. Afecta la deuda e
 
 **Alerta de cobertura.** Si un cheque emitido cae en una fecha donde el saldo proyectado no alcanza, se avisa con anticipación. Es la función más valiosa del módulo.
 
+#### Construido · el circuito completo, con pantalla
+
+**Un cheque no se carga: aparece.** No hay alta manual, y es deliberado — un
+cheque siempre nace de otra cosa, y cargarlo aparte permitiría uno sin cobro ni
+gasto detrás.
+
+| | Recibido | Emitido |
+|---|---|---|
+| **Nace** | `registrar_cobro(..., medio 'cheque')` | `pagar_gasto(..., medio 'cheque')` |
+| **Asiento de alta** | `VALORES_A_DEPOSITAR` / ingreso | `PROVEEDORES` / `CHEQUES_A_PAGAR` |
+| **Se resuelve** | acreditar · rechazar | debitar |
+| **Fecha esperada** | `fecha_cobro` | `fecha_cobro` *(el débito esperado; una sola columna)* |
+
+`cambiar_estado_cheque(cheque, nuevo_estado, caja, fecha, responsable)` es la
+puerta única de las tres transiciones, y **sólo actúa desde `pendiente`**:
+
+- **acreditar** → `caja` / `VALORES_A_DEPOSITAR`. Exige caja explícita: no hay
+  una por defecto.
+- **debitar** → `CHEQUES_A_PAGAR` / `caja`. Ídem.
+- **rechazar** → **no escribe un asiento propio**: llama a `anular_asiento` sobre
+  el asiento del cobro y borra las imputaciones del pago. La cuota vuelve a
+  figurar impaga sola, porque `pagado_at` es derivado y `trg_sync_cuota_pagada`
+  lo recalcula en el DELETE. Es la única acción de la app que reabre una deuda.
+
+**Las vistas.** `v_cheque` da una fila por cheque con `situacion` ya derivada
+—`por_vencer` · `vencido` · `acreditado` · `debitado` · `rechazado` · `anulado`—,
+`dias_para_cobro`, el origen y sus dos asientos. `v_cheque_kpi` agrega la
+cartera: `en_cartera`, `a_pagar`, `neto`, `vencidos`, `monto_vencido`,
+`proximos_30` y `proximos_60`.
+
+**El control cruzado.** `en_cartera` tiene que dar igual al saldo de
+`VALORES_A_DEPOSITAR`, y `a_pagar` al de `CHEQUES_A_PAGAR`. Son dos caminos al
+mismo número —uno por la tabla `cheque`, otro por el diario— y si discrepan, hay
+un cheque que se movió por fuera de las puertas.
+
+**La pantalla** (`/cheques`) es la cartera: los cuatro KPIs, la banda de
+vencidos, la tabla filtrable, y el detalle con origen, asientos y acciones. Sólo
+ofrece las transiciones válidas para cada cheque —un emitido no muestra
+«rechazar», un resuelto no muestra ninguna— y previsualiza el asiento antes de
+confirmar. El rechazo pide una confirmación aparte del click, porque reabre una
+deuda y no se deshace.
+
+**Lo que quedó afuera, y por qué:**
+
+| | Estado |
+|---|---|
+| **Rechazo de un emitido** | No construido. El espejo no es simétrico: la deuda con el proveedor sigue viva, y revertir el pago exige definir `gasto.pagado_at`, que hoy no es derivado. `cambiar_estado_cheque` lo corta con un mensaje explícito |
+| **Beneficiario de un emitido** | `gasto` no tiene `tercero_id`, así que la contraparte de un emitido es la **categoría del gasto**, no a quién se le paga. La pantalla rotula «Categoría» para no sugerir una persona que no está |
+| **Comisión bancaria del rechazo** | No se registra. Si el banco la cobra, entra como gasto aparte. Se agrega al circuito si pasa a ser habitual |
+| **Preview desde la base** | Las líneas de acreditación y débito las arma el front espejando la función, como en `/activos/amortizar`. No hay `preview_cheque` todavía; el rechazo sí lee el asiento real y lo invierte |
+| **Endoso** | No se modela — ver arriba |
+
 ### 3.14 Planes de pago
 
 Cuotas fijas, fechas conocidas: el compromiso más predecible que existe. Al dar de alta un plan, `generar_cuotas_plan()` crea todos sus compromisos.
@@ -1808,21 +1860,22 @@ que falta. No es un boceto: si una pantalla figura acá arriba, se puede abrir.
 Empresa/Torneo que nunca se construyó — y que además contradecía §1.d, porque el
 resultado se mira a nivel empresa y no hay nada que cambiar de ámbito.*
 
-### Lo que hay · 19 pantallas en cinco grupos
+### Lo que hay · 20 pantallas en cinco grupos
 
 El Sidebar es plano: cinco grupos, sin pestañas internas.
 
 | Grupo | Pantallas |
 |---|---|
 | **Torneo** | Inscripciones · Calendario · Cobranza · Reclamos · Tarifario |
-| **Operación** | Gastos · Caja · Arqueo · Activos |
+| **Operación** | Gastos · Caja · Arqueo · Cheques · Activos |
 | **Finanzas** | Proyección · Resultados · Movimientos |
 | **Societario** | Socios · Sponsors · USD |
 | **Sistema** | Auditoría · Configuración › Plantillas *(+ Categorías, Cierres y Usuarios, anunciadas y no construidas)* |
 
 Fuera del Sidebar: `/login`, `/design` (el catálogo del sistema de diseño) y las
 rutas de detalle —`/cobranza/[id]`, `/gastos/[id]/pagar`, `/socios/[id]`,
-`/sponsors/[id]`, `/reclamos/[id]`— a las que se llega desde su lista.
+`/sponsors/[id]`, `/reclamos/[id]`, `/activos/[id]`, `/cheques/[id]`— a las que
+se llega desde su lista.
 
 **El orden de «Torneo» es el orden en que pasan las cosas:** se anota el equipo,
 se arma el fixture, se le cobra, y al que no paga se le reclama. El tarifario va
@@ -1830,17 +1883,17 @@ se arma el fixture, se le cobra, y al que no paga se le reclama. El tarifario va
 
 ### Lo que falta · backend construido, sin pantalla
 
-Las tres tienen el modelo y la lógica hechos: **falta sólo el front**. Dos de
-ellas ya están alimentando Proyección sin que exista dónde cargarlas.
+Las dos tienen el modelo y la lógica hechos: **falta sólo el front**. Las dos ya
+están alimentando Proyección sin que exista dónde cargarlas.
 
-> **Activos salió de esta lista: está construida** (§3.11). Era la cuarta, y la
-> única donde de verdad faltaba sólo el front — las otras tres necesitan además
-> que algo escriba, porque hoy leen tablas vacías.
+> **Activos y Cheques salieron de esta lista: están construidas** (§3.11 y
+> §3.13). Eran dos de las cuatro. Cheques además necesitó backend nuevo —el
+> asiento del rechazo, el nacimiento de los emitidos y las dos vistas de
+> lectura—, así que no era «sólo el front» como parecía desde acá.
 
 | Pantalla | Qué hay ya | Por qué importa |
 |---|---|---|
-| **Cheques** | tabla `cheque`; `v_cashflow_comprometido` ya la lee | La plata de los cheques **ya se proyecta**, pero no hay dónde cargarlos |
-| **Calendario de pagos** | `compromiso`, `plan_pago`, y `v_calendario_pagos` completa —con `criticidad`— | Ídem: las moratorias ya entran al cashflow |
+| **Calendario de pagos** | `compromiso`, `plan_pago`, y `v_calendario_pagos` completa —con `criticidad`— | Las moratorias ya entran al cashflow y no hay dónde cargarlas |
 | **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | Falta la pantalla de **carga**: el presupuesto se siembra por SQL |
 
 ### Lo que falta · y empieza por modelar

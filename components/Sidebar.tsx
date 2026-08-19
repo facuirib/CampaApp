@@ -67,11 +67,14 @@ export const GRUPOS: GrupoNav[] = [
     ],
   },
   {
+    // De lo más líquido a lo menos: el efectivo y su arqueo, después los
+    // valores que todavía no son plata (cheques), y al final los bienes.
     titulo: 'Operación',
     items: [
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
       { href: '/caja', label: 'Caja', icon: 'caja' },
       { href: '/arqueo', label: 'Arqueo', icon: 'arqueo' },
+      { href: '/cheques', label: 'Cheques', icon: 'banco' },
       { href: '/activos', label: 'Activos', icon: 'activos' },
     ],
   },

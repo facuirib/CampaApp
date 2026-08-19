@@ -768,17 +768,23 @@ y gráficos.
 
 | | pantalla | estado del backend |
 |---|---|---|
-| **1** | **Presupuesto por fecha** *(arranca por acá)* | Completo y **con datos**: 6 líneas cargadas. `/proyeccion` ya lo usa vía `v_cashflow_estimado` |
-| **2** | **Activos** | `proponer_amortizaciones()` listo. Es lo que `GAS_AMORT` espera: hoy 0 movimientos |
-| **3** | **Cheques** *(pantalla de LECTURA)* | La tabla y el backend de lectura están. **En paralelo con la escritura de Horacio — no choca** |
-| **4** | **Calendario de pagos** | `v_calendario_pagos` completa, con `tercero` y `criticidad` |
+| **1** | **Presupuesto por fecha** | Completo y **con datos**: 6 líneas cargadas. `/proyeccion` ya lo usa vía `v_cashflow_estimado` |
+| **2** | ~~**Activos**~~ · ✅ **construida** | Lista, detalle, alta y asentar amortización. `asentar_amortizacion` + las tres vistas |
+| **3** | ~~**Cheques**~~ · ✅ **construida** | Cartera, detalle y las tres acciones. Terminó siendo más que display: llevó el asiento del rechazo, el nacimiento de los emitidos y `v_cheque`/`v_cheque_kpi` |
+| **4** | **Calendario de pagos** *(la que sigue)* | `v_calendario_pagos` completa, con `tercero` y `criticidad` |
 
-> **Nota de secuencia, no de bloqueo.** Tres de estas cuatro leen tablas que hoy
-> están **vacías** —`cheque` 0 filas, `compromiso` 0 filas, `amortizacion` 0
-> filas— porque todavía nada las escribe. Las pantallas se pueden construir igual
-> y **es deliberado que vayan en paralelo**: cuando el carril de escritura llegue,
-> la pantalla ya está esperando. Presupuesto va primera justamente porque es la
-> única con datos reales para mirar mientras se construye.
+> **Nota de secuencia, no de bloqueo.** Estas pantallas leen tablas que hoy están
+> **vacías** —`cheque` 0 filas, `compromiso` 0 filas, `amortizacion` 0 filas—
+> porque todavía nada las escribe. Se construyen igual y **es deliberado que vayan
+> en paralelo**: cuando el carril de escritura llegue, la pantalla ya está
+> esperando.
+>
+> **Lo que enseñó Cheques:** «backend listo, falta el front» era optimista. Al
+> construir la pantalla aparecieron tres bugs latentes que nunca habían disparado
+> porque nadie usaba el circuito — el rechazo no asentaba nada, `pagar_gasto`
+> acreditaba la cuenta equivocada, y el check de `gasto.medio_pago` ni siquiera
+> aceptaba `'cheque'`. **Una tabla vacía esconde sus errores.** Vale la pena
+> asumir que las otras dos también los tienen.
 
 ---
 

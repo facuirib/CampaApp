@@ -913,10 +913,12 @@ export type Database = {
           fecha_cobro: string
           fecha_emision: string
           fecha_estado: string | null
+          gasto_id: string | null
           id: string
           monto: number
           numero: string | null
           observaciones: string | null
+          pago_id: string | null
           sentido: string
           tercero_id: string | null
         }
@@ -929,10 +931,12 @@ export type Database = {
           fecha_cobro: string
           fecha_emision: string
           fecha_estado?: string | null
+          gasto_id?: string | null
           id?: string
           monto: number
           numero?: string | null
           observaciones?: string | null
+          pago_id?: string | null
           sentido: string
           tercero_id?: string | null
         }
@@ -945,10 +949,12 @@ export type Database = {
           fecha_cobro?: string
           fecha_emision?: string
           fecha_estado?: string | null
+          gasto_id?: string | null
           id?: string
           monto?: number
           numero?: string | null
           observaciones?: string | null
+          pago_id?: string | null
           sentido?: string
           tercero_id?: string | null
         }
@@ -980,6 +986,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_libro_diario"
             referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "cheque_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_gasto_detalle"
+            referencedColumns: ["gasto_id"]
+          },
+          {
+            foreignKeyName: "cheque_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "pago"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "cheque_tercero_id_fkey"
@@ -1119,6 +1146,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cheque"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compromiso_cheque_id_fkey"
+            columns: ["cheque_id"]
+            isOneToOne: false
+            referencedRelation: "v_cheque"
+            referencedColumns: ["cheque_id"]
           },
           {
             foreignKeyName: "compromiso_gasto_id_fkey"
@@ -2449,6 +2483,102 @@ export type Database = {
           },
           {
             foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
+      gasto_planificado: {
+        Row: {
+          cat_gasto_id: string
+          created_at: string
+          created_by: string | null
+          descripcion: string
+          estado: string
+          fecha_esperada: string
+          gasto_id: string | null
+          id: string
+          monto: number
+          torneo_id: string | null
+        }
+        Insert: {
+          cat_gasto_id: string
+          created_at?: string
+          created_by?: string | null
+          descripcion: string
+          estado?: string
+          fecha_esperada: string
+          gasto_id?: string | null
+          id?: string
+          monto: number
+          torneo_id?: string | null
+        }
+        Update: {
+          cat_gasto_id?: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string
+          estado?: string
+          fecha_esperada?: string
+          gasto_id?: string | null
+          id?: string
+          monto?: number
+          torneo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gasto_planificado_cat_gasto_id_fkey"
+            columns: ["cat_gasto_id"]
+            isOneToOne: false
+            referencedRelation: "cat_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_gasto_detalle"
+            referencedColumns: ["gasto_id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_escala"
@@ -4040,6 +4170,30 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cashflow_gastos_estimado_extra: {
+        Row: {
+          detalle: string | null
+          fecha: string | null
+          monto: number | null
+          nivel: string | null
+          origen: string | null
+        }
+        Insert: {
+          detalle?: string | null
+          fecha?: string | null
+          monto?: never
+          nivel?: never
+          origen?: never
+        }
+        Update: {
+          detalle?: string | null
+          fecha?: string | null
+          monto?: never
+          nivel?: never
+          origen?: never
+        }
+        Relationships: []
+      }
       v_cashflow_mensual: {
         Row: {
           entradas: number | null
@@ -4069,6 +4223,99 @@ export type Database = {
           monto: number | null
           nivel: string | null
           origen: string | null
+        }
+        Relationships: []
+      }
+      v_cheque: {
+        Row: {
+          asiento_alta_id: string | null
+          asiento_cierre_id: string | null
+          banco: string | null
+          cheque_id: string | null
+          contraparte: string | null
+          created_at: string | null
+          dias_para_cobro: number | null
+          estado: string | null
+          fecha_cobro: string | null
+          fecha_emision: string | null
+          fecha_estado: string | null
+          gasto_id: string | null
+          impacto: number | null
+          monto: number | null
+          numero: string | null
+          observaciones: string | null
+          origen_id: string | null
+          origen_tipo: string | null
+          pago_id: string | null
+          sentido: string | null
+          situacion: string | null
+          vencido: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cheque_asiento_alta_id_fkey"
+            columns: ["asiento_alta_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_asiento_alta_id_fkey"
+            columns: ["asiento_alta_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "cheque_asiento_cierre_id_fkey"
+            columns: ["asiento_cierre_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_asiento_cierre_id_fkey"
+            columns: ["asiento_cierre_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "cheque_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_gasto_detalle"
+            referencedColumns: ["gasto_id"]
+          },
+          {
+            foreignKeyName: "cheque_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_cheque_kpi: {
+        Row: {
+          a_pagar: number | null
+          emitidos_pendientes: number | null
+          en_cartera: number | null
+          monto_vencido: number | null
+          neto: number | null
+          proximos_30: number | null
+          proximos_60: number | null
+          rechazados: number | null
+          recibidos_pendientes: number | null
+          total: number | null
+          vencidos: number | null
         }
         Relationships: []
       }
@@ -5430,6 +5677,16 @@ export type Database = {
         }
         Returns: number
       }
+      cambiar_estado_cheque: {
+        Args: {
+          p_caja_id?: string
+          p_cheque_id: string
+          p_fecha?: string
+          p_nuevo_estado: string
+          p_responsable_id?: string
+        }
+        Returns: string
+      }
       cargar_cuotas_sponsor: {
         Args: { p_contrato_id: string; p_cuotas: Json }
         Returns: number
@@ -5492,6 +5749,17 @@ export type Database = {
         }
         Returns: string
       }
+      crear_gasto_planificado: {
+        Args: {
+          p_cat_gasto_id: string
+          p_descripcion: string
+          p_fecha_esperada: string
+          p_monto: number
+          p_responsable_id?: string
+          p_torneo_id?: string
+        }
+        Returns: string
+      }
       crear_jornada: {
         Args: { p_fecha?: string; p_numero: number; p_serie_id: string }
         Returns: string
@@ -5546,6 +5814,10 @@ export type Database = {
         Returns: number
       }
       imputar_pago_automatico: { Args: { p_pago_id: string }; Returns: number }
+      marcar_gasto_planificado_ejecutado: {
+        Args: { p_gasto_id: string; p_planificado_id: string }
+        Returns: undefined
+      }
       meses_contrato: {
         Args: { p_desde: string; p_hasta: string }
         Returns: number
@@ -5556,6 +5828,9 @@ export type Database = {
       }
       pagar_gasto: {
         Args: {
+          p_cheque_banco?: string
+          p_cheque_debito?: string
+          p_cheque_numero?: string
           p_created_by?: string
           p_gasto_id: string
           p_medio: string
@@ -5595,6 +5870,9 @@ export type Database = {
       }
       registrar_cobro: {
         Args: {
+          p_cheque_banco?: string
+          p_cheque_fecha_cobro?: string
+          p_cheque_numero?: string
           p_fecha: string
           p_imputaciones: Json
           p_medio: string
@@ -5634,6 +5912,18 @@ export type Database = {
           p_devengado_at: string
           p_jornada_id?: string
           p_predio_id?: string
+          p_torneo_id?: string
+        }
+        Returns: string
+      }
+      registrar_movimiento_fondo: {
+        Args: {
+          p_caja_id: string
+          p_fecha?: string
+          p_monto: number
+          p_motivo: string
+          p_responsable_id?: string
+          p_tipo: string
           p_torneo_id?: string
         }
         Returns: string
