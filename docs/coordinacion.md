@@ -18,6 +18,71 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Aplicado · `por_mes` del estimado, por diferencia · 19/08/2026 · de Facu para Horacio
+
+Cierra el pendiente del aviso de más abajo. **Las tres ramas de
+`v_cashflow_estimado` descuentan ahora su gasto real** — pero con **dos
+criterios distintos, y es a propósito**.
+
+#### Por qué dos criterios
+
+| rama | criterio | por qué |
+|---|---|---|
+| `por_partido` · `por_dia_cancha` | **binaria** — el gasto real apaga la estimación entera | la factura del árbitro cubre la jornada completa |
+| `por_mes` | **por diferencia** — `GREATEST(presupuestado − real del mes, 0)` | los fijos entran **fraccionados**: un alquiler por predio, sueldos en cuotas |
+
+Con la regla binaria en `por_mes`, **el primer gasto que se cargara apagaría el
+mes entero**. Con los datos de hoy: $777.000 cargados habrían apagado una
+estimación de $1.900.000, y la proyección quedaría **$1.123.000 corta** — sin
+ninguna alarma. Un cashflow que sobreestima gastos molesta; uno que los
+subestima miente en la dirección peligrosa.
+
+Por diferencia, la fila **no desaparece: se achica**, y muestra el hueco que
+falta cubrir. Más informativo que borrarla.
+
+#### El tope en 0 no es cosmético
+
+Si el real supera al presupuestado, el exceso **ya está** contado como gasto
+real en `v_cashflow_comprometido`. Sin el `GREATEST`, la diferencia daría
+negativa y —al invertir el signo— la vista emitiría un monto **positivo**: un
+gasto convertido en ingreso. Verificado tras aplicar: **0 filas con monto > 0**
+en toda la vista.
+
+**Los dos criterios están escritos en el `comment on view`**, para que la
+asimetría entre ramas no se lea como un descuido de alguien.
+
+#### Efecto medido
+
+```
+602 filas · −$93.473.000
+partido=500 (binaria, intacta) · dia_cancha=92 (binaria, intacta) · mensual=10
+Alquileres 31/08:      −$1.123.000   ← era −$1.900.000
+Alquileres 30/09:      −$1.900.000   ← sin gasto real, estimación completa
+Sueldos adm. 31/08:    −$2.800.000   ← sin gasto real, completa
+```
+
+#### ⚠️ Un hallazgo que no es tuyo, pero conviene que sepas
+
+Los $777.000 que achican agosto **son basura de prueba**:
+
+| concepto | total | devengado |
+|---|---|---|
+| `PRUEBA DESDE PANTALLA · con sesión de Mati` | $333.000 | 10/08 |
+| `PRUEBA SIN FALLBACK · Mati, paso 3` | $444.000 | 10/08 |
+
+Quedaron en producción y **ensucian los dos lados a la vez**: achican el
+estimado de agosto e inflan el comprometido como gasto impago.
+
+Se corrige solo al limpiarlos —agosto vuelve a −$1.900.000 y el comprometido
+baja $777.000—, **sin tocar ninguna vista**. Pero no se borran: tienen asiento
+de devengo, así que por la regla 4 van con `anular_gasto`, que contraasienta.
+Con el filtro de anulados que ya tienen las tres ramas, anularlos alcanza.
+Limpieza aparte, la encara Facu.
+
+> **Si ves un caso donde alguno de los dos criterios descuenta de más o de
+> menos, avisá.** El binario asume factura por ocurrencia completa; el de
+> diferencia asume que todo lo cargado en el mes corresponde a ese presupuesto.
+
 ### 🔧 Aplicado · doble conteo en `v_cashflow_estimado` · 19/08/2026 · de Facu para Horacio
 
 **Otra vista tuya que toqué.** Ya está aplicada (`20260819180000`).
@@ -93,20 +158,10 @@ gastos no dispara ninguna alarma.
 > con `unidad_default = 'por_dia_cancha'`. Con eso la cláusula empieza a
 > funcionar sola, sin volver a tocar la vista.
 
-**2 · `por_mes` NO se tocó — y NO está protegida.** Acá corrijo algo que
-circuló mal de mi lado: se dejó fuera del fix **por alcance, no porque estuviera
-cubierta**. Tiene un doble conteo **activo hoy**:
-
-```
-comprometido  10/08  Alquileres    −$333.000
-comprometido  10/08  Alquileres    −$444.000
-estimado      31/08  Alquileres  −$1.900.000   ← el mes entero, igual
-```
-
-Cerrarlo es una condición más —`date_trunc('month', g.devengado_at) =
-date_trunc('month', m.fin)`— y con los datos de hoy excluiría 1 fila. Queda para
-una migración aparte, con su propia aprobación. **Lo dejo escrito acá para que
-nadie lea la vista y crea que las tres ramas están cubiertas.**
+**2 · `por_mes` quedó fuera de ESTA migración, pero ya está cerrada.**
+Se resolvió el mismo día en `20260819190000`, con criterio propio — ver el
+bloque siguiente. *(La nota original decía que quedaba pendiente; se corrige
+acá para que no quede desactualizada.)*
 
 #### Efecto medido
 
