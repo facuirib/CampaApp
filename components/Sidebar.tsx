@@ -79,9 +79,12 @@ export const GRUPOS: GrupoNav[] = [
     ],
   },
   {
+    // Lo que va a pasar primero, lo que pasó después: la proyección y el
+    // calendario miran adelante; resultados y movimientos, atrás.
     titulo: 'Finanzas',
     items: [
       { href: '/proyeccion', label: 'Proyección', icon: 'proyeccion' },
+      { href: '/calendario-pagos', label: 'Calendario de pagos', icon: 'reloj' },
       { href: '/resultados', label: 'Resultados', icon: 'resultados' },
       { href: '/movimientos', label: 'Movimientos', icon: 'movimientos' },
     ],

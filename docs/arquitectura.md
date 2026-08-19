@@ -1392,6 +1392,109 @@ Todo lo que tiene fecha cierta y monto conocido vive en `compromiso`: facturas, 
 | `cuota_plan` | Alto | Puede caer el plan entero |
 | `factura` | Medio | Suele admitir unos días |
 
+### 3.12b Calendario de pagos · lo que vence, en dos presentaciones
+
+*Construido — migraciones `20260819120000` · `20260819130000` · `20260819150000`
+· `20260819160000` · `20260819170000`. Ruta `/calendario-pagos`.*
+
+**Ojo con el nombre:** `/calendario` es el **calendario de jornadas** (§3.5) —
+dónde y cuándo se juega—. Este es el de **vencimientos**: qué plata entra y sale
+cada día. Son dos módulos distintos y la ruta larga existe porque la corta ya
+estaba tomada.
+
+#### La fuente
+
+**`v_cashflow_comprometido`** (§3.10), sin vista intermedia. Sus 5 ramas ya son
+exactamente «lo que vence»: cuotas de equipo, cuotas de sponsor, compromisos,
+cheques pendientes y gastos devengados impagos, con signo unificado (**+ entra,
+− sale**).
+
+> **NO se lee `v_calendario_pagos`**, que a pesar del nombre es 1 de esas 5
+> ramas sobre una tabla vacía. Ver la nota en §4.
+
+Se le agregaron dos columnas, las dos aditivas y al final —`create or replace
+view` no permite otra cosa—:
+
+| columna | para qué |
+|---|---|
+| `origen_id` | clave de fila, y enlace donde el destino se abre por el registro. Lo que identifica es el **par `(origen, origen_id)`**: los ids son de tablas distintas |
+| `tercero_id` | enlace por contraparte. **Siempre** en `cuota_equipo` y `cuota_sponsor`, sólo en cheques **recibidos**, a veces en compromisos, **nunca** en `gasto_impago` — `gasto` no tiene proveedor |
+
+Un `tercero_id` en NULL **no significa que no se pueda enlazar**: significa que
+no se enlaza por tercero. El destino lo decide `origen`.
+
+#### Las tres vistas nuevas
+
+| vista | grano | para qué |
+|---|---|---|
+| `v_calendario_dia` | un día | la celda de la matriz: `items`, `entra`, `sale`, `neto`, `vencidos`, `acumulado` |
+| `v_calendario_mes` | un mes | el encabezado de la matriz |
+| `v_calendario_kpi` | **una fila siempre** | los cuatro números de arriba, más el próximo vencimiento |
+
+El **detalle de un día no necesita vista**: sale de `v_cashflow_comprometido`
+filtrando por `fecha_original`.
+
+#### Cuatro decisiones que definen la pantalla
+
+**1 · Se agrupa por `fecha_original`, no por `fecha`.** Es la decisión de fondo.
+`fecha` es `GREATEST(vence_at, CURRENT_DATE)`: empuja lo vencido a hoy porque
+para **proyectar caja** importa cuándo va a entrar la plata. Un **calendario**
+quiere lo contrario — dónde venció de verdad. Medido:
+
+```
+agrupado por        días   ítems en hoy   día más cargado
+fecha_original        36              0                39
+fecha                 28             68                68
+```
+
+Con `fecha`, julio y media agosto quedan vacíos y hoy junta 68 vencimientos: el
+calendario diría que no venció nada justo en los días en que venció todo.
+
+**2 · El acumulado es por día, y se escribe una vez por fecha.** Dentro de un día
+el orden entre vencimientos es arbitrario, así que un acumulado que saltara fila
+a fila informaría sobre un orden que no existe.
+
+**3 · La columna acumulado desaparece al filtrar por tipo.** Corre sobre la serie
+**completa**; mostrarla junto a una lista filtrada invita a leerla como «el
+acumulado de los gastos», que no es. Y recalcularla sobre lo filtrado sería el
+front sumando un total (regla 1).
+
+**4 · El acumulado NO es un saldo de caja.** Es el neto comprometido corrido; no
+incluye la plata que ya hay. El saldo proyectado de verdad es
+`v_cashflow.saldo_proyectado`, que suma el saldo de las cajas.
+
+#### La pantalla
+
+Matriz mensual y lista, con toggle. **Todo Server Component**: vista, mes, día
+abierto y filtro viven en la URL, así que no hay estado de cliente, la pantalla
+filtrada es un link que se comparte y el «atrás» del navegador funciona. Lo
+único cliente es la barra de filtros.
+
+**Display puro.** Las dos acciones imaginables no le pertenecen: «marcar como
+pagado» ya tiene dueño en Cobranza, Gastos y Cheques, y «mover una fecha» no es
+de este módulo —`cuota.vence_at` es derivada, la mantiene
+`trg_sync_cuota_vence_at` desde la jornada—. La pantalla lista, agrupa y
+**enlaza**:
+
+```
+cuota_equipo  → /cobranza/[tercero_id]     cheque_*     → /cheques/[origen_id]
+cuota_sponsor → /sponsors/[tercero_id]     gasto_impago → /gastos
+```
+
+**Mira para adelante, más lo vencido que arrastra.** Lo ya cobrado o pagado no
+está acá: eso es `/movimientos`. `v_cashflow_real` existe pero agrupa por
+`(fecha, origen)` y no tiene `detalle`, así que no se puede mezclar fila a fila.
+
+#### Lo que destapó
+
+**68 vencimientos vencidos e impagos por $35.563.233 netos** que no se veían en
+ninguna pantalla. Estaban en la base —entraban al cashflow empujados a hoy— pero
+nadie podía mirarlos como lista ni saber de qué día venían. Hacerlos visibles es
+la razón de ser del módulo.
+
+De esos, **$4.000.000 de una cuota de sponsor** no estaban ni en el cashflow:
+los rescató el fix de la rama de sponsors (`20260819130000`).
+
 ### 3.13 Cheques
 
 Un cheque **no es un pago**: es una promesa de pago con fecha. Afecta la deuda en un momento y la caja en otro.
@@ -1860,7 +1963,7 @@ que falta. No es un boceto: si una pantalla figura acá arriba, se puede abrir.
 Empresa/Torneo que nunca se construyó — y que además contradecía §1.d, porque el
 resultado se mira a nivel empresa y no hay nada que cambiar de ámbito.*
 
-### Lo que hay · 20 pantallas en cinco grupos
+### Lo que hay · 21 pantallas en cinco grupos
 
 El Sidebar es plano: cinco grupos, sin pestañas internas.
 
@@ -1868,7 +1971,7 @@ El Sidebar es plano: cinco grupos, sin pestañas internas.
 |---|---|
 | **Torneo** | Inscripciones · Calendario · Cobranza · Reclamos · Tarifario |
 | **Operación** | Gastos · Caja · Arqueo · Cheques · Activos |
-| **Finanzas** | Proyección · Resultados · Movimientos |
+| **Finanzas** | Proyección · Calendario de pagos · Resultados · Movimientos |
 | **Societario** | Socios · Sponsors · USD |
 | **Sistema** | Auditoría · Configuración › Plantillas *(+ Categorías, Cierres y Usuarios, anunciadas y no construidas)* |
 
@@ -1877,23 +1980,31 @@ rutas de detalle —`/cobranza/[id]`, `/gastos/[id]/pagar`, `/socios/[id]`,
 `/sponsors/[id]`, `/reclamos/[id]`, `/activos/[id]`, `/cheques/[id]`— a las que
 se llega desde su lista.
 
+**Ojo con dos rutas parecidas que son módulos distintos:** `/calendario` es el
+**calendario de jornadas** —dónde y cuándo se juega—, y `/calendario-pagos` es
+el **calendario de vencimientos** —qué plata entra y sale cada día—. El nombre
+largo del segundo existe justamente porque el corto ya estaba tomado.
+
 **El orden de «Torneo» es el orden en que pasan las cosas:** se anota el equipo,
 se arma el fixture, se le cobra, y al que no paga se le reclama. El tarifario va
 último porque es el catálogo del que sale todo lo anterior, no un paso.
 
 ### Lo que falta · backend construido, sin pantalla
 
-Las dos tienen el modelo y la lógica hechos: **falta sólo el front**. Las dos ya
-están alimentando Proyección sin que exista dónde cargarlas.
+**Queda una.**
 
-> **Activos y Cheques salieron de esta lista: están construidas** (§3.11 y
-> §3.13). Eran dos de las cuatro. Cheques además necesitó backend nuevo —el
-> asiento del rechazo, el nacimiento de los emitidos y las dos vistas de
-> lectura—, así que no era «sólo el front» como parecía desde acá.
+> **Tres de las cuatro salieron de esta lista: están construidas** — Activos
+> (§3.11), Cheques (§3.13) y **Calendario de pagos** (§3.12b).
+>
+> **La lección, que vale para la que queda:** «backend construido, falta el
+> front» fue optimista las tres veces. Cheques necesitó el asiento del rechazo y
+> el nacimiento de los emitidos; el Calendario de pagos, cuatro vistas nuevas y
+> dos columnas en `v_cashflow_comprometido`. Una tabla que nadie escribe esconde
+> sus errores — construir la pantalla es lo que los saca.
 
-| Pantalla | Qué hay ya | Por qué importa |
+| Pantalla | Qué hay ya | Qué falta |
 |---|---|---|
-| **Calendario de pagos** | **`v_cashflow_comprometido`** — las 5 ramas de lo que vence, con 284 filas reales. ⚠️ **NO `v_calendario_pagos`**, ver abajo | Es lo único del backlog que ya tiene datos de sobra para mostrar |
+| **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | La pantalla de **carga**: hoy el presupuesto se siembra por SQL |
 
 > **`v_calendario_pagos` no es el calendario de pagos.** El nombre promete de
 > más: lee **una sola tabla** —`compromiso`, con `estado = 'pendiente'`— y le
@@ -1910,11 +2021,10 @@ están alimentando Proyección sin que exista dónde cargarlas.
 > **Quien construya la pantalla debe leer `v_cashflow_comprometido`**, no esta.
 > `v_calendario_pagos` queda como lo que es: la vista de compromisos, útil el día
 > que `compromiso` tenga filas.
-| **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | Falta la pantalla de **carga**: el presupuesto se siembra por SQL |
 
 ### Lo que falta · y empieza por modelar
 
-**Ventas de bar.** No es lo mismo que las cuatro de arriba: **no tiene backend**.
+**Ventas de bar.** No es lo mismo que la de arriba: **no tiene backend**.
 La cuenta `ING_BAR` existe con **cero movimientos** y **no hay ninguna tabla de
 ventas**. El club sí registra ventas, así que es roadmap — pero arranca por
 **modelar el ingreso**: qué tabla, con qué grano, y cómo entra al diario. Es

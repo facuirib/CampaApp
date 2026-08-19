@@ -4076,6 +4076,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_calendario_dia: {
+        Row: {
+          acumulado: number | null
+          dia: string | null
+          entra: number | null
+          items: number | null
+          neto: number | null
+          sale: number | null
+          vencidos: number | null
+        }
+        Relationships: []
+      }
       v_calendario_jornadas: {
         Row: {
           cantidad_esperada: number | null
@@ -4120,6 +4132,32 @@ export type Database = {
           },
         ]
       }
+      v_calendario_kpi: {
+        Row: {
+          entra: number | null
+          items: number | null
+          neto: number | null
+          proximo_dia: string | null
+          proximo_items: number | null
+          proximo_monto: number | null
+          sale: number | null
+          vencido_monto: number | null
+          vencidos: number | null
+        }
+        Relationships: []
+      }
+      v_calendario_mes: {
+        Row: {
+          dias_con_algo: number | null
+          entra: number | null
+          items: number | null
+          mes: string | null
+          neto: number | null
+          sale: number | null
+          vencidos: number | null
+        }
+        Relationships: []
+      }
       v_calendario_pagos: {
         Row: {
           criticidad: string | null
@@ -4157,6 +4195,8 @@ export type Database = {
           monto: number | null
           nivel: string | null
           origen: string | null
+          origen_id: string | null
+          tercero_id: string | null
         }
         Relationships: []
       }
