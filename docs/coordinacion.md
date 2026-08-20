@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta · X1 cerrar_periodo con validación · para Facu
+
+Miré X1 (cierre de período). Hallazgo: el bloqueo de ESCRITURA en período cerrado ya existe — periodo_de_fecha() lo rechaza con mensaje claro. Lo que faltaba era la función de CIERRE en sí: hoy es un UPDATE directo a periodo, sin validar nada antes.
+
+Migración `20260820110000_x1_cerrar_periodo.sql`, sin aplicar. cerrar_periodo() rechaza si hay arqueos sin entregar a central dentro de ese mes (plata física sin conciliar). No valida cheques/compromisos/gastos devengados — los dejé afuera a propósito, más ambiguos.
+
+2 decisiones abiertas en el header: si la validación de arqueos alcanza o hace falta más, y si reabrir_periodo necesita función propia o alcanza con UPDATE directo como hoy.
+
+Verificada con begin/rollback, compila limpio.
+
+---
+
 ### 💡 Propuesta · B13 efectivo en tránsito fuera de predio · para Facu
 
 Escribí una propuesta para el caso que registrar_cobro rechaza hoy ("efectivo en poder de personal fuera de un predio... registralo cuando la plata llegue a una caja"). Migración `20260820100000_b13_efectivo_transito.sql`, sin aplicar.
