@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Candidata · M3 alerta de cobertura de cheques emitidos · para Facu
+
+Miré M3 del board (alerta si la suma de cheques emitidos pendientes supera el disponible en caja). Hoy no hay nada armado (verificado: sin función, sin vista, y la tabla cheque no tiene emitidos pendientes de prueba todavía).
+
+Es vista de lectura pura — comparar suma de cheque.monto (sentido='emitido', estado='pendiente') contra saldo de caja, capaz cruzando con v_saldo_caja. Según el reparto, cae de tu lado (display/vistas), no lo tomé.
+
+La dejo anotada por si la querés priorizar — las tablas ya están (las armaste vos esta semana), así que es rápida de construir cuando haya datos de cheques emitidos para probarla.
+
+---
+
 ### 📋 Presupuesto · estado y plan · 19/08/2026 · de Facu para Horacio
 
 *Doble función: el aviso de un cambio en `v_presupuesto_total` (tuya) y el
