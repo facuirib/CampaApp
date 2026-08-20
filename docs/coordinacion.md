@@ -18,6 +18,93 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Aplicado · PR1 con un solo cambio · 20/08/2026 · de Facu para Horacio
+
+**Tomé tus funciones de presupuesto y están aplicadas.** Gracias por avisar antes
+de entrar al carril — era lo correcto y evitó que las escribiéramos los dos.
+
+Quedaron bien, y no es de compromiso:
+
+- **Estilo de la casa.** Las de alta devuelven `uuid`, las de acción `void`
+  —igual que `mover_jornada`/`suspender_jornada`—, y todas validan la existencia
+  de cada FK antes de tocar nada.
+- **No duplicás los unique**: los dejás trabajar y traducís el
+  `unique_violation` a un mensaje que dice qué hacer («editá el existente en vez
+  de crear otro»). Es mejor que revalidar a mano, que se desincroniza.
+- **Respetan las dos decisiones.** Probé el circuito completo y lo confirmé: el
+  borrador **no** proyecta (A), y `editar`/`agregar`/`borrar` **no exigen
+  borrador** (B).
+
+Circuito probado punta a punta en rollback: crear → agregar → duplicado
+rechazado → borrador no proyecta → aprobar sin líneas rechazado → editar →
+aprobar → proyecta → editar con aprobado → re-aprobar rechazado.
+
+#### El único cambio · `agregar_linea_presupuesto` deja `unidad` en NULL
+
+Tu versión copiaba `cat_gasto.unidad_default` a la fila cuando no se pasaba
+`p_unidad`. Lo cambié a dejarla en **NULL**.
+
+El motivo: **NULL ahí no es un dato faltante, significa algo** — «heredar del
+catálogo» (`arquitectura.md` §3.8). Y `v_presupuesto_total` resuelve esa herencia
+en **tres** niveles:
+
+```sql
+COALESCE(pl.unidad, cgc.unidad_default, cg.unidad_default)
+                    ↑ el del CONCEPTO
+```
+
+Materializar rompía las dos mitades: **salteaba el nivel del concepto** —si la
+línea tiene `concepto_id` con unidad propia, la vista la habría usado y la
+función escribía la de la categoría— y **congelaba el valor**: al cambiar el
+default del catálogo, las líneas con NULL se actualizan solas y las
+materializadas no.
+
+Hoy era **inofensivo** —ningún concepto tiene `unidad_default`, así que los dos
+caminos dan lo mismo— pero es exactamente una rama que nunca se ejecutó, de las
+que venimos encontrando toda la semana.
+
+Verificado tras aplicar: línea sin unidad → la fila guarda `NULL` → la vista
+resuelve `por_dia_cancha` → **el total da igual que materializando**. Y el
+override explícito sigue funcionando: `p_unidad = 'por_mes'` se guarda y la vista
+lo respeta con factor 12.
+
+#### Tres cosas que quedan · ninguna es cambio a tus funciones
+
+**1 · Borrar una línea de un presupuesto aprobado saca plata del cashflow sin
+aviso.** Medido: `v_presupuesto_total` pasó de 7 a 6 líneas al borrar. Tu
+justificación del hard delete —«una línea en borrador no dejó huella contable»—
+vale para el borrador; en aprobado sí mueve la proyección. **No cambio la
+función**: lo va a advertir la pantalla, mismo criterio que el diálogo de rechazo
+de cheques.
+
+**2 · Una línea de un torneo sin calendario aporta $0 en silencio.** Al probar
+con «Apertura 2027» —sin jornadas ni días de cancha— `v_torneo_escala` da factor
+**0** y el total queda en $0. Es correcto y ya está documentado para
+`por_partido` sin fichas, pero cargar un presupuesto y ver «$0» sin explicación
+se lee como bug. Va en la pantalla.
+
+**3 · `desaprobar_presupuesto` no existe.** Con la decisión A —sólo el aprobado
+proyecta— aprobar por error no tiene vuelta por función. Por ahora alcanza con un
+`UPDATE` directo si aparece; si el caso se vuelve común, agregamos la función.
+Lo dejo anotado, no pedido.
+
+#### Nota de proceso · la migración se aplicó por otra vía
+
+`db push` **no podía aplicar PR1 sola**: se niega en bloque porque
+`20260819210000` (mis columnas de gasto) quedó con timestamp **anterior** a tus
+cuatro del 20/08, y el CLI pide `--include-all`, que las habría aplicado a las
+dos. Como la de columnas todavía tiene una decisión pendiente de mi lado, apliqué
+PR1 por MCP.
+
+Eso registró la versión **`20260820175419`** en vez de `20260820140000`, así que
+**renombré el archivo a la versión registrada** — nombre y versión vuelven a
+coincidir por construcción. Es lo mismo que hicimos al cerrar la divergencia de
+las 11 migraciones.
+
+> **Nada que hacer de tu lado**, pero si volvés a aplicar por MCP en vez de
+> `db push`, acordate de renombrar: es la fuente del drift que nos costó una
+> sesión entera.
+
 ### 🔚 Cierre de sesión larga · 20/08/2026 · para Facu
 
 Sesión grande hoy: B13 (cobro y pago), X1, K1 aplicadas a producción con tus ajustes. PR1 (funciones de presupuesto) escrita y avisada, esperando tu revisión — ojo si estás construyendo /presupuesto en paralelo, avisame si choca con algo.

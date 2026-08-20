@@ -100,14 +100,26 @@ begin
     raise exception 'La cantidad debe ser positiva (recibida: %)', p_cantidad;
   end if;
 
-  if p_unidad is null then
-    select unidad_default into p_unidad from cat_gasto where id = p_cat_gasto_id;
-    if p_unidad is null then
-      raise exception
-        'No se especificó unidad y la categoría no tiene unidad_default. '
-        'Pasá p_unidad explícito.';
-    end if;
-  end if;
+  -- ── unidad se deja en NULL a propósito (corrección de Facu, 20/08) ──────
+  --
+  -- `presupuesto_linea.unidad` es nullable porque NULL **significa algo**:
+  -- «heredar del catálogo» (arquitectura.md §3.8). No es un dato faltante.
+  --
+  -- `v_presupuesto_total` resuelve la herencia en TRES niveles:
+  --
+  --     COALESCE(pl.unidad, cgc.unidad_default, cg.unidad_default)
+  --                         ↑ el del CONCEPTO
+  --
+  -- Copiar acá `cat_gasto.unidad_default` rompía las dos mitades de eso:
+  -- **salteaba el nivel del concepto** —si la línea tiene concepto_id con
+  -- unidad propia, la vista la habría usado y la función escribía la de la
+  -- categoría— y **congelaba el valor**: al cambiar el default del catálogo,
+  -- las líneas con NULL se actualizan solas y las materializadas no.
+  --
+  -- Hoy es inofensivo —ningún concepto tiene unidad_default— pero es
+  -- exactamente una rama que nunca se ejecutó.
+  --
+  -- Si se pasa `p_unidad` explícito se respeta: ése es el override deliberado.
 
   begin
     insert into presupuesto_linea (presupuesto_id, cat_gasto_id, concepto_id, base, cantidad, unidad)
@@ -206,7 +218,7 @@ $function$;
 comment on function crear_presupuesto(uuid, uuid) is
   'PR1 — alta de presupuesto, nace en borrador. Rechaza duplicado de torneo+ejercicio (unique existente).';
 comment on function agregar_linea_presupuesto(uuid, uuid, numeric, numeric, uuid, text) is
-  'PR1 — agrega una línea a un presupuesto existente. Rechaza duplicado de categoría/concepto (unique existente). Si no se pasa p_unidad, se hereda de cat_gasto.unidad_default (mejora de comodidad, unidad admite null).';
+  'PR1 — agrega una línea a un presupuesto existente. Rechaza duplicado de categoría/concepto (unique existente). Si no se pasa p_unidad, la línea queda con unidad NULL — que NO es un dato faltante sino "heredar del catálogo": v_presupuesto_total resuelve la herencia en 3 niveles (línea, concepto, categoría). Pasar p_unidad es el override deliberado.';
 comment on function editar_linea_presupuesto(uuid, numeric, numeric, text) is
   'PR1 — edición parcial de una línea (monto, cantidad, unidad).';
 comment on function borrar_linea_presupuesto(uuid) is
