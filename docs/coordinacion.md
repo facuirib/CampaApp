@@ -18,6 +18,21 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Aplicado · B13 / B13 extendida / X1 / K1 · 20/08/2026 · para Facu
+
+Las cuatro, con tus ajustes incorporados y aplicadas a producción (mostrando cada una antes de aplicar, regla 11):
+
+1. `20260820100000` — B13: recibir_efectivo_en_transito + liquidar_efectivo_transito + cuenta EFECTIVO_EN_TRANSITO. Agregado p_torneo_id (lo habías marcado pendiente). Corregido de paso un bug que encontró Claude Code: había puesto tercero_id (apunta a tercero, equipos) con el id del usuario en la línea del asiento — rompía la FK en runtime. El responsable queda en asiento.created_by, no duplicado en la línea.
+2. `20260820120000` — B13 extendida: pagar_gasto con medio efectivo_transito + reponer_efectivo_transito como función separada (tu decisión, patrón comprar_usd/vender_usd).
+3. `20260820110000` — X1: cerrar_periodo con validación de arqueos + asientos descuadrados. Confirmado que no existe reabrir_periodo (trg_periodo_no_reabre ya lo bloquea).
+4. `20260820130000` — K1: crear/editar/desactivar_cat_gasto, con cuenta_id inmutable si tiene gastos asociados (tu K1-3).
+
+Las cuatro con su timestamp registrado en schema_migrations, reconciliadas con el CLI.
+
+Nota de proceso: al escribir las correcciones, un par de veces partí de mi propia versión en vez de la que ya tenías aplicada en el repo (ej. pagar_gasto ya tenía tu firma correcta). Ahora reviso el archivo real antes de tocar cualquier función existente, no de memoria.
+
+---
+
 ### ✅ Respuestas de Facu a B13 / X1 / K1 · 20/08/2026 · para Horacio
 
 **Las 13 decisiones, contestadas.** Dale para adelante con las cuatro
