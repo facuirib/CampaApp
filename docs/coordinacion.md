@@ -18,6 +18,82 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Aplicado · `cat_gasto_id` / `torneo_id` en las vistas de gasto · 20/08/2026 · de Facu para Horacio
+
+Tu migración quedó aplicada. **Esto desbloquea el «vs real» del presupuesto** —
+ya se puede cruzar por id en vez de por nombre.
+
+#### Tu advertencia sobre la granularidad: verificada, y no rompe nada
+
+Avisaste que agregar `torneo_id` al `GROUP BY` **cambia la forma** de
+`v_gasto_categoria_mes`, no sólo suma una columna. Tenías razón en marcarlo, y
+fui a verificarlo antes de aplicar.
+
+**Hay un solo consumidor**, y no hay ninguno en la base —ni vistas ni funciones—:
+
+```
+app/gastos/page.tsx:119   supabase.from('v_gasto_categoria_mes')...
+```
+
+**Y es inmune por construcción**, porque ya reagrupa por su cuenta:
+
+```ts
+for (const c of catRes.data ?? []) {
+  const a = porCategoria.get(c.categoria) ?? { … }
+  a.valor += Number(c.total ?? 0)
+  a.parte = (a.parte ?? 0) + Number(c.pagado ?? 0)
+  porCategoria.set(c.categoria, a)
+}
+```
+
+Si una categoría llega partida en dos filas por torneo, el `Map` las vuelve a
+sumar en una y el gráfico muestra lo mismo. Medido: **0 categorías con total
+distinto** tras reagrupar.
+
+Y con los datos de hoy **ni siquiera se parte ninguna**: 10 filas antes, 10
+después. Ninguna categoría tiene gastos de más de un torneo en el mismo mes
+todavía. O sea que el cambio de forma es real pero **latente** — va a aparecer
+cuando convivan dos torneos, y para entonces el único consumidor ya lo tolera.
+
+Confirmado después de aplicar: `v_gasto_categoria_mes` sigue en **10 filas** y
+$21.654.767, y sus totales por categoría **no difieren** de `v_gasto_detalle`.
+
+#### Lo demás
+
+`cat_gasto_id` en `v_gasto_detalle` es **aditivo puro**: 13 filas antes y después,
+la columna al final. Como corresponde, y como aprendiste con el `ERROR 42P16`.
+
+El cruce por id ya funciona: `v_presupuesto_total` join `v_gasto_categoria_mes`
+por `cat_gasto_id` devuelve **4 coincidencias**. Antes eso sólo se podía por
+nombre.
+
+#### Nota de proceso · la renombré para desatascarla
+
+Tu migración tenía timestamp `20260819210000`, **anterior** a las cuatro que
+aplicaste el 20/08. Eso la dejó atrapada: `db push` se negaba en bloque y sólo
+ofrecía `--include-all`, que habría arrastrado también lo que todavía no estaba
+decidido.
+
+La renombré a **`20260820180000`** —posterior al último aplicado— y entró con un
+`db push` normal. **El contenido no se tocó**: mismo md5 antes y después, git lo
+tomó como rename. Era seguro porque no estaba aplicada en ninguna base.
+
+> **Para la próxima:** si escribís una migración y en el medio se aplican otras
+> con timestamp posterior, la tuya queda atascada. No es grave —se renombra— pero
+> conviene aplicar en orden o revisar el `dry-run` antes de dar por hecho que
+> entra.
+
+#### Lo que habilita
+
+**PR4 · `v_presupuesto_vs_real`.** Con `cat_gasto_id` y `torneo_id` expuestos, la
+comparación ya se puede escribir: `v_presupuesto_total` contra
+`v_gasto_categoria_mes` por `(cat_gasto_id, torneo_id)`, con desvío absoluto y
+porcentual. Es de mi carril y va después de la pantalla de carga.
+
+Queda una decisión de negocio ahí: el presupuesto **no tiene fecha** —es un total
+del ejercicio— y el real sí. O se compara acumulado contra total, o se prorratea
+el presupuesto por mes. Si tenés opinión, es buen momento.
+
 ### ✅ Aplicado · PR1 con un solo cambio · 20/08/2026 · de Facu para Horacio
 
 **Tomé tus funciones de presupuesto y están aplicadas.** Gracias por avisar antes
