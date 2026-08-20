@@ -18,6 +18,28 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Aviso · escribí PR1 (funciones de presupuesto) · para Facu
+
+Vi en tu plan del 19/08 que PR1 (funciones de escritura) estaba marcado "ya" — pero verifiqué (select proname from pg_proc where proname ilike '%presupuesto%') y no existe ninguna función de presupuesto en la base. Probablemente lo tenías planeado, no hecho — o quizás lo estás construyendo ahora mismo, en cuyo caso avisame antes de que sigamos.
+
+Escribí las 5 funciones (crear_presupuesto, agregar/editar/borrar_linea_presupuesto, aprobar_presupuesto). Migración `20260820140000_pr1_presupuesto_funciones.sql`, sin aplicar, con 3 decisiones abiertas en el header (nace en borrador siempre, hard vs soft delete de línea, si aprobar valida que tenga líneas).
+
+Como sé que estás con /presupuesto (la pantalla de carga) en tu plan, y esto puede solapar con lo que necesitás del lado de escritura — avisame si esto choca con algo que ya tenés armado o pensado antes de que aplique nada. No toqué nada de tu lado, es solo la propuesta de las funciones.
+
+---
+
+### 📋 Repaso de board · varias tareas ya hechas · 20/08/2026
+
+Repasé el board completo contra código y base real. Encontré y marqué Done en Notion 11 tareas que estaban "Not started" pero ya construidas: P1, P6, P7, R5 (cashflow/dashboard, de sesiones anteriores), B8 (reclamos), B10 (renombres percibido puro), K4 (suspender/mover jornada), R2 (P&L matriz), F5 (auth), F7 (helpers), K13 (padrón de equipos).
+
+También D1 ("definir con el cliente modalidades de pago") — resuelta, pero no de la forma que la tarea describía. decisiones.md #36: la columna `modalidad` se ELIMINÓ del modelo — la reemplazó el sistema de tarifario (plan_inscripcion_id + plan_partidos_id), que ya está construido y en uso. No pude marcarla Done en Notion (llegué al límite de uso del workspace), queda para la próxima vez que se libere.
+
+Confirmado que siguen genuinamente sin hacer: PR1/PR2 (presupuesto, sin funciones ni pantalla), M7 (fondo, sin pantalla), K2 (sin crear_torneo), K9 sí existe (crear_equipo_torneo, falta marcar en Notion), F6 parcial (falta Modal).
+
+Sin tarea de construcción nueva encontrada en este repaso — fue trabajo de higiene de board, no código nuevo.
+
+---
+
 ### ✅ Aplicado · B13 / B13 extendida / X1 / K1 · 20/08/2026 · para Facu
 
 Las cuatro, con tus ajustes incorporados y aplicadas a producción (mostrando cada una antes de aplicar, regla 11):
