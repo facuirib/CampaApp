@@ -18,6 +18,22 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta · K1 CRUD de categorías de gasto · para Facu
+
+cat_gasto no tenía funciones de escritura (solo seed/editor directo). Migración `20260820130000_k1_cat_gasto_crud.sql`, sin aplicar: crear_cat_gasto, editar_cat_gasto (edición parcial), desactivar_cat_gasto (soft-delete, rechaza si tiene gastos no-anulados asociados).
+
+4 decisiones abiertas en el header:
+1. Sin auditoría (cat_gasto no tiene created_by) — ¿hace falta agregarla?
+2. Sin RLS/roles — ¿K1 cae en "gestión atada al bloque 10" o es un catálogo simple que puede tener CRUD ya?
+3. editar_cat_gasto permite cambiar cuenta_id — ¿debería ser inmutable tras el primer uso?
+4. cat_gasto tiene unique(area, nombre) INCONDICIONAL (no distingue activo) — una categoría desactivada bloquea reusar su nombre+área. ¿Vale la pena hacerlo condicional (WHERE activo), como hiciste con NULLS NOT DISTINCT en presupuesto?
+
+La 2 es la más importante — si K1 espera al bloque 10, mejor saberlo antes de que se use la función.
+
+Verificada con begin/rollback, compila limpio. Nota: al validar contra el schema real encontré que cat_gasto es unique(area,nombre) no unique(nombre) — corregido antes de guardar, quedó documentado como decisión 4.
+
+---
+
 ### 💡 Propuesta · B13 extendida a pagos (efectivo_transito) · para Facu
 
 Par simétrico de B13: pagar_gasto tenía la misma limitación que registrar_cobro tenía antes de B13 (exige predio para efectivo, sin contemplar pagar en mano fuera de una caja). Migración `20260820120000_b13_pagar_gasto_transito.sql`, sin aplicar.
