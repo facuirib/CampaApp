@@ -18,6 +18,80 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Aplicado · `v_presupuesto_total` se redefinió sobre `v_presupuesto_linea` · 20/08/2026 · de Facu para Horacio
+
+Es refactor, **no cambio de comportamiento**: el cashflow devuelve exactamente
+lo mismo. Pero toca una vista tuya, así que va el aviso.
+
+#### De dónde salió
+
+Construyendo `/presupuesto` —la pantalla de carga— apareció esto en el QA, en un
+mismo bloque de la pantalla:
+
+```
+Apertura 2027 · Borrador · Ejercicio 2026 · 2 líneas          $0
+┌──────────────────────────────────────────────────┐
+│        Sin líneas todavía. Agregá la primera.    │
+└──────────────────────────────────────────────────┘
+```
+
+«2 líneas» arriba y «sin líneas» abajo. La causa es el filtro que pusimos el
+19/08: **`v_presupuesto_total` sólo expone los aprobados**, y la pantalla leía
+el detalle de ahí. O sea que **no podía ver las líneas de un borrador** — que es
+justo lo que existe para editar. Se podía crear el borrador y agregarle líneas,
+pero no verlas después.
+
+El filtro está bien; el problema era usar la misma vista para dos preguntas
+distintas.
+
+#### Qué se hizo
+
+```
+v_presupuesto_linea  →  TODAS las líneas, + su `estado`.   La pantalla de carga.
+v_presupuesto_total  →  sólo las aprobadas.                El cashflow.
+```
+
+Y `v_presupuesto_total` **pasó a definirse sobre la nueva**:
+
+```sql
+select id, presupuesto_id, … , total_presupuestado
+  from v_presupuesto_linea
+ where estado = 'aprobado';
+```
+
+**El motivo de fondo es no duplicar el cálculo.** La alternativa era copiar el
+cuerpo —el `COALESCE` de tres niveles de `unidad`, el `age()` de los meses, el
+`CROSS JOIN LATERAL` del factor— a una segunda vista. Dos copias de esa lógica
+se desincronizan a la primera corrección, y es exactamente el drift que venimos
+peleando toda la semana. Así queda escrito **una sola vez**.
+
+#### Que no cambió nada, verificado
+
+| | antes | después |
+|---|---|---|
+| `v_presupuesto_total` | 6 líneas · $139.300.000 | 6 líneas · $139.300.000 |
+| columnas | 12, en orden | **las mismas 12, en el mismo orden** |
+| `v_cashflow_estimado` | 602 filas · −$93.473.000 | 602 filas · −$93.473.000 |
+| `v_cashflow.monto_estimado` | −$93.473.000 | −$93.473.000 |
+
+Y el caso que motivó todo: un borrador con 1 línea → `v_presupuesto_total` la ve
+en **0 filas** (el cashflow no se entera, como debe ser) y `v_presupuesto_linea`
+en **1** (la pantalla sí).
+
+#### Un detalle de la vista anterior que quedó a medias
+
+`v_presupuesto_ambito` —la que hice ayer para el encabezado— calcula
+`lineas_sin_calendario` con un LATERAL contra `v_presupuesto_total`, así que
+**para un borrador siempre da 0**, justo donde más importa avisar que el factor
+es 0. Lo resolví en la pantalla contando sobre el detalle que ya trae, que es un
+conteo de filas y no un total de dinero.
+
+Si en algún momento otra vista necesita ese dato, conviene mover el LATERAL a
+`v_presupuesto_linea`. Lo dejo anotado, no pedido.
+
+> Como siempre: si el refactor choca con algo que tenías pensado para
+> `v_presupuesto_total`, avisá.
+
 ### ✅ Aplicado · `cat_gasto_id` / `torneo_id` en las vistas de gasto · 20/08/2026 · de Facu para Horacio
 
 Tu migración quedó aplicada. **Esto desbloquea el «vs real» del presupuesto** —

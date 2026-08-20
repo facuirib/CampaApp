@@ -3360,6 +3360,13 @@ export type Database = {
             referencedRelation: "presupuesto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "presupuesto_linea_presupuesto_id_fkey"
+            columns: ["presupuesto_id"]
+            isOneToOne: false
+            referencedRelation: "v_presupuesto_ambito"
+            referencedColumns: ["presupuesto_id"]
+          },
         ]
       }
       reclamo: {
@@ -4888,14 +4895,59 @@ export type Database = {
           adeudado: number | null
           anio: number | null
           area: string | null
+          cat_gasto_id: string | null
           categoria: string | null
           gastos: number | null
           mes: number | null
           naturaleza: string | null
           pagado: number | null
+          torneo_id: string | null
           total: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gasto_cat_gasto_id_fkey"
+            columns: ["cat_gasto_id"]
+            isOneToOne: false
+            referencedRelation: "cat_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
       }
       v_gasto_detalle: {
         Row: {
@@ -4906,6 +4958,7 @@ export type Database = {
           asiento_pag_id: string | null
           caja_pago: string | null
           cantidad: number | null
+          cat_gasto_id: string | null
           categoria: string | null
           concepto: string | null
           devengado_at: string | null
@@ -4969,6 +5022,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_libro_diario"
             referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "gasto_cat_gasto_id_fkey"
+            columns: ["cat_gasto_id"]
+            isOneToOne: false
+            referencedRelation: "cat_gasto"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "gasto_jornada_id_fkey"
@@ -5259,6 +5319,153 @@ export type Database = {
         }
         Relationships: []
       }
+      v_presupuesto_ambito: {
+        Row: {
+          ambito: string | null
+          anio: number | null
+          ejercicio_id: string | null
+          es_estructura: boolean | null
+          estado: string | null
+          lineas: number | null
+          lineas_sin_calendario: number | null
+          presupuesto_id: string | null
+          torneo_id: string | null
+          total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presupuesto_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
+      v_presupuesto_linea: {
+        Row: {
+          base: number | null
+          cantidad: number | null
+          cat_gasto_id: string | null
+          concepto_id: string | null
+          ejercicio_id: string | null
+          estado: string | null
+          factor: number | null
+          id: string | null
+          presupuesto_id: string | null
+          torneo_id: string | null
+          total_presupuestado: number | null
+          unidad: string | null
+          unidad_linea: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presupuesto_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_linea_cat_gasto_id_fkey"
+            columns: ["cat_gasto_id"]
+            isOneToOne: false
+            referencedRelation: "cat_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_linea_concepto_id_fkey"
+            columns: ["concepto_id"]
+            isOneToOne: false
+            referencedRelation: "concepto_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_linea_presupuesto_id_fkey"
+            columns: ["presupuesto_id"]
+            isOneToOne: false
+            referencedRelation: "presupuesto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_linea_presupuesto_id_fkey"
+            columns: ["presupuesto_id"]
+            isOneToOne: false
+            referencedRelation: "v_presupuesto_ambito"
+            referencedColumns: ["presupuesto_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
       v_presupuesto_total: {
         Row: {
           base: number | null
@@ -5302,6 +5509,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "presupuesto"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_linea_presupuesto_id_fkey"
+            columns: ["presupuesto_id"]
+            isOneToOne: false
+            referencedRelation: "v_presupuesto_ambito"
+            referencedColumns: ["presupuesto_id"]
           },
           {
             foreignKeyName: "presupuesto_torneo_id_fkey"
@@ -5687,6 +5901,17 @@ export type Database = {
       }
     }
     Functions: {
+      agregar_linea_presupuesto: {
+        Args: {
+          p_base: number
+          p_cantidad?: number
+          p_cat_gasto_id: string
+          p_concepto_id?: string
+          p_presupuesto_id: string
+          p_unidad?: string
+        }
+        Returns: string
+      }
       anular_asiento: {
         Args: {
           p_asiento_id: string
@@ -5709,6 +5934,10 @@ export type Database = {
         Args: { p_cuota_id: string; p_monto: number; p_tercero_id: string }
         Returns: number
       }
+      aprobar_presupuesto: {
+        Args: { p_presupuesto_id: string }
+        Returns: undefined
+      }
       asentar_amortizacion: {
         Args: {
           p_activo_id?: string
@@ -5716,6 +5945,10 @@ export type Database = {
           p_periodo_id: string
         }
         Returns: number
+      }
+      borrar_linea_presupuesto: {
+        Args: { p_linea_id: string }
+        Returns: undefined
       }
       cambiar_estado_cheque: {
         Args: {
@@ -5730,6 +5963,10 @@ export type Database = {
       cargar_cuotas_sponsor: {
         Args: { p_contrato_id: string; p_cuotas: Json }
         Returns: number
+      }
+      cerrar_periodo: {
+        Args: { p_periodo_id: string; p_responsable_id?: string }
+        Returns: undefined
       }
       comprar_usd: {
         Args: {
@@ -5760,6 +5997,17 @@ export type Database = {
           p_origen_id?: string
           p_predio_id?: string
           p_torneo_id?: string
+        }
+        Returns: string
+      }
+      crear_cat_gasto: {
+        Args: {
+          p_area: string
+          p_cuenta_id: string
+          p_imputacion_default: string
+          p_naturaleza: string
+          p_nombre: string
+          p_unidad_default: string
         }
         Returns: string
       }
@@ -5813,6 +6061,10 @@ export type Database = {
         }
         Returns: string
       }
+      crear_presupuesto: {
+        Args: { p_ejercicio_id: string; p_torneo_id?: string }
+        Returns: string
+      }
       crear_retiro_socio: {
         Args: {
           p_fecha?: string
@@ -5823,6 +6075,10 @@ export type Database = {
         }
         Returns: string
       }
+      desactivar_cat_gasto: {
+        Args: { p_cat_gasto_id: string }
+        Returns: undefined
+      }
       devengar_sponsors: {
         Args: { p_created_by?: string; p_periodo_id: string }
         Returns: number
@@ -5830,6 +6086,27 @@ export type Database = {
       devengar_sueldos_socios: {
         Args: { p_created_by?: string; p_periodo_id: string }
         Returns: number
+      }
+      editar_cat_gasto: {
+        Args: {
+          p_area?: string
+          p_cat_gasto_id: string
+          p_cuenta_id?: string
+          p_imputacion_default?: string
+          p_naturaleza?: string
+          p_nombre?: string
+          p_unidad_default?: string
+        }
+        Returns: undefined
+      }
+      editar_linea_presupuesto: {
+        Args: {
+          p_base?: number
+          p_cantidad?: number
+          p_linea_id: string
+          p_unidad?: string
+        }
+        Returns: undefined
       }
       eliminar_dia_cancha: {
         Args: { p_dia_cancha_id: string }
@@ -5854,6 +6131,15 @@ export type Database = {
         Returns: number
       }
       imputar_pago_automatico: { Args: { p_pago_id: string }; Returns: number }
+      liquidar_efectivo_transito: {
+        Args: {
+          p_fecha?: string
+          p_pago_id: string
+          p_predio_id: string
+          p_responsable_id?: string
+        }
+        Returns: string
+      }
       marcar_gasto_planificado_ejecutado: {
         Args: { p_gasto_id: string; p_planificado_id: string }
         Returns: undefined
@@ -5907,6 +6193,17 @@ export type Database = {
           monto: number
           nombre: string
         }[]
+      }
+      recibir_efectivo_en_transito: {
+        Args: {
+          p_fecha?: string
+          p_imputaciones?: Json
+          p_medio?: string
+          p_monto: number
+          p_responsable_id?: string
+          p_tercero_id: string
+        }
+        Returns: string
       }
       registrar_cobro: {
         Args: {
@@ -5965,6 +6262,15 @@ export type Database = {
           p_responsable_id?: string
           p_tipo: string
           p_torneo_id?: string
+        }
+        Returns: string
+      }
+      reponer_efectivo_transito: {
+        Args: {
+          p_fecha?: string
+          p_gasto_id: string
+          p_predio_id: string
+          p_responsable_id?: string
         }
         Returns: string
       }

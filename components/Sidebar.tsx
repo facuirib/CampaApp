@@ -83,6 +83,9 @@ export const GRUPOS: GrupoNav[] = [
     // calendario miran adelante; resultados y movimientos, atrás.
     titulo: 'Finanzas',
     items: [
+      // Presupuesto va PRIMERO porque es lo que alimenta a Proyección: se
+      // planea, se proyecta, y recién después se mira lo que pasó.
+      { href: '/presupuesto', label: 'Presupuesto', icon: 'monedas' },
       { href: '/proyeccion', label: 'Proyección', icon: 'proyeccion' },
       { href: '/calendario-pagos', label: 'Calendario de pagos', icon: 'reloj' },
       { href: '/resultados', label: 'Resultados', icon: 'resultados' },

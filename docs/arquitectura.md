@@ -1123,7 +1123,7 @@ create table presupuesto_linea (
 
 *Hasta el Draft 15 esta sección documentaba columnas `arancel`, `cantidad_x_fecha` y `monto_mensual` que **nunca existieron en la base**: la tabla se construyó con `base`, `cantidad` y `unidad`. Corregido contra el schema real.*
 
-**`unidad` pasa a ser anulable y cambia de dominio.** Era `not null` con `check ('por_jornada','por_mes','anual','unico')`. Ahora admite `null` —que significa *heredar el default del catálogo*, no *sin definir*— y `por_jornada` desaparece, reemplazada por `por_partido` y `por_dia_cancha`. **La tabla tiene 0 filas**, así que el cambio de `check` no migra ningún dato.
+**`unidad` pasa a ser anulable y cambia de dominio.** Era `not null` con `check ('por_jornada','por_mes','anual','unico')`. Ahora admite `null` —que significa *heredar el default del catálogo*, no *sin definir*— y `por_jornada` desaparece, reemplazada por `por_partido` y `por_dia_cancha`. *(Cuando se hizo ese cambio la tabla estaba vacía, así que no migró ningún dato. **Hoy tiene 6 líneas en 2 cabeceras, $139.300.000.**)*
 
 Presupuesto = `base × cantidad ×` el multiplicador de su unidad efectiva (§3.3):
 
@@ -1140,9 +1140,73 @@ Presupuesto = `base × cantidad ×` el multiplicador de su unidad efectiva (§3.
 
 La vista expone además `unidad` y `factor`, para que la pantalla pueda mostrar **de dónde salió el número** en lugar de solo el número.
 
-Nota: hoy `por_partido` da **0**, porque no hay fichas cargadas y los partidos se derivan de los equipos de cada serie. Es correcto, no un bug — el presupuesto por partido existe recién cuando se sabe cuántos equipos hay.
+*Durante un tiempo `por_partido` dio **0**, porque los partidos se derivan de los equipos de cada serie y no había fichas cargadas.* Hoy, con 34 equipos, **Clausura 2026 escala por 199 partidos y 58 días de cancha**.
 
-El desvío se calcula por `cat_gasto_id`, que es la misma dimensión con la que se carga el gasto real. No hay tabla de mapeo entre presupuesto y real, y esa ausencia es el punto.
+Ese comportamiento sigue vigente para un torneo sin calendario: **`Apertura 2027` da factor 0** y sus líneas aportan $0. No es un bug —el presupuesto por partido existe recién cuando se sabe cuántos equipos hay— pero **un `$0` sin explicar se lee como error**, así que la pantalla lo rotula «sin calendario cargado» en vez de mostrar el número pelado.
+
+El desvío se calcula por `cat_gasto_id`, que es la misma dimensión con la que se carga el gasto real. No hay tabla de mapeo entre presupuesto y real, y esa ausencia es el punto. **Desde el 20/08 eso ya se puede cruzar:** `v_gasto_detalle` expone `cat_gasto_id` y `v_gasto_categoria_mes` suma `torneo_id`. Falta la vista de comparación (PR4) y decidir su grano temporal — el presupuesto no tiene fecha y el real sí.
+
+#### Construido · escritura y pantalla
+
+*Migraciones `20260819200000` · `20260820175419` · `20260820190000` · `20260820200000`.*
+
+**Las cinco puertas** (`20260820175419`, escritas por Horacio): `crear_presupuesto`
+—nace en **borrador**, una cabecera por ámbito—, `agregar_linea_presupuesto`,
+`editar_linea_presupuesto`, `borrar_linea_presupuesto` y `aprobar_presupuesto`
+—rechaza si no tiene líneas—. No revalidan los unique: dejan que el constraint
+trabaje y traducen el `unique_violation` a un mensaje que dice qué hacer.
+
+> `agregar_linea_presupuesto` deja `unidad` en **NULL** cuando no se pasa. NULL
+> ahí no es un dato faltante: es «heredar del catálogo», y la herencia la
+> resuelve la vista en tres niveles. Materializarla salteaba el nivel del
+> concepto y congelaba el valor si cambiaba el default.
+
+**Los dos invariantes** (`20260819200000`): `unique (torneo_id, ejercicio_id)` y
+`unique (presupuesto_id, cat_gasto_id, concepto_id)`, los dos **`NULLS NOT
+DISTINCT`** — `torneo_id` es NULL para la estructura y `concepto_id` lo es en
+todas las líneas, así que un unique común no habría protegido nada. Y el filtro
+`estado = 'aprobado'`: **sólo el aprobado proyecta**. Sin eso, un borrador
+sumaba $41.880.000 al cashflow apenas se guardaba.
+
+**Las tres vistas**, que responden tres preguntas distintas:
+
+| Vista | Qué da | Quién la lee |
+|---|---|---|
+| `v_presupuesto_linea` | **todas** las líneas con su `factor` y su `estado` | la pantalla de carga, que edita borradores |
+| `v_presupuesto_total` | sólo las **aprobadas** — se define *sobre* la anterior | `v_cashflow_estimado`, y de ahí el cashflow |
+| `v_presupuesto_ambito` | una fila por presupuesto: estado, líneas, total | el encabezado de cada sección |
+
+> **Por qué `v_presupuesto_total` se apoya en `v_presupuesto_linea`.** El filtro
+> por estado es correcto para el cashflow y equivocado para la edición: la
+> pantalla mostraba «2 líneas» en el encabezado y «sin líneas» en la tabla,
+> porque leía la vista filtrada. Copiar el cálculo del factor a una segunda
+> vista habría creado dos definiciones que se desincronizan; definir una sobre
+> la otra lo deja escrito **una sola vez**.
+
+#### La pantalla · `/presupuesto`
+
+Dos secciones por **ámbito** —cada torneo y la estructura permanente—, cada
+línea con `base × cantidad × factor = total`. **`base` y `cantidad` se editan;
+el `factor` no**: sale del calendario y se muestra como texto (`× 199 partidos`)
+para que se vea de dónde sale el número y no sólo el resultado.
+
+Cuatro avisos, cada uno por algo que sin decirlo se lee mal:
+
+| Aviso | Por qué |
+|---|---|
+| **Borrar de un aprobado** | esa plata desaparece de los egresos estimados y el saldo proyectado sube sin que nada lo avise. Sugiere editar en vez de borrar. En borrador no hay fricción: no proyectaba nada |
+| **«sin calendario cargado»** | un `$0` pelado se lee como bug; es un torneo sin fixture |
+| **«unidad heredada»** | la línea guarda NULL y la unidad la pone el catálogo |
+| **Cobertura** | 6 de 32 categorías presupuestadas: lo que no tiene línea **no se proyecta** |
+
+**No hay «desaprobar»**: `desaprobar_presupuesto` no existe y la pantalla no lo
+ofrece. Si hiciera falta, es un `UPDATE` manual hasta que el caso aparezca.
+
+En el Sidebar va **primera en Finanzas**, antes de Proyección: se planea, se
+proyecta, y recién después se mira lo que pasó.
+
+> **Falta el «vs real» (PR4).** Es otra pantalla y necesita antes la decisión
+> del grano temporal.
 
 ### 3.9 Comunicaciones
 
@@ -1963,7 +2027,7 @@ que falta. No es un boceto: si una pantalla figura acá arriba, se puede abrir.
 Empresa/Torneo que nunca se construyó — y que además contradecía §1.d, porque el
 resultado se mira a nivel empresa y no hay nada que cambiar de ámbito.*
 
-### Lo que hay · 21 pantallas en cinco grupos
+### Lo que hay · 22 pantallas en cinco grupos
 
 El Sidebar es plano: cinco grupos, sin pestañas internas.
 
@@ -1971,7 +2035,7 @@ El Sidebar es plano: cinco grupos, sin pestañas internas.
 |---|---|
 | **Torneo** | Inscripciones · Calendario · Cobranza · Reclamos · Tarifario |
 | **Operación** | Gastos · Caja · Arqueo · Cheques · Activos |
-| **Finanzas** | Proyección · Calendario de pagos · Resultados · Movimientos |
+| **Finanzas** | Presupuesto · Proyección · Calendario de pagos · Resultados · Movimientos |
 | **Societario** | Socios · Sponsors · USD |
 | **Sistema** | Auditoría · Configuración › Plantillas *(+ Categorías, Cierres y Usuarios, anunciadas y no construidas)* |
 
@@ -1991,20 +2055,20 @@ se arma el fixture, se le cobra, y al que no paga se le reclama. El tarifario va
 
 ### Lo que falta · backend construido, sin pantalla
 
-**Queda una.**
+**Ninguna. La lista se vació.** Las cuatro están construidas: Activos (§3.11),
+Cheques (§3.13), Calendario de pagos (§3.12b) y **Presupuesto** (§3.8).
 
-> **Tres de las cuatro salieron de esta lista: están construidas** — Activos
-> (§3.11), Cheques (§3.13) y **Calendario de pagos** (§3.12b).
+> **La lección, y ahora son cuatro de cuatro:** «backend construido, falta el
+> front» fue optimista **todas** las veces. Cheques necesitó el asiento del
+> rechazo y el nacimiento de los emitidos; el Calendario de pagos, cuatro vistas
+> nuevas y dos columnas en `v_cashflow_comprometido`; Presupuesto, cinco
+> funciones de escritura, dos unique, un filtro de estado y dos vistas más — y
+> aun así el primer QA destapó que la pantalla no podía ver sus propios
+> borradores.
 >
-> **La lección, que vale para la que queda:** «backend construido, falta el
-> front» fue optimista las tres veces. Cheques necesitó el asiento del rechazo y
-> el nacimiento de los emitidos; el Calendario de pagos, cuatro vistas nuevas y
-> dos columnas en `v_cashflow_comprometido`. Una tabla que nadie escribe esconde
-> sus errores — construir la pantalla es lo que los saca.
-
-| Pantalla | Qué hay ya | Qué falta |
-|---|---|---|
-| **Presupuesto por fecha** | 6 líneas cargadas —4 con unidad por fecha—, `v_presupuesto_total` y `v_torneo_escala`; `/proyeccion` ya lo consume | La pantalla de **carga**: hoy el presupuesto se siembra por SQL |
+> **Una tabla que nadie escribe esconde sus errores.** Construir la pantalla es
+> lo que los saca. Vale tenerlo presente para lo que venga: Ventas de bar
+> arranca peor, porque ahí ni siquiera hay backend.
 
 > **`v_calendario_pagos` no es el calendario de pagos.** El nombre promete de
 > más: lee **una sola tabla** —`compromiso`, con `estado = 'pendiente'`— y le
@@ -2049,6 +2113,26 @@ intención, no como roadmap activo.
 | **Padrón / Alta masiva** | Lo cubre `/inscripciones` sobre `v_inscripcion`; el padrón es `tercero`. La **importación masiva desde Excel** sí falta, pero es una **función**, no una pantalla — mejora menor |
 | **Bar (gastos)** | Cubierto por `/gastos`, ver arriba |
 | **Punto de equilibrio** | **Descartado.** No tenía tabla, vista, función ni ruta: existía sólo en el boceto de navegación |
+
+### ⚠️ Doc y práctica no coinciden · escritura desde el front
+
+**`CLAUDE.md` dice «Server Actions para mutaciones, no API routes».** Las
+pantallas de escritura recientes —Cheques, Activos, Presupuesto— **no las usan**:
+son Client Components que llaman `createClient()` de `@/lib/db/client`, después
+`supabase.rpc(...)`, y cierran con `router.refresh()` porque la página de arriba
+es Server Component.
+
+Las únicas Server Actions del repo son `configuracion/acciones.ts` y
+`reclamos/acciones.ts`, las dos donde hay **mail** y la key tiene que quedar del
+lado servidor.
+
+No es un descuido de una pantalla: es el patrón de las tres últimas, y es
+coherente —toda la escritura pasa por funciones de Postgres, así que la Server
+Action sólo agregaría un salto—. Pero **el doc dice otra cosa**, y quien lea
+`CLAUDE.md` para hacer la próxima va a hacerla distinta.
+
+**Hay que reconciliar los dos**, decidiendo cuál gana. No se resuelve acá: queda
+anotado para tratarlo aparte.
 
 ### Una convención que vale para todas
 
