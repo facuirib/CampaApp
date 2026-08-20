@@ -9,34 +9,28 @@
 --
 -- MODELO: dos momentos, dos funciones.
 --   1. recibir_efectivo_en_transito — alguien queda "en custodia" de la
---      plata. Asienta CAJA_EFECTIVO_TRANSITO debe / ING_x haber (mismo
+--      plata. Asienta EFECTIVO_EN_TRANSITO debe / ING_x haber (mismo
 --      patrón de registrar_cobro: el ingreso se reconoce al cobrar, no
 --      al liquidar — percibido puro).
 --   2. liquidar_efectivo_transito — esa plata llega a una caja de predio
---      real. Asienta CAJA_EFECTIVO (del predio) debe / CAJA_EFECTIVO_
+--      real. Asienta CAJA_EFECTIVO (del predio) debe / EFECTIVO_EN_
 --      TRANSITO haber. Traslado puro, no genera ingreso nuevo (ya se
 --      reconoció en el paso 1) — mismo patrón que entrega de arqueo a
 --      central.
 --
--- ⚠️ DECISIONES PARA FACU (no aplicar sin su OK):
---  1. Nombre/existencia de la cuenta EFECTIVO_EN_TRANSITO — ¿el código
---     y ubicación en el plan de cuentas están bien, o hay una convención
---     mejor?
---  2. ¿El ingreso se reconoce al RECIBIR (como propongo, coherente con
---     percibido puro y con cómo ya funciona el cheque recibido) o solo
---     al LIQUIDAR (más conservador, pero inconsistente con cheques)?
---  3. ¿Quién puede liquidar? Propongo: cualquier usuario autenticado
---     (igual que el resto), no necesariamente el mismo que recibió — un
---     tercero puede entregar la plata a la caja. ¿Correcto?
---  4. ¿Hace falta una tabla para trackear "quién tiene la plata ahora"
---     (custodia), o alcanza con que el asiento en EFECTIVO_EN_TRANSITO
---     ya sea la fuente de verdad (el saldo de esa cuenta = lo que está
---     circulando sin liquidar)? Propongo la segunda opción — más simple,
---     coherente con "el fondo sin saldo mantenido a mano" (decisión 22).
+-- ✅ RESPUESTAS DE FACU (20/08, en coordinacion.md):
+--  B13-1 nombre EFECTIVO_EN_TRANSITO: confirmado, no CAJA_* (no se
+--    arquea, no tiene predio, el prefijo la metería en v_saldo_caja).
+--  B13-2 reconocer al recibir: SÍ (regla 1.b, percibido puro).
+--  B13-3 quién liquida: cualquiera. p_responsable_id deja el rastro.
+--  B13-4 sin tabla de custodia; el responsable queda en asiento.created_by
+--    (vía p_created_by), no en la línea — evita el error de mezclar
+--    tercero_id (equipos) con usuario.
 --
--- ⚠️ NOTA: no pasé p_torneo_id a crear_asiento en recibir_efectivo_en_transito
--- (registrar_cobro original sí lo calcula de las cuotas imputadas). Revisar
--- si hace falta agregarlo para que el asiento quede atribuido al torneo.
+-- 🔧 CORREGIDO (Facu lo marcó pendiente antes de aplicar):
+--  - p_torneo_id ahora se calcula de las cuotas imputadas y se pasa a
+--    crear_asiento, igual que registrar_cobro. Sin esto el ingreso no
+--    quedaba atribuido al torneo y el P&L por torneo lo perdía.
 -- ═══════════════════════════════════════════════════════════════
 
 insert into cuenta (codigo, nombre, tipo)
@@ -63,6 +57,8 @@ declare
   v_lineas      jsonb;
   v_agrupado    numeric(16,2);
   v_monto_imp   numeric(16,2);
+  v_torneos     uuid[];
+  v_torneo_id   uuid;
 begin
   if p_monto is null or p_monto <= 0 then
     raise exception 'El monto debe ser positivo (recibido: %)', p_monto;
@@ -88,6 +84,23 @@ begin
       'La imputación suma % y el monto es %. Tienen que coincidir.',
       v_monto_imp, p_monto;
   end if;
+
+  select array_agg(distinct et.torneo_id) into v_torneos
+    from jsonb_array_elements(p_imputaciones) x
+    join cuota c          on c.id  = (x->>'cuota_id')::uuid
+    join equipo_torneo et on et.id = c.equipo_torneo_id;
+
+  if v_torneos is null then
+    raise exception 'Ninguna de las cuotas indicadas existe';
+  end if;
+
+  if array_length(v_torneos, 1) > 1 then
+    raise exception
+      'La imputación cruza % torneos. Registrá un cobro por torneo.',
+      array_length(v_torneos, 1);
+  end if;
+
+  v_torneo_id := v_torneos[1];
 
   insert into pago (tercero_id, fecha, monto, medio_pago, registrado_por)
   values (p_tercero_id, v_fecha, p_monto, p_medio, v_user_id)
@@ -133,6 +146,7 @@ begin
     p_origen      => 'pago_equipo',
     p_descripcion => 'Efectivo recibido fuera de predio (en tránsito)',
     p_lineas      => v_lineas,
+    p_torneo_id   => v_torneo_id,
     p_origen_id   => v_pago_id,
     p_created_by  => v_user_id
   );
@@ -194,6 +208,6 @@ end;
 $function$;
 
 comment on function recibir_efectivo_en_transito(uuid, numeric, text, date, jsonb, uuid) is
-  'B13 — registra un cobro en efectivo fuera de una caja de predio. Asienta contra EFECTIVO_EN_TRANSITO, no CAJA_EFECTIVO. Ingreso reconocido al cobrar (percibido puro).';
+  'B13 — registra un cobro en efectivo fuera de una caja de predio. Asienta contra EFECTIVO_EN_TRANSITO, no CAJA_EFECTIVO. Ingreso reconocido al cobrar (percibido puro). Confirmado por Facu 20/08.';
 comment on function liquidar_efectivo_transito(uuid, uuid, date, uuid) is
   'B13 — mueve el efectivo en tránsito a la caja real del predio cuando la plata llega. Traslado puro, no genera ingreso nuevo.';
