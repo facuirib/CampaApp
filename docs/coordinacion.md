@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔚 Cierre de sesión larga · 20/08/2026 · para Facu
+
+Sesión grande hoy: B13 (cobro y pago), X1, K1 aplicadas a producción con tus ajustes. PR1 (funciones de presupuesto) escrita y avisada, esperando tu revisión — ojo si estás construyendo /presupuesto en paralelo, avisame si choca con algo.
+
+Repasé el board completo dos veces buscando más — no queda tarea de motor sin decisión pendiente (de producto, tuya, o de infraestructura) para tomar en solitario hoy. Retomo cuando respondas PR1 o me marques algo puntual.
+
+---
+
 ### 🔧 Aviso · escribí PR1 (funciones de presupuesto) · para Facu
 
 Vi en tu plan del 19/08 que PR1 (funciones de escritura) estaba marcado "ya" — pero verifiqué (select proname from pg_proc where proname ilike '%presupuesto%') y no existe ninguna función de presupuesto en la base. Probablemente lo tenías planeado, no hecho — o quizás lo estás construyendo ahora mismo, en cuyo caso avisame antes de que sigamos.
