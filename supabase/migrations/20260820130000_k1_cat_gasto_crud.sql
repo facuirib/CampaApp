@@ -11,30 +11,24 @@
 -- valida los valores permitidos; estas funciones agregan mensajes claros
 -- y la regla de negocio (no desactivar si tiene gastos activos).
 --
--- ⚠️ DECISIONES PARA FACU:
---  1. Sin auditoría (cat_gasto no tiene created_by/updated_at). ¿Hace
---     falta agregarla, o es aceptable para una tabla de catálogo simple
---     (a diferencia de gasto/cheque, que sí llevan responsable)?
---  2. Sin RLS/roles todavía (bloque 10 pendiente) — cualquier usuario
---     autenticado podría crear/editar categorías. ¿Es aceptable ahora
---     (como el resto del sistema sin RLS), o esto conviene esperar a
---     que haya roles? La nota de arquitectura marca la "gestión desde
---     la app" como atada al bloque 10 — no sé si K1 cae en esa
---     categoría o es más simple (un catálogo, no gestión de torneo).
---  3. editar_cat_gasto permite cambiar CUALQUIER campo, incluida
---     `cuenta_id`. Cambiar la cuenta contable de una categoría con
---     gastos ya asentados no altera esos asientos viejos (crear_asiento
---     ya los grabó), pero sí cambia dónde van los NUEVOS. ¿Es el
---     comportamiento esperado, o cuenta_id debería ser inmutable tras
---     el primer uso?
---  4. cat_gasto tiene UNIQUE(area, nombre) INCONDICIONAL (no distingue
---     activo). Es una limitación del schema, no de estas funciones: una
---     categoría desactivada sigue "ocupando" su nombre+área — no se puede
---     dar de alta otra igual mientras la vieja exista desactivada, ni
---     reactivarla si alguien ya creó una nueva con el mismo nombre.
---     ¿Vale la pena que el unique sea condicional (WHERE activo), como
---     hiciste con NULLS NOT DISTINCT en presupuesto? No lo cambié yo —
---     es tocar el índice, no solo la función. Queda para tu criterio.
+-- ✅ RESPUESTAS DE FACU (20/08, en coordinacion.md):
+--  K1-1 auditoría: SÍ, vía audit_log existente (6 tablas sensibles con
+--    trigger). NO bloquea K1 — se aplica ahora, el trigger se suma
+--    después sin tocar funciones.
+--  K1-2 ¿espera bloque 10? → VA YA. Con la anon key en el bundle, RLS no
+--    cambia la exposición (ya se puede escribir con o sin login); el
+--    riesgo real es de criterio (cuenta equivocada), que mitiga K1-3, no
+--    los roles.
+--  K1-3 cuenta_id inmutable: SÍ, con gastos no anulados asociados. Si
+--    'Arbitros Masculino' tiene 199 gastos en GAS_FECHA y se le cambia
+--    la cuenta, la categoría queda partida en dos — el P&L por cuenta
+--    deja de coincidir con el P&L por categoría, en silencio. Mismo
+--    chequeo que ya hace desactivar_cat_gasto. AGREGADO en esta versión.
+--  K1-4 unique condicional: NO, queda incondicional. Aflojarlo mezclaría
+--    dos categorías con el mismo nombre en una fila de
+--    v_gasto_categoria_mes (agrupa por nombre), rompiendo el 'vs real'
+--    del presupuesto. Si hay que reusar un nombre, se reactiva la
+--    vieja.
 -- ═══════════════════════════════════════════════════════════════
 
 create or replace function public.crear_cat_gasto(
@@ -93,6 +87,34 @@ begin
     raise exception 'La cuenta % no existe', p_cuenta_id;
   end if;
 
+  if p_cuenta_id is not null then
+    declare
+      v_cuenta_actual uuid;
+      v_gastos_activos int;
+    begin
+      select cuenta_id into v_cuenta_actual from cat_gasto where id = p_cat_gasto_id;
+
+      if p_cuenta_id <> v_cuenta_actual then
+        select count(*)
+          into v_gastos_activos
+        from gasto g
+        join v_gasto_detalle d on d.gasto_id = g.id
+        where g.cat_gasto_id = p_cat_gasto_id
+          and d.estado <> 'anulado';
+
+        if v_gastos_activos > 0 then
+          raise exception
+            'No se puede cambiar la cuenta: la categoría tiene % gasto(s) '
+            'asociados. Cambiar la cuenta partiría la categoría en dos — '
+            'los gastos viejos en una cuenta, los nuevos en otra. Es una '
+            'operación deliberada con reimputación, no un cambio de '
+            'formulario.',
+            v_gastos_activos;
+        end if;
+      end if;
+    end;
+  end if;
+
   if (p_nombre is not null or p_area is not null) and exists (
     select 1 from cat_gasto
     where nombre = coalesce(p_nombre, (select nombre from cat_gasto where id = p_cat_gasto_id))
@@ -147,8 +169,8 @@ end;
 $function$;
 
 comment on function crear_cat_gasto(text, text, text, uuid, text, text) is
-  'K1 — alta de categoría de gasto. Rechaza nombre+área duplicado y cuenta inexistente. Ver decisión 4 del header sobre el unique incondicional.';
+  'K1 — alta de categoría de gasto. Rechaza nombre+área duplicado y cuenta inexistente. Ver header con las respuestas de Facu (20/08).';
 comment on function editar_cat_gasto(uuid, text, text, text, uuid, text, text) is
-  'K1 — edición parcial (solo los parámetros no-null se actualizan). Ver decisiones 3 y 4 del header.';
+  'K1 — edición parcial (solo los parámetros no-null se actualizan). Ver header con las respuestas de Facu (20/08).';
 comment on function desactivar_cat_gasto(uuid) is
   'K1 — soft-delete. Rechaza si hay gastos (no anulados) asociados, para no ocultar una categoría con plata viva.';
