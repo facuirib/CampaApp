@@ -17,14 +17,9 @@
 -- (alguien repone lo que pagó de su bolsillo, o retira para pagar), se
 -- usa liquidar_efectivo_transito de B13 — mismo mecanismo que en cobros.
 --
--- ⚠️ DECISIÓN PARA FACU: liquidar_efectivo_transito (de B13) fue pensada
--- para el sentido cobro (EFECTIVO_EN_TRANSITO debe → CAJA_EFECTIVO debe,
--- entra a la caja). Para el sentido pago es al revés: la plata SALE de
--- una caja real para reponer/cubrir el tránsito (CAJA_EFECTIVO haber →
--- EFECTIVO_EN_TRANSITO debe). Dejo esto SIN resolver — hace falta una
--- segunda función (reponer_efectivo_transito) o generalizar
--- liquidar_efectivo_transito con un parámetro de sentido. No lo escribo
--- hasta que confirmes el enfoque general de B13 primero.
+-- ✅ RESUELTO (Facu, 20/08): función SEPARADA reponer_efectivo_transito,
+-- al final de este mismo archivo — no un parámetro de sentido en
+-- liquidar_efectivo_transito. Mismo patrón que comprar_usd/vender_usd.
 --
 -- No cambia la firma de pagar_gasto — 'efectivo_transito' viaja por el
 -- p_medio existente. El drop function queda igual (redundante pero
@@ -193,5 +188,80 @@ comment on function public.pagar_gasto(uuid, text, date, uuid, uuid, text, text,
   'emitido, vinculada por gasto_id. El cheque emitido pendiente se proyecta solo '
   'como egreso futuro en v_cashflow_comprometido, por su fecha_cobro. '
   'Medio efectivo_transito (B13, 20/08) agregado para pagos en efectivo sin '
-  'caja de predio disponible — asienta contra EFECTIVO_EN_TRANSITO. Falta '
-  'resolver cómo se repone esa plata desde una caja real.';
+  'caja de predio disponible — asienta contra EFECTIVO_EN_TRANSITO. '
+  'La reposición usa reponer_efectivo_transito, más abajo en este mismo archivo.';
+
+-- ═══════════════════════════════════════════════════════════════
+-- reponer_efectivo_transito — RESUELTO (Facu, 20/08): función SEPARADA,
+-- no parámetro de sentido en liquidar_efectivo_transito. Mismo patrón
+-- que comprar_usd/vender_usd del proyecto — cuenta común, direcciones
+-- opuestas, dos funciones con nombre que dice qué pasa.
+--
+-- Acá la plata SALE de una caja real para reponer a quien pagó de su
+-- bolsillo (pagar_gasto medio efectivo_transito). No es espejo de
+-- liquidar: ahí la plata entra porque alguien cobró; acá la contraparte
+-- es una persona a la que hay que devolverle plata.
+--
+-- Asiento: EFECTIVO_EN_TRANSITO debe / CAJA_EFECTIVO (del predio) haber.
+-- ═══════════════════════════════════════════════════════════════
+
+create or replace function public.reponer_efectivo_transito(
+  p_gasto_id       uuid,
+  p_predio_id      uuid,
+  p_fecha          date default null,
+  p_responsable_id uuid default null
+)
+returns uuid
+language plpgsql
+as $function$
+declare
+  v_gasto   record;
+  v_fecha   date;
+  v_lineas  jsonb;
+  v_asiento uuid;
+begin
+  select id, total, medio_pago, asiento_pag_id
+    into v_gasto
+    from gasto
+   where id = p_gasto_id;
+
+  if not found then
+    raise exception 'El gasto % no existe', p_gasto_id;
+  end if;
+
+  if v_gasto.medio_pago <> 'efectivo_transito' then
+    raise exception
+      'El gasto % no se pagó con efectivo_transito (medio: %). No hay nada que reponer.',
+      p_gasto_id, v_gasto.medio_pago;
+  end if;
+
+  if not exists (
+    select 1 from caja k
+     where k.tipo = 'efectivo' and k.activo and k.predio_id = p_predio_id
+  ) then
+    raise exception 'El predio % no tiene una caja de efectivo activa', p_predio_id;
+  end if;
+
+  v_fecha := coalesce(p_fecha, current_date);
+
+  v_lineas := jsonb_build_array(
+    jsonb_build_object('cuenta', 'EFECTIVO_EN_TRANSITO', 'debe',  v_gasto.total),
+    jsonb_build_object('cuenta', 'CAJA_EFECTIVO',         'haber', v_gasto.total)
+  );
+
+  v_asiento := crear_asiento(
+    p_fecha       => v_fecha,
+    p_origen      => 'gasto_pago',
+    p_descripcion => 'Reposición de efectivo en tránsito',
+    p_lineas      => v_lineas,
+    p_predio_id   => p_predio_id,
+    p_origen_id   => p_gasto_id,
+    p_created_by  => coalesce(p_responsable_id, auth.uid())
+  );
+
+  return v_asiento;
+end;
+$function$;
+
+comment on function reponer_efectivo_transito(uuid, uuid, date, uuid) is
+  'B13 extendida — repone desde una caja real el efectivo que alguien pagó de su bolsillo (pagar_gasto medio efectivo_transito). Función separada de liquidar_efectivo_transito (decisión de Facu, 20/08).';
