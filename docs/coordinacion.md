@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta · B13 efectivo en tránsito fuera de predio · para Facu
+
+Escribí una propuesta para el caso que registrar_cobro rechaza hoy ("efectivo en poder de personal fuera de un predio... registralo cuando la plata llegue a una caja"). Migración `20260820100000_b13_efectivo_transito.sql`, sin aplicar.
+
+Modelo: cuenta nueva EFECTIVO_EN_TRANSITO + dos funciones — recibir_efectivo_en_transito (asienta al cobrar, percibido puro, mismo patrón que cheque recibido) y liquidar_efectivo_transito (traslado a la caja real del predio cuando llega la plata, sin generar ingreso nuevo).
+
+4 decisiones abiertas en el header del archivo — la más importante es la 4: propongo NO tener tabla de custodia aparte, que el saldo de la cuenta sea la fuente de verdad (mismo criterio que "el fondo sin saldo mantenido a mano", decisión 22). Si no cierra con cómo lo tenés pensado, avisá antes de que lo aplique.
+
+Verificada con begin/rollback, compila limpio.
+
+---
+
 ### 💡 Candidata · M3 alerta de cobertura de cheques emitidos · para Facu
 
 Miré M3 del board (alerta si la suma de cheques emitidos pendientes supera el disponible en caja). Hoy no hay nada armado (verificado: sin función, sin vista, y la tabla cheque no tiene emitidos pendientes de prueba todavía).
