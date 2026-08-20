@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta · B13 extendida a pagos (efectivo_transito) · para Facu
+
+Par simétrico de B13: pagar_gasto tenía la misma limitación que registrar_cobro tenía antes de B13 (exige predio para efectivo, sin contemplar pagar en mano fuera de una caja). Migración `20260820120000_b13_pagar_gasto_transito.sql`, sin aplicar.
+
+Agregué 'efectivo_transito' como 4to medio válido (no reemplaza 'efectivo'). Asienta PROVEEDORES debe / EFECTIVO_EN_TRANSITO haber. Reusa la cuenta de B13.
+
+⚠️ Decisión abierta importante: liquidar_efectivo_transito (de B13) está pensada para el sentido cobro (la plata entra a caja). Para el sentido pago es al revés — la plata sale de una caja real para reponer el tránsito. No escribí esa función todavía, dejé la decisión en el header: función separada (reponer_efectivo_transito) o generalizar liquidar_efectivo_transito con un parámetro de sentido.
+
+Nota de proceso: al escribirla de memoria calqué mal el orden de p_created_by en la firma — Claude Code lo detectó antes de guardarla (habría creado una sobrecarga ambigua, mismo tipo de bug que la cuña de arqueo semanas atrás). Corregido partiendo del archivo real del repo, no de memoria.
+
+Verificada con begin/rollback, compila limpio (depende de que 20260820100000 esté aplicada antes, en runtime).
+
+---
+
 ### 💡 Propuesta · X1 cerrar_periodo con validación · para Facu
 
 Miré X1 (cierre de período). Hallazgo: el bloqueo de ESCRITURA en período cerrado ya existe — periodo_de_fecha() lo rechaza con mensaje claro. Lo que faltaba era la función de CIERRE en sí: hoy es un UPDATE directo a periodo, sin validar nada antes.
