@@ -18,6 +18,178 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Respuestas de Facu a B13 / X1 / K1 · 20/08/2026 · para Horacio
+
+**Las 13 decisiones, contestadas.** Dale para adelante con las cuatro
+migraciones — con los ajustes que van abajo.
+
+Antes de las respuestas: quedaron **prolijas**. Las cuatro con `NO APLICAR sin
+revisión` y ninguna aplicada, las decisiones abiertas en el header del archivo y
+no sólo acá, y verificadas con `begin/rollback`. Dos cosas que cazaste y valen
+más que el código:
+
+- **El `torneo_id` que ya existía** en `v_gasto_detalle` desde el 12/08. Yo te
+  pedí dos columnas y una sobraba; lo verificaste contra el schema en vez de
+  creerme.
+- **El rename encubierto** al insertar columnas en el medio de un `create or
+  replace view` (`ERROR 42P16`), corregido en el lugar para que el historial no
+  quede con un bug seguido de su parche. Es el mismo error que cometí yo con
+  `origen_id` la semana pasada.
+
+---
+
+#### K1 · CRUD de `cat_gasto`
+
+**K1-2 · ¿espera al bloque 10? → VA YA.**
+El RLS no cambia la exposición: con la anon key en el bundle, `cat_gasto` **ya se
+puede escribir con o sin login** (§2099 de arquitectura). Esperar a los roles no
+agrega seguridad, sólo demora. Y el riesgo real no es de acceso sino **de
+criterio** —crear una categoría apuntando a la cuenta equivocada—, que se mitiga
+con K1-3, no con roles. Hoy la alternativa es editar a mano en Supabase, que es
+estrictamente peor que una función que valida.
+
+**K1-3 · `cuenta_id` inmutable → SÍ, con gastos no anulados asociados.**
+Es la condición que hace segura a K1-2. Si «Arbitros Masculino» tiene 199 gastos
+en `GAS_FECHA` y alguien le cambia la cuenta, **la categoría queda partida en
+dos** —los viejos donde estaban, los nuevos en otro lado— y el P&L por cuenta
+deja de coincidir con el P&L por categoría, en silencio. Mismo chequeo que ya
+hace `desactivar_cat_gasto`. Migrar de cuenta es una operación deliberada con
+reimputación, no un `update` de formulario.
+
+**K1-1 · auditoría → SÍ, pero después y aparte.**
+Sumar `cat_gasto` a `audit_log`, que ya existe con triggers sobre las 6 tablas
+sensibles. Columnas propias crearían un segundo mecanismo para lo mismo. **No
+bloquea K1**: se aplica ahora y el trigger se suma después sin tocar funciones.
+
+**K1-4 · unique condicional → NO, queda incondicional.**
+Acá no aplica el paralelo con mi `NULLS NOT DISTINCT`: aquello **agregaba** una
+restricción que faltaba, esto la **aflojaría**. Y tiene una consecuencia
+concreta: dos categorías con el mismo nombre se mezclarían en una fila de
+`v_gasto_categoria_mes` —que agrupa por nombre— y el «vs real» del presupuesto
+compararía contra la suma de las dos. Es justo la fragilidad del nombre que
+estamos tratando de eliminar. Si hay que reusar un nombre, **se reactiva la
+vieja**.
+
+---
+
+#### B13 · Efectivo en tránsito
+
+**B13-1 · nombre → `EFECTIVO_EN_TRANSITO`.**
+Y bien que **no** sea `CAJA_*`: no es una caja —no se arquea, no tiene predio— y
+el prefijo la metería en `v_saldo_caja` y en el arqueo. **Corregí la
+inconsistencia del header**, que en la descripción del asiento dice
+`CAJA_EFECTIVO_TRANSITO` mientras el `insert` crea `EFECTIVO_EN_TRANSITO`. Y
+verificá antes de aplicar que ninguna vista de caja la levante por prefijo.
+
+**B13-2 · ¿reconocer al recibir? → SÍ, al RECIBIR.**
+Regla 1.b, percibido puro: el único evento que genera ingreso es el pago, y el
+equipo ya pagó. Idéntico al cheque recibido, que asienta al cobrar y no al
+acreditar. Reconocer al liquidar sería un **tercer** criterio para el mismo
+hecho.
+
+**B13-3 · ¿quién liquida? → cualquiera.**
+Restringirlo exigiría la tabla de custodia que B13-4 descarta, y en la práctica
+la entrega quien esté. El `p_responsable_id` del asiento deja el rastro.
+
+**B13-4 · ¿tabla de custodia? → SIN tabla, PERO con `tercero_id` en el asiento.**
+De acuerdo con el principio y con la analogía a la decisión 22. La salvedad: el
+saldo dice **cuánto** está en tránsito, no **quién lo tiene**. Para el fondo
+alcanza —la plata está en el banco—; acá está **en el bolsillo de alguien**, y
+la pregunta operativa es «¿quién debe rendir?». Con dos personas circulando, el
+saldo agregado no permite reclamarle a ninguna.
+
+Con `tercero_id` en el asiento el detalle sale del diario —quién y desde
+cuándo— sin duplicar estado, y el saldo sigue siendo la verdad del cuánto. Es el
+mismo truco del cheque: sin tabla de custodia, pero la fila sabe de quién es.
+
+> **CORRECCIÓN, no decisión.** `recibir_efectivo_en_transito` **no le pasa
+> `p_torneo_id` a `crear_asiento`** —lo anotaste vos al final del header—.
+> `registrar_cobro` sí lo calcula de las cuotas imputadas. Sin eso **el ingreso
+> no queda atribuido al torneo** y el P&L por torneo lo pierde. A corregir antes
+> de aplicar.
+
+---
+
+#### B13 extendida a pagos
+
+**Función SEPARADA (`reponer_efectivo_transito`), no parámetro de sentido.**
+El proyecto ya lo decidió: `comprar_usd` y `vender_usd` son **dos funciones**, no
+`operar_usd(sentido)` — mismo caso, par simétrico con cuenta común y direcciones
+opuestas. Los nombres de la casa dicen qué pasa, no lo reciben como dato.
+
+Y hay una razón de fondo: **los dos sentidos no son espejo**. Liquidar un cobro
+es «la plata llegó a la caja»; reponer un pago es «alguien puso de su bolsillo y
+hay que devolvérselo» — ahí la contraparte es una persona, no una caja. Un
+parámetro escondería esa diferencia dentro de un `if`.
+
+El nombre que proponés está bien: describe el hecho.
+
+> **A revisar al aplicar:** con `efectivo_transito` como 4º medio, que ningún
+> `case medio_pago` quede con una rama muerta. Es la lección de
+> `gasto_medio_pago_check`, que rechazaba `'cheque'` y nadie lo notó **porque esa
+> rama nunca se ejecutaba**.
+
+---
+
+#### X1 · `cerrar_periodo`
+
+**X1-1 · ¿alcanza la validación? → SÍ, más una.**
+Tu criterio para dejar cheques y compromisos afuera es correcto: un cheque a 60
+días **existe para cruzar el cierre**, y bloquear por eso sería un falso positivo
+mensual. Un arqueo sin entregar es distinto — es plata física sin conciliar.
+
+**Agregá una sola cosa: que el período no tenga asientos descuadrados.** Hoy lo
+garantiza `trg_asiento_balanceado` por asiento; un chequeo agregado al cerrar es
+la última red antes de congelar el mes. **No** agregues gastos devengados sin
+pagar: es el estado normal de un gasto y bloquearía todos los cierres.
+
+**X1-2 · ¿`reabrir_periodo`? → NO. No debe existir.**
+
+*Acá cambio lo que te habría contestado sin verificar.* Fui a mirar
+`trg_periodo_no_reabre` antes de responder, y **el sistema ya tomó esta
+decisión**:
+
+```
+check_periodo_no_reabre():
+  if old.estado = 'cerrado' and new.estado = 'abierto' then
+    raise exception 'El período %-% está cerrado y no puede reabrirse.
+                     Las correcciones se registran como ajuste en el período abierto.';
+```
+
+Probado en rollback: cerrar con `UPDATE` directo funciona —sin validar nada, que
+es justo lo que X1 viene a arreglar— y reabrir **se rechaza con ese mensaje**.
+
+O sea que la pregunta no era «¿función propia o `UPDATE` directo?» sino si se
+permite reabrir, y la respuesta ya estaba escrita en el trigger **con su
+alternativa**: las correcciones van como **`ajuste`** en el período abierto —y
+`asiento_origen_check` ya admite ese origen—. No hay que crear `reabrir_periodo`
+ni una salida de emergencia: el mecanismo de corrección existe y es el
+contraasiento.
+
+**Un dato útil que salió de lo mismo:** `trg_periodo_cierre` ya estampa
+`cerrado_at` y `cerrado_por` solo al pasar a cerrado, así que `cerrar_periodo`
+**no necesita setearlos**. Ojo que en la prueba `cerrado_por` quedó **NULL**,
+porque el trigger usa `auth.uid()` y desde SQL no hay sesión — si querés que
+quede el responsable, la función tiene que pasarlo explícito, igual que hicimos
+con el fallback que sacamos de `crear_asiento`.
+
+---
+
+#### El orden para aplicar
+
+1. **B13** (`20260820100000`) — crea la cuenta que usa la siguiente.
+2. **B13 extendida** (`20260820120000`) — depende de la anterior en runtime.
+3. **K1** (`20260820130000`) y **X1** (`20260820110000`) — independientes, en
+   cualquier orden.
+
+Cada una **mostrando antes de aplicar**, como venimos (regla 11). Las cuatro son
+tuyas: aplicalas vos cuando estén con los ajustes.
+
+> Lo de `20260819210000` (las columnas de las vistas de gasto) lo aplico yo, que
+> es lo que desbloquea el «vs real» del presupuesto. Te aviso cuando esté —
+> **ojo con el cambio de granularidad de `v_gasto_categoria_mes`** que anotaste,
+> reviso quién la consume antes.
+
 ### 💡 Propuesta · K1 CRUD de categorías de gasto · para Facu
 
 cat_gasto no tenía funciones de escritura (solo seed/editor directo). Migración `20260820130000_k1_cat_gasto_crud.sql`, sin aplicar: crear_cat_gasto, editar_cat_gasto (edición parcial), desactivar_cat_gasto (soft-delete, rechaza si tiene gastos no-anulados asociados).
