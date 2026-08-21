@@ -98,18 +98,31 @@ export default function AccionesCheque({
   /**
    * Las cajas que se pueden elegir.
    *
-   * `cambiar_estado_cheque` acepta cualquier caja, pero dos de ellas producirían
-   * datos rotos y por eso no se ofrecen:
+   * `cambiar_estado_cheque` acepta cualquier caja, pero varias producirían datos
+   * rotos. La lista es BLANCA y no negra, por lo que pasó el 21/08: el modelo de
+   * bar agregó tres cajas —Bar Efectivo, Tarjeta, Mercado Pago— y el filtro por
+   * exclusión que había acá las dejó pasar a todas sin que nadie las agregara.
+   * Un cheque se podía acreditar en el cajón del bar.
    *
-   *  · las de EFECTIVO DE PREDIO, porque la función llama a `crear_asiento` sin
-   *    `predio_id` — un movimiento de efectivo sin predio no se puede arquear
-   *    (regla 9);
-   *  · la de USD, porque el promedio ponderado se lleva en `comprar_usd` /
-   *    `vender_usd`; meter pesos por otro lado lo corre en silencio.
+   * Con lista blanca, una caja nueva queda AFUERA hasta que alguien la piense.
+   * Es la diferencia entre olvidarse de excluir —silencioso— y olvidarse de
+   * incluir —visible, porque la caja no aparece.
    *
-   * Queda lo que un cheque puede ser de verdad: se deposita en el banco, o —si
-   * se cobra por ventanilla— entra a la central, que no tiene predio.
+   * Las dos que entran, y por qué son las únicas:
+   *
+   *  · CAJA_TRANSFERENCIA — el cheque se deposita en el banco. Es el caso normal.
+   *  · CAJA_CENTRAL — se cobra por ventanilla y el efectivo entra a la central,
+   *    que no tiene predio.
+   *
+   * Lo que queda afuera y por qué: el EFECTIVO DE PREDIO, porque la función
+   * llama a `crear_asiento` sin `predio_id` y un movimiento de efectivo sin
+   * predio no se puede arquear (regla 9) — vale igual para BAR_EFECTIVO; USD,
+   * porque el promedio ponderado se lleva en `comprar_usd` / `vender_usd` y
+   * meter pesos por otro lado lo corre en silencio; TARJETA y MERCADO_PAGO,
+   * porque un cheque no se cobra por esas vías.
    */
+  const CAJAS_VALIDAS_CHEQUE = ['CAJA_TRANSFERENCIA', 'CAJA_CENTRAL']
+
   const cargarCajas = useCallback(async () => {
     const supabase = createClient()
     const [{ data: cajaData, error: errCaja }, { data: cuentaData, error: errCuenta }] =
@@ -127,7 +140,6 @@ export default function AccionesCheque({
 
     setCajas(
       (cajaData ?? [])
-        .filter((c) => c.tipo !== 'usd' && !(c.tipo === 'efectivo' && c.predio_id !== null))
         .map((c) => {
           const cuenta = c.cuenta_id ? porId.get(c.cuenta_id) : undefined
           return {
@@ -138,7 +150,7 @@ export default function AccionesCheque({
             cuenta_nombre: cuenta?.nombre ?? '',
           }
         })
-        .filter((c) => c.cuenta_codigo !== ''),
+        .filter((c) => CAJAS_VALIDAS_CHEQUE.includes(c.cuenta_codigo)),
     )
   }, [])
 
