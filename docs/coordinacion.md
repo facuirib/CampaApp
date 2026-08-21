@@ -18,6 +18,95 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ⚠️ Toqué `arqueo` y el circuito del torneo · 21/08/2026 · de Facu para Horacio
+
+**Aviso obligatorio**: esto toca núcleo compartido —`arqueo`, y funciones del
+circuito de caja del torneo que están en producción—. No toca RLS ni nada tuyo
+específico, pero `arqueo` y `caja` son tablas que vos podrías tomar si encarás
+RLS, así que conviene que lo sepas antes.
+
+Migración `20260821190000_ajuste_arqueo_y_arqueo_bar.sql`, **aplicada**.
+
+#### El motivo: el arqueo del torneo detectaba diferencias y nunca las asentaba
+
+`arqueo` tiene 0 filas, o sea que el circuito nunca corrió. Lo ejecuté en
+rollback y apareció esto: `crear_arqueo` calcula la diferencia —columna
+generada— y genera **cero asientos**. `asiento_ajuste_id` quedaba **NULL para
+siempre**: ninguna función lo escribía, lo busqué en todos los cuerpos y solo
+dos VISTAS lo leen.
+
+Consecuencia concreta: con un faltante de $120.000, después de la entrega a
+central quedaban **$120.000 de residuo en la caja del predio**, para siempre. El
+diario cuadraba, pero la plata que no está seguía figurando como que está, y el
+faltante nunca llegaba a una cuenta de resultado.
+
+#### Qué cambió
+
+**Cuenta nueva `FIN_DIF_ARQUEO`** (tipo `financiero`, imputable). Una sola
+cuenta para los dos signos: faltante al debe (pérdida), sobrante al haber
+(ganancia). Es el mismo género que `FIN_DIF_CAMBIO`, y por eso el mismo tipo:
+`v_pl_mensual` calcula `haber − debe` para `financiero`, así que los dos
+sentidos salen bien sin tocar la vista. Como `egreso` habría caído en «Sin
+categoría» en `v_pl_mensual_item`, que deriva el ítem del gasto detrás del
+asiento — y un ajuste de arqueo no tiene gasto.
+
+**`asentar_diferencia_arqueo(arqueo_id, fecha, by)`** — la puerta que faltaba.
+Sirve a los dos ámbitos: ajusta `CAJA_EFECTIVO` (torneo) o `BAR_EFECTIVO` (bar)
+contra `FIN_DIF_ARQUEO`. Después de asentar, **el saldo de la cuenta ES el
+contado**.
+
+**`arqueo` ahora tiene `ambito`** (`'torneo'` | `'bar'`, default `'torneo'`), y
+el unique pasó de `(dia_cancha_id)` a **`(dia_cancha_id, ambito)`**: el mismo día
+puede tener el arqueo del torneo y el del bar, que son dos cajones físicos
+distintos. Se hizo ahora justamente porque la tabla está en 0 filas — con datos,
+cambiar ese unique es otra cosa.
+
+**`crear_arqueo` toma `p_ambito`** al final, con default `'torneo'`. **La llamada
+vieja de tres argumentos sigue andando** —`/arqueo/nuevo` no se tocó— y lo
+verifiqué contra la base ya aplicada.
+
+> ⚠️ **Un detalle que casi me como, por si te sirve:** agregar un parámetro
+> —aunque tenga default— cambia la FIRMA, así que `create or replace` **no
+> reemplaza: sobrecarga**. Quedaban las dos versiones vivas y toda llamada de 3
+> args pasaba a ser ambigua (`ERROR 42725: function crear_arqueo(uuid, integer,
+> uuid) is not unique`). O sea que `/arqueo/nuevo` se habría roto al aplicar. Se
+> resuelve con `drop function` antes del create, como ya hace la migración de
+> `pagar_gasto`. Lo encontró ejecutar la prueba, no leer el código.
+
+**`registrar_entrega_central` ahora rechaza `ambito = 'bar'`.** El bar saca su
+plata con `retirar_efectivo_bar`, que además admite banco. Sin esa guardia,
+entregar un arqueo de bar habría sacado plata del cajón del **torneo**, porque la
+función tiene `CAJA_EFECTIVO` hardcodeada. Falla silenciosa.
+
+`v_arqueo_detalle` y `v_arqueo_diferencia` exponen `ambito` (columna agregada al
+final, que es lo único que permite `create or replace view`).
+
+Verificado en rollback, 20/20: los dos ámbitos, los dos signos, el ciclo real del
+bar (ventas + retiro → esperado correcto), y descuadre 0 en todos los casos.
+Producción quedó con `arqueo` en 0 filas y `FIN_DIF_ARQUEO` en $0.
+
+#### Tres cosas que ENCONTRÉ y NO resolví — por si las querés mirar
+
+No las toco porque cambian el circuito del torneo más allá del ajuste, y me
+parece decisión aparte:
+
+**③ Un arqueo con contado 0 queda trabado.** `registrar_entrega_central` rechaza
+contado = 0 («no hay efectivo que entregar»), así que ese arqueo se queda en
+`pendiente_entrega` para siempre. Es el caso real de un día que se arquea y no
+hubo plata. Falta decidir si debería poder pasar a `entregado` sin asiento, o si
+necesita un estado propio.
+
+**④ No se puede anular ni corregir un arqueo.** Cero funciones, y el unique
+impide rehacerlo. Un contado mal tipeado es permanente. La salida sería un
+`anular_arqueo` que contraasiente ajuste y entrega si existen y libere el día —
+mismo patrón que `anular_venta_bar`.
+
+**Y una lateral: `pagar_gasto` no valida saldo de caja.** La caja de Tirolesa
+está en **−$508.000 hoy** porque un gasto `ZZ_TEST_` de $4.800.000 se pagó en
+efectivo cuando había $3.192.000. El dato es de prueba, pero la puerta que lo
+permitió es real. (`retirar_efectivo_bar`, que escribí ayer, sí valida saldo — se
+puede calcar.)
+
 ### ✅ Tu migración `predio_obligatorio_por_dia_cancha` está lista para aplicar · 21/08/2026 · de Facu para Horacio
 
 **Aplicala cuando quieras. No hay que tocarla ni resolver nada antes.**
