@@ -61,20 +61,20 @@ function claseABadge(clase: string | null): CeldaBadge {
 }
 
 /**
- * El estado, leído según el ámbito.
+ * El estado, ahora leído del DATO y no inferido del ámbito.
  *
- * `arqueo.estado` nace en 'pendiente_entrega' para los dos cajones, pero la
- * entrega a central es del TORNEO: el bar saca su plata por /bar/retiro y
- * `registrar_entrega_central` lo rechaza. Mostrarle «Pendiente de entrega» a un
- * arqueo de bar anuncia un paso que no existe y que nadie va a poder hacer.
+ * Antes esta función tenía un caso especial —`if (ambito === 'bar')`— porque el
+ * arqueo del bar nacía 'pendiente_entrega' y mostrarle «Pendiente de entrega» a
+ * un cajón que no entrega anunciaba un paso inexistente. Era maquillaje sobre
+ * un dato mal: la pantalla decía una cosa y la base otra.
  *
- * La columna se comparte porque la tabla se comparte —fue la contra asumida al
- * elegir `ambito` en vez de una tabla aparte—, así que la lectura se corrige
- * acá, que es donde el ámbito está a la vista.
+ * Con el estado 'cerrado' (21/08) el dato es correcto en origen: nacen cerrados
+ * los del bar y los del torneo con contado 0. El caso especial se fue, y el
+ * `ambito` ya no hace falta acá.
  */
-function estadoArqueoABadge(estado: string | null, ambito: string | null): CeldaBadge {
-  if (ambito === 'bar') return { estado: 'ok', label: 'Registrado' }
+function estadoArqueoABadge(estado: string | null): CeldaBadge {
   if (estado === 'entregado') return { estado: 'ok', label: 'Entregado' }
+  if (estado === 'cerrado') return { estado: 'ok', label: 'Cerrado' }
   if (estado === 'pendiente_entrega') return { estado: 'porVencer', label: 'Pendiente de entrega' }
   return { estado: 'neutro', label: estado ?? '—' }
 }
@@ -156,7 +156,7 @@ export default async function ArqueoPage() {
     saldo_sistema: f.saldo_sistema,
     saldo_contado: f.saldo_contado,
     diferencia: f.diferencia,
-    estado: estadoArqueoABadge(f.estado, f.ambito),
+    estado: estadoArqueoABadge(f.estado),
     ambito: ambitoABadge(f.ambito),
   }))
 

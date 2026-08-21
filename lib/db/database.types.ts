@@ -347,6 +347,8 @@ export type Database = {
       arqueo: {
         Row: {
           ambito: string
+          anulado_at: string | null
+          anulado_motivo: string | null
           asiento_ajuste_id: string | null
           asiento_entrega_id: string | null
           created_at: string
@@ -361,6 +363,8 @@ export type Database = {
         }
         Insert: {
           ambito?: string
+          anulado_at?: string | null
+          anulado_motivo?: string | null
           asiento_ajuste_id?: string | null
           asiento_entrega_id?: string | null
           created_at?: string
@@ -375,6 +379,8 @@ export type Database = {
         }
         Update: {
           ambito?: string
+          anulado_at?: string | null
+          anulado_motivo?: string | null
           asiento_ajuste_id?: string | null
           asiento_entrega_id?: string | null
           created_at?: string
@@ -4129,6 +4135,8 @@ export type Database = {
       v_arqueo_detalle: {
         Row: {
           ambito: string | null
+          anulado_at: string | null
+          anulado_motivo: string | null
           arqueo_id: string | null
           asiento_ajuste_id: string | null
           asiento_entrega_id: string | null
@@ -6300,6 +6308,15 @@ export type Database = {
           p_unidad?: string
         }
         Returns: string
+      }
+      anular_arqueo: {
+        Args: {
+          p_arqueo_id: string
+          p_created_by?: string
+          p_fecha?: string
+          p_motivo: string
+        }
+        Returns: number
       }
       anular_asiento: {
         Args: {

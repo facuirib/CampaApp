@@ -18,6 +18,81 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ⚠️ Toqué `arqueo` otra vez: estado nuevo, anulación y un trigger · 21/08/2026 · de Facu para Horacio
+
+Migración `20260821210000`, **aplicada**. Es núcleo compartido y toca el circuito
+del torneo, así que va con detalle. **El flujo del torneo quedó idéntico** — lo
+verifiqué contra la base ya aplicada, paso por paso.
+
+#### Estado `'cerrado'`
+
+El CHECK pasó a `('pendiente_entrega','entregado','cerrado')`. `entregado` era el
+único terminal, y eso dejaba sin salida a dos casos:
+
+- **Torneo con contado 0** — la entrega lo rechaza («no hay efectivo que
+  entregar»), así que quedaba pendiente para siempre. Y si además cuadró exacto,
+  `asentar_diferencia_arqueo` también lo rechaza: un arqueo perfecto sin ninguna
+  salida.
+- **TODOS los del bar** — el bar no entrega a central. El 100% quedaba
+  `pendiente_entrega`, y `v_efectivo_sin_rendir` los listaba.
+
+`'cerrado'` significa **arqueado y sin nada que entregar**. Se decide al crear:
+ámbito bar → siempre; contado 0 → siempre. Con contado > 0 el torneo sigue
+naciendo `pendiente_entrega`, que es el estado real de «la plata la tiene su
+responsable» (decisión 58).
+
+Un arqueo cerrado **todavía puede asentar su diferencia**: cerrar no es
+«terminado», es «no hay entrega».
+
+#### `anular_arqueo(id, motivo, fecha, by) → int`
+
+Revierte lo que el arqueo tenga, **en orden inverso al que se escribió**:
+primero la entrega, después el ajuste, los dos vía `anular_asiento` (regla 4).
+Devuelve cuántos asientos revirtió: 0 (solo registrado), 1 (con ajuste) o 2 (con
+ajuste y entrega). Marca la fila.
+
+El unique pasó a **parcial** `WHERE anulado_at IS NULL` — sin eso anular no
+serviría: se podría deshacer pero nunca rehacer el día.
+
+#### 🔴 `check_arqueo_inmutable` · cerraba una puerta abierta
+
+Verificado antes de tocarlo: **`update arqueo set saldo_contado = X` pasaba sin
+ningún control**. La `diferencia` es columna generada y se recalculaba sola, pero
+el **asiento de ajuste ya escrito seguía por el monto viejo**. Quedaban
+contradiciéndose, el diario cuadraba igual, y ninguna validación lo veía. Con la
+anon key en el bundle eso lo podía hacer cualquiera.
+
+El trigger congela **`saldo_contado`, `saldo_sistema`, `dia_cancha_id` y
+`ambito`** una vez creado el arqueo. Deja libres `estado`, `entregado_at`, los
+`asiento_*` y la marca de anulación — lo que las funciones sí mueven.
+
+Bloquea **por columna, no por rol ni por función**: no hay forma confiable de
+saber quién llama, y las puertas legítimas no tocan esas columnas.
+
+**Si tenés algún flujo que actualice `arqueo` a mano, se va a frenar.** No
+encontré ninguno, pero avisá si lo hay.
+
+#### Lo verificado contra la base aplicada
+
+La llamada de 3 args de `/arqueo/nuevo` → nace `pendiente_entrega` → saldo
+congelado $1.120.000 → aparece en `v_efectivo_sin_rendir` → ajuste baja la caja a
+lo contado → entrega deja la caja en $0 y el estado en `entregado` → sale de
+sin_rendir. Y anular revierte los 2 asientos, la caja vuelve a $1.120.000 y el
+día queda libre. Descuadre 0.
+
+#### Lo que viene, y todavía NO está
+
+Queda escrita y **sin aplicar** la pieza ⑤: `validar_saldo_caja`, que impediría
+sacar efectivo que no está. Toca cinco puertas —`pagar_gasto`,
+`crear_retiro_socio`, `comprar_usd`, `reponer_efectivo_transito` y
+`registrar_entrega_central`— y **solo cuentas de efectivo físico**:
+transferencia y USD siguen admitiendo descubierto, que es legítimo (tu
+`comprar_usd` deja −$5.750.000 a propósito).
+
+No la aplico todavía porque **bloquearía todo pago en efectivo desde Tirolesa**,
+que está en −$508.000 por un gasto `ZZ_TEST_` de $4.800.000 del seed. Primero hay
+que limpiar eso. Aviso antes de aplicarla.
+
 ### 🔴 Mi migración de ayer rompió 2 vistas del arqueo del torneo · ya arreglado · 21/08/2026 · de Facu para Horacio
 
 **Lo cuento porque era tuyo tanto como mío**: son vistas de lectura del circuito
