@@ -2204,25 +2204,19 @@ intención, no como roadmap activo.
 | **Bar (gastos)** | Cubierto por `/gastos`, ver arriba |
 | **Punto de equilibrio** | **Descartado.** No tenía tabla, vista, función ni ruta: existía sólo en el boceto de navegación |
 
-### ⚠️ Doc y práctica no coinciden · escritura desde el front
+### La escritura desde el front
 
-**`CLAUDE.md` dice «Server Actions para mutaciones, no API routes».** Las
-pantallas de escritura recientes —Cheques, Activos, Presupuesto— **no las usan**:
-son Client Components que llaman `createClient()` de `@/lib/db/client`, después
-`supabase.rpc(...)`, y cierran con `router.refresh()` porque la página de arriba
-es Server Component.
+**La convención vive en `CLAUDE.md`**, y desde el 21/08 refleja la práctica:
+`supabase.rpc()` desde un Client Component cuando hay función de Postgres que
+valida —la puerta es la función, no el transporte—, y Server Action cuando se
+escribe directo a una tabla o hay un secreto en juego.
 
-Las únicas Server Actions del repo son `configuracion/acciones.ts` y
-`reclamos/acciones.ts`, las dos donde hay **mail** y la key tiene que quedar del
-lado servidor.
-
-No es un descuido de una pantalla: es el patrón de las tres últimas, y es
-coherente —toda la escritura pasa por funciones de Postgres, así que la Server
-Action sólo agregaría un salto—. Pero **el doc dice otra cosa**, y quien lea
-`CLAUDE.md` para hacer la próxima va a hacerla distinta.
-
-**Hay que reconciliar los dos**, decidiendo cuál gana. No se resuelve acá: queda
-anotado para tratarlo aparte.
+*Antes esta sección marcaba que el doc y el código no coincidían: `CLAUDE.md`
+pedía Server Actions para toda mutación y las trece pantallas de escritura usan
+`rpc`. Las dos únicas Server Actions —`reclamos` y `configuracion`— resultaron
+tener razones propias y consistentes: la `RESEND_API_KEY` no puede tocar el
+bundle, y las dos escriben con `.from(...).insert()` sin función que las valide.
+La regla se corrigió hacia la práctica, que era la correcta.*
 
 ### Una convención que vale para todas
 
