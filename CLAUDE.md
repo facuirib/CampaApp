@@ -231,7 +231,11 @@ El sobrante queda como anticipo (saldo a favor), no se pierde.
 ## Convenciones
 
 - Server Components por defecto; `"use client"` solo cuando hay interacción
-- Server Actions para mutaciones, no API routes
+- Mutaciones: Client Component + `supabase.rpc()` cuando hay función de Postgres
+  que valida — **la puerta es la función, no el transporte**. Server Action
+  cuando se escribe directo a una tabla, porque ahí la validación no puede vivir
+  en otro lado, o cuando hay un secreto en juego (`RESEND_API_KEY`). Nunca API
+  routes
 - Los tipos salen de `supabase gen types`, no se escriben a mano
 - Errores de dominio: clase `DomainError`, no strings sueltos
 - Toda función SQL nueva va en una migración numerada, no en un script suelto
