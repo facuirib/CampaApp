@@ -52,7 +52,14 @@ export interface DataTableProps<T extends object> {
    * Server Component, con teclado, clic del medio y "copiar dirección".
    * Es la forma recomendada de abrir el detalle de una fila.
    */
-  rowHref?: (row: T) => string
+  /**
+   * Devolver `undefined` deja esa fila SIN navegación, y el resto de la tabla
+   * con la suya. El cuerpo ya lo contemplaba —`href != null` decide si la fila
+   * es interactiva—; solo el tipo era más estrecho que el comportamiento.
+   * Sirve para listas mixtas donde no toda fila tiene detalle: en /arqueo, el
+   * arqueo del bar no se entrega a central, así que no va a esa pantalla.
+   */
+  rowHref?: (row: T) => string | undefined
 
   /**
    * Interacción que NO es navegación. Requiere que quien use la tabla sea un

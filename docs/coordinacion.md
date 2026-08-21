@@ -18,6 +18,63 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 Mi migración de ayer rompió 2 vistas del arqueo del torneo · ya arreglado · 21/08/2026 · de Facu para Horacio
+
+**Lo cuento porque era tuyo tanto como mío**: son vistas de lectura del circuito
+de arqueo del torneo, y estuvieron rotas en producción unas horas.
+
+#### Qué pasó
+
+La migración `20260821190000` agregó `ambito` a `arqueo` y permitió **dos
+arqueos por día** —torneo y bar—. Dos vistas hacen `LEFT JOIN arqueo` **sin
+filtrar ámbito**, y no las tenía en los tests. La migración pasó 20/20 igual.
+
+Lo encontré al construir la pantalla, arqueando torneo + bar el mismo día:
+
+| Vista | Qué hacía mal |
+|---|---|
+| `v_saldo_efectivo_dia_cancha` | **58 filas → 59.** El día arqueado aparecía DOS veces. La sección «Cajas por día» de `/arqueo` lo mostraba duplicado y `/arqueo/nuevo` lo ofrecía dos veces en el Select |
+| `v_efectivo_sin_rendir` | Sumaba el arqueo del **bar** como plata a rendir a central. El bar no rinde a central: saca por `retirar_efectivo_bar`. Inflaba el «efectivo sin rendir» de cada responsable |
+
+**Fue latente, no causó daño**: `arqueo` tenía 0 filas, así que ninguna de las
+dos condiciones podía darse con datos reales. Pero el código roto ya estaba
+aplicado, y si hubieras cargado un arqueo lo habrías visto vos antes que yo.
+
+#### El fix
+
+`20260821200000_vistas_bar_y_fix_ambito.sql`, **aplicada**. A las dos vistas les
+agregué `and a.ambito = 'torneo'` **en el ON, no en un WHERE** —en un WHERE el
+LEFT JOIN se degrada a INNER y desaparecen los días sin arquear—. Las columnas
+quedan idénticas, así que ningún consumidor se entera.
+
+Verificado: con torneo + bar el mismo día, la vista vuelve a **58 filas**, el día
+aparece una vez y trae el arqueo del **torneo**; `v_efectivo_sin_rendir` cuenta
+solo uno. Y se ve en la pantalla: «Efectivo sin rendir» muestra $1.000.000 —el
+arqueo del torneo— y no $1.250.000.
+
+La misma migración suma dos vistas nuevas del bar, que no tocan nada tuyo:
+`v_saldo_bar_dia_cancha` (gemela de la del torneo, sobre `BAR_EFECTIVO`) y
+`v_retiro_bar`.
+
+#### Lo que te puede servir de todo esto
+
+**Agregar una dimensión a una tabla rompe a los que la leen sin conocerla.**
+`ambito` no cambió ninguna columna existente, no rompió ninguna función, y aun
+así partió dos vistas — porque un LEFT JOIN que asumía «como mucho una fila»
+dejó de ser cierto. Si algún día agregás una dimensión a `gasto`, `pago` o
+`cuota`, vale revisar quién les hace JOIN esperando una sola fila.
+
+#### Y en las pantallas
+
+`/arqueo` y `/arqueo/nuevo` ahora manejan los dos cajones. **El flujo del torneo
+quedó igual**: el selector arranca en Torneo, lee la misma vista y llama la misma
+RPC. Lo verifiqué con screenshots antes y después.
+
+Dos detalles de lectura que corregí de paso: el arqueo del bar mostraba
+«Pendiente de entrega» —un paso que para el bar no existe—, ahora dice
+«Registrado»; y el historial ya no manda los arqueos de bar a `/entregar`, que
+`registrar_entrega_central` rechaza.
+
 ### ⚠️ Toqué `arqueo` y el circuito del torneo · 21/08/2026 · de Facu para Horacio
 
 **Aviso obligatorio**: esto toca núcleo compartido —`arqueo`, y funciones del

@@ -9,7 +9,23 @@ import type { Database } from '@/lib/db/database.types'
 
 type DiaSinArquear = Database['public']['Views']['v_saldo_efectivo_dia_cancha']['Row']
 
+/**
+ * Qué cajón se está contando.
+ *
+ * Son dos cajones FÍSICOS distintos en el mismo predio: el del torneo y el del
+ * bar. Por eso el mismo día admite un arqueo de cada uno, y por eso el saldo
+ * esperado sale de vistas distintas —`v_saldo_efectivo_dia_cancha` contra
+ * `v_saldo_bar_dia_cancha`—, que tienen las mismas columnas justamente para
+ * que esta pantalla sea una sola.
+ *
+ * El default es 'torneo': la pantalla arranca exactamente donde arrancaba antes
+ * de que el bar existiera, y `crear_arqueo` también tiene ese default. Quien
+ * venía arqueando el torneo no se entera del cambio.
+ */
+type Ambito = 'torneo' | 'bar'
+
 export default function NuevoArqueoPage() {
+  const [ambito, setAmbito] = useState<Ambito>('torneo')
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [dias, setDias] = useState<DiaSinArquear[]>([])
@@ -29,11 +45,21 @@ export default function NuevoArqueoPage() {
       setCargando(true)
       setErrorCarga(null)
 
-      const { data, error } = await supabase
-        .from('v_saldo_efectivo_dia_cancha')
-        .select('*')
-        .is('arqueo_id', null)
-        .order('fecha', { ascending: false })
+      // La rama es explícita y no una tabla de lookup: `.from()` necesita un
+      // literal para inferir el tipo de la fila. Con una variable, supabase-js
+      // colapsa el retorno a la unión de TODAS las tablas y no compila.
+      const { data, error } =
+        ambito === 'torneo'
+          ? await supabase
+              .from('v_saldo_efectivo_dia_cancha')
+              .select('*')
+              .is('arqueo_id', null)
+              .order('fecha', { ascending: false })
+          : await supabase
+              .from('v_saldo_bar_dia_cancha')
+              .select('*')
+              .is('arqueo_id', null)
+              .order('fecha', { ascending: false })
 
       if (cancelado) return
 
@@ -59,7 +85,9 @@ export default function NuevoArqueoPage() {
     return () => {
       cancelado = true
     }
-  }, [])
+    // Cambiar de ámbito recarga: son universos de días distintos, porque un día
+    // puede tener el arqueo del torneo hecho y el del bar pendiente.
+  }, [ambito])
 
   const diaElegido = dias.find((d) => d.dia_cancha_id === diaCanchaId) ?? null
 
@@ -95,6 +123,7 @@ export default function NuevoArqueoPage() {
       p_dia_cancha_id: diaCanchaId,
       p_saldo_contado: saldoContado,
       p_responsable_id: user.id,
+      p_ambito: ambito,
     })
 
     setRegistrando(false)
@@ -118,7 +147,7 @@ export default function NuevoArqueoPage() {
       <header className="mb-6 mt-2">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Registrar arqueo</h1>
         <p className="mt-1 text-[12px] text-muted">
-          Contá el efectivo de la caja y comparalo con el sistema. No mueve plata.
+          Contá el efectivo del cajón y comparalo con el sistema. No mueve plata.
         </p>
       </header>
 
@@ -126,17 +155,52 @@ export default function NuevoArqueoPage() {
         <p className="mb-4 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{errorCarga}</p>
       )}
 
+      {/* Qué cajón. Va ANTES de todo lo demás porque cambia el universo de
+          días, el saldo esperado y la cuenta que se ajusta después. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[.06em] text-muted">Cajón</span>
+        <Button
+          size="pill"
+          variant={ambito === 'torneo' ? 'secondary' : 'tertiary'}
+          onClick={() => {
+            setAmbito('torneo')
+            setDiaCanchaId(null)
+            setSaldoContado(0)
+          }}
+        >
+          Torneo
+        </Button>
+        <Button
+          size="pill"
+          variant={ambito === 'bar' ? 'secondary' : 'tertiary'}
+          icon="bar"
+          onClick={() => {
+            setAmbito('bar')
+            setDiaCanchaId(null)
+            setSaldoContado(0)
+          }}
+        >
+          Bar
+        </Button>
+      </div>
+
       {cargando && <p className="text-[11px] text-muted">Cargando…</p>}
 
       {!cargando && !errorCarga && dias.length === 0 && (
         <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
-          No hay cajas pendientes de arquear.
+          {ambito === 'torneo'
+            ? 'No hay cajas del torneo pendientes de arquear.'
+            : 'No hay cajones del bar pendientes de arquear.'}
         </div>
       )}
 
       {!cargando && !errorCarga && dias.length > 0 && (
         <>
-          <Card title="Datos del arqueo" icon="caja" className="mb-4">
+          <Card
+            title={ambito === 'torneo' ? 'Arqueo del cajón del torneo' : 'Arqueo del cajón del bar'}
+            icon={ambito === 'torneo' ? 'caja' : 'bar'}
+            className="mb-4"
+          >
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Día de cancha" required className="lg:col-span-2">
                 <Select
@@ -155,7 +219,7 @@ export default function NuevoArqueoPage() {
                 </Select>
               </Field>
 
-              <Field label="Saldo contado" required>
+              <Field label="Saldo contado" required hint="Los billetes que hay en el cajón.">
                 <Input
                   type="number"
                   min="0"
@@ -167,10 +231,17 @@ export default function NuevoArqueoPage() {
             </div>
 
             {diaElegido && (
-              <p className="mt-3 text-[11px] text-muted">
-                El sistema espera:{' '}
-                <Money value={diaElegido.saldo_sistema ?? 0} className="font-bold text-ink" />
-              </p>
+              <>
+                <p className="mt-3 text-[11px] text-muted">
+                  El sistema espera:{' '}
+                  <Money value={diaElegido.saldo_sistema ?? 0} className="font-bold text-ink" />
+                </p>
+                <p className="mt-1 text-[11px] text-muted">
+                  {ambito === 'torneo'
+                    ? 'Sale del diario: los cobros en efectivo de ese predio menos lo pagado y entregado.'
+                    : 'Sale del diario: lo que entró por ventas del bar menos lo ya retirado.'}
+                </p>
+              </>
             )}
           </Card>
 
@@ -199,6 +270,9 @@ export default function NuevoArqueoPage() {
           {resultadoExito && (
             <p className="mb-4 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">
               {resultadoExito}{' '}
+              {diferencia !== null && diferencia !== 0
+                ? 'La diferencia queda pendiente de asentar: se hace desde la lista.'
+                : ''}{' '}
               <Link href="/arqueo" className="font-bold underline">
                 Volver a arqueo
               </Link>

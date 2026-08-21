@@ -890,7 +890,9 @@ create table arqueo (
   estado         text not null default 'pendiente_entrega'
                  check (estado in ('pendiente_entrega','entregado')),
   entregado_at   timestamptz,
-  asiento_ajuste_id  uuid references asiento(id),  -- resuelve la diferencia, si se resuelve
+  ambito         text not null default 'torneo'      -- 'torneo' | 'bar' (21/08)
+                 check (ambito in ('torneo','bar')),
+  asiento_ajuste_id  uuid references asiento(id),  -- lo escribe asentar_diferencia_arqueo
   asiento_entrega_id uuid references asiento(id),  -- el traslado predio → central
   responsable_id uuid not null references auth.users(id),
   created_at     timestamptz not null default now()
@@ -967,6 +969,69 @@ Agnósticas del torneo (regla 12), una lógica para el seed y para la app que ve
 **`v_efectivo_sin_rendir` es el saldo sin rendir de cada persona**, y sale de los arqueos y no de una cuenta contable: es la decisión 58 hecha consulta. `v_arqueo_diferencia` es la cola de trabajo del control de caja — lo que falta resolver, que puede no resolverse nunca (decisión 61).
 
 *Ninguna de las cuatro alimenta una pantalla todavía: el módulo de arqueo es front pendiente.*
+
+#### El ajuste de diferencias · agregado el 21/08, para los dos ámbitos
+
+**Hasta el 21/08 la diferencia se detectaba y NUNCA se asentaba.** `crear_arqueo`
+la calcula —columna generada— y genera **cero asientos**; `asiento_ajuste_id`
+quedaba NULL para siempre porque **ninguna función lo escribía**: solo dos vistas
+lo leían. Con un faltante de $120.000, tras la entrega quedaban **$120.000 de
+residuo en la caja del predio, para siempre**. El diario cuadraba, pero la plata
+que no está seguía figurando como que está.
+
+`arqueo` tenía 0 filas: el circuito nunca había corrido. Ejecutarlo en rollback
+es lo que lo destapó.
+
+**`FIN_DIF_ARQUEO`** (tipo `financiero`, imputable) absorbe los dos signos:
+faltante al debe (pérdida), sobrante al haber (ganancia). Es `financiero` y no
+`egreso` por dos razones: `FIN_DIF_CAMBIO` es exactamente el mismo género y ya lo
+es; y `v_pl_mensual` calcula `haber − debe` para `financiero`, así que los dos
+sentidos salen bien sin tocar la vista. Como `egreso` habría caído en «Sin
+categoría» en `v_pl_mensual_item`, que deriva el ítem del gasto detrás del
+asiento — y un ajuste no tiene gasto.
+
+**`asentar_diferencia_arqueo(arqueo, fecha, by)`** ajusta `CAJA_EFECTIVO`
+(torneo) o `BAR_EFECTIVO` (bar) contra `FIN_DIF_ARQUEO`. Después de asentar, **el
+saldo de la cuenta ES el contado**.
+
+**Conviene correrlo ANTES de la entrega.** Sin ajuste, un SOBRANTE deja la caja
+NEGATIVA: `registrar_entrega_central` mueve el **contado**, así que con sistema
+$1.120.000 y contado $1.300.000 la entrega saca más de lo que hay y el saldo
+queda en −$180.000.
+
+#### Tres agujeros del arqueo del torneo, encontrados y NO resueltos
+
+Se encontraron ejecutando el circuito el 21/08. Quedan abiertos porque exceden
+el ajuste y son decisión aparte:
+
+**③ Un arqueo con contado 0 queda trabado.** `registrar_entrega_central` rechaza
+contado = 0 («no hay efectivo que entregar»), así que se queda en
+`pendiente_entrega` para siempre. Es el caso real de un día que se arquea y no
+hubo plata. Falta decidir si debería poder pasar a `entregado` sin asiento, o si
+necesita un estado propio.
+
+**④ No se puede anular ni corregir un arqueo.** Cero funciones, y el unique
+impide rehacerlo. Un contado mal tipeado es permanente. La salida sería un
+`anular_arqueo` que contraasiente ajuste y entrega si existen y libere el día.
+
+**⑤ `pagar_gasto` no valida saldo de caja.** La caja de Tirolesa está en
+**−$508.000** porque un gasto `ZZ_TEST_` de $4.800.000 se pagó en efectivo cuando
+había $3.192.000. El dato es de prueba, la puerta es real.
+`retirar_efectivo_bar` sí valida y se puede calcar.
+
+> **Y el `ambito` rompió dos vistas, latente.** La migración que lo agregó
+> permitió dos arqueos por día, y `v_saldo_efectivo_dia_cancha` y
+> `v_efectivo_sin_rendir` hacen LEFT JOIN a `arqueo` **sin filtrar ámbito**: la
+> primera devolvía el día duplicado (58 filas → 59), la segunda contaba el
+> arqueo del bar como plata a rendir a central. No causó daño —`arqueo` estaba
+> en 0— pero estuvo aplicado. Corregido con `and a.ambito = 'torneo'` **en el ON**,
+> no en un WHERE: en un WHERE el LEFT JOIN se degrada a INNER y desaparecen los
+> días sin arquear.
+>
+> **La lección: agregar una dimensión a una tabla rompe a los que la leen sin
+> conocerla.** No cambió ninguna columna ni ninguna función, y aun así partió dos
+> vistas — porque un LEFT JOIN que asumía «como mucho una fila» dejó de ser
+> cierto.
 
 ### 3.7 Moneda extranjera · caja USD de cobertura
 
@@ -2108,11 +2173,16 @@ Nació como una sola pantalla con un bloque por contrato, y con tres contratos d
 prueba ya ocupaba tres pantallas de scroll: con quince sponsors no se puede
 comparar dos sin recordarlos.
 
-### 3.21 Bar · el ingreso, por cierre de caja diario
+### 3.21 Bar · ingreso, retiro y arqueo · USABLE de punta a punta
 
-**Estado: el ingreso está COMPLETO** — modelo, funciones y pantalla, usable
-hoy. Es el módulo que en el Draft anterior figuraba como «falta, y empieza por
-modelar».
+**Estado: USABLE de punta a punta.** Los tres circuitos —ingreso, retiro y
+arqueo— tienen backend Y pantalla. Es el módulo que en el Draft anterior
+figuraba como «falta, y empieza por modelar»; se modeló y se cerró el 21/08.
+
+El orden en que se construyó no es casual y conviene entenderlo: **primero el
+ingreso, después el retiro, y recién entonces el arqueo.** Sin salida, al bar
+solo le entraba plata y el saldo subía sin bajar nunca — un arqueo ahí habría
+medido una deriva creciente, no una diferencia.
 
 #### El grano
 
@@ -2241,15 +2311,104 @@ aparte, pero un grupo de un solo ítem se lee como algo a medio hacer, y lo que
 esa pantalla hace —cerrar la caja de un día— es lo mismo que Arqueo. Cuando sume
 productos o stock se muda a grupo propio.
 
-#### Lo que NO incluye
+#### El retiro · cómo sale la plata del cajón
 
-| | Por qué |
+`retirar_efectivo_bar(predio, monto, destino, fecha, motivo, by)` acredita
+`BAR_EFECTIVO` del predio y debita el destino. **Transferencia interna: no toca
+ING ni GAS, el resultado no se mueve** — la plata cambia de lugar, no de dueño.
+
+| Destino | Cuenta | |
+|---|---|---|
+| `central` | `CAJA_CENTRAL` | Lo habitual |
+| `banco` | `CAJA_TRANSFERENCIA` | **No existe una cuenta `BANCO`**: lo bancario se modela como transferencia en todo el sistema |
+| `socios` | — | Rama y mensaje propios: es un destino decidido que falta conectar con `SOCIOS_A_PAGAR`, no un typo |
+
+**No cuelga de `dia_cancha`** —a diferencia del cierre y del arqueo—: un retiro
+puede pasar cualquier día, incluso uno sin bar abierto. Lleva fecha y predio
+propios, y **sin unique**: varios retiros el mismo día son normales.
+
+**Valida que el monto no supere el saldo**, vía `saldo_bar_predio` a la fecha del
+retiro. Es más estricto que el circuito del torneo, donde `pagar_gasto` **no**
+valida saldo — por eso la caja de Tirolesa está hoy en −$508.000.
+
+> **No reusa `registrar_movimiento_fondo`.** Parecía «el movimiento entre cajas
+> genérico que ya existe», pero ejecutarlo con la caja del bar mostró que su
+> contraparte es SIEMPRE `FONDO_INVERSION`: a `CAJA_CENTRAL` le llegaba $0, el
+> asiento salía con `origen='fondo'` y `predio_id` NULL —dejando el saldo
+> mintiendo $500.000 contra $450.000 reales—, escribía en `movimiento_fondo`, y
+> aceptaba retirar $999.999.999 sobre $500.000. Lo único genérico que tiene es
+> resolver la cuenta desde `caja_id`; esa mecánica sí se reusó.
+
+**`/bar/retiro`** muestra el saldo de cada cajón arriba, el form, el preview del
+asiento y la lista con anulación. El saldo **sigue el campo fecha**, no «hoy»:
+es el mismo corte que usa la función para validar.
+
+#### El arqueo del bar · dentro de la tabla del torneo
+
+Calca el circuito del torneo sobre `BAR_EFECTIVO`. **Solo efectivo**: tarjeta y
+Mercado Pago no tienen billetes que contar — su contraste es la conciliación
+contra la liquidación del proveedor, que está fuera de alcance.
+
+`arqueo` ganó **`ambito`** (`'torneo'` | `'bar'`) y el unique pasó de
+`(dia_cancha_id)` a **`(dia_cancha_id, ambito)`**: el mismo día admite los dos
+cajones. Se hizo cuando la tabla tenía 0 filas, que era el momento.
+
+`crear_arqueo` toma `p_ambito` con default `'torneo'`, y elige de dónde sale el
+saldo congelado: `saldo_efectivo_predio` o `saldo_bar_predio`.
+
+> **El `drop function` no es opcional.** Agregar un parámetro cambia la firma, así
+> que `create or replace` **no reemplaza: sobrecarga**. Quedaban las dos versiones
+> vivas y toda llamada de 3 args era ambigua (`ERROR 42725`) — `/arqueo/nuevo` se
+> habría roto al aplicar.
+
+**El bar no entrega a central**: su salida es el retiro.
+`registrar_entrega_central` rechaza `ambito='bar'` — sin esa guardia habría
+sacado plata del cajón del **torneo**, que es la cuenta que tiene hardcodeada.
+
+`/arqueo` y `/arqueo/nuevo` manejan los dos cajones con un selector que **arranca
+en Torneo**: el flujo existente no cambió. La lista marca el cajón con badge, y
+el historial **no manda los arqueos de bar a `/entregar`** — para eso
+`DataTable.rowHref` admite `undefined`, que el cuerpo ya soportaba.
+
+#### El ajuste de diferencias · la puerta que le faltaba a los DOS
+
+Ver §3.6: `FIN_DIF_ARQUEO` y `asentar_diferencia_arqueo` sirven a los dos
+ámbitos. **Es un paso separado del arqueo, a propósito**: contar es control,
+asentar es movimiento. La isla `<AsentarDiferencia>` en `/arqueo` muestra las dos
+líneas del asiento antes de confirmar.
+
+#### Las vistas de lectura
+
+| Vista | |
 |---|---|
-| **Detalle de productos** | `venta_bar_detalle` colgará de `venta_bar` y **no generará asientos**: el asiento seguirá saliendo de los tres montos |
-| **Comisión y liquidación diferida** | Hoy `TARJETA` y `MERCADO_PAGO` crecen sin bajar. La comisión será un gasto contra `GAS_BAR`; la liquidación, una función que mueve a `CAJA_TRANSFERENCIA` contra el resumen del proveedor |
-| **Arqueo del bar** | El bar tiene **saldo** pero nadie cuenta sus billetes. Necesita una `saldo_bar_predio()` calcada y una tabla propia o un `ambito` en `arqueo` —hoy único por `dia_cancha_id`— |
-| **Stock y costo de mercadería** | `GAS_BAR` tiene 8 categorías y **0 gastos cargados**: hay ingreso, no margen |
-| **`v_venta_bar_kpi`** | Ver arriba |
+| `v_venta_bar` | Los cierres, con anulados marcados |
+| `v_dia_cancha_bar` | Días cerrables (filtro de anulados en el ON) |
+| `v_retiro_bar` | Los retiros, con `destino_nombre` legible |
+| `v_saldo_bar_dia_cancha` | Días arqueables del bar, gemela de `v_saldo_efectivo_dia_cancha` |
+
+#### Dos bugs de UX que cazaron los screenshots
+
+Ninguno lo habría encontrado leer el código:
+
+**El saldo del retiro seguía «hoy» en vez de la fecha del retiro.** La pantalla
+mostraba $0 mientras la función veía $270.000, porque los días de prueba están
+en noviembre. Mostrar un número distinto del que se va a validar es peor que no
+mostrar ninguno.
+
+**El arqueo del bar decía «Pendiente de entrega»**, un paso que para el bar no
+existe. Ahora dice «Registrado». Es la contra asumida al elegir `ambito` en vez
+de tabla aparte —`estado`, `entregado_at` y `asiento_entrega_id` son del
+torneo—, y se corrige en la lectura, donde el ámbito está a la vista.
+
+#### Extensiones futuras
+
+| | |
+|---|---|
+| **Detalle de productos** | `venta_bar_detalle` colgará de `venta_bar` y **no generará asientos** |
+| **Comisión y liquidación diferida** | `TARJETA` y `MERCADO_PAGO` crecen sin bajar. La comisión será un gasto contra `GAS_BAR`; la liquidación, una función contra el resumen del proveedor |
+| **Destino `socios` del retiro** | Falta conectarlo con `SOCIOS_A_PAGAR`. Es una línea en el `case` y un `drop/add constraint` |
+| **Cargar gastos de bar** | `GAS_BAR` tiene 8 categorías y **0 gastos**: hay ingreso, no margen. No falta pantalla — falta que alguien los cargue |
+| **`v_venta_bar_kpi`** | Con 0 filas serían cuatro ceros arriba de un empty state |
 
 ## 4. Navegación
 
@@ -2275,8 +2434,9 @@ El Sidebar es plano: cinco grupos, sin pestañas internas.
 Fuera del Sidebar: `/login`, `/design` (el catálogo del sistema de diseño) y las
 rutas de detalle —`/cobranza/[id]`, `/gastos/[id]/pagar`, `/socios/[id]`,
 `/sponsors/[id]`, `/reclamos/[id]`, `/activos/[id]`, `/cheques/[id]`— a las que
-se llega desde su lista. `/bar/nuevo` y `/arqueo/nuevo` son de carga, no de
-detalle, pero también quedan fuera del Sidebar: se entra desde su lista.
+se llega desde su lista. `/bar/nuevo`, `/bar/retiro` y `/arqueo/nuevo` son de
+carga, no de detalle, pero también quedan fuera del Sidebar: se entra desde su
+lista.
 
 **Ojo con dos rutas parecidas que son módulos distintos:** `/calendario` es el
 **calendario de jornadas** —dónde y cuándo se juega—, y `/calendario-pagos` es

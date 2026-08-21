@@ -346,6 +346,7 @@ export type Database = {
       }
       arqueo: {
         Row: {
+          ambito: string
           asiento_ajuste_id: string | null
           asiento_entrega_id: string | null
           created_at: string
@@ -359,6 +360,7 @@ export type Database = {
           saldo_sistema: number
         }
         Insert: {
+          ambito?: string
           asiento_ajuste_id?: string | null
           asiento_entrega_id?: string | null
           created_at?: string
@@ -372,6 +374,7 @@ export type Database = {
           saldo_sistema: number
         }
         Update: {
+          ambito?: string
           asiento_ajuste_id?: string | null
           asiento_entrega_id?: string | null
           created_at?: string
@@ -416,28 +419,35 @@ export type Database = {
           {
             foreignKeyName: "arqueo_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "dia_cancha"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "arqueo_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_dia_cancha_bar"
             referencedColumns: ["dia_cancha_id"]
           },
           {
             foreignKeyName: "arqueo_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_dia_cancha_torneo"
             referencedColumns: ["dia_cancha_id"]
           },
           {
             foreignKeyName: "arqueo_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
-            isOneToOne: true
+            isOneToOne: false
+            referencedRelation: "v_saldo_bar_dia_cancha"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "arqueo_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
             referencedRelation: "v_saldo_efectivo_dia_cancha"
             referencedColumns: ["dia_cancha_id"]
           },
@@ -3520,6 +3530,70 @@ export type Database = {
           },
         ]
       }
+      retiro_bar: {
+        Row: {
+          anulado_at: string | null
+          anulado_motivo: string | null
+          asiento_id: string | null
+          created_at: string
+          created_by: string | null
+          destino: string
+          fecha: string
+          id: string
+          monto: number
+          motivo: string | null
+          predio_id: string
+        }
+        Insert: {
+          anulado_at?: string | null
+          anulado_motivo?: string | null
+          asiento_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          destino: string
+          fecha: string
+          id?: string
+          monto: number
+          motivo?: string | null
+          predio_id: string
+        }
+        Update: {
+          anulado_at?: string | null
+          anulado_motivo?: string | null
+          asiento_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          destino?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          motivo?: string | null
+          predio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retiro_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retiro_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "retiro_bar_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       serie: {
         Row: {
           categoria_id: string
@@ -3852,6 +3926,13 @@ export type Database = {
             foreignKeyName: "venta_bar_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
             isOneToOne: false
+            referencedRelation: "v_saldo_bar_dia_cancha"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
             referencedRelation: "v_saldo_efectivo_dia_cancha"
             referencedColumns: ["dia_cancha_id"]
           },
@@ -4047,6 +4128,7 @@ export type Database = {
       }
       v_arqueo_detalle: {
         Row: {
+          ambito: string | null
           arqueo_id: string | null
           asiento_ajuste_id: string | null
           asiento_entrega_id: string | null
@@ -4101,6 +4183,7 @@ export type Database = {
       }
       v_arqueo_diferencia: {
         Row: {
+          ambito: string | null
           arqueo_id: string | null
           clase: string | null
           diferencia: number | null
@@ -5812,6 +5895,69 @@ export type Database = {
         }
         Relationships: []
       }
+      v_retiro_bar: {
+        Row: {
+          anulado_at: string | null
+          anulado_motivo: string | null
+          asiento_id: string | null
+          created_at: string | null
+          created_by: string | null
+          destino: string | null
+          destino_nombre: string | null
+          estado: string | null
+          fecha: string | null
+          monto: number | null
+          motivo: string | null
+          predio: string | null
+          predio_id: string | null
+          predio_nombre: string | null
+          retiro_bar_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retiro_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retiro_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "retiro_bar_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_saldo_bar_dia_cancha: {
+        Row: {
+          arqueo_estado: string | null
+          arqueo_id: string | null
+          dia_cancha_id: string | null
+          fecha: string | null
+          predio: string | null
+          predio_id: string | null
+          predio_nombre: string | null
+          saldo_sistema: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dia_cancha_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_saldo_caja: {
         Row: {
           caja_id: string | null
@@ -6130,6 +6276,13 @@ export type Database = {
             foreignKeyName: "venta_bar_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
             isOneToOne: false
+            referencedRelation: "v_saldo_bar_dia_cancha"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
             referencedRelation: "v_saldo_efectivo_dia_cancha"
             referencedColumns: ["dia_cancha_id"]
           },
@@ -6166,6 +6319,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      anular_retiro_bar: {
+        Args: {
+          p_created_by?: string
+          p_fecha?: string
+          p_motivo: string
+          p_retiro_id: string
+        }
+        Returns: string
+      }
       anular_venta_bar: {
         Args: {
           p_created_by?: string
@@ -6190,6 +6352,10 @@ export type Database = {
           p_periodo_id: string
         }
         Returns: number
+      }
+      asentar_diferencia_arqueo: {
+        Args: { p_arqueo_id: string; p_created_by?: string; p_fecha?: string }
+        Returns: string
       }
       borrar_linea_presupuesto: {
         Args: { p_linea_id: string }
@@ -6225,6 +6391,7 @@ export type Database = {
       }
       crear_arqueo: {
         Args: {
+          p_ambito?: string
           p_dia_cancha_id: string
           p_responsable_id?: string
           p_saldo_contado: number
@@ -6529,6 +6696,21 @@ export type Database = {
           p_responsable_id?: string
         }
         Returns: string
+      }
+      retirar_efectivo_bar: {
+        Args: {
+          p_created_by?: string
+          p_destino: string
+          p_fecha?: string
+          p_monto: number
+          p_motivo?: string
+          p_predio_id: string
+        }
+        Returns: string
+      }
+      saldo_bar_predio: {
+        Args: { p_hasta: string; p_predio_id: string }
+        Returns: number
       }
       saldo_cuenta: {
         Args: { p_codigo: string; p_hasta?: string; p_torneo_id?: string }

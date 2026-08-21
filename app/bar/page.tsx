@@ -113,9 +113,18 @@ export default async function BarPage() {
             El cierre de caja del bar, por día y predio. Un cierre por día.
           </p>
         </div>
-        <Link href="/bar/nuevo">
-          <Button icon="plus">Registrar cierre</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {/* Retiro como acción secundaria: el cierre de ventas es lo de todos
+              los días, el retiro pasa cuando alguien se lleva la plata. */}
+          <Link href="/bar/retiro">
+            <Button variant="secondary" icon="monedas">
+              Retirar efectivo
+            </Button>
+          </Link>
+          <Link href="/bar/nuevo">
+            <Button icon="plus">Registrar cierre</Button>
+          </Link>
+        </div>
       </header>
 
       {cierres.length === 0 ? (
