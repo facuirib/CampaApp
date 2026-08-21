@@ -65,6 +65,8 @@ function hoyEnCordoba(): string {
   }).format(new Date())
 }
 
+const CAJAS_VALIDAS_CHEQUE = ['CAJA_TRANSFERENCIA', 'CAJA_CENTRAL']
+
 export default function AccionesCheque({
   chequeId,
   sentido,
@@ -95,6 +97,8 @@ export default function AccionesCheque({
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
 
+  // La lista blanca vive a nivel de módulo: adentro del componente se recrea
+  // en cada render y useCallback la trata como dependencia cambiante.
   /**
    * Las cajas que se pueden elegir.
    *
@@ -121,7 +125,6 @@ export default function AccionesCheque({
    * meter pesos por otro lado lo corre en silencio; TARJETA y MERCADO_PAGO,
    * porque un cheque no se cobra por esas vías.
    */
-  const CAJAS_VALIDAS_CHEQUE = ['CAJA_TRANSFERENCIA', 'CAJA_CENTRAL']
 
   const cargarCajas = useCallback(async () => {
     const supabase = createClient()

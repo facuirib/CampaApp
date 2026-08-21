@@ -424,6 +424,13 @@ export type Database = {
             foreignKeyName: "arqueo_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
             isOneToOne: true
+            referencedRelation: "v_dia_cancha_bar"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "arqueo_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: true
             referencedRelation: "v_dia_cancha_torneo"
             referencedColumns: ["dia_cancha_id"]
           },
@@ -3762,6 +3769,94 @@ export type Database = {
           },
         ]
       }
+      venta_bar: {
+        Row: {
+          anulado_at: string | null
+          anulado_motivo: string | null
+          asiento_id: string | null
+          created_at: string
+          created_by: string | null
+          dia_cancha_id: string
+          id: string
+          monto_efectivo: number
+          monto_mp: number
+          monto_tarjeta: number
+          observaciones: string | null
+          total: number | null
+        }
+        Insert: {
+          anulado_at?: string | null
+          anulado_motivo?: string | null
+          asiento_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dia_cancha_id: string
+          id?: string
+          monto_efectivo?: number
+          monto_mp?: number
+          monto_tarjeta?: number
+          observaciones?: string | null
+          total?: number | null
+        }
+        Update: {
+          anulado_at?: string | null
+          anulado_motivo?: string | null
+          asiento_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dia_cancha_id?: string
+          id?: string
+          monto_efectivo?: number
+          monto_mp?: number
+          monto_tarjeta?: number
+          observaciones?: string | null
+          total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venta_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "dia_cancha"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "v_dia_cancha_bar"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "v_dia_cancha_torneo"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "v_saldo_efectivo_dia_cancha"
+            referencedColumns: ["dia_cancha_id"]
+          },
+        ]
+      }
     }
     Views: {
       v_activo: {
@@ -4662,6 +4757,26 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_torneo_escala"
             referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
+      v_dia_cancha_bar: {
+        Row: {
+          dia_cancha_id: string | null
+          fecha: string | null
+          predio: string | null
+          predio_id: string | null
+          predio_nombre: string | null
+          venta_bar_id: string | null
+          venta_bar_total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dia_cancha_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -5948,6 +6063,78 @@ export type Database = {
         }
         Relationships: []
       }
+      v_venta_bar: {
+        Row: {
+          anulado_at: string | null
+          anulado_motivo: string | null
+          asiento_id: string | null
+          created_at: string | null
+          created_by: string | null
+          dia_cancha_id: string | null
+          estado: string | null
+          fecha: string | null
+          monto_efectivo: number | null
+          monto_mp: number | null
+          monto_tarjeta: number | null
+          observaciones: string | null
+          predio: string | null
+          predio_id: string | null
+          predio_nombre: string | null
+          total: number | null
+          venta_bar_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dia_cancha_predio_id_fkey"
+            columns: ["predio_id"]
+            isOneToOne: false
+            referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "dia_cancha"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "v_dia_cancha_bar"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "v_dia_cancha_torneo"
+            referencedColumns: ["dia_cancha_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_dia_cancha_id_fkey"
+            columns: ["dia_cancha_id"]
+            isOneToOne: false
+            referencedRelation: "v_saldo_efectivo_dia_cancha"
+            referencedColumns: ["dia_cancha_id"]
+          },
+        ]
+      }
     }
     Functions: {
       agregar_linea_presupuesto: {
@@ -5978,6 +6165,15 @@ export type Database = {
           p_motivo: string
         }
         Returns: undefined
+      }
+      anular_venta_bar: {
+        Args: {
+          p_created_by?: string
+          p_fecha?: string
+          p_motivo: string
+          p_venta_id: string
+        }
+        Returns: string
       }
       aplicar_anticipo: {
         Args: { p_cuota_id: string; p_monto: number; p_tercero_id: string }
@@ -6311,6 +6507,17 @@ export type Database = {
           p_responsable_id?: string
           p_tipo: string
           p_torneo_id?: string
+        }
+        Returns: string
+      }
+      registrar_venta_bar: {
+        Args: {
+          p_created_by?: string
+          p_dia_cancha_id: string
+          p_efectivo?: number
+          p_mp?: number
+          p_observaciones?: string
+          p_tarjeta?: number
         }
         Returns: string
       }

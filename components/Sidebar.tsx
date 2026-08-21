@@ -69,11 +69,23 @@ export const GRUPOS: GrupoNav[] = [
   {
     // De lo más líquido a lo menos: el efectivo y su arqueo, después los
     // valores que todavía no son plata (cheques), y al final los bienes.
+    //
+    // Bar va acá y no en un grupo propio, aunque el bar SEA un dominio aparte
+    // —área propia en cat_gasto, encargado propio, y un futuro de productos y
+    // stock que no se parece a nada de esto—. Dos razones, las dos de hoy y no
+    // de siempre: un grupo de un solo ítem se lee como algo a medio hacer, y lo
+    // que el bar tiene hoy es exactamente una pantalla. Y lo que esa pantalla
+    // hace —cerrar la caja de un día— es lo mismo que hace Arqueo dos líneas
+    // más arriba: por eso va pegado, no al final.
+    //
+    // Cuando el bar sume productos, stock o su propio arqueo, se muda a grupo
+    // propio: el árbol ya modela `hijos`, así que es mover un objeto de lugar.
     titulo: 'Operación',
     items: [
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
       { href: '/caja', label: 'Caja', icon: 'caja' },
       { href: '/arqueo', label: 'Arqueo', icon: 'arqueo' },
+      { href: '/bar', label: 'Bar', icon: 'bar' },
       { href: '/cheques', label: 'Cheques', icon: 'banco' },
       { href: '/activos', label: 'Activos', icon: 'activos' },
     ],

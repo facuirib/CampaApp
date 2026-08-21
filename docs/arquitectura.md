@@ -2108,6 +2108,149 @@ Nació como una sola pantalla con un bloque por contrato, y con tres contratos d
 prueba ya ocupaba tres pantallas de scroll: con quince sponsors no se puede
 comparar dos sin recordarlos.
 
+### 3.21 Bar · el ingreso, por cierre de caja diario
+
+**Estado: el ingreso está COMPLETO** — modelo, funciones y pantalla, usable
+hoy. Es el módulo que en el Draft anterior figuraba como «falta, y empieza por
+modelar».
+
+#### El grano
+
+Un **cierre por día y predio**, colgado de `dia_cancha`, y **un asiento por
+cierre**. Percibido puro: la plata ya entró, así que no hay deudor, ni cuota, ni
+imputación. Es el circuito más simple del sistema.
+
+`venta_bar` guarda los tres medios por separado —`monto_efectivo`,
+`monto_tarjeta`, `monto_mp`— y el `total` es **columna generada**, no un número
+que alguien pueda desincronizar.
+
+#### Las tres cajas, y por qué el efectivo va aparte
+
+| Cuenta | Caja | Predio |
+|---|---|---|
+| `BAR_EFECTIVO` | Una por predio (`tipo = 'bar_efectivo'`) | Sí |
+| `TARJETA` | Global | No |
+| `MERCADO_PAGO` | Global | No |
+
+El efectivo del bar está en un **cajón físico separado** del torneo, así que
+queda **fuera del arqueo del predio** — el arqueo sigue siendo solo torneo.
+Técnicamente eso ya se cumplía solo: `saldo_efectivo_predio` filtra
+`c.codigo = 'CAJA_EFECTIVO'` con **igualdad exacta**, no `LIKE`. El nombre sin
+prefijo y el `tipo` propio son **defensa**: que un `where tipo = 'efectivo'` o un
+`like 'CAJA_EFECTIVO%'` escrito mañana no se lleve la plata del bar al arqueo del
+torneo sin que nadie lo note.
+
+Tarjeta y Mercado Pago **acumulan sin que nada las baje**: se registra el neto
+que entra, y la liquidación del proveedor todavía no se modela. Es correcto
+—representan plata a cobrar— pero **no es caja disponible**, y la pantalla lo
+dice.
+
+#### El asiento
+
+```
+BAR_EFECTIVO   (predio del día)   debe    efectivo
+TARJETA                           debe    tarjeta
+MERCADO_PAGO                      debe    mp
+  ING_BAR                                 haber   total
+```
+
+Solo las líneas con monto. `origen = 'bar'`, `torneo_id` NULL —el bar es
+estructura permanente—, y la fecha es **la del `dia_cancha`**, no `current_date`:
+un cierre del sábado cargado el lunes tiene que caer en el sábado o el saldo de
+caja de ese día miente.
+
+#### Las puertas
+
+| Función | Qué garantiza |
+|---|---|
+| `registrar_venta_bar(dia, efectivo, tarjeta, mp, obs, by)` | Única vía de alta. Exige al menos un medio > 0, rechaza el segundo cierre vigente del día, y arma el asiento con `crear_asiento` |
+| `anular_venta_bar(id, motivo, fecha, by)` | Delega en `anular_asiento` (regla 4). Marca la fila, lo que además libera el día para recargarlo |
+
+**No hay «editar un cierre»**: se anula y se registra de nuevo, igual que gasto
+y cheque.
+
+#### El único por día es un índice PARCIAL
+
+```sql
+create unique index venta_bar_dia_unico on venta_bar (dia_cancha_id)
+  where anulado_at is null;
+```
+
+Con un `unique` pleno, anular un cierre dejaba el día **bloqueado para siempre**:
+la fila anulada sigue ahí —nada se borra— y el segundo insert chocaba contra
+ella. Se podía anular, pero nunca volver a cargar el día bien. El parcial dice lo
+que en realidad se quiere: **un cierre vigente por día**.
+
+#### Las dos vistas de lectura
+
+**`v_venta_bar`** — la lista. Aplana `dia_cancha` y `predio`, y expone el `total`
+tal cual sale de la columna generada: la pantalla no suma nada. **Muestra todos,
+incluidos los anulados**, marcados con `estado`. Lista *cierres*, no asientos,
+así que la advertencia de la regla 4 sobre contraasientos huérfanos no aplica —
+y esconderlos dejaría un día «sin cierre» que en realidad tuvo uno.
+
+**`v_dia_cancha_bar`** — qué día se puede cerrar. Espejo de
+`v_saldo_efectivo_dia_cancha`: todos los `dia_cancha` con LEFT JOIN a lo que les
+cuelga, y la pantalla filtra `venta_bar_id is null`.
+
+```sql
+left join venta_bar vb on vb.dia_cancha_id = dc.id and vb.anulado_at is null
+```
+
+**El filtro va en el `ON`, no en un `WHERE`**, y no es estilo: un día cuyo cierre
+se anuló tiene que volver a aparecer disponible. En un `WHERE`, el LEFT JOIN se
+degrada a INNER y los días sin cierre desaparecen — la vista pasa de 58 filas a
+1, o sea lo contrario de para qué existe.
+
+**No hay `v_venta_bar_kpi`**, y la ausencia es deliberada: todos los módulos
+tienen una, pero con la tabla en 0 filas una banda de KPIs muestra cuatro ceros
+arriba de un empty state. Se agrega cuando haya movimiento que justifique qué
+cortes valen.
+
+#### Las pantallas
+
+- **`/bar`** — la lista, Server Component, sin JavaScript propio. Día, predio,
+  los tres montos, total y estado. El anulado se **tacha y muestra su motivo**,
+  no se esconde — mismo criterio que `/movimientos`. Lo único que cruza al
+  cliente es `<AnularCierre>`, una isla por fila.
+- **`/bar/nuevo`** — la carga. Client Component + `supabase.rpc()` +
+  `router.refresh()`.
+
+**Tres modos de resolver el `dia_cancha`**, porque el cierre cuelga de él:
+
+1. **Elegir un día libre** — el caso normal, un Select de `v_dia_cancha_bar`
+   filtrado por `venta_bar_id is null`.
+2. **Reusar un día existente que está libre** — si en el modo «no está en la
+   lista» la fecha+predio ya existe sin cierre, se **reusa** en vez de crear:
+   llamar a `crear_dia_cancha` reventaría contra `unique (fecha, predio_id)`.
+3. **Crear un día de solo bar** — `crear_dia_cancha`, que por la decisión 56 no
+   exige jornada. Se llama **al confirmar**, no al tipear la fecha: crearlo antes
+   dejaría `dia_cancha` huérfanos cada vez que alguien abre el formulario y se va.
+
+La opción no se ofrece como «creá un día» sino como **«el día no está en la
+lista»**: que por dentro cree un `dia_cancha` es un detalle de implementación que
+a quien carga no le dice nada.
+
+**Las validaciones del front duplican a propósito las de la función**: botón
+deshabilitado con los tres medios en 0, y el choque de día avisado **antes** de
+mandar. El índice parcial es la garantía de verdad; el aviso previo es la
+diferencia entre corregir y descubrir.
+
+En el Sidebar va en **Operación, pegado a Arqueo**: el bar *es* un dominio
+aparte, pero un grupo de un solo ítem se lee como algo a medio hacer, y lo que
+esa pantalla hace —cerrar la caja de un día— es lo mismo que Arqueo. Cuando sume
+productos o stock se muda a grupo propio.
+
+#### Lo que NO incluye
+
+| | Por qué |
+|---|---|
+| **Detalle de productos** | `venta_bar_detalle` colgará de `venta_bar` y **no generará asientos**: el asiento seguirá saliendo de los tres montos |
+| **Comisión y liquidación diferida** | Hoy `TARJETA` y `MERCADO_PAGO` crecen sin bajar. La comisión será un gasto contra `GAS_BAR`; la liquidación, una función que mueve a `CAJA_TRANSFERENCIA` contra el resumen del proveedor |
+| **Arqueo del bar** | El bar tiene **saldo** pero nadie cuenta sus billetes. Necesita una `saldo_bar_predio()` calcada y una tabla propia o un `ambito` en `arqueo` —hoy único por `dia_cancha_id`— |
+| **Stock y costo de mercadería** | `GAS_BAR` tiene 8 categorías y **0 gastos cargados**: hay ingreso, no margen |
+| **`v_venta_bar_kpi`** | Ver arriba |
+
 ## 4. Navegación
 
 **Esta sección describe la navegación REAL** —lo que existe hoy— y, al final, lo
@@ -2117,14 +2260,14 @@ que falta. No es un boceto: si una pantalla figura acá arriba, se puede abrir.
 Empresa/Torneo que nunca se construyó — y que además contradecía §1.d, porque el
 resultado se mira a nivel empresa y no hay nada que cambiar de ámbito.*
 
-### Lo que hay · 22 pantallas en cinco grupos
+### Lo que hay · 23 pantallas en cinco grupos
 
 El Sidebar es plano: cinco grupos, sin pestañas internas.
 
 | Grupo | Pantallas |
 |---|---|
 | **Torneo** | Inscripciones · Calendario · Cobranza · Reclamos · Tarifario |
-| **Operación** | Gastos · Caja · Arqueo · Cheques · Activos |
+| **Operación** | Gastos · Caja · Arqueo · **Bar** · Cheques · Activos |
 | **Finanzas** | Presupuesto · Proyección · Calendario de pagos · Resultados · Movimientos |
 | **Societario** | Socios · Sponsors · USD |
 | **Sistema** | Auditoría · Configuración › Plantillas *(+ Categorías, Cierres y Usuarios, anunciadas y no construidas)* |
@@ -2132,7 +2275,8 @@ El Sidebar es plano: cinco grupos, sin pestañas internas.
 Fuera del Sidebar: `/login`, `/design` (el catálogo del sistema de diseño) y las
 rutas de detalle —`/cobranza/[id]`, `/gastos/[id]/pagar`, `/socios/[id]`,
 `/sponsors/[id]`, `/reclamos/[id]`, `/activos/[id]`, `/cheques/[id]`— a las que
-se llega desde su lista.
+se llega desde su lista. `/bar/nuevo` y `/arqueo/nuevo` son de carga, no de
+detalle, pero también quedan fuera del Sidebar: se entra desde su lista.
 
 **Ojo con dos rutas parecidas que son módulos distintos:** `/calendario` es el
 **calendario de jornadas** —dónde y cuándo se juega—, y `/calendario-pagos` es
@@ -2157,8 +2301,16 @@ Cheques (§3.13), Calendario de pagos (§3.12b) y **Presupuesto** (§3.8).
 > borradores.
 >
 > **Una tabla que nadie escribe esconde sus errores.** Construir la pantalla es
-> lo que los saca. Vale tenerlo presente para lo que venga: Ventas de bar
-> arranca peor, porque ahí ni siquiera hay backend.
+> lo que los saca.
+>
+> **Y con Ventas de bar pasó de nuevo, esta vez desde cero.** Se modeló completo
+> —tabla, dos funciones, tres cuentas, cuatro cajas— y la prueba en rollback
+> reventó igual, contra un índice parcial que nadie tenía a la vista:
+> `uq_caja_efectivo_predio` impedía que un predio tuviera dos cajas de efectivo.
+> Además, aplicar el modelo **rompió en silencio el selector de cajas de
+> `/cheques`**, que filtraba por exclusión y dejó pasar las tres cajas nuevas: un
+> cheque se podía acreditar en el cajón del bar. Ninguna de las dos cosas la
+> encontró leer el código — las encontró ejecutarlo.
 
 > **`v_calendario_pagos` no es el calendario de pagos.** El nombre promete de
 > más: lee **una sola tabla** —`compromiso`, con `estado = 'pendiente'`— y le
@@ -2178,15 +2330,13 @@ Cheques (§3.13), Calendario de pagos (§3.12b) y **Presupuesto** (§3.8).
 
 ### Lo que falta · y empieza por modelar
 
-**Ventas de bar.** No es lo mismo que la de arriba: **no tiene backend**.
-La cuenta `ING_BAR` existe con **cero movimientos** y **no hay ninguna tabla de
-ventas**. El club sí registra ventas, así que es roadmap — pero arranca por
-**modelar el ingreso**: qué tabla, con qué grano, y cómo entra al diario. Es
-bastante más trabajo que las otras cuatro, y una decisión de negocio antes que
-de front.
+**Ninguna.** Ventas de bar era la única de esta categoría y **está construida**:
+modelo, funciones y pantalla (§3.21). Se modeló el 21/08 y se cerró el mismo día.
 
-> Los **gastos** de bar sí están cubiertos: `GAS_BAR` tiene 8 categorías y 25
-> conceptos, y se cargan desde `/gastos` como cualquier otro.
+> Los **gastos** de bar siguen cubiertos por `/gastos`: `GAS_BAR` tiene 8
+> categorías y 25 conceptos. Con el ingreso ya modelado, lo que falta para tener
+> **margen** del bar no es una pantalla sino que **alguien cargue esos gastos**:
+> hoy `GAS_BAR` tiene 0.
 
 ### Planificación · a futuro
 
