@@ -173,6 +173,54 @@ export default function CargarGastoPage() {
   }, [])
 
   // Filtrado de UI sobre datos ya traídos, no es una regla de negocio.
+  /**
+   * Las categorías agrupadas por área.
+   *
+   * Antes el label era `{nombre} — {area} / {naturaleza}`, y eso mostraba dos
+   * cosas que el operador no elige: el ÁREA, que es organización, y la
+   * NATURALEZA, que es maquinaria interna —define cómo el gasto escala y se
+   * proyecta, no qué se está cargando—.
+   *
+   * El área no se pierde, cambia de lugar: pasa de sufijo técnico a `<optgroup>`.
+   * Y ahí hace falta de verdad, porque **hay categorías con el mismo nombre en
+   * áreas distintas** —«Limpieza» existe en predio y en bar, y se clasifican
+   * distinto— así que sin el grupo quedarían dos opciones idénticas.
+   *
+   * La naturaleza desaparece de la vista y NO del dato: `naturaleza` se sigue
+   * leyendo del objeto para decidir `pideJornada` y `pideActivo`, y el trigger
+   * `check_gasto_coherente` la valida en la base. Sacarla del label no toca nada.
+   */
+  const categoriasPorArea = useMemo(() => {
+    // Orden fijo y no alfabético: es el orden en que la gente piensa el gasto.
+    // Un área nueva que no esté acá cae al final con su propio nombre, así que
+    // agregar una al catálogo no la esconde (regla 12).
+    const ORDEN = ['torneo', 'predio', 'bar', 'administracion']
+    const ROTULO: Record<string, string> = {
+      torneo: 'Torneo',
+      predio: 'Predio',
+      bar: 'Bar',
+      administracion: 'Administración',
+    }
+
+    const grupos = new Map<string, CatGasto[]>()
+    for (const cat of categorias) {
+      const enGrupo = grupos.get(cat.area)
+      if (enGrupo) enGrupo.push(cat)
+      else grupos.set(cat.area, [cat])
+    }
+
+    return [...grupos.entries()]
+      .sort(([a], [b]) => {
+        const ia = ORDEN.indexOf(a)
+        const ib = ORDEN.indexOf(b)
+        return (ia === -1 ? ORDEN.length : ia) - (ib === -1 ? ORDEN.length : ib)
+      })
+      .map(([area, cats]) => [
+        ROTULO[area] ?? area,
+        [...cats].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')),
+      ] as const)
+  }, [categorias])
+
   const conceptosDeCategoria = useMemo(
     () => conceptos.filter((c) => c.cat_gasto_id === catGastoId),
     [conceptos, catGastoId],
@@ -380,10 +428,14 @@ export default function CargarGastoPage() {
                   value={catGastoId ?? ''}
                   onChange={(e) => elegirCategoria(e.target.value)}
                 >
-                  {categorias.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.nombre} — {cat.area} / {cat.naturaleza}
-                    </option>
+                  {categoriasPorArea.map(([area, cats]) => (
+                    <optgroup key={area} label={area}>
+                      {cats.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.nombre}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </Select>
               </Field>

@@ -1060,6 +1060,32 @@ posterior. Lo detecta el arqueo, que para eso existe.
 > Se anularon los 6 `ZZ_TEST_` vigentes: Tirolesa quedó en $4.292.000,
 > transferencia en $3.395.000, y la app sin gastos vigentes (0 de 13).
 
+#### Deuda abierta · las 8 categorías `por_dia_cancha` no deberían pedir jornada
+
+`/gastos/nuevo` pide **Jornada** a todo gasto de naturaleza `por_fecha`, porque
+`check_gasto_coherente` la exige. Pero de las 11 categorías `por_fecha`, **8 son
+`por_dia_cancha`** —Coordinación, Estacionamiento, Guardias, Limpieza, Media,
+Medicinal, Tribunal, Viáticos— y ésas **no escalan con partidos sino con días de
+cancha**: lo que las identifica es **fecha + predio**, no una jornada.
+
+Obligarlas a elegir jornada obliga a elegir una **serie arbitraria**: el tribunal
+de un sábado no es de la serie A ni de la B, es del día. Y no alcanza con pedir
+solo la fecha, porque **una fecha tiene 9,5 jornadas en promedio y hasta 19** —
+23 de 30 fechas tienen más de una.
+
+Las 3 `por_partido` —Árbitros Femenino, Árbitros Masculino, Operativos— **sí**
+necesitan la jornada: el costo es por partido, y los partidos son de una serie.
+Y `gasto.jornada_id` no es decorativo: lo usa la exclusión de doble conteo de
+`v_cashflow_estimado` (`g.jornada_id = j.id`).
+
+**Depende de la migración pendiente de Horacio** (`20260821150000`), que exige
+`predio_id` a las `por_dia_cancha`. Con eso aplicado, la rama `por_dia_cancha`
+del formulario pasa a pedir **fecha + predio** y `check_gasto_coherente` deja de
+exigirle jornada. Antes de eso no se puede tocar: el trigger rechaza el insert.
+
+> No se maquilló el selector mientras tanto —agrupar o renombrar el optgroup de
+> jornada— porque se rehace entero cuando la rama se reescriba.
+
 #### Deuda abierta · `comprar_usd` y `vender_usd` sin responsable
 
 **No tienen parámetro `p_created_by` ni lo pasan a `crear_asiento`**, así que
