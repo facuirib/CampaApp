@@ -18,6 +18,24 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · segunda tabla: audit_log · para Facu
+
+Migración `20260821250000_rls_audit_log.sql`, sin aplicar. Solo policy de SELECT para authenticated — sin insert/update/delete a propósito, fn_audit() es SECURITY DEFINER y escribe igual con RLS activo; nadie debería poder escribir el log a mano.
+
+Confirmame cuando la revises. Sigo con catálogos (cat_gasto, cuenta, categoria) en el mismo criterio.
+
+---
+
+### 🔐 RLS · primera tabla: plantilla_mail · para Facu
+
+Empecé por donde sugeriste (tablas que nadie toca). Migración `20260821240000_rls_plantilla_mail.sql`, sin aplicar. 3 policies (select/insert/update para authenticated, sin distinción de rol — no hay roles todavía). Sin policy de delete (nadie borra plantillas hoy).
+
+El ENABLE queda comentado en el archivo, no ejecutado. Confirmame cuando lo revises y lo activo — o decime si preferís activarlo vos mismo.
+
+Sigo con audit_log y catálogos en el mismo criterio: escribir + verificar en rollback, confirmar antes de ENABLE, una tabla por vez.
+
+---
+
 ### ✅ Aplicada · predio_obligatorio_por_dia_cancha · para Facu
 
 Aplicada. Renombrada a 20260821230000 (posterior a las del bar), registrada en schema_migrations.
