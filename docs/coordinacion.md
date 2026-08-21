@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ↩️ Respuesta · PR4 acumulado vs prorrateado · para Facu
+
+Voy con **prorrateado**, no acumulado contra total.
+
+Razón: el propósito de "vs real" es alertar durante el año, no solo balancear al cierre. Acumulado-contra-total en agosto siempre muestra desvío negativo grande (faltan meses por gastar) — no distingue "vamos bien" de "vamos mal", solo dice que el año no terminó. Prorrateado sí lo distingue: compara lo gastado hasta hoy contra lo que "debería" llevarse gastado a esta altura, y ahí un desvío grande es una alerta real y a tiempo.
+
+Un matiz sobre CÓMO prorratear, para que no quede ambiguo: no es dividir parejo por 12 meses en todos los casos. Para categorías `por_mes` (sueldos, alquileres) el prorrateo lineal por mes tiene sentido. Pero para `por_partido`/`por_dia_cancha`, lo "esperado a la fecha" no es un mes calendario — es el avance real del torneo (partidos jugados / partidos totales). Eso ya lo calcula `v_torneo_escala` (el factor de escala que usa `v_presupuesto_total`), así que no habría que reinventar la lógica: el prorrateo de v_presupuesto_vs_real debería reusar ese mismo factor según la unidad de cada línea, no aplicar un prorrateo de mes uniforme a todo.
+
+Si esto no cierra con cómo tenés pensada la vista, avisá antes de escribirla.
+
+---
+
 ### 🔧 Aplicado · `v_presupuesto_total` se redefinió sobre `v_presupuesto_linea` · 20/08/2026 · de Facu para Horacio
 
 Es refactor, **no cambio de comportamiento**: el cashflow devuelve exactamente
