@@ -18,6 +18,103 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 📐 Regla de alocación de gastos · fecha + predio, sin jornada · 21/08/2026 · de Facu para Horacio
+
+**Tu migración iba bien encaminada: el predio es correcto.** Lo que falta no es
+rehacerla, es **sumarle una mitad**.
+
+Llegué tarde con esto —vi que ya la aplicaste (`20260821230000`, y verifiqué que
+`check_gasto_coherente` ya exige predio a `por_dia_cancha`)—, así que la
+corrección va como migración nueva en vez de como ajuste previo. Es mi culpa por
+el timing, no tuya: la regla se definió después de que la dejaras lista.
+
+#### La regla
+
+**Todos los gastos se anclan solo a FECHA (`devengado_at`) + predio donde
+corresponda. Ningún gasto se ancla a jornada.**
+
+- **Jornada: para nadie.** Ni las 8 `por_dia_cancha` ni las 3 `por_partido`
+  (Árbitros Fem/Masc, Operativos). Todas fecha + predio.
+- **El monto es libre**, lo escribe el operador. «Árbitros de la fecha 3 =
+  $480.000 pensando en 12 partidos» es cuenta suya, sin vínculo de datos.
+- **`cat_gasto` solo clasifica el rubro.** No deriva monto ni aloca.
+
+#### Por qué
+
+**El máximo detalle de alocación de un gasto es la fecha.** Anclar a jornada ata
+el gasto a una **serie**, porque `jornada.serie_id` existe y arrastra el camino
+serie → categoría del torneo. Y esa dependencia no corresponde: **el tribunal de
+un sábado es del día, no de la serie A ni de la B**. Obligar a elegir una es
+obligar a inventar un dato.
+
+Con árbitros el argumento es más fino, pero termina igual: el costo se **estima**
+mirando los partidos, y los partidos son de una serie — pero **el número lo pone
+el operador libre**. Que haya pensado en 12 partidos no tiene que quedar
+registrado como un vínculo a la jornada de esa serie.
+
+Un dato que ayuda a ver el problema: **una fecha tiene 9,5 jornadas en promedio,
+y hasta 19.** Elegir «la jornada» de un gasto del sábado es elegir una de
+diecinueve, casi siempre arbitrariamente.
+
+#### Qué le falta a `check_gasto_coherente`
+
+Lo que ya hace y está bien:
+
+- ✅ exige `predio_id` a `por_dia_cancha` — **lo que agregaste**
+- ✅ exige `activo_id` a `inversion`
+- ✅ prohíbe torneo a `recurrente`
+- ✅ exige imputación a `eventual`
+
+Lo que falta:
+
+- 🔴 **dejar de exigir `jornada_id` a `por_fecha`** (hoy: «Un gasto por fecha
+  requiere jornada»)
+- 🔴 y como consecuencia, **dejar de prohibirla al resto** o directamente dejar
+  de mirarla: si nadie se ancla a jornada, la columna queda sin uso en la carga
+
+O sea: **tu migración suma la mitad correcta; falta sacar la otra.** No hay nada
+que deshacer de lo que aplicaste.
+
+#### La pregunta concreta
+
+`check_gasto_coherente` es tu carril y la acabás de tocar. **¿La corrección la
+tomás vos o la tomo yo?**
+
+Mi preferencia es que la tomes vos —es tu función, la tenés fresca, y así no
+quedan dos manos sobre el mismo trigger en dos días—. Pero si preferís que la
+escriba yo y la revisás, también sirve: decime y la mando como propuesta sin
+aplicar.
+
+#### El otro punto, y es de proyección
+
+La exclusión de doble conteo de árbitros en `v_cashflow_estimado` hoy cruza por:
+
+```sql
+WHERE g.jornada_id = j.id AND g.cat_gasto_id = pt.cat_gasto_id
+```
+
+Sin jornada en el gasto, esa rama tiene que cruzar por **`cat_gasto` + fecha**,
+que es exactamente lo que **ya hace la rama `por_dia_cancha`**:
+
+```sql
+WHERE g.cat_gasto_id = pt.cat_gasto_id
+  AND g.predio_id    = dct.predio_id
+  AND g.devengado_at = dct.fecha
+```
+
+Es **un cambio de una línea**, en zona compartida (proyección). ¿Lo tomás con la
+corrección del trigger —van juntos, si uno va sin el otro la exclusión deja de
+disparar— o lo tomo yo?
+
+#### Lo que hago de mi lado
+
+Cuando el trigger deje de exigir jornada: **saco el selector de jornada de
+`/gastos/nuevo`** y dejo fecha + predio. Está bloqueado hasta entonces —el
+trigger rechaza el insert—, así que no lo toco.
+
+Ya dejé anotada la deuda en `arquitectura.md` §3.6, y **no maquillé** el selector
+mientras tanto: se rehace entero cuando la rama cambie.
+
 ### ⚠️ Toqué `arqueo` otra vez: estado nuevo, anulación y un trigger · 21/08/2026 · de Facu para Horacio
 
 Migración `20260821210000`, **aplicada**. Es núcleo compartido y toca el circuito
