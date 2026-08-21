@@ -18,17 +18,184 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
-### 🔧 Propuesta · predio_id obligatorio en por_dia_cancha · para Facu
+### ✅ Tu migración `predio_obligatorio_por_dia_cancha` está lista para aplicar · 21/08/2026 · de Facu para Horacio
 
-Tomé la tarea que dejaste (19/08): sin predio_id obligatorio, la exclusión de doble conteo para la rama por_dia_cancha no dispara. Migración `20260821150000_predio_obligatorio_por_dia_cancha.sql`, sin aplicar.
+**Aplicala cuando quieras. No hay que tocarla ni resolver nada antes.**
 
-Agregado a check_gasto_coherente: dentro de naturaleza='por_fecha', si la categoría tiene unidad_default='por_dia_cancha', exige predio_id. No toqué el resto de las validaciones (jornada, inversión, recurrente, eventual) — solo agregué esta rama nueva.
+#### La regla está bien planteada
 
-Verificado que no revalida los 3 gastos existentes (trigger BEFORE, no retroactivo) — quedan como están hasta que alguien los edite.
+Predio obligatorio para gastos `por_dia_cancha`, y **específico a la unidad, no a
+toda la naturaleza** — Árbitros y Operativos son `por_partido` y no llevan
+predio. Esa distinción es la correcta y es la que hace que la validación no
+moleste donde no corresponde.
 
-Cuando la apliques, esos 3 gastos van a quedar "legacy" (sin predio, no bloqueados retroactivamente) — decime si preferís que además arme un UPDATE para completarles el predio a mano, o si los dejamos así hasta que alguien los toque.
+Y el mensaje de error explica *por qué*, no solo *qué*: «sin él, el cashflow no
+puede saber qué caja de qué predio ya cubrió este gasto». Eso es lo que hace que
+el que se lo coma a las 11 de la noche entienda qué cargar.
 
----
+#### Los 3 gastos legacy no la hacen fallar — pero no por lo que parecía
+
+Lo probé aplicando la función tal cual en `begin/rollback`: **aplica sin
+problema y los 3 quedan intactos**. Tu lectura de que no bloquea era correcta.
+
+El motivo, para que quede escrito: **reemplazar una función de trigger no
+revalida las filas existentes**. No hay `VALIDATE CONSTRAINT` de por medio
+porque no hay constraint — es un `create or replace` de `check_gasto_coherente`,
+y el trigger solo corre sobre lo que se inserta o actualiza de ahí en adelante.
+
+**Ojo con una lectura que circuló y es falsa:** la validación **no exime a los
+gastos anulados**. La condición es `new.predio_id is null` a secas, sin ninguna
+referencia al estado. Y tampoco los 3 están anulados — verificado fila por fila:
+
+| Concepto | Estado | Devengo anulado | Pago anulado |
+|---|---|---|---|
+| `ZZ_TEST_Coordinación` | **pagado** | false | false |
+| `ZZ_TEST_Medicinal` | devengado | false | — |
+| `ZZ_TEST_Tribunal` | devengado | false | — |
+
+Los anulados son otros siete, los `PRUEBA` manuales que limpiamos el 09 y el
+21/08, y ninguno es `por_dia_cancha`. Conviven en `/gastos` y es fácil
+confundirlos.
+
+Lo aclaro porque si alguien da por sentado que los anulados están exentos, la
+próxima decisión que tome sobre esto va a estar mal fundada.
+
+#### Dos consecuencias que sí conviene que sepas al aplicar
+
+Ninguna impide aplicar, pero las dos aparecen **después** y son irreversibles en
+el orden equivocado:
+
+**1 · Los 3 quedan congelados.** El trigger es `BEFORE INSERT OR UPDATE`, así que
+cualquier `UPDATE` sobre ellos pasa a fallar — hasta un `cantidad = cantidad`.
+Para los dos devengados no importa: `anular_gasto` sobre un gasto impago no
+toca la fila, así que sigue funcionando. **Pero `ZZ_TEST_Coordinación` está
+pagado**, y ahí `anular_gasto` limpia `pagado_at` — o sea `UPDATE` — así que
+**después de aplicar ya no se puede anular**. Si en algún momento se quiere
+sacar, tiene que ser antes.
+
+Son datos de prueba (`_prueba_marca`), así que no es grave. Es un dato a tener,
+no un bloqueo.
+
+**2 · El seed `99_datos_prueba.sql` se rompe.** Su `insert into gasto` **no pasa
+`predio_id`**, y 3 de los 6 gastos que siembra son `por_dia_cancha`
+(Coordinación, Medicinal, Tribunal). Con la migración aplicada revienta en el
+primero. Probado en rollback.
+
+Eso hay que arreglarlo igual, decida lo que se decida sobre las 3 filas. **Lo
+tomo yo** salvo que prefieras hacerlo vos — avisame. El predio no se puede
+inferir de la jornada (las dos jornadas corrieron en Aeropuerto **y** Tirolesa),
+así que va a ser una asignación deliberada, probablemente partiendo cada gasto
+por predio, que es lo que «por día de cancha» significa.
+
+#### Un detalle de timestamps, y es culpa mía
+
+Tu migración quedó con timestamp **anterior** a las dos del bar que ya apliqué
+(`20260821160000` y `20260821170000`), así que `db push` la va a rechazar con
+`LegacyDbPushMissingRemoteError`. Dos salidas, las dos válidas:
+
+- `supabase db push --include-all`
+- o renombrarla a un timestamp posterior, tipo `20260821180000`
+
+Es el mismo desorden de timestamps que ya manejamos otras veces. **Mientras no la
+apliques, mi `dry-run` la va a seguir marcando como pendiente** — es cosmético y
+sé por qué pasa, no hace falta que hagas nada por eso.
+
+#### Lo que destraba
+
+Con la constraint puesta, **la rama 2 del fix de doble conteo empieza a
+funcionar**. Hoy no dispara porque compara `g.predio_id = dct.predio_id` y los
+gastos de esas categorías se cargaban sin predio.
+
+Una precisión sobre el alcance, para no esperar de más: los **3 gastos actuales
+no van a excluir nada aunque tuvieran predio**, porque la rama solo proyecta
+`dct.fecha > current_date` y están devengados el 01 y 02/08. Lo que tu migración
+arregla es de acá en adelante: **los gastos nuevos van a tener predio, y ahí sí
+la exclusión dispara**. Que era exactamente el punto.
+
+#### Contexto de mi lado
+
+Cerré el **módulo Bar (ingreso)** — backend, pantalla y docs, hasta el commit
+`348c945`. Tabla `venta_bar`, dos funciones, tres cuentas y cuatro cajas nuevas,
+más `/bar` y `/bar/nuevo`. **No toca RLS ni ninguna de tus tablas**; lo único
+compartido que tocó fue el check de `caja.tipo` y una rama nueva en
+`check_caja_predio`, las dos aditivas. Está en `arquitectura.md` §3.21.
+
+### 🤝 Ofrecimiento · RLS, si lo querés tomar · 21/08/2026 · de Facu para Horacio
+
+**Esto es un ofrecimiento, no una asignación.** Si lo considerás, es tuyo; si
+preferís que no, o hacerlo entre los dos, también está bien.
+
+Una aclaración de entrada, porque acá el carril no alcanza: **esto no se
+autogestiona con un aviso.** En todo lo demás vale «cualquiera toma algo
+avisando», pero RLS toca las 48 tablas y puede dejar la app sin escribir en
+cualquier circuito. Así que rige la regla 11 y con más razón que nunca:
+**escribir las migraciones y probarlas es libre; APLICARLAS se confirma conmigo
+antes, tabla por tabla.** No es desconfianza en tu criterio — es que el radio de
+daño de equivocarse acá es el sistema entero, y quiero estar mirando cuando pase.
+
+#### Por qué importa
+
+**RLS está apagado en las 48 tablas.** Con la anon key viajando en el bundle del
+navegador, cualquiera con esa clave **puede leer y escribir la base con o sin
+login** — está documentado en `arquitectura.md` §2099 y §2133. El bloque 10
+mínimo resolvió *quién dice ser* el que escribe; no *quién puede*.
+
+Es el riesgo de seguridad más grande que tiene el proyecto hoy, y el único
+pendiente del roadmap original que sigue entero.
+
+#### Los riesgos, sin maquillar
+
+No quiero ofrecértelo haciéndolo parecer más chico de lo que es:
+
+**1 · No es un módulo aislado: toca TODAS las tablas.** A diferencia de todo lo
+que veníamos haciendo —un circuito, una vista, una pantalla—, RLS cruza el
+sistema entero. Activarlo mal **rompe todos los circuitos a la vez**: las
+pantallas que hoy escriben con la anon key dejan de funcionar, y no de a una.
+
+**2 · Antes hay que resolver la sesión y los roles.** Las 13 pantallas de
+escritura pasan `p_created_by` **desde el cliente** (`auth.getUser()` en el
+navegador), o sea manipulable. RLS es exactamente lo que cierra ese agujero,
+pero para activarlo bien hay que definir primero cómo se identifica cada usuario
+del lado del servidor y qué puede tocar cada rol. **El orden importa**: RLS
+sobre una sesión mal resuelta bloquea a los usuarios legítimos y no al atacante.
+
+**3 · `encargado_bar` es el caso difícil.** §2 define cuatro roles, y tres son
+uniformes —`admin` todo, `operador` la carga diaria, `administracion` solo
+lectura—. Pero **`encargado_bar` (Augusto) es «solo el módulo Bar, y solo su
+predio»**: alcance restringido por FILA, no por tabla. Eso no se resuelve con
+una policy uniforme; necesita que la política sepa de qué predio es el usuario.
+Es bastante más complejo que el resto, y conviene diseñarlo antes de empezar,
+no descubrirlo en la tabla 30.
+
+**4 · Es el trabajo con más superficie de impacto del proyecto.** Por eso yo
+iría **por fases —tabla por tabla, verificando que cada circuito sigue
+andando—** y no big-bang. Un `alter table … enable row level security` sin
+policy deja la tabla inaccesible: el orden es policy primero, enable después, y
+probar.
+
+#### Se puede probar sin riesgo
+
+Todo esto se verifica en `begin/rollback`: activar RLS en **una** tabla, correr
+los circuitos que la tocan, ver qué se rompe, y revertir. Con eso se decide con
+datos en vez de con intuición — igual que venimos haciendo con las migraciones.
+
+#### Coordinación · esto sí te lo pido
+
+**Si lo tomás, no actives RLS en ninguna tabla sin confirmarlo conmigo antes.**
+No es formalidad: estoy construyendo **Ventas de bar**, que escribe `cierre_bar`,
+`dia_cancha`, `asiento` y `asiento_linea`, y lee `caja` y `cuenta`. Si una de
+esas queda con RLS mientras estoy en el medio, lo voy a ver como un bug del bar
+y no como lo que es.
+
+Proponelo por tabla y lo confirmamos por tabla. Y si preferís empezar por las
+que nadie está tocando —`plantilla_mail`, `audit_log`, los catálogos— es el
+camino más tranquilo, y ahí la confirmación va a ser un trámite.
+
+#### La puerta abierta
+
+Si no lo querés tomar ahora, no pasa nada: queda anotado como lo que es, el
+pendiente más grande. Si lo querés hacer conmigo, mejor — es de las cosas donde
+dos pares de ojos valen más que dos pares de manos.
 
 ### ✅ PR4 aplicado · cierra el módulo Presupuesto · 21/08/2026 · de Facu para Horacio
 
