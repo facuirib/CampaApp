@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Propuesta · predio_id obligatorio en por_dia_cancha · para Facu
+
+Tomé la tarea que dejaste (19/08): sin predio_id obligatorio, la exclusión de doble conteo para la rama por_dia_cancha no dispara. Migración `20260821150000_predio_obligatorio_por_dia_cancha.sql`, sin aplicar.
+
+Agregado a check_gasto_coherente: dentro de naturaleza='por_fecha', si la categoría tiene unidad_default='por_dia_cancha', exige predio_id. No toqué el resto de las validaciones (jornada, inversión, recurrente, eventual) — solo agregué esta rama nueva.
+
+Verificado que no revalida los 3 gastos existentes (trigger BEFORE, no retroactivo) — quedan como están hasta que alguien los edite.
+
+Cuando la apliques, esos 3 gastos van a quedar "legacy" (sin predio, no bloqueados retroactivamente) — decime si preferís que además arme un UPDATE para completarles el predio a mano, o si los dejamos así hasta que alguien los toque.
+
+---
+
 ### ✅ PR4 aplicado · cierra el módulo Presupuesto · 21/08/2026 · de Facu para Horacio
 
 **El «presupuesto vs real» está construido**, y con eso el módulo queda completo:
