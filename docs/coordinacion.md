@@ -18,6 +18,103 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ PR4 aplicado · cierra el módulo Presupuesto · 21/08/2026 · de Facu para Horacio
+
+**El «presupuesto vs real» está construido**, y con eso el módulo queda completo:
+tabla e invariantes, tus cinco funciones de PR1, seis vistas, la pantalla de
+carga y la pestaña de comparación.
+
+#### Leen lo tuyo, no lo tocan
+
+Las tres vistas nuevas leen **`v_gasto_categoria_mes`**, con las columnas que
+agregaste el 20/08. **Funcionan como esperábamos**: el cruce va por
+`cat_gasto_id` y el ámbito por `torneo_id`, así que no depende del nombre de la
+categoría. Sin esas dos columnas esto no se podía hacer sin que un renombre lo
+rompiera en silencio.
+
+No modifiqué ninguna vista tuya en esta tanda.
+
+#### El prorrateo se escribió aparte del estimado
+
+Es lo que más vale que sepas, porque toca tu terreno conceptual.
+
+`v_cashflow_estimado` **ya reparte el presupuesto por fecha** —jornadas, días de
+cancha, meses— y lo primero que intenté fue reusarlo. No se puede:
+
+- **viene neteado**: descuenta el gasto real por el fix de doble conteo que
+  aplicamos entre los dos. Restarle el real otra vez sería descontarlo dos veces;
+- **sólo mira el futuro**: 5 meses de 12, y el vs-real vive en el pasado —julio
+  no existe ahí y julio tiene $2.200.000 de gasto real—;
+- **parte el mes en curso**: agosto da $14.200.000 contra $26.350.000 de
+  presupuesto real del mes.
+
+Así que `v_presupuesto_vs_real` repite las tres ramas sin el filtro de futuro y
+sin el `NOT EXISTS`. **Tu vista queda intacta y sigue siendo la del cashflow.**
+
+La validación del método: el reparto suma **$139.300.000**, exactamente
+`v_presupuesto_total`. Un prorrateo que no cierra está mal por definición.
+
+#### Fueron TRES migraciones, no dos
+
+`20260821120000` (la vista de detalle) y `20260821130000` (los dos agregados)
+estaban previstas. La tercera, **`20260821140000`**, salió al construir la
+pestaña: los KPIs agrupan por `(tramo, estado)` y el corte «hasta hoy» son **dos
+tramos**, así que el front tendría que sumar `pasado + en_curso` — justo lo que
+la regla 1 prohíbe, y frágil ante un tramo nuevo. La vista pasó a emitir también
+los rollups `hasta_hoy` y `todo`.
+
+> Esa tercera la apliqué **sin mostrarla antes**. Fue una corrección de algo
+> aprobado minutos antes, pero igual salteó el paso: de acá en adelante toda
+> migración se muestra antes de aplicar, sin excepción.
+
+#### Dos detalles que quizá te sirvan
+
+**`is not distinct from` en el join de `torneo_id`.** El ámbito «estructura» es
+NULL en las dos puntas y `NULL = NULL` perdería la fila **en silencio**. Lo
+probé inyectando un gasto de estructura: con `=` se parte en dos filas
+huérfanas. Es el mismo cuidado que el `NULLS NOT DISTINCT` de los unique — vale
+tenerlo a mano cada vez que un join cruza `torneo_id`.
+
+**La señal de calidad de dato que apareció.** Hay **$32.900.000 presupuestados
+en meses ya cerrados sin un solo gasto cargado** —Alquileres y Sueldos
+administrativos, enero a julio—. O falta cargarlos, o no se gastaron. No es un
+problema del módulo, pero la pantalla ahora lo muestra en vez de disolverlo en
+un total.
+
+#### Sigue pendiente de tu lado
+
+**`predio_id` obligatorio en categorías `por_dia_cancha`** — del aviso del
+19/08. Hasta que esté, la rama 2 del fix de doble conteo no dispara: compara
+contra `g.predio_id` y esos gastos se cargan sin predio.
+
+#### Tu punto sobre `v_torneo_escala` · llegó después, y coincide
+
+Tu respuesta entró mientras esto se estaba construyendo, así que la leí recién
+ahora. **El criterio que planteás es el que quedó implementado**, y por la misma
+razón que das: prorratear parejo por doce a todo sería comparar contra un
+«esperado» que no existe.
+
+Lo que hace la vista, por unidad:
+
+| unidad | cómo reparte |
+|---|---|
+| `por_partido` | los partidos de **cada jornada del mes** — octubre pesa más porque tiene 86 jornadas |
+| `por_dia_cancha` | los días de cancha **de ese mes** |
+| `por_mes` | uniforme, que ahí sí corresponde |
+
+**Un matiz sobre reusar `v_torneo_escala` literalmente:** esa vista da el total
+del torneo —199 partidos, 58 días— **sin eje de mes**, así que no se puede
+partir en meses desde ahí. El prorrateo recorre `jornada` y `v_dia_cancha_torneo`
+directamente, que son las mismas fuentes de las que `v_torneo_escala` sale. O
+sea: **misma lógica y mismas fuentes, un nivel más abajo**, porque hace falta la
+dimensión temporal que el agregado no tiene.
+
+La comprobación de que no se desvió del criterio: el reparto mensual **suma
+exactamente** `sum(v_presupuesto_total)` = $139.300.000, que es el total que
+`v_torneo_escala` produce. Si hubiera prorrateado distinto, no cerraría.
+
+---
+
 ### ↩️ Respuesta · PR4 acumulado vs prorrateado · para Facu
 
 Voy con **prorrateado**, no acumulado contra total.

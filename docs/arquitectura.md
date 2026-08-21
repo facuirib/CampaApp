@@ -1205,8 +1205,98 @@ ofrece. Si hiciera falta, es un `UPDATE` manual hasta que el caso aparezca.
 En el Sidebar va **primera en Finanzas**, antes de Proyección: se planea, se
 proyecta, y recién después se mira lo que pasó.
 
-> **Falta el «vs real» (PR4).** Es otra pantalla y necesita antes la decisión
-> del grano temporal.
+#### El «vs real» · PR4
+
+*Migraciones `20260821120000` · `20260821130000` · `20260821140000`. Es una
+**pestaña** de `/presupuesto`, no una pantalla aparte: cargar y controlar son la
+misma información mirada con dos propósitos.*
+
+**El prorrateo se escribe aparte, y esa es la decisión de fondo.** El
+presupuesto es un total del ejercicio sin fecha; el gasto real tiene fecha. Para
+compararlos mes a mes hay que repartirlo, y **`v_cashflow_estimado` ya hace ese
+reparto** — la tentación es reusarlo. No se puede, por tres razones:
+
+| | |
+|---|---|
+| Viene **neteado** | descuenta el gasto real (el fix de doble conteo). Restarlo otra vez sería descontarlo dos veces |
+| Sólo mira el **futuro** | 5 meses de 12, y el vs-real vive en el pasado. Julio no existe ahí, y julio tiene gasto real |
+| Parte el **mes en curso** | agosto da $14.200.000 contra $26.350.000 de presupuesto real del mes |
+
+Así que `v_presupuesto_vs_real` repite las tres ramas —`por_partido` por las
+jornadas del mes, `por_dia_cancha` por sus días, `por_mes` uniforme— **sin el
+filtro de futuro y sin el `NOT EXISTS`**. La validación del método es que el
+reparto **suma el total exacto**: $139.300.000, igual que `v_presupuesto_total`.
+
+`anual` y `unico` quedan fuera del prorrateo: no tienen fecha que las ubique en
+un mes, y repartirlas entre doce sería inventar un criterio.
+
+**`FULL OUTER JOIN`**, porque hay filas de los dos lados sin contraparte. Y el
+join de `torneo_id` va con **`is not distinct from`**: el ámbito estructura es
+NULL en las dos puntas, y `NULL = NULL` perdería la fila **en silencio** — el
+mismo cuidado que el `NULLS NOT DISTINCT` de los unique.
+
+**Los cuatro estados no se suman entre sí**, y cada uno responde otra pregunta:
+
+| Estado | Qué dice | Qué hacer |
+|---|---|---|
+| `excedido` | gasté de más en algo que planeé | revisar el gasto |
+| `dentro` | gasté menos de lo planeado | — |
+| `sin_presupuesto` | gasté en algo que **no** planeé | falta la línea de presupuesto |
+| `sin_ejecutar` | todavía no gasté lo planeado | **no es un ahorro** |
+
+Las tres vistas:
+
+| Vista | Grano |
+|---|---|
+| `v_presupuesto_vs_real` | (categoría, ámbito, mes) — el detalle |
+| `v_presupuesto_vs_real_kpi` | (tramo, estado) — con `tramo` en **dos niveles**: los finos `pasado`/`en_curso`/`futuro` y los rollups `hasta_hoy`/`todo` |
+| `v_presupuesto_vs_real_anual` | (categoría, ámbito) — el acumulado, con `meses_excedidos` |
+
+> **Las filas de la KPI se solapan a propósito: hay que ELEGIR un nivel, nunca
+> sumar la vista entera.** Los rollups existen para que la pantalla no sume
+> tramos en el front; los tramos finos, porque la señal de calidad de dato vive
+> en `pasado` y el rollup la esconde.
+
+##### La pestaña
+
+**El corte por defecto es «hasta hoy»** —meses cerrados y el corriente— porque
+el desvío global crudo da **−$126.500.000** y se lee como «ahorramos 126
+millones»: son los meses que todavía no pasaron. El año completo se ofrece, con
+la advertencia.
+
+**Cuatro tarjetas, una por estado, nunca un total único.** El `sin_presupuesto`
+se muestra como *«gastaste en algo que no planeaste»* y **no como desvío del
+100%**: se corrige agregando la línea, no revisando el gasto. Hoy son
+$4.100.000, el **46% del gasto real**.
+
+**La señal de calidad de dato.** `sin_ejecutar` en meses **ya cerrados** —hoy
+$32.900.000 en 14 meses-categoría— no es lo mismo que en el mes corriente, que
+todavía puede ejecutarse: *o falta cargar esos gastos, o no se gastaron*. Por eso
+`tramo` distingue `pasado` de `en_curso`; mezclarlos inflaba la señal un 28%.
+
+**El desvío distingue tres lecturas en la misma columna**: un `sin_ejecutar`
+muestra «no ejecutado» en gris y **no un número verde**, que lo haría parecer un
+ahorro.
+
+##### Dos supuestos del prorrateo, y por qué hay tabla anual
+
+- `por_mes` reparte **uniforme**: un aguinaldo daría «excedido» en dos meses y
+  «dentro» en los otros diez, sin que nada esté mal.
+- `por_partido` asume que el gasto cae **en el mes de la jornada**: si el árbitro
+  factura a 30 días, el real llega un mes tarde y **los dos meses dan desvío**,
+  compensándose.
+
+El acumulado los neutraliza. **Por eso están las dos tablas**: el mensual dice
+*cuándo*, el anual dice *cuánto* — y `meses_excedidos` conserva lo que el anual
+esconde, que una categoría puede cerrar el año dentro habiéndose pasado algunos
+meses.
+
+El desvío se mide contra el **devengado** y no contra lo pagado: el presupuesto
+es de gasto, no de caja.
+
+> **El módulo Presupuesto queda completo:** tabla e invariantes, las cinco
+> funciones de escritura (PR1), las seis vistas, la pantalla de carga y la
+> pestaña de comparación.
 
 ### 3.9 Comunicaciones
 

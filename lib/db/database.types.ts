@@ -5554,6 +5554,55 @@ export type Database = {
           },
         ]
       }
+      v_presupuesto_vs_real: {
+        Row: {
+          ambito: string | null
+          cat_gasto_id: string | null
+          categoria: string | null
+          desvio: number | null
+          desvio_pct: number | null
+          es_estructura: boolean | null
+          estado: string | null
+          gastos: number | null
+          mes: string | null
+          naturaleza: string | null
+          presupuestado: number | null
+          real: number | null
+          real_pagado: number | null
+          torneo_id: string | null
+        }
+        Relationships: []
+      }
+      v_presupuesto_vs_real_anual: {
+        Row: {
+          ambito: string | null
+          cat_gasto_id: string | null
+          categoria: string | null
+          desvio: number | null
+          desvio_pct: number | null
+          es_estructura: boolean | null
+          estado: string | null
+          meses_con_gasto: number | null
+          meses_excedidos: number | null
+          naturaleza: string | null
+          presupuestado: number | null
+          real: number | null
+          torneo_id: string | null
+        }
+        Relationships: []
+      }
+      v_presupuesto_vs_real_kpi: {
+        Row: {
+          categorias: number | null
+          desvio: number | null
+          estado: string | null
+          filas: number | null
+          presupuestado: number | null
+          real: number | null
+          tramo: string | null
+        }
+        Relationships: []
+      }
       v_reclamo_equipo: {
         Row: {
           dias_desde_ultimo: number | null
