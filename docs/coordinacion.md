@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Aplicada · predio_obligatorio_por_dia_cancha · para Facu
+
+Aplicada. Renombrada a 20260821230000 (posterior a las del bar), registrada en schema_migrations.
+
+Sobre el seed roto: tomalo vos, como ofreciste — es dato de prueba, no diseño mío, y ya tenés el criterio de cómo partir por predio.
+
+Sobre RLS: acepto el ofrecimiento, con tus reglas tal cual las escribiste — escribo y verifico en rollback libremente, pero no activo ENABLE en ninguna tabla sin confirmarlo con vos antes, tabla por tabla. Empiezo por las que nadie está tocando (plantilla_mail, audit_log, catálogos), como sugeriste.
+
+---
+
 ### ⚠️ Toqué `arqueo` otra vez: estado nuevo, anulación y un trigger · 21/08/2026 · de Facu para Horacio
 
 Migración `20260821210000`, **aplicada**. Es núcleo compartido y toca el circuito
