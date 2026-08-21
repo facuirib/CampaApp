@@ -999,25 +999,77 @@ NEGATIVA: `registrar_entrega_central` mueve el **contado**, así que con sistema
 $1.120.000 y contado $1.300.000 la entrega saca más de lo que hay y el saldo
 queda en −$180.000.
 
-#### Tres agujeros del arqueo del torneo, encontrados y NO resueltos
+#### Los tres agujeros del arqueo del torneo · encontrados y RESUELTOS el 21/08
 
-Se encontraron ejecutando el circuito el 21/08. Quedan abiertos porque exceden
-el ajuste y son decisión aparte:
+Aparecieron ejecutando el circuito, que hasta ese día nunca había corrido —
+`arqueo` tenía 0 filas. Los tres están cerrados.
 
-**③ Un arqueo con contado 0 queda trabado.** `registrar_entrega_central` rechaza
-contado = 0 («no hay efectivo que entregar»), así que se queda en
-`pendiente_entrega` para siempre. Es el caso real de un día que se arquea y no
-hubo plata. Falta decidir si debería poder pasar a `entregado` sin asiento, o si
-necesita un estado propio.
+**③ Un arqueo sin salida → estado `'cerrado'`.** `entregado` era el único
+terminal, así que quedaban trabados para siempre el torneo con contado 0 —la
+entrega lo rechaza, y si además cuadró exacto el ajuste también— y **TODOS los
+arqueos del bar**, que no entregan a central: el 100% quedaba
+`pendiente_entrega` y `v_efectivo_sin_rendir` los listaba.
 
-**④ No se puede anular ni corregir un arqueo.** Cero funciones, y el unique
-impide rehacerlo. Un contado mal tipeado es permanente. La salida sería un
-`anular_arqueo` que contraasiente ajuste y entrega si existen y libere el día.
+`'cerrado'` significa **arqueado y sin nada que entregar**, y se decide al crear:
+ámbito bar siempre, contado 0 siempre. Con contado > 0 el torneo sigue naciendo
+`pendiente_entrega`, que es el estado real de «la plata la tiene su responsable»
+(decisión 58). Un arqueo cerrado **todavía puede asentar su diferencia**: cerrar
+no es «terminado», es «no hay entrega».
 
-**⑤ `pagar_gasto` no valida saldo de caja.** La caja de Tirolesa está en
-**−$508.000** porque un gasto `ZZ_TEST_` de $4.800.000 se pagó en efectivo cuando
-había $3.192.000. El dato es de prueba, la puerta es real.
-`retirar_efectivo_bar` sí valida y se puede calcar.
+**④ No se podía anular ni corregir → `anular_arqueo` + un trigger.** La función
+revierte lo que el arqueo tenga **en orden inverso al que se escribió**: primero
+la entrega, después el ajuste, los dos vía `anular_asiento` (regla 4). Devuelve
+cuántos revirtió: 0, 1 o 2. El unique pasó a **parcial** `WHERE anulado_at IS
+NULL` — sin eso se podría deshacer pero nunca rehacer el día.
+
+Y había algo peor que «no se puede»: **`update arqueo set saldo_contado` pasaba
+sin ningún control**. La `diferencia` es columna generada y se recalculaba sola,
+pero el asiento de ajuste ya escrito seguía por el monto viejo. Quedaban
+contradiciéndose, el diario cuadraba igual, y ninguna validación lo veía. Con la
+anon key en el bundle, eso lo podía hacer cualquiera.
+
+`check_arqueo_inmutable` congela `saldo_contado`, `saldo_sistema`,
+`dia_cancha_id` y `ambito`; deja libres `estado`, `entregado_at`, los `asiento_*`
+y la marca de anulación. **Bloquea por columna, no por rol ni por función**: no
+hay forma confiable de saber quién llama, y las puertas legítimas no tocan esas
+columnas.
+
+**⑤ Ninguna puerta validaba saldo → `validar_saldo_caja`.** No era de
+`pagar_gasto`: midiendo el diario en orden cronológico, `CAJA_EFECTIVO` tenía **2
+de 3 salidas** dejando la caja negativa (peor: −$1.708.000) y
+`CAJA_TRANSFERENCIA` **4 de 8** (peor: −$5.750.000). La única que validaba era
+`retirar_efectivo_bar`.
+
+`validar_saldo_caja(cuenta, predio, fecha, monto, contexto)` cubre **solo efectivo
+físico** —`CAJA_EFECTIVO`, `BAR_EFECTIVO`, `CAJA_CENTRAL`— y se usa en cinco
+puertas: `pagar_gasto`, `crear_retiro_socio`, `comprar_usd` (solo
+`medio='central'`), `reponer_efectivo_transito` y `registrar_entrega_central`.
+Ninguna cambió de firma.
+
+**Transferencia y USD no se validan, y es deliberado.** El efectivo negativo es
+físicamente imposible; el descubierto bancario existe —el peor caso es una compra
+de dólares, decisión consciente— y en USD el control es el promedio ponderado.
+
+Mide **a la fecha del movimiento**, no contra hoy. Lo que no cubre, y queda sin
+blindar: un movimiento con fecha vieja puede pasar y dejar corto un día
+posterior. Lo detecta el arqueo, que para eso existe.
+
+> **Para aplicarlo hubo que limpiar el seed.** Tirolesa estaba en −$508.000 por
+> un `ZZ_TEST_Arbitros Masculino` de $4.800.000 que el seed pagó en efectivo sin
+> plata, y con ⑤ eso habría bloqueado **todo** pago en efectivo de ese predio.
+> Se anularon los 6 `ZZ_TEST_` vigentes: Tirolesa quedó en $4.292.000,
+> transferencia en $3.395.000, y la app sin gastos vigentes (0 de 13).
+
+#### Deuda abierta · `comprar_usd` y `vender_usd` sin responsable
+
+**No tienen parámetro `p_created_by` ni lo pasan a `crear_asiento`**, así que
+dependen de `auth.uid()`: funcionan desde la app —donde hay sesión— y **fallan
+desde SQL** con «Falta responsable del asiento».
+
+Las deja fuera del patrón del resto de las puertas —`pagar_gasto`,
+`crear_arqueo`, `registrar_cobro`, `anular_gasto` toman `p_created_by`
+explícito—, que es lo que se acordó en la **decisión 89** al sacar el fallback a
+`auth.users`. El arreglo es agregarles el parámetro como a las demás.
 
 > **Y el `ambito` rompió dos vistas, latente.** La migración que lo agregó
 > permitió dos arqueos por día, y `v_saldo_efectivo_dia_cancha` y

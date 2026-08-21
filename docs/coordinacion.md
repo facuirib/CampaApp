@@ -80,18 +80,81 @@ lo contado → entrega deja la caja en $0 y el estado en `entregado` → sale de
 sin_rendir. Y anular revierte los 2 asientos, la caja vuelve a $1.120.000 y el
 día queda libre. Descuadre 0.
 
-#### Lo que viene, y todavía NO está
+#### ⑤ `validar_saldo_caja` · APLICADA (20260821220000)
 
-Queda escrita y **sin aplicar** la pieza ⑤: `validar_saldo_caja`, que impediría
-sacar efectivo que no está. Toca cinco puertas —`pagar_gasto`,
-`crear_retiro_socio`, `comprar_usd`, `reponer_efectivo_transito` y
-`registrar_entrega_central`— y **solo cuentas de efectivo físico**:
-transferencia y USD siguen admitiendo descubierto, que es legítimo (tu
-`comprar_usd` deja −$5.750.000 a propósito).
+Ya no se puede sacar efectivo que no está. **Toca cinco puertas**, y ninguna
+cambió de firma —se agrega una llamada, no un parámetro—, así que **ninguna
+llamada existente se rompe**:
 
-No la aplico todavía porque **bloquearía todo pago en efectivo desde Tirolesa**,
-que está en −$508.000 por un gasto `ZZ_TEST_` de $4.800.000 del seed. Primero hay
-que limpiar eso. Aviso antes de aplicarla.
+| Puerta | |
+|---|---|
+| `pagar_gasto` | rama efectivo |
+| `crear_retiro_socio` | efectivo y central |
+| `comprar_usd` | **solo `medio='central'`** |
+| `reponer_efectivo_transito` | |
+| `registrar_entrega_central` | |
+
+`retirar_efectivo_bar` ya validaba y no se tocó. `asentar_diferencia_arqueo`
+**no** se valida a propósito: un faltante baja la caja hasta lo contado, que es
+≥ 0 por construcción, y bloquearlo sería impedir que el libro reconozca la
+realidad.
+
+**Solo cuentas de efectivo físico** — `CAJA_EFECTIVO`, `BAR_EFECTIVO`,
+`CAJA_CENTRAL`. **Transferencia y USD NO se validan**, y es deliberado: el
+efectivo negativo es físicamente imposible, pero el descubierto bancario existe
+—tu `comprar_usd` por transferencia deja −$5.750.000 a propósito— y en USD el
+control es el promedio ponderado, no el saldo.
+
+Mide **a la fecha del movimiento**, no contra hoy, así que la carga en cualquier
+orden funciona mientras cada movimiento tenga respaldo ese día. Lo que no cubre
+—y queda sin blindar a propósito— es que un movimiento con fecha vieja pase y
+deje corto un día posterior: eso lo detecta el arqueo.
+
+**No revalida lo existente**: es una validación dentro de funciones, no un CHECK
+sobre la tabla. Solo aplica a movimientos nuevos.
+
+> **Un detalle en `registrar_entrega_central`, que sí cambia un comportamiento
+> conocido:** entregaba el CONTADO, así que con un sobrante sin ajustar sacaba
+> más de lo que hay y dejaba la caja negativa (sistema 1.120.000, contado
+> 1.300.000 → −180.000). Ahora falla con un mensaje que dice asentar la
+> diferencia primero. **No bloquea ninguna entrega legítima**: después del ajuste
+> el saldo ES el contado, así que pasa justo.
+
+#### Contexto: se limpiaron los 6 ZZ_TEST del seed
+
+Antes de aplicar ⑤ había que sacar el negativo de Tirolesa: estaba en
+**−$508.000** por un `ZZ_TEST_Arbitros Masculino` de $4.800.000 que el seed pagó
+en efectivo sin plata. Con ⑤ aplicada, eso **habría bloqueado todo pago en
+efectivo de ese predio** — hasta $1.
+
+Se anularon los 6 `ZZ_TEST_` vigentes con `anular_gasto` (9 contraasientos).
+Resultado: Tirolesa **$4.292.000**, transferencia **$3.395.000**, cero cuentas de
+efectivo negativas, descuadre 0.
+
+**La app quedó sin gastos vigentes: 0 de 13** — los otros 7 son los `PRUEBA`
+manuales, anulados desde antes. Es limpieza de DATOS, no fue al repo.
+
+#### Los tres agujeros del arqueo del torneo, cerrados
+
+③ estado `'cerrado'` · ④ `anular_arqueo` + `check_arqueo_inmutable` ·
+⑤ `validar_saldo_caja`. Los tres estaban anotados en `arquitectura.md` §3.6 y
+ese bloque ya se actualizó.
+
+#### 🆕 Deuda nueva que encontré, y es tuya de decidir
+
+**`comprar_usd` y `vender_usd` no tienen parámetro de responsable.** No reciben
+`p_created_by` ni lo pasan a `crear_asiento`, así que dependen de `auth.uid()`:
+funcionan desde la app —donde hay sesión— y **fallan desde SQL** con «Falta
+responsable del asiento».
+
+Es **pre-existente**, no lo causó ⑤: lo descubrí porque un test mío las llamó
+desde el editor. Y las deja fuera del patrón: el resto de las puertas
+—`pagar_gasto`, `crear_arqueo`, `registrar_cobro`, `anular_gasto`— sí toman
+`p_created_by` explícito, que fue lo que se acordó en la decisión 89 al sacar el
+fallback a `auth.users`.
+
+El arreglo es agregarles el parámetro como las demás. **Es tu carril (USD), así
+que lo dejo anotado y no lo toco.** Si querés que lo tome, avisá.
 
 ### 🔴 Mi migración de ayer rompió 2 vistas del arqueo del torneo · ya arreglado · 21/08/2026 · de Facu para Horacio
 
