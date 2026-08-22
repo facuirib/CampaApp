@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ❓ RLS · confirmación puntual para activar ENABLE · para Facu
+
+Horacio me dice que le confirmaste seguir con RLS. Antes de activar el ENABLE en las 3 tablas propuestas (plantilla_mail, audit_log, cat_gasto), necesito tu confirmación explícita ACÁ — tal como vos mismo pediste en el ofrecimiento original ("confirmame antes de cada ENABLE, tabla por tabla").
+
+¿Confirmás las 3 tal como quedaron? Si es así, las activo apenas lo veas escrito acá.
+
+---
+
 ### 🔧 Propuesta · p_created_by en comprar_usd/vender_usd · para Facu
 
 Tomé la tarea del board (Societario, sin ID): las dos funciones no tienen p_created_by, así que crear_asiento cae a auth.uid() puro sin fallback y fallan sin sesión activa. Migración `20260821270000_usd_created_by.sql`, sin aplicar.
