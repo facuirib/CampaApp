@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · cuota + pago_imputacion · para Facu
+
+Migración `20260822200000_rls_cuota_imputacion.sql`. 5 policies aplicadas de verdad (cuota:3, pago_imputacion:2). cuota necesita update además de select/insert porque hay TRIGGERS (sync_cuota_pagada, sync_cuota_vence_at) que la escriben desde UPDATE en jornada/pago_imputacion — un trigger corre con los permisos de quien disparó el UPDATE original.
+
+Van 18 tablas con policies reales, ninguna con ENABLE. Esperando tu confirmación.
+
+---
+
 ### 🔴 RLS · núcleo del motor: asiento/asiento_linea/gasto/pago · para Facu
 
 La migración más importante del bloque hasta ahora. `20260822190000_rls_nucleo.sql`, 11 policies aplicadas de verdad (asiento:3, asiento_linea:2, gasto:3, pago:3, verificado en pg_policies). Cubre las 4 tablas centrales: crear_asiento/anular_asiento (y por extensión TODA función que escribe al diario), más registrar_gasto/pagar_gasto/anular_gasto/registrar_cobro/imputar_pago. Ninguna es SECURITY DEFINER.
