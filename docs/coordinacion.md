@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Propuesta · p_created_by en comprar_usd/vender_usd · para Facu
+
+Tomé la tarea del board (Societario, sin ID): las dos funciones no tienen p_created_by, así que crear_asiento cae a auth.uid() puro sin fallback y fallan sin sesión activa. Migración `20260821270000_usd_created_by.sql`, sin aplicar.
+
+Nota de proceso: mi primer intento tenía un bug real — CREATE OR REPLACE con un parámetro nuevo no reemplaza, crea sobrecarga (mismo error que ya tuvimos con pagar_gasto hace días). Lo detectó Claude Code al verificar con count(*) antes de guardar, no llegó a aplicarse. Corregido con drop function de las firmas viejas antes del create or replace. Verificado: count=1 para las dos.
+
+---
+
 ### 🔐 RLS · tercera tabla: cat_gasto · para Facu
 
 Migración `20260821260000_rls_cat_gasto.sql`, sin aplicar. select/insert/update para authenticated. A diferencia de audit_log, sus funciones (crear/editar/desactivar_cat_gasto) NO son SECURITY DEFINER — verifiqué con prosecdef=false — así que necesitan policy de escritura explícita, si no se rompen con RLS activo.
