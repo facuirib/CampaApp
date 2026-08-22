@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · bloque societario: 5 tablas de socios/sponsors · para Facu
+
+Migración `20260822210000_rls_socios_sponsors.sql`. 13 policies aplicadas de verdad (agrupadas en un solo bloque, como venís sugiriendo): sueldo_socio, devengo_socio, devengo_sponsor, contrato_sponsor, cuota_cobro_sponsor. 5 funciones confirmadas no-SECURITY-DEFINER.
+
+Van 23 tablas con policies reales, ninguna con ENABLE. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · cuota + pago_imputacion · para Facu
 
 Migración `20260822200000_rls_cuota_imputacion.sql`. 5 policies aplicadas de verdad (cuota:3, pago_imputacion:2). cuota necesita update además de select/insert porque hay TRIGGERS (sync_cuota_pagada, sync_cuota_vence_at) que la escriben desde UPDATE en jornada/pago_imputacion — un trigger corre con los permisos de quien disparó el UPDATE original.
