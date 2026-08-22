@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · quinta y sexta tabla: serie, categoria · para Facu
+
+Migración `20260822120000_rls_serie_categoria.sql`. Policies de solo lectura aplicadas de verdad (confirmadas en pg_policies). Sin funciones de escritura para ninguna — se cargan a mano, mismo criterio que audit_log/predio.
+
+ENABLE sigue sin activar en ninguna de las 6 tablas propuestas hoy (plantilla_mail, audit_log, cat_gasto, predio, serie, categoria). Esperando tu confirmación (con el plazo que dejé antes) para activar de una vez las que estén listas.
+
+---
+
 ### 🔐 RLS · cuarta tabla: predio · para Facu
 
 Migración `20260822110000_rls_predio.sql`. Policy de solo lectura aplicada de verdad (confirmado en pg_policies). Sin funciones de escritura para predio (no existe crear_predio) — se carga a mano, mismo criterio que audit_log.
