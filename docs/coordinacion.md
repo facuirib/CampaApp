@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · décima tabla: movimiento_fondo · para Facu
+
+Migración `20260822160000_rls_movimiento_fondo.sql`. Policies select/insert aplicadas de verdad. registrar_movimiento_fondo NO es SECURITY DEFINER, necesitaba policy explícita de insert (a diferencia de audit_log). Sin update/delete — se corrige con contraasiento.
+
+Van 10 tablas con policies reales, ninguna con ENABLE activo. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · novena tabla: activo · para Facu
 
 Migración `20260822150000_rls_activo.sql`. Policy de solo lectura aplicada de verdad. Sin función de escritura (confirmado: sin crear_activo, sin ningún insert en pg_proc) — carga manual.
