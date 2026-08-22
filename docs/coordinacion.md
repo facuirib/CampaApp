@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · octava tabla: concepto_gasto · para Facu
+
+Migración `20260822140000_rls_concepto_gasto.sql`. Policy de solo lectura aplicada de verdad. Sin función de escritura hoy.
+
+Van 8 tablas con policies reales, ninguna con ENABLE activo. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · séptima tabla: ejercicio · para Facu
 
 Migración `20260822130000_rls_ejercicio.sql`. Policy de solo lectura aplicada de verdad. Sin función de escritura hoy.
