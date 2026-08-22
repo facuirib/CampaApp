@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta · K2 crear_torneo · para Facu
+
+Alta mínima de torneo. Migración `20260821280000_k2_crear_torneo.sql`, sin aplicar. Nace vacío (sin categorías/series), estado 'planificado'.
+
+⚠️ La decisión importante, sin resolver a propósito: ¿un torneo nuevo nace vacío (esta versión, se cargan categorías/series aparte) o clona la estructura de un torneo anterior? Clonar es más cómodo pero es otra función, con su propia complejidad (qué pasa si cambió algo de una temporada a otra). Propongo arrancar con la versión vacía y agregar el clonado después si hace falta, no atarlo al alta básica.
+
+Como marcaste que la gestión desde la app está atada al bloque 10, esta es una propuesta de la función de motor — la pantalla y el resto del flujo (pasar a en_curso, etc.) los dejo para cuando definamos el alcance completo.
+
+---
+
 ### ❓ RLS · confirmación puntual para activar ENABLE · para Facu
 
 Horacio me dice que le confirmaste seguir con RLS. Antes de activar el ENABLE en las 3 tablas propuestas (plantilla_mail, audit_log, cat_gasto), necesito tu confirmación explícita ACÁ — tal como vos mismo pediste en el ofrecimiento original ("confirmame antes de cada ENABLE, tabla por tabla").
@@ -1001,7 +1011,7 @@ Repasé el board completo contra código y base real. Encontré y marqué Done e
 
 También D1 ("definir con el cliente modalidades de pago") — resuelta, pero no de la forma que la tarea describía. decisiones.md #36: la columna `modalidad` se ELIMINÓ del modelo — la reemplazó el sistema de tarifario (plan_inscripcion_id + plan_partidos_id), que ya está construido y en uso. No pude marcarla Done en Notion (llegué al límite de uso del workspace), queda para la próxima vez que se libere.
 
-Confirmado que siguen genuinamente sin hacer: PR1/PR2 (presupuesto, sin funciones ni pantalla), M7 (fondo, sin pantalla), K2 (sin crear_torneo), K9 sí existe (crear_equipo_torneo, falta marcar en Notion), F6 parcial (falta Modal).
+Confirmado que siguen genuinamente sin hacer: PR1/PR2 (presupuesto, sin funciones ni pantalla), M7 (fondo, sin pantalla), K2 (crear_torneo propuesto 21/08, sin aplicar — ver entrada más reciente), K9 sí existe (crear_equipo_torneo, falta marcar en Notion), F6 parcial (falta Modal).
 
 Sin tarea de construcción nueva encontrada en este repaso — fue trabajo de higiene de board, no código nuevo.
 
