@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 RLS · núcleo del motor: asiento/asiento_linea/gasto/pago · para Facu
+
+La migración más importante del bloque hasta ahora. `20260822190000_rls_nucleo.sql`, 11 policies aplicadas de verdad (asiento:3, asiento_linea:2, gasto:3, pago:3, verificado en pg_policies). Cubre las 4 tablas centrales: crear_asiento/anular_asiento (y por extensión TODA función que escribe al diario), más registrar_gasto/pagar_gasto/anular_gasto/registrar_cobro/imputar_pago. Ninguna es SECURITY DEFINER.
+
+⚠️ Pedido especial: esta migración necesita TU revisión con más cuidado que las anteriores antes de activar ENABLE — es el corazón del sistema, si algo está mal, todo el flujo de cobros/pagos/gastos se rompe de una.
+
+Falta pago_imputacion (se toca desde imputar_pago, queda para la próxima migración de este bloque).
+
+Van 16 tablas con policies reales (12 anteriores + estas 4), ninguna con ENABLE.
+
+---
+
 ### 🔐 RLS · duodécima tabla: cheque · para Facu
 
 Migración `20260822180000_rls_cheque.sql`. Policies select/insert/update aplicadas de verdad. pagar_gasto, registrar_cobro y cambiar_estado_cheque no son SECURITY DEFINER — necesitaban las 3.
