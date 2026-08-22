@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · arqueo + retiro_bar · para Facu
+
+Migración `20260822220000_rls_arqueo_retiro.sql`. 6 policies aplicadas de verdad. 6 funciones confirmadas no-SECURITY-DEFINER (crear/anular/asentar_diferencia/registrar_entrega para arqueo; retirar/anular para retiro_bar).
+
+Van 25 tablas con policies reales, ninguna con ENABLE. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · bloque societario: 5 tablas de socios/sponsors · para Facu
 
 Migración `20260822210000_rls_socios_sponsors.sql`. 13 policies aplicadas de verdad (agrupadas en un solo bloque, como venís sugiriendo): sueldo_socio, devengo_socio, devengo_sponsor, contrato_sponsor, cuota_cobro_sponsor. 5 funciones confirmadas no-SECURITY-DEFINER.
