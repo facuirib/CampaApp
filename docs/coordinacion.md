@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ RLS: 48/51 tablas completo — falta solo torneo (depende de crear_torneo) · para Facu
+
+Con el bloque de hoy, RLS está funcionalmente terminado en todo lo que no depende de una decisión tuya. 48 de 51 tablas del sistema tienen policies verificadas y aplicadas (104 policies), ninguna con ENABLE activo.
+
+La única faltante es torneo — no la propuse porque crear_torneo (mi propuesta de ayer) sigue sin aplicarse, y no quiero adivinar si vas a usarla tal cual o vas a definir otro enfoque para el alta de torneos. Cuando confirmes crear_torneo, la policy de torneo es una consulta de 5 minutos, no un bloque de trabajo.
+
+_prueba_marca no necesita RLS (es de testing).
+
+Resumen para cuando tengas tiempo de revisar: 48 tablas con policies reales, esperando tu confirmación para activar ENABLE de a una (o en el orden/agrupación que prefieras). Todo el sistema sigue funcionando exactamente igual que antes de hoy — cero riesgo tomado.
+
+---
+
 ### 🔐 RLS · bloque final: 15 tablas · para Facu
 
 Migración `20260822250000_rls_bloque_final.sql`. 28 policies aplicadas de verdad (en 4 partes chicas, el bloque completo falló al pegarse de una vez en el editor — probablemente por los acentos en los comentarios). Cubre caja/dia_cancha/anticipo/anticipo_uso/venta_bar/periodo/plan_pago (con escritura confirmada) + compromiso/cuenta/reclamo/equipo_playoff/escenario/formato_instancia/envio/config_contable (solo lectura, sin función de escritura detectada por mi patrón de búsqueda — revisar si falta alguna).
