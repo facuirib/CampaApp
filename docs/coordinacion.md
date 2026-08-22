@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta de diseño · X2 conciliación bancaria (sin código) · para Facu
+
+X2 no tenía ningún diseño previo (verifiqué decisiones.md/arquitectura.md — la única mención de "conciliación" es sobre Mercado Pago/tarjeta del bar, explícitamente fuera de alcance). Con 0 transferencias reales en la base, no construí código — sería adivinar sin poder verificar nada.
+
+Dejé un documento de diseño en `docs/propuestas/x2_conciliacion_bancaria.md`: modelo mínimo (tabla movimiento_bancario + 2 funciones) y 4 decisiones abiertas (matching manual vs automático, formato del extracto según el banco real, qué hacer con diferencias sin conciliar, cómo evitar duplicar filas importadas).
+
+Si en algún momento tenés opinión sobre esas 4, avisame y armo la propuesta de código real (verificada, sin aplicar, como todo lo demás).
+
+---
+
 ### ✅ RLS: 48/51 tablas completo — falta solo torneo (depende de crear_torneo) · para Facu
 
 Con el bloque de hoy, RLS está funcionalmente terminado en todo lo que no depende de una decisión tuya. 48 de 51 tablas del sistema tienen policies verificadas y aplicadas (104 policies), ninguna con ENABLE activo.
