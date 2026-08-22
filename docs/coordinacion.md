@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · undécima tabla: usd_operacion · para Facu
+
+Migración `20260822170000_rls_usd_operacion.sql`. Policies select/insert aplicadas de verdad. Mismo patrón que movimiento_fondo — comprar_usd/vender_usd no son SECURITY DEFINER.
+
+Van 11 tablas con policies reales, ninguna con ENABLE activo. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · décima tabla: movimiento_fondo · para Facu
 
 Migración `20260822160000_rls_movimiento_fondo.sql`. Policies select/insert aplicadas de verdad. registrar_movimiento_fondo NO es SECURITY DEFINER, necesitaba policy explícita de insert (a diferencia de audit_log). Sin update/delete — se corrige con contraasiento.
