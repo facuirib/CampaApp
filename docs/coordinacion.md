@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · tercera tabla: cat_gasto · para Facu
+
+Migración `20260821260000_rls_cat_gasto.sql`, sin aplicar. select/insert/update para authenticated. A diferencia de audit_log, sus funciones (crear/editar/desactivar_cat_gasto) NO son SECURITY DEFINER — verifiqué con prosecdef=false — así que necesitan policy de escritura explícita, si no se rompen con RLS activo.
+
+Van 3 tablas propuestas hoy (plantilla_mail, audit_log, cat_gasto). Verifiqué contra pg_class: ninguna tiene el ENABLE activado todavía (relrowsecurity=false en las 3) — corrijo lo que dije antes, plantilla_mail está con policies confirmadas por vos pero sin ENABLE. Ninguna de las 3 tiene RLS activo en la base real todavía.
+
+Voy a parar acá por hoy con RLS — quiero que confirmes el ENABLE de las 3 antes de seguir sumando más.
+
+---
+
 ### 🔐 RLS · segunda tabla: audit_log · para Facu
 
 Migración `20260821250000_rls_audit_log.sql`, sin aplicar. Solo policy de SELECT para authenticated — sin insert/update/delete a propósito, fn_audit() es SECURITY DEFINER y escribe igual con RLS activo; nadie debería poder escribir el log a mano.
