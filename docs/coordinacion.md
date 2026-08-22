@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · séptima tabla: ejercicio · para Facu
+
+Migración `20260822130000_rls_ejercicio.sql`. Policy de solo lectura aplicada de verdad. Sin función de escritura hoy.
+
+No propuse torneo todavía — depende de crear_torneo (mi propuesta de ayer, sin confirmar). Sin esa función aplicada no puedo verificar si necesita policy de insert.
+
+Van 7 tablas con policies reales, ninguna con ENABLE activo. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · quinta y sexta tabla: serie, categoria · para Facu
 
 Migración `20260822120000_rls_serie_categoria.sql`. Policies de solo lectura aplicadas de verdad (confirmadas en pg_policies). Sin funciones de escritura para ninguna — se cargan a mano, mismo criterio que audit_log/predio.
