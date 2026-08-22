@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · amortizacion + plan_tarifa + plan_tarifa_linea · para Facu
+
+Migración `20260822240000_rls_tarifa_amortizacion.sql`. 5 policies aplicadas de verdad. amortizacion (select/insert/update, asentar_amortizacion no-SECURITY-DEFINER); plan_tarifa/plan_tarifa_linea (solo lectura, sin función de escritura).
+
+Van 33 tablas con policies reales, ninguna con ENABLE. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · bloque grande: 5 tablas (planificación/torneo) · para Facu
 
 Migración `20260822230000_rls_bloque_grande.sql`. 16 policies aplicadas de verdad: gasto_planificado, jornada, equipo_torneo, presupuesto, presupuesto_linea. 13 funciones confirmadas no-SECURITY-DEFINER. presupuesto_linea es la primera con policy de DELETE (borrar_linea_presupuesto, hard delete deliberado).
