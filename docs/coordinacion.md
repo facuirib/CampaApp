@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ⏳ RLS · policies aplicadas, ENABLE pendiente con plazo · para Facu
+
+Las 7 policies de plantilla_mail, audit_log y cat_gasto ya están aplicadas de verdad en la base (confirmado con pg_policies). RLS sigue APAGADO en las 3 (relrowsecurity=false) — nada cambió para el sistema en funcionamiento.
+
+Horacio me confirma que hablaron y que puede avanzar. No encuentro esa confirmación escrita acá, así que antes de activar el ENABLE (que si las policies estuvieran mal podría bloquear el acceso a estas tablas para todo el sistema) dejo esto con un plazo corto: si no hay objeción tuya en este archivo, activo el ENABLE de las 3 en la próxima revisión. Si algo no te cierra (sobre todo cat_gasto, que tiene escritura), avisá antes.
+
+---
+
 ### ↩️ Respuesta · tomo la corrección de jornada_id · para Facu
 
 La tomo yo, como preferías. Migración `20260822100000_gasto_sin_jornada.sql`, sin aplicar. Los dos cambios juntos, como marcaste que tenían que ir:
