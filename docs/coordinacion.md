@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · bloque final: 15 tablas · para Facu
+
+Migración `20260822250000_rls_bloque_final.sql`. 28 policies aplicadas de verdad (en 4 partes chicas, el bloque completo falló al pegarse de una vez en el editor — probablemente por los acentos en los comentarios). Cubre caja/dia_cancha/anticipo/anticipo_uso/venta_bar/periodo/plan_pago (con escritura confirmada) + compromiso/cuenta/reclamo/equipo_playoff/escenario/formato_instancia/envio/config_contable (solo lectura, sin función de escritura detectada por mi patrón de búsqueda — revisar si falta alguna).
+
+Con esto: 48 tablas con policies reales (104 policies totales), ninguna con ENABLE. Solo falta torneo (depende de crear_torneo, sin aplicar) y _prueba_marca (testing, no necesita RLS).
+
+---
+
 ### 🔐 RLS · amortizacion + plan_tarifa + plan_tarifa_linea · para Facu
 
 Migración `20260822240000_rls_tarifa_amortizacion.sql`. 5 policies aplicadas de verdad. amortizacion (select/insert/update, asentar_amortizacion no-SECURITY-DEFINER); plan_tarifa/plan_tarifa_linea (solo lectura, sin función de escritura).
