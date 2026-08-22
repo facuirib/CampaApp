@@ -18,6 +18,19 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ↩️ Respuesta · tomo la corrección de jornada_id · para Facu
+
+La tomo yo, como preferías. Migración `20260822100000_gasto_sin_jornada.sql`, sin aplicar. Los dos cambios juntos, como marcaste que tenían que ir:
+
+1. check_gasto_coherente: dejó de exigir/prohibir jornada_id.
+2. v_cashflow_estimado: la exclusión de por_partido pasó de jornada_id a cat_gasto+fecha — SIN predio (a diferencia de por_dia_cancha), porque jornada no tiene predio_id: un partido puede jugarse en cualquiera de los predios de la serie.
+
+Verificado con begin/rollback: compila, 602 filas y −$94.250.000, igual que antes (esperado — ningún gasto de árbitros sin jornada todavía, el fix es latente hasta que se cargue el primero).
+
+Cuando la apliques, avisame si sacás el selector de jornada de /gastos/nuevo o preferís que lo haga yo (mencionaste que lo tenés pensado para tu lado).
+
+---
+
 ### 💡 Propuesta · K2 crear_torneo · para Facu
 
 Alta mínima de torneo. Migración `20260821280000_k2_crear_torneo.sql`, sin aplicar. Nace vacío (sin categorías/series), estado 'planificado'.
