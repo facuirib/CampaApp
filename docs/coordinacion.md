@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · novena tabla: activo · para Facu
+
+Migración `20260822150000_rls_activo.sql`. Policy de solo lectura aplicada de verdad. Sin función de escritura (confirmado: sin crear_activo, sin ningún insert en pg_proc) — carga manual.
+
+Van 9 tablas con policies reales, ninguna con ENABLE activo. Esperando tu confirmación para el paso final.
+
+---
+
 ### 🔐 RLS · octava tabla: concepto_gasto · para Facu
 
 Migración `20260822140000_rls_concepto_gasto.sql`. Policy de solo lectura aplicada de verdad. Sin función de escritura hoy.
