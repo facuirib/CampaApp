@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · cuarta tabla: predio · para Facu
+
+Migración `20260822110000_rls_predio.sql`. Policy de solo lectura aplicada de verdad (confirmado en pg_policies). Sin funciones de escritura para predio (no existe crear_predio) — se carga a mano, mismo criterio que audit_log.
+
+ENABLE sigue sin activar. Van 4 tablas con policies reales aplicadas (plantilla_mail, audit_log, cat_gasto, predio) — ninguna con RLS activo todavía.
+
+---
+
 ### ⏳ RLS · policies aplicadas, ENABLE pendiente con plazo · para Facu
 
 Las 7 policies de plantilla_mail, audit_log y cat_gasto ya están aplicadas de verdad en la base (confirmado con pg_policies). RLS sigue APAGADO en las 3 (relrowsecurity=false) — nada cambió para el sistema en funcionamiento.
