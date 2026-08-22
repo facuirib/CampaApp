@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔐 RLS · duodécima tabla: cheque · para Facu
+
+Migración `20260822180000_rls_cheque.sql`. Policies select/insert/update aplicadas de verdad. pagar_gasto, registrar_cobro y cambiar_estado_cheque no son SECURITY DEFINER — necesitaban las 3.
+
+⚠️ Nota: pagar_gasto y registrar_cobro también tocan gasto/pago/asiento — esas tablas necesitan su propia policy antes de activar RLS en el conjunto completo del circuito de cheques.
+
+Van 12 tablas con policies reales, ninguna con ENABLE activo. Esperando tu confirmación.
+
+---
+
 ### 🔐 RLS · undécima tabla: usd_operacion · para Facu
 
 Migración `20260822170000_rls_usd_operacion.sql`. Policies select/insert aplicadas de verdad. Mismo patrón que movimiento_fondo — comprar_usd/vender_usd no son SECURITY DEFINER.
