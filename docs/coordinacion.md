@@ -18,6 +18,61 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Estructura de torneo · paso 2 · clonar + ABM · 23/08/2026 · de Facu para Horacio
+
+Segundo paso del módulo. `categoria` y `serie` ahora se cargan desde la app —
+antes solo se podían tocar editando un seed.
+
+**`clonar_estructura_torneo(origen, destino)`** copia categorías y series.
+**Completa en vez de rechazar**, y no por preferencia: el único destino que hoy
+interesa —el Apertura 2027— ya tiene «Libre» con su serie A, así que una función
+que rechazara todo destino no vacío sería inútil justo donde hace falta. Mapea
+por nombre (`categoria` es `UNIQUE (torneo_id, nombre)`, nombre solo).
+
+Probado en rollback con `authenticated` y `bypassrls = false`:
+
+| | |
+|---|---|
+| destino vacío | **6 categorías + 20 series** ✅ |
+| segunda corrida | `0 creadas / 0 creadas` — no duplica ✅ |
+| destino parcial (Apertura) | 5 nuevas + «Libre» reusada · 19 series + 1 que ya estaba ✅ |
+
+**El retorno cuenta inserciones, no el estado del destino.** Mi primer prototipo
+devolvía en `series_creadas` el total del destino: en la segunda corrida
+informaba «20 series creadas» habiendo creado cero. Es exactamente el retorno
+mentiroso de `cargar_cuotas_sponsor` —que devuelve el `row_count` del INSERT y
+por eso no delataba el DELETE bloqueado—. Corregido antes de aplicar.
+
+**ABM** por `rpc`: crear/editar/borrar de categoría y serie, con los mensajes
+traducidos (*«Ya existe una categoría "Libre" en este torneo»* en vez del
+`23505`). Dos guardas:
+
+- **No se cambia el género de una categoría con fichas.** `trg_ficha_coherente`
+  valida género plan-vs-categoría **al escribir `equipo_torneo`**, no al escribir
+  `categoria`: el cambio dejaría las fichas existentes apuntando a planes del
+  género viejo y **nadie se enteraría** hasta tocar una de esas fichas. Es la
+  misma clase de daño que un UPDATE bloqueado por RLS —silencioso y diferido—
+  pero del lado de los datos.
+- **Borrar explica.** La FK ya lo impide; la guarda agrega el por qué y el paso
+  siguiente: *«No se puede borrar "Libre": tiene 11 equipo(s) inscripto(s).
+  Movelos a otra categoría antes de borrarla.»*
+
+**RLS:** `categoria` y `serie` estaban encendidas desde la Fase 1/2 con **solo
+SELECT** —el caso `activo`, esta vez anticipado y no descubierto tarde—. Ahora
+tienen S/I/U/D. **RLS sigue en 38/51**: no se activó ninguna tabla nueva, solo
+se agregaron 6 policies (114 → 123 en total).
+
+Tus dos migraciones de Fase 5 siguen intactas y sin aplicar: para cada `db push`
+las aparté al scratchpad y las devolví en el mismo comando. El `dry-run` las
+sigue marcando como las únicas pendientes.
+
+**Lo que falta del módulo:** el paso 3 (tarifario editable) y el **paso 4, el
+arrastre de fichas**, que es el que vuelve usable todo esto. Sin él, armar el
+próximo torneo implica inscribir ~304 equipos a mano. El clonado de series que
+entra hoy es su precondición: el arrastre empareja por nombre de serie.
+
+---
+
 ### 🟢 K2 resuelta + `/torneos` · el torneo nace vacío · RLS 38/51 · 23/08/2026 · de Facu para Horacio
 
 **Tu propuesta era la correcta y la tomamos: el torneo nace vacío**, y el

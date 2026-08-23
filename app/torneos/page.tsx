@@ -4,13 +4,14 @@ import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/comp
 
 interface Fila {
   torneo_id: string | null
+  href: string
   nombre: string | null
   temporada: CeldaBadge
   anio: number | null
   estado: CeldaBadge
   periodo: string
   equipos: number | null
-  molde: string
+  molde: React.ReactNode
   estructura: CeldaBadge
 }
 
@@ -78,6 +79,7 @@ export default async function TorneosPage() {
 
   const filas: Fila[] = (data ?? []).map((t) => ({
     torneo_id: t.torneo_id,
+    href: `/torneos/${t.torneo_id}/estructura`,
     nombre: t.nombre,
     temporada: TEMPORADA[t.temporada ?? ''] ?? { estado: 'neutro', label: t.temporada ?? '—' },
     anio: t.anio,
@@ -85,8 +87,16 @@ export default async function TorneosPage() {
     estado: estadoABadge(t.estado, t.activo),
     equipos: t.equipos,
     // Los tres números del molde en una sola celda: sueltos serían tres
-    // columnas de dos dígitos que nadie compara entre filas.
-    molde: `${t.categorias ?? 0} cat · ${t.series ?? 0} series · ${t.planes ?? 0} planes`,
+    // columnas de dos dígitos que nadie compara entre filas. Y es link: el
+    // número es lo que uno mira antes de querer editarlo.
+    molde: (
+      <Link
+        href={`/torneos/${t.torneo_id}/estructura`}
+        className="text-blue-600 hover:underline"
+      >
+        {t.categorias ?? 0} cat · {t.series ?? 0} series · {t.planes ?? 0} planes
+      </Link>
+    ),
     estructura: estructuraABadge(t.tiene_estructura),
   }))
 

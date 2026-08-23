@@ -1320,9 +1320,51 @@ sin serie o sin plan de tarifa **no puede recibir una ficha**, porque
 `crear_equipo_torneo` necesita las dos. La lista lo marca «Falta cargar» en vez
 de dejar que se descubra al intentar inscribir.
 
-**Faltan los pasos 2 y 3**: categorías/series y el tarifario editable. Hasta que
-estén, un torneo nuevo se crea desde la app pero su estructura sigue
-cargándose por seed.
+#### Estructura de torneo · paso 2 · clonar categorías/series + ABM
+
+`clonar_estructura_torneo(origen, destino)` copia categorías y series de un
+torneo a otro. **Completa en vez de rechazar**: si el destino ya tiene una
+categoría con ese nombre la reusa, y de sus series copia solo las que faltan.
+Correrla dos veces no duplica nada.
+
+No es preferencia: el único destino que hoy interesa —el Apertura 2027— ya tiene
+«Libre» con su serie A. Una función que rechazara todo destino no vacío sería
+inútil justo donde hace falta.
+
+El mapeo origen→destino es por **nombre**: `categoria` tiene
+`UNIQUE (torneo_id, nombre)` —nombre solo, no nombre+género— así que buscar por
+nombre es exacto y no hace falta tabla auxiliar.
+
+**El retorno cuenta inserciones, no el estado del destino.** Un prototipo
+devolvía en `series_creadas` el total del destino: al correrlo por segunda vez
+informaba «20 series creadas» habiendo creado cero. Es el mismo retorno
+mentiroso de `cargar_cuotas_sponsor`, que devuelve el `row_count` del INSERT y
+por eso no delataba el DELETE bloqueado.
+
+ABM completo por `rpc`: `crear/editar/borrar` de categoría y de serie. Dos
+guardas propias:
+
+- **`editar_categoria` rechaza cambiar el género si hay fichas.**
+  `trg_ficha_coherente` valida género plan-vs-categoría **al escribir
+  `equipo_torneo`**, no al escribir `categoria`: el cambio dejaría las fichas
+  existentes apuntando a planes del género viejo, y no se detectaría hasta que
+  alguien tocara una de esas fichas. Daño silencioso y diferido, como un UPDATE
+  bloqueado por RLS pero del lado de los datos.
+- **`borrar_*` explica en vez de dejar salir el `23503`.** La FK ya impide el
+  borrado; la guarda agrega el por qué y el paso siguiente: *«tiene 11 equipos
+  inscriptos, movelos a otra categoría antes de borrarla»*.
+
+`categoria` y `serie` estaban encendidas desde la Fase 1/2 **con policy de solo
+SELECT** —el caso `activo`, esta vez anticipado—. Ahora tienen S/I/U/D. **RLS
+sigue en 38/51**: no se activó ninguna tabla nueva, solo se agregaron policies.
+
+Pantalla `/torneos/[id]/estructura` sobre `v_estructura_torneo`, con el clonado
+destacado cuando el torneo está vacío y secundario cuando ya tiene.
+
+**Falta el paso 3** (tarifario editable) y **el paso 4** (arrastre de fichas),
+que es el que vuelve usable todo esto: sin él hay que inscribir ~304 equipos a
+mano. El clonado de series es su precondición — el arrastre empareja por nombre
+de serie.
 
 
 > **Y el `ambito` rompió dos vistas, latente.** La migración que lo agregó

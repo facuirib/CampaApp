@@ -2200,6 +2200,13 @@ export type Database = {
             referencedColumns: ["serie_id"]
           },
           {
+            foreignKeyName: "equipo_torneo_serie_id_fkey"
+            columns: ["serie_id"]
+            isOneToOne: false
+            referencedRelation: "v_estructura_torneo"
+            referencedColumns: ["serie_id"]
+          },
+          {
             foreignKeyName: "equipo_torneo_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
@@ -2722,6 +2729,13 @@ export type Database = {
             columns: ["serie_id"]
             isOneToOne: false
             referencedRelation: "v_calendario_jornadas"
+            referencedColumns: ["serie_id"]
+          },
+          {
+            foreignKeyName: "jornada_serie_id_fkey"
+            columns: ["serie_id"]
+            isOneToOne: false
+            referencedRelation: "v_estructura_torneo"
             referencedColumns: ["serie_id"]
           },
         ]
@@ -3702,6 +3716,13 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "v_calendario_jornadas"
+            referencedColumns: ["categoria_id"]
+          },
+          {
+            foreignKeyName: "serie_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "v_estructura_torneo"
             referencedColumns: ["categoria_id"]
           },
         ]
@@ -5187,6 +5208,64 @@ export type Database = {
           },
         ]
       }
+      v_estructura_torneo: {
+        Row: {
+          categoria: string | null
+          categoria_id: string | null
+          categoria_orden: number | null
+          equipos: number | null
+          equipos_categoria: number | null
+          genero: string | null
+          serie: string | null
+          serie_id: string | null
+          serie_orden: number | null
+          torneo_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
       v_gasto_categoria_mes: {
         Row: {
           adeudado: number | null
@@ -5458,6 +5537,13 @@ export type Database = {
             columns: ["serie_id"]
             isOneToOne: false
             referencedRelation: "v_calendario_jornadas"
+            referencedColumns: ["serie_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_serie_id_fkey"
+            columns: ["serie_id"]
+            isOneToOne: false
+            referencedRelation: "v_estructura_torneo"
             referencedColumns: ["serie_id"]
           },
           {
@@ -6535,10 +6621,12 @@ export type Database = {
         Args: { p_arqueo_id: string; p_created_by?: string; p_fecha?: string }
         Returns: string
       }
+      borrar_categoria: { Args: { p_categoria_id: string }; Returns: undefined }
       borrar_linea_presupuesto: {
         Args: { p_linea_id: string }
         Returns: undefined
       }
+      borrar_serie: { Args: { p_serie_id: string }; Returns: undefined }
       cambiar_estado_cheque: {
         Args: {
           p_caja_id?: string
@@ -6556,6 +6644,10 @@ export type Database = {
       cerrar_periodo: {
         Args: { p_periodo_id: string; p_responsable_id?: string }
         Returns: undefined
+      }
+      clonar_estructura_torneo: {
+        Args: { p_destino_id: string; p_origen_id: string }
+        Returns: Json
       }
       comprar_usd: {
         Args: {
@@ -6599,6 +6691,15 @@ export type Database = {
           p_naturaleza: string
           p_nombre: string
           p_unidad_default: string
+        }
+        Returns: string
+      }
+      crear_categoria: {
+        Args: {
+          p_genero: Database["public"]["Enums"]["genero"]
+          p_nombre: string
+          p_orden?: number
+          p_torneo_id: string
         }
         Returns: string
       }
@@ -6666,6 +6767,10 @@ export type Database = {
         }
         Returns: string
       }
+      crear_serie: {
+        Args: { p_categoria_id: string; p_nombre: string; p_orden?: number }
+        Returns: string
+      }
       crear_torneo: {
         Args: {
           p_anio: number
@@ -6701,6 +6806,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      editar_categoria: {
+        Args: {
+          p_categoria_id: string
+          p_genero?: Database["public"]["Enums"]["genero"]
+          p_nombre?: string
+          p_orden?: number
+        }
+        Returns: undefined
+      }
       editar_linea_presupuesto: {
         Args: {
           p_base?: number
@@ -6708,6 +6822,10 @@ export type Database = {
           p_linea_id: string
           p_unidad?: string
         }
+        Returns: undefined
+      }
+      editar_serie: {
+        Args: { p_nombre?: string; p_orden?: number; p_serie_id: string }
         Returns: undefined
       }
       eliminar_dia_cancha: {
