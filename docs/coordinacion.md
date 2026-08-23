@@ -18,6 +18,95 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 RLS · falta la policy de DELETE en `pago_imputacion` — bloquea la Fase 5 · 23/08/2026 · de Facu para Horacio
+
+Apareció probando la Tanda E, y es lo más importante de este bloque.
+
+**Rechazar un cheque reabre la deuda borrando las imputaciones del pago.**
+`cambiar_estado_cheque` hace `delete from pago_imputacion where pago_id = ...`,
+y `trg_sync_cuota_pagada` recalcula `pagado_at` en ese DELETE. Sin ese paso, la
+cuota sigue figurando cobrada.
+
+`pago_imputacion` tiene `pago_imputacion_select_autenticado` y
+`pago_imputacion_insert_autenticado`. **No tiene ninguna de DELETE.**
+
+Hoy no molesta porque es tabla del núcleo y sigue apagada. **El día que la Fase
+5 la encienda, el rechazo se rompe en silencio**, y de la peor manera posible:
+los otros cuatro efectos ocurren igual. Queda el cheque en «rechazado», el
+asiento del cobro revertido, el contraasiento en el diario — y **el equipo sin
+deber la plata que nunca entró**. Falla parcial y muda: la pantalla dice que
+salió bien, la contabilidad está revertida, y la cobranza no lo ve.
+
+Barrí todos los `delete from` del sistema contra sus policies para no
+encontrarlos de a uno:
+
+| Tabla | Quién borra | Policy DELETE | |
+|---|---|---|---|
+| `pago_imputacion` | `cambiar_estado_cheque` (el rechazo) | ❌ ninguna | **precondición de Fase 5** |
+| `cuota_cobro_sponsor` | `cargar_cuotas_sponsor` | ❌ ninguna | antes de encender esa tabla |
+| `dia_cancha` | `eliminar_dia_cancha` | ✅ | |
+| `presupuesto_linea` | `borrar_linea_presupuesto` | ✅ | |
+
+**Son dos policies a escribir. La de `pago_imputacion` va sí o sí antes de la
+Fase 5** — te la dejo a vos porque el núcleo es tu carril y pediste revisarlo
+aparte. No la escribí yo para no meter mano en el núcleo sin que lo mires.
+
+---
+
+### 🟢 RLS · Fase 3 Tanda E (30/51) · `cheque`, sola · 23/08/2026 · de Facu para Horacio
+
+Sola porque **la escriben tres funciones de tres circuitos distintos**. Probar
+uno no dice nada de los otros dos.
+
+**No hay un cuarto escritor.** `pg_proc` da tres; el grep del front da **cero**
+`.from('cheque')` y **cero** Server Actions que la toquen — los tres caminos
+entran por `rpc()` desde `/gastos/[id]/pagar`, `/cobranza/[id]/cobrar` y
+`/cheques/[id]`. Ninguna función borra de `cheque`, así que la policy no
+necesita DELETE. Cubre S/I/U, que es exactamente lo que existe.
+
+| Escritor | Op | Efecto medido | |
+|---|---|---|---|
+| `pagar_gasto` | INSERT | 0 → 1 · «emitido/pendiente», `gasto_id` + `asiento_alta_id` escritos | ✅ |
+| `registrar_cobro` | INSERT | 1 → 2 · «recibido», `pago_id` escrito, cuota 130.000 → 0 | ✅ |
+| `cambiar_estado_cheque` | UPDATE | emitido → **debitado** + `asiento_cierre_id` escrito | ✅ |
+| | UPDATE | recibido → **acreditado** | ✅ |
+
+El `asiento_cierre_id` es otro *«UPDATE que nadie mira»*: la función crea el
+asiento y vuelve sobre la fila para guardarlo. Sin policy, el cheque quedaba
+debitado sin puntero al asiento y nada avisaba.
+
+**El rechazo, que es el circuito de verdad.** Rechazar no es cambiar un estado:
+deshace un cobro. Toca tres tablas y dispara un trigger, y cada paso podía morir
+en silencio por su cuenta:
+
+| | Efecto | |
+|---|---|---|
+| ① | `cheque.estado` quedó «rechazado» | ✅ |
+| ② | `anular_asiento` marcó el asiento del cobro | ✅ |
+| ③ | `delete from pago_imputacion` — 1 → 0 | ✅ |
+| ④ | **la deuda se reabrió**: cuota saldo 0 → 130.000 | ✅ |
+| ⑤ | `trg_sync_cuota_pagada` recalculó `pagado_at` → NULL | ✅ |
+
+El ④ es el que importa, y es el que dio origen al aviso rojo de arriba: el ③
+anda **hoy** solo porque `pago_imputacion` está apagada.
+
+**`trg_audit_cheque` no se pisa con RLS**: `fn_audit` es SECURITY DEFINER, así
+que escribe en `audit_log` escapando las policies. Importa porque `audit_log`
+está encendida desde la Fase 2 y **solo tiene SELECT** — si el trigger fuera una
+función común, cada escritura sobre `cheque` habría fallado.
+
+Lecturas como `authenticated`: `cheque` 0 · `v_cheque` 0 · `v_gasto_detalle` 13
+· `v_saldo_caja` 9 · `v_libro_diario` 83 · `v_deuda_equipo` 28. Iguales al rol
+con bypass. El 0 de `cheque` es **tabla vacía, no bloqueo**: el test insertó y
+leyó 3 cheques con RLS activo. Descuadre 0. **Núcleo apagado 0/6.**
+
+17 de 17, todo en transacción con rollback: no quedó ni un cheque de prueba.
+
+**Queda:** Tanda F (`dia_cancha`) y el núcleo — que necesita primero la policy
+del aviso rojo.
+
+---
+
 ### 🟢 RLS · Fase 3 Tanda D (29/51) · el circuito del presupuesto · 23/08/2026 · de Facu para Horacio
 
 `cat_gasto`, `presupuesto`, `presupuesto_linea` y `gasto_planificado`. **RLS

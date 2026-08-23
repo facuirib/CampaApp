@@ -1,0 +1,85 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 3 · TANDA E · cheque, sola
+-- RLS queda en 30/51.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- `cheque` va sola porque **la escriben tres funciones de tres circuitos
+-- distintos**: el pago de un gasto, el cobro a un equipo, y el cambio de estado
+-- que cierra el cheque. Probar uno no dice nada de los otros dos: son tres
+-- caminos independientes que terminan en la misma tabla.
+--
+-- ── Los tres escritores, confirmados con doble chequeo ─────────────────────
+--
+--   pagar_gasto            INSERT   común (pasa por policy)
+--   registrar_cobro        INSERT   común
+--   cambiar_estado_cheque  UPDATE   común
+--
+-- No hay un cuarto. `grep` del front: **cero** `.from('cheque')`, **cero**
+-- Server Actions que la toquen. Los tres caminos entran por `rpc()`
+-- —`/gastos/[id]/pagar`, `/cobranza/[id]/cobrar`, `/cheques/[id]`— así que el
+-- punto ciego de `pg_proc` no aplica acá. Ninguna función borra de `cheque`:
+-- la policy no necesita DELETE, y no lo tiene.
+--
+-- La policy cubre las tres operaciones que existen: SELECT, INSERT, UPDATE.
+--
+-- ── El efecto medido de cada camino ────────────────────────────────────────
+--
+-- Con RLS activo, rol `authenticated`, `bypassrls = false` verificado dentro de
+-- la transacción:
+--
+--   pagar_gasto            cheque 0 → 1 · sentido «emitido», estado
+--                          «pendiente», `gasto_id` y `asiento_alta_id`
+--                          escritos                                        ✅
+--   registrar_cobro        cheque 1 → 2 · sentido «recibido», `pago_id`
+--                          escrito, cuota 3 saldo 130.000 → 0              ✅
+--   cambiar_estado_cheque  emitido → **debitado**, `asiento_cierre_id`
+--                          escrito                                        ✅
+--                          recibido → **acreditado**                       ✅
+--
+-- El `asiento_cierre_id` es otro «UPDATE que nadie mira»: la función hace el
+-- asiento y después vuelve sobre la fila para guardarlo. Si la policy faltara,
+-- el cheque quedaba debitado sin puntero al asiento y nada avisaba.
+--
+-- ── El rechazo, que es el circuito de verdad ───────────────────────────────
+--
+-- Rechazar no es cambiar un estado: **deshace un cobro**. Toca tres tablas y
+-- dispara un trigger, y cada paso podía morir en silencio por su cuenta. Se
+-- verificaron los cinco efectos, no que la función devolviera algo:
+--
+--   ① `cheque.estado` quedó en «rechazado»                                 ✅
+--   ② `anular_asiento` marcó el asiento del cobro (`anulado_por`)          ✅
+--   ③ `delete from pago_imputacion` — 1 → 0 filas                          ✅
+--   ④ **la deuda se reabrió**: cuota 4 saldo 0 → 130.000                   ✅
+--   ⑤ `trg_sync_cuota_pagada` recalculó `pagado_at` → NULL                 ✅
+--
+-- El ④ es el que importa. Los otros cuatro pueden salir bien y el ③ fallar en
+-- silencio, y entonces el cheque figura rechazado, la contabilidad revertida,
+-- y **el equipo sigue sin deber la plata que nunca entró**. Por eso se midió
+-- el saldo de la cuota, no el retorno de la función.
+--
+-- ── ⚠️ El ③ funciona hoy porque `pago_imputacion` está APAGADA ─────────────
+--
+-- `pago_imputacion` tiene policies de SELECT e INSERT y **ninguna de DELETE**.
+-- Hoy da igual —es tabla del núcleo, RLS off— pero **el día que la Fase 5 la
+-- encienda, el ③ se rompe en silencio** y el rechazo deja de reabrir la deuda,
+-- con los otros cuatro efectos ocurriendo normalmente. Es exactamente el peor
+-- modo de falla: parcial y mudo.
+--
+-- Se barrieron todos los DELETE del sistema contra sus policies. Falta también
+-- en `cuota_cobro_sponsor` (`cargar_cuotas_sponsor`), todavía apagada. Están
+-- cubiertos `dia_cancha` y `presupuesto_linea`. Avisado en `coordinacion.md`:
+-- **son dos policies a escribir antes de encender esas tablas.**
+--
+-- ── Lo que no se pisa ──────────────────────────────────────────────────────
+--
+-- `trg_audit_cheque` llama a `fn_audit`, que es **SECURITY DEFINER**: escribe
+-- en `audit_log` escapando RLS. Importa porque `audit_log` ya está encendida
+-- desde la Fase 2 y **solo tiene policy de SELECT** — si el trigger fuera una
+-- función común, cada escritura sobre `cheque` habría fallado.
+--
+-- Lecturas como `authenticated`: `cheque` 3 · `v_cheque` 3 (debitado 1,
+-- acreditado 1, rechazado 1) · `v_saldo_caja` 9 · `v_libro_diario` 90.
+-- Descuadre 0. **Núcleo apagado 0/6.** 17 de 17, todo en transacción con
+-- rollback: no quedó ni un cheque de prueba.
+
+alter table cheque enable row level security;

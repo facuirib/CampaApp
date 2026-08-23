@@ -1099,7 +1099,7 @@ puertas (decisión 89). Migración `20260821270000_usd_created_by`, con `drop
 function` de las firmas viejas — agregar un parámetro **sobrecarga**, no
 reemplaza.
 
-#### RLS · 29 de 51 tablas activas · el núcleo todavía apagado
+#### RLS · 30 de 51 tablas activas · el núcleo todavía apagado
 
 Horacio escribió **20 migraciones, tabla por tabla**: 104 policies en 48 de 51
 tablas, verificando función por función cuáles no son `SECURITY DEFINER` y por lo
@@ -1117,14 +1117,34 @@ cambia nada, el `ENABLE` sí.
 | Fase 3 · Tanda A | `caja` `plan_pago` | 17 |
 | Fase 3 · Tanda B | `movimiento_fondo` `usd_operacion` `anticipo_uso` `compromiso` `reclamo` | 22 |
 | Fase 3 · Tanda C | `venta_bar` `retiro_bar` `arqueo` | 25 |
-| Fase 3 · Tanda D | `cat_gasto` `presupuesto` `presupuesto_linea` `gasto_planificado` | **29** |
-| Tanda E | `cheque` — sola: la escriben tres circuitos | pendiente |
+| Fase 3 · Tanda D | `cat_gasto` `presupuesto` `presupuesto_linea` `gasto_planificado` | 29 |
+| Fase 3 · Tanda E | `cheque` — sola: la escriben tres circuitos | **30** |
 | Tanda F | `dia_cancha` | pendiente |
 | Fase 5 · el núcleo | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` | pendiente |
 
 **El núcleo va al final y junto, con revisión aparte**: si esas seis están mal,
 todo el flujo de cobros, pagos y gastos se rompe a la vez. Hoy están en 0/6, y
 eso se verifica después de cada tanda.
+
+##### ⚠️ Dos DELETE sin policy · bloquean la Fase 5
+
+Barrido de todos los `delete from` del sistema contra sus policies:
+
+| Tabla | Quién borra | Policy DELETE | |
+|---|---|---|---|
+| `pago_imputacion` | `cambiar_estado_cheque` (el rechazo) | ❌ ninguna | **bloquea la Fase 5** |
+| `cuota_cobro_sponsor` | `cargar_cuotas_sponsor` | ❌ ninguna | antes de encender esa tabla |
+| `dia_cancha` | `eliminar_dia_cancha` | ✅ | |
+| `presupuesto_linea` | `borrar_linea_presupuesto` | ✅ | |
+
+`pago_imputacion` es la grave. **Rechazar un cheque reabre la deuda borrando sus
+imputaciones**; sin policy de DELETE ese paso afecta 0 filas sin error, y los
+otros cuatro efectos del rechazo ocurren normalmente: el cheque queda
+«rechazado», el asiento del cobro revertido, y **el equipo sigue sin deber la
+plata que nunca entró**. Falla parcial y muda — el peor modo posible.
+
+Hoy no pasa porque `pago_imputacion` tiene RLS apagado. **Es una precondición de
+la Fase 5, no un pendiente suelto.**
 
 ##### Los tres hallazgos que cambiaron cómo se prueba RLS
 
