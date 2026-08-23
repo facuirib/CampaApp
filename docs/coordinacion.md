@@ -18,6 +18,64 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 RLS · Fase 3 Tanda B (22/51) · 23/08/2026 · de Facu para Horacio
+
+Cinco tablas más: `movimiento_fondo`, `usd_operacion`, `anticipo_uso`,
+`compromiso`, `reclamo`. **RLS 22/51.** Sin sorpresas esta vez — los cinco
+escritores pasaron.
+
+Cada uno ejercitado con RLS activo, rol `authenticated` y midiendo filas:
+
+```
+movimiento_fondo  registrar_movimiento_fondo   0 → 1
+usd_operacion     comprar_usd + vender_usd     5 → 7   ← con p_created_by, el tuyo
+anticipo_uso      aplicar_anticipo             0 → 1
+compromiso        generar_cuotas_plan          0 → 3   (3 cuotas del plan)
+compromiso        UPDATE del estado            1 fila  (no quedó en silencio)
+reclamo           INSERT de la Server Action   6 → 7
+```
+
+Las policies de `reclamo` y `compromiso` que escribí ayer **hicieron lo que
+tenían que hacer**: los dos INSERT que antes daban «violates row-level security»
+ahora pasan.
+
+#### Dos cosas del camino que vale dejar escritas
+
+**El anticipo no se crea con `registrar_cobro`.** Esa función exige que la
+imputación **iguale** el monto del pago: con un sobrante rechaza con «La
+imputación suma X y el pago es de Y». El sobrante lo hace **`imputar_pago`**, que
+sí lo admite y deja el resto como anticipo. Me costó un par de intentos armar el
+caso, y no está anotado en ningún lado — lo dejo acá porque el día que exista la
+pantalla de anticipos va a importar.
+
+**`aplicar_anticipo` dispara `sync_cuota_pagada`, que escribe `cuota`.** Hoy no
+molesta porque `cuota` tiene RLS apagado. Pero cuando llegue la Fase 5, **su
+policy de UPDATE tiene que estar o este circuito se corta desde una tabla que ni
+se nombra en él**. Ya está escrita — la pusiste justamente por los triggers, y
+acá se ve para qué sirve.
+
+#### Una nota sobre `plan_pago`, que activamos en la Tanda A
+
+La activé como «sin escritores en runtime», y sigue siendo cierto. Pero para
+armar el test de `compromiso` hubo que insertar un plan **a mano, como
+`authenticated` y con RLS ya encendido**, y pasó: la policy de INSERT que tenías
+escrita lo cubre. Buena señal para el día que exista el alta de planes.
+
+#### Dónde va todo
+
+| | |
+|---|---|
+| **RLS activo** | **22/51** |
+| Fase 1 (4) | `predio`, `serie`, `categoria`, `cuenta` |
+| Fase 2 (11) | `ejercicio`, `concepto_gasto`, `activo`, `audit_log`, `plan_tarifa`, `plan_tarifa_linea`, `config_contable`, `envio`, `escenario`, `formato_instancia`, `equipo_playoff` |
+| Fase 3 A (2) | `caja`, `plan_pago` |
+| Fase 3 B (5) | `movimiento_fondo`, `usd_operacion`, `anticipo_uso`, `compromiso`, `reclamo` |
+| **Núcleo, apagado** | `asiento`, `asiento_linea`, `gasto`, `pago`, `cuota`, `pago_imputacion` — verificado |
+
+Quedan las tandas C (`venta_bar`, `retiro_bar`, `arqueo`), D (`presupuesto`,
+`presupuesto_linea`, `gasto_planificado`, `cat_gasto`), E (`cheque`) y F
+(`dia_cancha`, ya con su policy de DELETE). Después, el núcleo.
+
 ### 🟢 RLS · Fase 3 Tanda A (17/51) + el DELETE que le faltaba a `dia_cancha` · 23/08/2026 · de Facu para Horacio
 
 Arrancó la Fase 3. **RLS 17/51** con `caja` y `plan_pago`. Y apareció el tercer
