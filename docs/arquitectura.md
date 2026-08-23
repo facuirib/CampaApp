@@ -1099,7 +1099,7 @@ puertas (decisión 89). Migración `20260821270000_usd_created_by`, con `drop
 function` de las firmas viejas — agregar un parámetro **sobrecarga**, no
 reemplaza.
 
-#### RLS · 30 de 51 tablas activas · el núcleo todavía apagado
+#### RLS · 31 de 51 · Fase 3 completa · el núcleo todavía apagado
 
 Horacio escribió **20 migraciones, tabla por tabla**: 104 policies en 48 de 51
 tablas, verificando función por función cuáles no son `SECURITY DEFINER` y por lo
@@ -1118,9 +1118,23 @@ cambia nada, el `ENABLE` sí.
 | Fase 3 · Tanda B | `movimiento_fondo` `usd_operacion` `anticipo_uso` `compromiso` `reclamo` | 22 |
 | Fase 3 · Tanda C | `venta_bar` `retiro_bar` `arqueo` | 25 |
 | Fase 3 · Tanda D | `cat_gasto` `presupuesto` `presupuesto_linea` `gasto_planificado` | 29 |
-| Fase 3 · Tanda E | `cheque` — sola: la escriben tres circuitos | **30** |
-| Tanda F | `dia_cancha` | pendiente |
+| Fase 3 · Tanda E | `cheque` — sola: la escriben tres circuitos | 30 |
+| Fase 3 · Tanda F | `dia_cancha` — cierra la Fase 3 | **31** |
 | Fase 5 · el núcleo | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` | pendiente |
+
+**La Fase 3 está completa: todos los circuitos con escritura tienen RLS activo.**
+Quedan 20 tablas apagadas:
+
+| Grupo | Tablas |
+|---|---|
+| **El núcleo** (Fase 5, junto) | `asiento` `asiento_linea` `gasto` `pago` `pago_imputacion` `cuota` |
+| Societario (Fase 4) | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_socio` `devengo_sponsor` `sueldo_socio` `amortizacion` |
+| Colgadas del núcleo | `equipo_torneo` `jornada` `periodo` `anticipo` `tercero` `plantilla_mail` |
+| Bloqueadas por decisión | `torneo` (K2) · `_prueba_marca` (testing) |
+
+`tercero` tiene policies S/I/U escritas y aplicadas desde la Fase 1, pero **sin
+`ENABLE`**: se dejó para cuando vaya el núcleo, porque la escriben los mismos
+circuitos de alta de ficha y cobro.
 
 **El núcleo va al final y junto, con revisión aparte**: si esas seis están mal,
 todo el flujo de cobros, pagos y gastos se rompe a la vez. Hoy están en 0/6, y
@@ -1145,6 +1159,30 @@ plata que nunca entró**. Falla parcial y muda — el peor modo posible.
 
 Hoy no pasa porque `pago_imputacion` tiene RLS apagado. **Es una precondición de
 la Fase 5, no un pendiente suelto.**
+
+##### El mensaje que mentía · resuelto en la Tanda F
+
+`eliminar_dia_cancha` sin policy de DELETE levantaba *«Día de cancha
+inexistente»* sobre un día que existía: el `select` previo se bloqueaba,
+`if not found` disparaba, y el mensaje culpaba al dato en vez de a la policy.
+**Un error que miente sobre su propia causa es peor que un error mudo**, porque
+manda a buscar al lugar equivocado.
+
+Con la policy puesta se verificaron las dos mitades: el día real desaparece
+(60 → 59, `existe = false`) **y** con un uuid falso el error legítimo sigue
+apareciendo. La segunda mitad es la que importa a futuro: ahora ese mensaje
+significa lo que dice.
+
+##### RLS activo leyendo RLS activo · verificado en la Tanda F
+
+`dia_cancha` se dejó para el final a propósito: de ella cuelgan `venta_bar` y
+`arqueo`, encendidas en la Tanda C. Con las tres activas a la vez,
+`registrar_venta_bar` y `crear_arqueo` escribieron leyendo el día, y
+`v_dia_cancha_bar` / `v_saldo_bar_dia_cancha` resolvieron el JOIN sin perderlo.
+
+Importaba porque **un JOIN entre dos tablas con RLS evalúa las policies de las
+dos**: si la de `dia_cancha` filtrara, el día desaparecería del LEFT JOIN y la
+venta quedaría huérfana en la vista, sin ningún error.
 
 ##### Los tres hallazgos que cambiaron cómo se prueba RLS
 

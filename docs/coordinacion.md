@@ -18,6 +18,90 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 RLS · Fase 3 COMPLETA (31/51) · Tanda F: `dia_cancha` · 23/08/2026 · de Facu para Horacio
+
+**Todos los circuitos con escritura tienen RLS activo.** Cierra con
+`dia_cancha`, que dejamos última a propósito.
+
+**Los dos escritores.** `crear_dia_cancha` (INSERT) y `eliminar_dia_cancha`
+(DELETE), las dos comunes. No hay un tercero: grep del front da **cero**
+escrituras `.from('dia_cancha')` y **cero** Server Actions; solo
+`crear_dia_cancha` por `rpc()` desde `/bar/nuevo`, y `eliminar_dia_cancha` ni se
+llama desde la app. Sin triggers. La policy cubre S/I/U/D.
+
+**El DELETE, que es el que nos mintió.** Sin policy levantaba *«Día de cancha
+inexistente»* sobre un día que existía — el `select` bloqueado, `if not found`
+disparando, y el mensaje culpando al dato. Se verificaron **las dos mitades**:
+
+| | Efecto | |
+|---|---|---|
+| día real | 60 → 59 · `existe = false` | ✅ DESAPARECIÓ |
+| uuid falso | «Día de cancha inexistente» | ✅ el error legítimo sigue |
+
+La segunda mitad es la que importa a futuro: **ahora ese mensaje significa lo
+que dice.** Antes era ambiguo entre «no existe» y «no te dejo verlo».
+
+**Lo nuevo: RLS activo leyendo RLS activo.** Primer caso del proyecto. Con
+`dia_cancha`, `venta_bar` y `arqueo` las tres encendidas:
+
+| | |
+|---|---|
+| `registrar_venta_bar(día)` | venta creada, total 450.000 ✅ |
+| `crear_arqueo(día, 'bar')` | arqueo creado, diferencia 0 ✅ |
+| `v_dia_cancha_bar` | el día trae su venta ✅ |
+| `v_saldo_bar_dia_cancha` | saldo 300.000, arqueo «cerrado» ✅ |
+
+Importaba porque **un JOIN entre dos tablas con RLS evalúa las policies de las
+dos**: si la de `dia_cancha` filtrara, el día desaparecería del LEFT JOIN y la
+venta quedaría huérfana en la vista **sin ningún error**. No pasa, pero había
+que verlo y no suponerlo.
+
+Lecturas: `dia_cancha` 58 · `v_dia_cancha_bar` 58 ·
+`v_saldo_efectivo_dia_cancha` 58 · `v_saldo_bar_dia_cancha` 58 ·
+`v_libro_diario` 83. Descuadre 0. 16 de 16, en transacción con rollback.
+
+---
+
+#### 📋 Cierre de Fase 3 · 31/51
+
+| Etapa | Tablas | |
+|---|---|---|
+| Fase 1 · catálogos | `predio` `serie` `categoria` `cuenta` | 4 |
+| Fase 2 · solo lectura | 11 tablas | 15 |
+| Tanda A | `caja` `plan_pago` | 17 |
+| Tanda B | `movimiento_fondo` `usd_operacion` `anticipo_uso` `compromiso` `reclamo` | 22 |
+| Tanda C | `venta_bar` `retiro_bar` `arqueo` | 25 |
+| Tanda D | `cat_gasto` `presupuesto` `presupuesto_linea` `gasto_planificado` | 29 |
+| Tanda E | `cheque` | 30 |
+| Tanda F | `dia_cancha` | **31** |
+
+**Apagadas (20):**
+
+| Grupo | Tablas |
+|---|---|
+| **El núcleo** — Fase 5, junto y con tu revisión | `asiento` `asiento_linea` `gasto` `pago` `pago_imputacion` `cuota` |
+| Societario — Fase 4 | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_socio` `devengo_sponsor` `sueldo_socio` `amortizacion` |
+| Colgadas del núcleo | `equipo_torneo` `jornada` `periodo` `anticipo` `tercero` `plantilla_mail` |
+| Por decisión abierta | `torneo` (K2) · `_prueba_marca` (testing) |
+
+`tercero` tiene policies S/I/U aplicadas desde la Fase 1 pero **sin `ENABLE`**:
+la escriben los mismos circuitos de alta de ficha y cobro que el núcleo, así que
+va con él.
+
+**Los tres hallazgos que quedan como método**, por si los necesitás en la Fase 5:
+
+1. `postgres` tiene `rolbypassrls = true` — probar desde el editor SQL da OK
+   falsos. Hay que verificar `bypassrls = false` **dentro de la transacción**.
+2. RLS bloquea UPDATE y DELETE **en silencio**. Solo el INSERT habla. Por eso se
+   mide el efecto, no la ausencia de error.
+3. Una Server Action **no aparece en `pg_proc`** — el relevamiento de escritores
+   va siempre con doble chequeo: funciones **y** grep del front.
+
+**Y las dos precondiciones del núcleo están en el aviso rojo de abajo. La de
+`pago_imputacion` va antes de cualquier `ENABLE` de la Fase 5.**
+
+---
+
 ### 🔴 RLS · falta la policy de DELETE en `pago_imputacion` — bloquea la Fase 5 · 23/08/2026 · de Facu para Horacio
 
 Apareció probando la Tanda E, y es lo más importante de este bloque.

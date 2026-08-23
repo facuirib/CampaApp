@@ -1,0 +1,85 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 3 · TANDA F · dia_cancha — CIERRA LA FASE 3
+-- RLS queda en 31/51. Todos los circuitos con escritura, activos.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- `dia_cancha` va última a propósito: es de la que **cuelgan** los circuitos
+-- del bar y del arqueo, ya encendidos en la Tanda C. Encenderla al final
+-- convierte esta tanda en la prueba de algo que hasta ahora no habíamos hecho:
+-- **una tabla con RLS activo leyendo otra tabla con RLS activo por FK**.
+--
+-- ── Los dos escritores ─────────────────────────────────────────────────────
+--
+--   crear_dia_cancha      INSERT   común (pasa por policy)
+--   eliminar_dia_cancha   DELETE   común
+--
+-- No hay un tercero. Grep del front: **cero** escrituras `.from('dia_cancha')`,
+-- **cero** Server Actions. Solo `crear_dia_cancha` por `rpc()` desde
+-- `/bar/nuevo`; `eliminar_dia_cancha` no se llama desde la app. Sin triggers.
+-- La policy cubre S/I/U/D — el UPDATE queda escrito aunque hoy nadie lo use.
+--
+-- ── El DELETE, que es el que nos mintió ────────────────────────────────────
+--
+-- `eliminar_dia_cancha` fue **el hallazgo que cambió cómo probamos RLS**: sin
+-- policy de DELETE levantaba *«Día de cancha inexistente»* sobre un día que
+-- existía. El `select` previo se bloqueaba, `if not found` disparaba, y el
+-- mensaje culpaba al dato en vez de a la policy. Un error que miente sobre su
+-- propia causa es peor que un error mudo: manda a buscar al lugar equivocado.
+--
+-- Con la policy puesta, verificado con RLS activo y `bypassrls = false`:
+--
+--   eliminar_dia_cancha(día real)   60 → 59 · `existe = false`   ✅ DESAPARECIÓ
+--   eliminar_dia_cancha(uuid falso) «Día de cancha inexistente»  ✅ sigue
+--
+-- Las dos mitades importan. Que borre prueba que la policy está; que el error
+-- legítimo siga apareciendo prueba que **ahora ese mensaje significa lo que
+-- dice**. Antes era ambiguo entre «no existe» y «no te dejo verlo».
+--
+-- ── Lo nuevo: RLS activo leyendo RLS activo ────────────────────────────────
+--
+-- Con `dia_cancha`, `venta_bar` y `arqueo` **las tres encendidas a la vez**:
+--
+--   registrar_venta_bar(día)   venta creada, total 450.000                  ✅
+--   crear_arqueo(día, 'bar')   arqueo creado, diferencia 0                  ✅
+--   v_dia_cancha_bar           el día trae su venta (450.000)               ✅
+--   v_saldo_bar_dia_cancha     saldo 300.000, arqueo «cerrado»              ✅
+--
+-- El caso importaba porque un JOIN entre dos tablas con RLS **evalúa las
+-- policies de las dos**: si la de `dia_cancha` filtrara, el día desaparecería
+-- del LEFT JOIN y la venta quedaría huérfana en la vista sin ningún error. No
+-- pasa —ambas policies son `true` para `authenticated`— pero había que verlo,
+-- no suponerlo.
+--
+-- Lecturas: `dia_cancha` 59 · `v_dia_cancha_bar` 59 ·
+-- `v_saldo_efectivo_dia_cancha` 59 · `v_saldo_bar_dia_cancha` 59 ·
+-- `v_efectivo_sin_rendir` 0 · `v_arqueo_detalle` 1 · `v_venta_bar` 1.
+-- Descuadre 0. 16 de 16, en transacción con rollback.
+--
+-- El `v_efectivo_sin_rendir` en 0 con un arqueo creado confirma de paso que el
+-- filtro `and a.ambito = 'torneo'` sigue en pie: el arqueo del bar no se cuenta
+-- como plata a rendir a central.
+--
+-- ═══ FASE 3 COMPLETA · 31/51 ══════════════════════════════════════════════
+--
+--   Fase 1  catálogos                                              4
+--   Fase 2  solo lectura                                          15
+--   Tanda A caja · plan_pago                                      17
+--   Tanda B movimiento_fondo · usd_operacion · anticipo_uso ·
+--           compromiso · reclamo                                  22
+--   Tanda C venta_bar · retiro_bar · arqueo                       25
+--   Tanda D cat_gasto · presupuesto · presupuesto_linea ·
+--           gasto_planificado                                     29
+--   Tanda E cheque                                                30
+--   Tanda F dia_cancha                                            31
+--
+-- **Queda apagado (20):** el núcleo —`asiento`, `asiento_linea`, `gasto`,
+-- `pago`, `pago_imputacion`, `cuota`—, el societario de la Fase 4, `torneo`
+-- (depende de K2) y `_prueba_marca` (testing).
+--
+-- **Precondición de la Fase 5, ya encontrada:** `pago_imputacion` y
+-- `cuota_cobro_sponsor` **no tienen policy de DELETE**, y las dos se borran
+-- desde funciones (`cambiar_estado_cheque` en el rechazo de cheque, y
+-- `cargar_cuotas_sponsor`). Encender el núcleo sin esa policy rompe el rechazo
+-- en silencio: la deuda no se reabre. Ver `coordinacion.md`.
+
+alter table dia_cancha enable row level security;
