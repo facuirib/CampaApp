@@ -18,6 +18,68 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 RLS · Fase 2 (11 de 13) · dos tablas mal clasificadas · 23/08/2026 · de Facu para Horacio
+
+**RLS 15/51.** Once tablas más encendidas. Pero **dos de las trece quedaron
+afuera**, y el motivo te sirve para el resto del inventario.
+
+#### 🔴 `reclamo` y `compromiso` estaban clasificadas como solo-lectura, y se escriben
+
+Las dos tienen únicamente policy de SELECT. Las dos **se escriben**, y con RLS
+activo el INSERT falla. Probado, no deducido:
+
+| Tabla | Quién escribe | Qué pasa con RLS |
+|---|---|---|
+| **`reclamo`** | `/reclamos/acciones.ts` — Server Action que hace `supabase.from('reclamo').insert(...)` con la sesión del usuario | `new row violates row-level security policy for table "reclamo"` → **la pantalla de reclamos deja de registrar**. Tiene 6 filas |
+| **`compromiso`** | `generar_cuotas_plan`, que **no es SECURITY DEFINER** | Mismo error. Hoy latente —0 filas y nada crea `plan_pago`— pero rompería igual |
+
+**No las activé.** Necesitan policy de INSERT antes.
+
+El de `reclamo` es el que más me importa avisarte porque es el patrón que se
+puede repetir: **el escritor no es una función de Postgres, es el front**. Tu
+búsqueda fue por `pg_proc` —correcta para todo lo demás— pero no ve las Server
+Actions que escriben directo a una tabla, que es una vía legítima en este
+proyecto (la convención de `CLAUDE.md` la contempla: *«Server Action cuando se
+escribe directo a una tabla»*).
+
+**Vale la pena repasar el resto del inventario con ese criterio**: buscar
+`from('<tabla>').insert|update|delete` en `app/` además de en `pg_proc`. Lo hice
+para estas trece; para las que faltan conviene hacerlo antes de encenderlas.
+
+#### Por qué `audit_log` SÍ entró, aunque se escriba
+
+`fn_audit` es **SECURITY DEFINER**: corre con los permisos de su dueño, así que
+escribe aunque RLS esté activo y no haya policy de INSERT. Tu razonamiento era
+correcto, y quedó verificado: con RLS encendido, una operación auditada llevó la
+tabla de **1190 a 1191 filas**.
+
+Esa es exactamente la diferencia con `reclamo` y `compromiso`: **SECURITY DEFINER
+esquiva RLS, una función común no** — y una Server Action, menos todavía.
+
+#### Las 11 activadas, con el conteo comparado
+
+Para distinguir «0 porque la tabla está vacía» de «0 porque RLS bloqueó», medí
+el conteo **sin RLS** contra el conteo **con `authenticated`**:
+
+```
+ejercicio 1=1 · concepto_gasto 100=100 · activo 1=1 · audit_log 1190=1190
+plan_tarifa 10=10 · plan_tarifa_linea 26=26 · config_contable 1=1
+formato_instancia 3=3 · envio 0=0 · escenario 0=0 · equipo_playoff 0=0
+```
+
+Las tres en cero lo están **sin RLS también**: tabla vacía, no bloqueo. Más las
+vistas que las consumen y el circuito de cargar un gasto. **21 de 21** en
+rollback, **18 de 18** después del ENABLE real.
+
+#### Dónde va RLS
+
+**15/51**: `predio`, `serie`, `categoria`, `cuenta` (Fase 1) + `ejercicio`,
+`concepto_gasto`, `activo`, `audit_log`, `plan_tarifa`, `plan_tarifa_linea`,
+`config_contable`, `envio`, `escenario`, `formato_instancia`, `equipo_playoff`.
+
+Lo que sigue son los circuitos con escritura, de a uno — y ahí el chequeo del
+front pasa a ser obligatorio en cada tabla, no un extra.
+
 ### 🟢 RLS · Fase 1 ACTIVADA (4 tablas) + tapé un hueco en `tercero` · 23/08/2026 · de Facu para Horacio
 
 **Arrancó el ENABLE.** Cuatro tablas encendidas, 4/51. Y encontré una tabla que
