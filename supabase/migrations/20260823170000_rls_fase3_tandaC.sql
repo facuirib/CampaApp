@@ -1,0 +1,61 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 3 · TANDA C · los circuitos del bar
+-- venta_bar · retiro_bar · arqueo — RLS queda en 25/51.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- La tanda con más UPDATE de toda la Fase 3, y por eso la que más cuidado pedía:
+-- **el UPDATE es donde RLS falla en silencio** —0 filas, sin error—, así que no
+-- alcanza con que las funciones no tiren excepción. Se midió cada uno.
+--
+-- ── Los ocho caminos de escritura, con filas ───────────────────────────────
+--
+-- Con RLS activo, rol `authenticated` y `bypassrls = false` verificado dentro de
+-- la transacción:
+--
+--   venta_bar   registrar_venta_bar            INSERT   0 → 1        ✅
+--               ↳ UPDATE interno asiento_id    UPDATE   1 fila       ✅
+--               anular_venta_bar               UPDATE   1 fila       ✅
+--
+--   retiro_bar  retirar_efectivo_bar           INSERT   0 → 1        ✅
+--               ↳ UPDATE interno asiento_id    UPDATE   1 fila       ✅
+--               anular_retiro_bar              UPDATE   1 fila       ✅
+--
+--   arqueo      crear_arqueo (bar)             INSERT   0 → 1  (dif −50.000)
+--               asentar_diferencia_arqueo      UPDATE   1 fila       ✅
+--               crear_arqueo (torneo)          INSERT   (dif −120.000)
+--               asentar_diferencia_arqueo      UPDATE   1 fila       ✅
+--               registrar_entrega_central      UPDATE   → 'entregado' ✅
+--               anular_arqueo                  UPDATE   2 asientos revertidos
+--                                                       + anulado_at seteado ✅
+--
+-- Los `UPDATE interno asiento_id` merecen mención: `registrar_venta_bar` y
+-- `retirar_efectivo_bar` insertan la fila, crean el asiento y **vuelven a
+-- actualizar la fila** para guardar el `asiento_id`. Ese segundo paso es
+-- silencioso por naturaleza —nadie lo mira— así que si la policy de UPDATE
+-- faltara, la fila quedaría sin asiento y nada avisaría. Se verificó que el
+-- `asiento_id` queda seteado, no que la función no falle.
+--
+-- ── El trigger y RLS no se pisan ───────────────────────────────────────────
+--
+-- `trg_arqueo_inmutable` —que congela saldo_contado, saldo_sistema,
+-- dia_cancha_id y ambito— **sigue funcionando con RLS activo**: un
+-- `update arqueo set saldo_contado = 999` se rechazó con «El saldo contado de un
+-- arqueo no se edita».
+--
+-- Son dos capas distintas y compatibles: RLS decide QUIÉN puede tocar la fila,
+-- el trigger decide QUÉ se puede cambiar. Con RLS mal puesto el UPDATE moriría
+-- en silencio antes de llegar al trigger; acá llega, y el trigger habla.
+--
+-- ── `dia_cancha` no hace falta activarla primero ───────────────────────────
+--
+-- `venta_bar` y `arqueo` cuelgan de `dia_cancha`, que sigue con RLS APAGADO.
+-- Confirmado: leer una tabla sin RLS es libre —58 filas legibles como
+-- `authenticated`— así que el orden no importa. `dia_cancha` va en la Tanda F,
+-- ya con su policy de DELETE escrita.
+--
+-- Lecturas: v_venta_bar, v_dia_cancha_bar 58, v_retiro_bar, v_arqueo_detalle,
+-- v_arqueo_diferencia, v_efectivo_sin_rendir. Descuadre 0. 17 de 17.
+
+alter table venta_bar  enable row level security;
+alter table retiro_bar enable row level security;
+alter table arqueo     enable row level security;
