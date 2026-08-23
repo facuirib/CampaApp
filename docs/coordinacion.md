@@ -18,6 +18,76 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 📌 RLS · cierre por hoy en 15/51 + el punto ciego del inventario · 23/08/2026 · de Facu para Horacio
+
+**Paramos acá: RLS en 15/51**, las dos fases de catálogos de lectura. La Fase 3
+—circuitos con escritura— queda para una sesión dedicada, porque necesita un
+chequeo por tabla que hasta ahora no estábamos haciendo.
+
+#### 🔴 El hallazgo que más te va a servir: `pg_proc` no ve todo
+
+Tu inventario buscó escritores en `pg_proc`. Es correcto para casi todo, pero
+tiene **dos puntos ciegos**, y los dos aparecieron en la Fase 2:
+
+**① Las Server Actions.** `reclamo` estaba clasificada como solo-lectura, pero la
+escribe `/reclamos/acciones.ts` —una Server Action que hace
+`supabase.from('reclamo').insert(...)` con la sesión del usuario—. Eso **no está
+en `pg_proc`**, y es una vía legítima acá: la convención de `CLAUDE.md` la
+contempla para cuando se escribe directo a una tabla.
+
+Con RLS activo y solo policy de SELECT: `new row violates row-level security
+policy for table "reclamo"` → **la pantalla de reclamos deja de registrar**.
+
+**② SECURITY DEFINER o no.** `compromiso` sí tiene función escritora en
+`pg_proc` —`generar_cuotas_plan`— pero **no es SECURITY DEFINER**, así que RLS se
+le aplica igual. La pregunta no es «¿hay función?» sino **«¿esa función esquiva
+RLS?»**.
+
+El contraste con `audit_log` lo deja claro: entró en la Fase 2 **aunque se
+escriba**, porque `fn_audit` **sí es** SECURITY DEFINER. Verificado con RLS
+encendido — una operación auditada llevó la tabla de 1190 a 1191 filas.
+
+> **Para la Fase 3, el chequeo por tabla pasa a ser doble:**
+> 1. `pg_proc` — quién la escribe, y de esos **cuáles son SECURITY DEFINER**
+> 2. `grep -rn "from('<tabla>')" app/` — qué escribe el front directo
+>
+> Sin el segundo, el núcleo puede tener la misma sorpresa.
+
+#### Las dos policies que faltaban, escritas y SIN activar
+
+Migración `20260823130000_rls_reclamo_compromiso.sql`.
+
+**`reclamo` → INSERT, y solo INSERT.** Sin UPDATE, a propósito: un reclamo es la
+foto de lo que se reclamó, y el código lo dice donde se escribe — *«Congelados:
+es la foto de cuánto debía cuando se le reclamó. Si mañana paga, el reclamo tiene
+que seguir diciendo lo que decía»*. Guarda el texto resuelto y no la plantilla
+por la misma razón. Darle UPDATE sería abrir una puerta que el diseño cerró.
+
+**`compromiso` → INSERT y UPDATE.** El INSERT es lo verificado
+(`generar_cuotas_plan`). El UPDATE va igual porque la tabla tiene `estado` y
+`cumplido_at`: **la transición está prevista en el modelo** aunque todavía no
+exista quién la haga, y un UPDATE sin policy **afecta 0 filas sin error** — un
+compromiso marcado cumplido que sigue figurando pendiente, en silencio.
+
+**Es tu carril**: si preferís que vaya solo con INSERT hasta que exista el
+escritor del estado, cambialo. Está sin activar, no cuesta nada.
+
+Verificado en rollback con RLS encendido y `set local role authenticated`: el
+INSERT de reclamo pasa (6 → 7), el UPDATE de reclamo queda bloqueado en silencio
+como se diseñó, y en compromiso pasan INSERT y UPDATE del estado.
+
+#### Dónde quedó todo
+
+| | |
+|---|---|
+| **RLS activo** | **15/51** — `predio`, `serie`, `categoria`, `cuenta`, `ejercicio`, `concepto_gasto`, `activo`, `audit_log`, `plan_tarifa`, `plan_tarifa_linea`, `config_contable`, `envio`, `escenario`, `formato_instancia`, `equipo_playoff` |
+| **Policies** | 110, en 49 de 51 tablas |
+| **Sin policy** | `torneo` (depende de K2) y `_prueba_marca` (testing) |
+| **Con policy y sin activar** | 34 tablas, entre ellas `reclamo`, `compromiso` y `tercero` |
+
+Lo que RLS logra hasta acá: **el `anon` ya no puede leer esos 15 catálogos sin
+login**. El núcleo sigue expuesto hasta la Fase 5.
+
 ### 🟢 RLS · Fase 2 (11 de 13) · dos tablas mal clasificadas · 23/08/2026 · de Facu para Horacio
 
 **RLS 15/51.** Once tablas más encendidas. Pero **dos de las trece quedaron
