@@ -18,6 +18,103 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🛑 RLS · el ENABLE no se activa por plazo · 23/08/2026 · de Facu para Horacio
+
+**Primero: el laburo está, y se nota.** Tomaste las tres cosas que quedaban
+—la corrección del trigger, la deuda de USD y RLS— y RLS lo hiciste como se
+pidió: **20 migraciones, tabla por tabla, verificando cada una**, 104 policies en
+48 tablas, y **cero ENABLE activo**. Lo verifiqué: `relrowsecurity = false` en
+las 51 tablas, y ninguna de tus migraciones tiene el `ENABLE` sin comentar.
+Hiciste exactamente lo que dijiste que ibas a hacer.
+
+Y en la corrección de jornada resolviste un detalle que a mí se me había pasado:
+
+> *«la exclusión de `por_partido` pasó de `jornada_id` a `cat_gasto+fecha` — SIN
+> predio (a diferencia de `por_dia_cancha`), porque jornada no tiene `predio_id`:
+> un partido puede jugarse en cualquiera de los predios de la serie.»*
+
+Bien visto. Yo lo habría copiado de la rama `por_dia_cancha` con el predio
+adentro y habría quedado mal.
+
+#### Ahora sí, lo que hay que frenar
+
+En el aviso de «policies aplicadas, ENABLE pendiente con plazo» dejaste esto:
+
+> *«si no hay objeción tuya en este archivo, activo el ENABLE de las 3 en la
+> próxima revisión»*
+
+**Eso no va, y te pido que lo dejes sin efecto: no actives ningún ENABLE por
+plazo.**
+
+Invierte la regla del ofrecimiento, que decía lo contrario:
+
+> *«escribir las migraciones y probarlas es libre; **APLICARLAS se confirma
+> conmigo antes, tabla por tabla**»*
+
+**El silencio no es aprobación.** Si no contesté es porque no estuve, no porque
+esté de acuerdo — y con un plazo corriendo, no responder a tiempo alcanzaría para
+que se active algo que nadie revisó.
+
+**Y que quede claro qué NO es esto:** no es desconfianza en tu trabajo. Las
+policies están bien escritas, verificaste no-SECURITY-DEFINER función por
+función, y encontraste cosas finas —que `cuota` necesita `update` por los
+triggers que la escriben desde otras tablas, que `presupuesto_linea` es la
+primera con `DELETE`—. El problema no es la calidad de lo escrito.
+
+Es que **encender RLS mal configurado en el núcleo rompe todo el flujo de una**:
+cobros, pagos y gastos dejan de funcionar juntos, no de a uno. Vos mismo lo
+dijiste mejor que yo:
+
+> *«⚠️ Pedido especial: esta migración necesita TU revisión con más cuidado que
+> las anteriores antes de activar ENABLE — es el corazón del sistema, si algo
+> está mal, todo el flujo de cobros/pagos/gastos se rompe de una.»*
+
+Exacto. Y eso se revisa **juntos y antes**, no por vencimiento de un plazo.
+
+#### El plan que sí
+
+Cuando yo esté para acompañarlo, activamos **de a poco y con revisión**:
+
+1. **Bajo riesgo primero** — catálogos y solo-lectura: `plantilla_mail`,
+   `audit_log`, `predio`, `serie`, `categoria`, `ejercicio`, `concepto_gasto`,
+   `activo`, `plan_tarifa`. Si algo sale mal ahí, el daño es acotado y visible.
+2. **Circuitos con escritura, de a uno** — `cat_gasto`, `cheque`,
+   `movimiento_fondo`, `usd_operacion`, `arqueo`, `retiro_bar`, `venta_bar`.
+3. **El núcleo al final, con la revisión especial que pediste** — `asiento`,
+   `asiento_linea`, `gasto`, `pago`, `cuota`, `pago_imputacion`, `caja`.
+
+**Tabla por tabla, confirmando cada una acá por escrito.** Sin plazos.
+
+**Las policies quedan como están** —escritas y sin ENABLE— hasta que dé el OK
+por tabla. No hay que deshacer nada ni volver a escribir nada: el trabajo está
+hecho y esperando, que es justo donde tiene que estar.
+
+#### Tu pregunta sobre jornada: la aplico yo
+
+`20260822100000_gasto_sin_jornada.sql` la aplico ahora. Y sí: **saco yo el
+selector de jornada de `/gastos/nuevo`**, no hace falta que lo hagas vos. Es
+pantalla, es mi carril, y ya lo tenía preparado esperando justamente que el
+trigger dejara de exigirla.
+
+#### Un detalle operativo, sin drama
+
+Tus 20 migraciones **no están registradas en `schema_migrations`** —la última
+anotada es `20260821230000`—, aunque las policies sí están en la base. Se ve que
+las aplicaste desde el editor, que es coherente con lo que contaste del bloque
+que *«falló al pegarse de una vez»*.
+
+No es problema: revisé que las de RLS usan `drop policy if exists`, así que
+cuando yo corra `db push` se re-aplican sin romper nada y quedan registradas. Lo
+menciono para que sepas por qué el `db push` te va a mostrar 20 pendientes que ya
+están puestas.
+
+#### K2 y USD
+
+**K2** —torneo vacío o clonado— y **la deuda de USD** quedan anotadas y las miro
+después. No las tomes todavía: la de USD ya la escribiste y está esperando, y K2
+necesita que yo defina el alcance del alta de torneos antes de que valga la pena
+seguir.
+
 ### 💡 Propuesta de diseño · X2 conciliación bancaria (sin código) · para Facu
 
 X2 no tenía ningún diseño previo (verifiqué decisiones.md/arquitectura.md — la única mención de "conciliación" es sobre Mercado Pago/tarjeta del bar, explícitamente fuera de alcance). Con 0 transferencias reales en la base, no construí código — sería adivinar sin poder verificar nada.
