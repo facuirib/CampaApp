@@ -1413,10 +1413,55 @@ para reactivarla—.
 `plan_tarifa` (+I+U) y `plan_tarifa_linea` (+I+U+**D**) eran el tercer caso
 `activo`, otra vez anticipado. **RLS sigue en 38/51.**
 
-**Falta el paso 4** (arrastre de fichas),
-que es el que vuelve usable todo esto: sin él hay que inscribir ~304 equipos a
-mano. El clonado de series del paso 2 es su precondición — el arrastre empareja
-por nombre de serie.
+#### Estructura de torneo · paso 4 · arrastre de fichas
+
+`arrastrar_fichas(origen, destino, responsable, simular)` recrea las
+inscripciones de un torneo en el siguiente. **Usa `crear_equipo_torneo`** —la
+puerta—: las cuotas se generan con el tarifario del destino, no del origen.
+
+El equipo es un `tercero` que persiste; lo que se recrea es la **inscripción**,
+porque `equipo_torneo.serie_id` apunta a una `serie` que cuelga del torneo, y
+`trg_ficha_coherente` exige que sea la del torneo propio.
+
+Empareja la serie por nombre (categoría + serie) y el plan por
+`(género, concepto, posición de la opción)`. **Saltea con detalle en vez de
+abortar** —abortar en la ficha 200 de 300 dejaría el trabajo a medias sin decir
+cuál falló— y es idempotente.
+
+El **preview** sale de la misma función con `p_simular`, no de una consulta
+aparte: es la única forma de que el número que la pantalla promete sea el que
+después ocurre.
+
+`mover_ficha_de_serie` es el ascenso/descenso. No regenera cuotas —el precio
+depende de género, opción y medio, no de la serie— y **bloquea si la ficha tiene
+cuotas con `jornada_id`**: esas cuotas vencen contra fechas de la serie vieja, y
+moverlas las dejaría apuntando a un calendario donde el equipo ya no juega, sin
+que la FK se queje.
+
+##### ✅ Corregido · `borrar_linea_tarifa` sí necesitaba guarda
+
+El paso 3 se escribió sobre una afirmación falsa mía: que `cuota` no
+referenciaba la línea de tarifa. `cuota.plan_tarifa_linea_id → plan_tarifa_linea`
+con `ON DELETE NO ACTION`, y las 297 cuotas la tienen seteada — borrar una línea
+con cuotas fallaba con el `23503` crudo. Corregido en `20260823320000`.
+
+##### 🔴 El módulo son CINCO pasos: falta el calendario
+
+`crear_equipo_torneo` exige jornadas sembradas y con fecha para las líneas
+`por_partido`. Y **`generar_grilla_liga` está rota**: inserta en
+`jornada (torneo_id, genero, numero)`, columnas que ya no existen —`jornada`
+cuelga de `serie_id` desde la reescritura de la grilla, que la regla 12 ya
+anticipaba—. Verificado: `column "torneo_id" of relation "jornada" does not exist`.
+
+    torneo → estructura → tarifario → CALENDARIO (roto) → arrastre
+
+Hoy la única vía de sembrar es `crear_jornada` una por una: **284 llamadas** para
+un torneo. Es carril de Horacio, avisado en `coordinacion.md`.
+
+**Falta el paso del calendario,
+y con él el módulo queda completo: crear un torneo, clonarle la estructura,
+cargarle el tarifario, sembrar el calendario y traer los inscriptos del torneo
+anterior.
 
 
 > **Y el `ambito` rompió dos vistas, latente.** La migración que lo agregó

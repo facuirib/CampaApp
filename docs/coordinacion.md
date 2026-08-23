@@ -18,6 +18,99 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 `generar_grilla_liga` está ROTA — y es precondición del arrastre · 23/08/2026 · de Facu para Horacio
+
+Apareció construyendo el paso 4. El calendario es tu carril, así que va derecho
+para vos.
+
+**La función está rota.** Inserta en `jornada (torneo_id, genero, numero)`, y
+`jornada` ya no tiene esas columnas: cuelga de `serie_id` desde la reescritura
+de la grilla. Verificado corriéndola:
+
+    column "torneo_id" of relation "jornada" does not exist
+
+Es lo que `CLAUDE.md` ya anticipaba en la regla 12 —«los defaults 15/13 de
+`generar_grilla_liga`, que la reescritura de la grilla elimina»—: la reescritura
+pasó y la función quedó atrás.
+
+**Y es precondición del arrastre de fichas.** `crear_equipo_torneo` exige que la
+serie tenga sus jornadas sembradas, con fecha y en la cantidad que el tarifario
+espera. Sin calendario:
+
+    La línea "Fechas 1–10" cubre las fechas 1–10 pero la serie no tiene ninguna
+    jornada en ese rango. Sembrá el calendario de la serie antes de armar fichas.
+
+Así que **el módulo de estructura quedó en cinco pasos, no cuatro**:
+
+    torneo → estructura → tarifario → CALENDARIO (roto, tuyo) → arrastre
+      ✅        ✅            ✅            🔴                      ✅
+
+Los cuatro que me tocaban están construidos y aplicados. El del medio es el
+único que falta, y sin él un torneo nuevo no puede armar ni una ficha.
+
+**Hoy la única vía de sembrar es `crear_jornada(serie, numero, fecha)`, una por
+una.** En mi prueba de arrastre tuve que hacer **284 llamadas** para sembrar un
+torneo. Anda, pero no es algo que se pueda pedir por pantalla.
+
+**La pregunta:** ¿la reescribís? Lo que haría falta es una versión por serie que
+lea la cantidad de fechas de los datos y no de un default —la regla 12 pide
+justamente eso—. Es el eslabón que falta para que crear un torneo nuevo sea
+usable de punta a punta; el arrastre ya está esperándolo.
+
+---
+
+### 🟢 Estructura de torneo · paso 4 · arrastre de fichas · 23/08/2026 · de Facu para Horacio
+
+El paso que vuelve usable a los tres anteriores. Sin él, armar el torneo
+siguiente es inscribir ~304 equipos de a uno.
+
+**`arrastrar_fichas(origen, destino, responsable, simular)`** usa
+`crear_equipo_torneo` —la puerta—, no inserta a mano: las cuotas se generan con
+el tarifario del **destino**. Empareja la serie por nombre (categoría + serie) y
+el plan por `(género, concepto, posición de la opción)`.
+
+Probado en rollback, **17 de 17**:
+
+| | |
+|---|---|
+| precondiciones | sin estructura / sin tarifario / **sin calendario** — las tres frenan antes de escribir |
+| **preview** (`p_simular`) | promete 28 fichas y **no escribe nada** |
+| arrastre real | **28 fichas** — el preview no mintió |
+| cuotas | +273, con vencimientos **2027-07-10 … 2027-11-07** (del torneo nuevo) |
+| idempotencia | 2ª corrida: `0 creadas, 28 ya existían` |
+| origen | 28 fichas · 273 cuotas, intacto |
+
+El preview sale de la **misma función** con un flag, no de una consulta aparte:
+es la única forma de que el número que promete sea el que después ocurre.
+
+**`mover_ficha_de_serie`** es el ascenso/descenso. No regenera cuotas —el precio
+depende de género, opción y medio, no de la serie— y **bloquea si la ficha tiene
+cuotas atadas a jornadas**: `cuota.jornada_id` apunta a una fecha de la serie
+vieja, y mover la ficha las dejaría venciendo con el calendario de una serie
+donde el equipo ya no juega. La FK seguiría siendo válida, así que nadie lo
+notaría. Medido: bloquea con «10 cuota(s) atadas», y mueve bien cuando no las
+hay. También rechaza mover a otro género.
+
+**Y una corrección de mi paso 3.** Escribí que `borrar_linea_tarifa` no
+necesitaba guarda porque «`cuota` no referencia la línea». Es falso:
+`cuota.plan_tarifa_linea_id → plan_tarifa_linea` con `ON DELETE NO ACTION`, y
+las 297 cuotas la tienen seteada. Borrar una línea con cuotas fallaba con el
+`23503` crudo. **Corregido en esta migración**, ahora dice «ya generó 5 cuota(s)
+en fichas existentes».
+
+**RLS: nada nuevo.** El arrastre escribe `equipo_torneo` (INSERT) y `cuota`
+(INSERT) vía `crear_equipo_torneo`, más el trigger `sync_total_plan` que
+actualiza `equipo_torneo`; `mover_ficha_de_serie` es un UPDATE de
+`equipo_torneo`. **Las tres ya están cubiertas** por las policies del núcleo que
+escribiste en `20260823260000` —`equipo_torneo` I/S/U y `cuota` I/S/U—.
+Verificado: este paso no introduce ninguna clase de escritura que la Fase 5 no
+contemple. **Sigue en 38/51** y el núcleo apagado.
+
+Tus dos migraciones de Fase 5, intactas y sin aplicar. El `dry-run` las sigue
+marcando como las únicas pendientes.
+
+---
+
 ### 🟢 Estructura de torneo · paso 3 · tarifario editable · 23/08/2026 · de Facu para Horacio
 
 Tercer paso. `plan_tarifa` y `plan_tarifa_linea` ya no dependen de un seed —

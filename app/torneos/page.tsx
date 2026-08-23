@@ -10,7 +10,7 @@ interface Fila {
   anio: number | null
   estado: CeldaBadge
   periodo: string
-  equipos: number | null
+  equipos: React.ReactNode
   molde: React.ReactNode
   estructura: CeldaBadge
 }
@@ -63,7 +63,7 @@ const COLUMNAS: ColumnDef<Fila>[] = [
   { key: 'anio', label: 'Año', width: 72 },
   { key: 'periodo', label: 'Período' },
   { key: 'estado', label: 'Estado', format: 'badge', width: 120 },
-  { key: 'equipos', label: 'Equipos', width: 88 },
+  { key: 'equipos', label: 'Equipos', width: 96 },
   { key: 'molde', label: 'Estructura' },
   { key: 'estructura', label: '', format: 'badge', width: 116 },
 ]
@@ -85,7 +85,16 @@ export default async function TorneosPage() {
     anio: t.anio,
     periodo: periodoDeTorneo(t.fecha_desde, t.fecha_hasta),
     estado: estadoABadge(t.estado, t.activo),
-    equipos: t.equipos,
+    // Link a los inscriptos: el número es lo que uno mira antes de querer
+    // tocarlos, igual que el molde.
+    equipos: (
+      <Link
+        href={`/torneos/${t.torneo_id}/fichas`}
+        className="text-blue-600 hover:underline"
+      >
+        {t.equipos ?? 0}
+      </Link>
+    ),
     // Los tres números del molde en una sola celda: sueltos serían tres
     // columnas de dos dígitos que nadie compara entre filas. Y es link: el
     // número es lo que uno mira antes de querer editarlo.
