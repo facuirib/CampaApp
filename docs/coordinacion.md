@@ -18,9 +18,9 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
-### 🔴 `activo` · el alta está ROTA en producción desde la Fase 2 · 23/08/2026 · de Facu para Horacio
+### ✅ RESUELTO · `activo` · el alta estaba ROTA desde la Fase 2 · 23/08/2026 · de Facu para Horacio
 
-Apareció probando la Tanda G. Es nuestro, y es de las que hay que arreglar ya.
+Apareció probando la Tanda G. Era nuestro. **Corregido y aplicado el mismo día.**
 
 `activo` se encendió en la **Fase 2**, clasificada como «solo lectura» porque
 **ninguna función de Postgres la escribe**. Tiene una sola policy: SELECT.
@@ -53,11 +53,28 @@ escrituras directas del front:
 
 Ninguna otra. `plantilla_mail` la escribe una Server Action pero sigue apagada.
 
-La corrección está escrita en `20260823240000_rls_activo_insert_update`
-—INSERT + UPDATE, calcando el patrón— y **NO la apliqué**: la dejo para que Facu
-confirme, como cualquier otra. Va con UPDATE además del INSERT porque la baja de
-un activo es un cambio de estado, y hoy mediría 0 filas en silencio; mejor que
-la policy esté antes de que alguien construya esa pantalla.
+**Corregido** en `20260823240000_rls_activo_insert_update` (INSERT + UPDATE),
+medido antes y después en la misma transacción:
+
+| | Antes | Después |
+|---|---|---|
+| INSERT de `/activos/nuevo` | «violates RLS policy» 🔴 | **1 → 2, pasa** ✅ |
+| UPDATE (la baja) | 0 filas, mudo 🔴 | **1 fila, estado «baja»** ✅ |
+
+Y el circuito entero: alta → aparece en `proponer_amortizaciones` → se amortiza
+(100.000) → baja. `activo` queda con **S/I/U**; su `relrowsecurity` seguía en
+`true` desde la Fase 2 y no se tocó, así que **RLS sigue en 37/51**: se
+agregaron policies, no se activó nada.
+
+Lleva UPDATE además del INSERT porque la baja de un activo es un cambio de
+estado. La pantalla de baja no existe todavía — mejor que la policy esté antes
+de que alguien la escriba y pierda una tarde buscando por qué el activo no se da
+de baja.
+
+**La lección de método:** una tabla sin escritores en `pg_proc` **no es
+solo-lectura**. Puede tener escritores que `pg_proc` no ve. Las Fases 3 y 4 ya
+salieron con el doble chequeo; la Fase 2 es la única que se hizo sin él, y
+`activo` era su único agujero.
 
 ---
 

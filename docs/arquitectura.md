@@ -1194,7 +1194,7 @@ Y eso explica por qué `cuota_cobro_sponsor` era la peligrosa: **no tiene
 unique**, así que no hay red — su DELETE bloqueado duplicaba en silencio, con la
 función devolviendo el número correcto.
 
-##### ⚠️ `activo` · el alta rota desde la Fase 2
+##### ✅ RESUELTO · `activo` · el alta rota desde la Fase 2
 
 `activo` se encendió en la Fase 2 como «solo lectura» porque ninguna función la
 escribe — pero **la escribe el front**, `app/activos/nuevo/page.tsx:102`, con un
@@ -1208,8 +1208,18 @@ Fase 2 fue solo por funciones, y el doble chequeo se instauró en la Fase 3.
 
 Se barrieron **las 31 tablas encendidas** buscando lo mismo: solo `activo` y
 `reclamo` reciben escrituras directas del front, y `reclamo` tiene su policy de
-INSERT desde la Fase 3 (verificada, anda). Corrección en
-`20260823240000_rls_activo_insert_update` — **escrita, pendiente de aplicar**.
+INSERT desde la Fase 3 (verificada, anda).
+
+Corregido en `20260823240000_rls_activo_insert_update`: INSERT + UPDATE. Medido
+antes y después en la misma transacción — antes el INSERT levantaba *«new row
+violates row-level security policy»* y el UPDATE medía 0 filas; después el alta
+pasa (1 → 2), la baja afecta 1 fila y el estado queda en «baja». Verificado el
+circuito completo: alta → aparece en `proponer_amortizaciones` → se amortiza
+(100.000) → baja. `activo` queda con **S/I/U**; su `relrowsecurity` no se tocó.
+
+Lleva UPDATE además de INSERT porque la baja de un activo es un cambio de
+estado: la pantalla no está construida todavía, y sin la policy habría medido 0
+filas en silencio cuando alguien la escriba.
 
 ##### RLS activo leyendo RLS activo · verificado en la Tanda F
 
