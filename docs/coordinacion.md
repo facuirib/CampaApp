@@ -18,6 +18,57 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Estructura de torneo · paso 3 · tarifario editable · 23/08/2026 · de Facu para Horacio
+
+Tercer paso. `plan_tarifa` y `plan_tarifa_linea` ya no dependen de un seed —
+eran las últimas dos tablas de estructura que sí.
+
+**El relevamiento corrigió el plan: la matriz regla↔campos son cuatro formas, no
+tres.** Y no es una convención nuestra, es lo que `crear_equipo_torneo` exige:
+
+| Regla | Campos | El precio es |
+|---|---|---|
+| `fecha_fija` | `fecha_referencia` | el monto de la cuota |
+| `por_partido` playoff | `cantidad_esperada` (máximo) | unitario |
+| `por_partido` regular | `desde`/`hasta` + `cantidad` | unitario por partido |
+| `bloque_adelantado` | `fecha_referencia` **y** `desde`/`hasta` **y** `cantidad` | **el TOTAL del bloque** |
+
+`bloque_adelantado` necesita las **dos** cosas —cuándo vence y qué cubre— y el
+playoff no lleva rango porque la eliminación directa no tiene jornadas
+numeradas. Si el ABM aceptara una línea incoherente, el error saldría meses
+después al armar la primera ficha del torneo, lejos de quien la escribió.
+
+Probado en rollback, **21 de 21**: los 4 casos buenos pasan, los 7 malos se
+rechazan con mensaje propio —`fecha_fija` con rango, `fecha_fija` sin fecha,
+bloque sin fecha, bloque con cantidad desalineada, `desde > hasta`, playoff con
+fecha fija, precio negativo— y `editar_linea_tarifa` revalida con los valores
+**resultantes**, así que una edición parcial que rompe la coherencia también se
+frena.
+
+**El aviso de cuotas emitidas es literalmente cierto.** Medido: con 10 fichas
+colgando del plan, cambiar el precio de la Seña de 1.000.000 a 9.999.999 dejó
+las 130 cuotas emitidas en los mismos **$100.800.000**, y el `total_plan`
+tampoco se movió porque deriva de `cuota`, no del plan. `v_plan_tarifa_uso` le
+da el número a la pantalla.
+
+Un callejón que evité al construir: la consulta de la pantalla filtraba
+`activo = true`, así que al desactivar una opción desaparecía **y con ella el
+botón para reactivarla**. Ahora se traen todas y el filtro se hace en el render:
+la tabla de lectura sigue mostrando solo las vigentes —es lo que un equipo puede
+elegir hoy— y el editor las ve todas.
+
+**RLS:** `plan_tarifa` (+I+U) y `plan_tarifa_linea` (+I+U+**D** — sacar una
+línea es parte de editar un tarifario). Tercer caso `activo`, otra vez
+anticipado. **Sigue en 38/51**, 123 → 128 policies.
+
+Tus dos migraciones de Fase 5, intactas: apartadas y devueltas en el mismo
+comando. El `dry-run` las sigue marcando como las únicas pendientes.
+
+**Falta el paso 4, el arrastre de fichas** — el que vuelve usable todo el
+módulo. Sin él, armar el próximo torneo es inscribir ~304 equipos a mano.
+
+---
+
 ### 🟢 Estructura de torneo · paso 2 · clonar + ABM · 23/08/2026 · de Facu para Horacio
 
 Segundo paso del módulo. `categoria` y `serie` ahora se cargan desde la app —

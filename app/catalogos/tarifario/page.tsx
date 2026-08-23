@@ -3,6 +3,7 @@ import { formatDate } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { Badge, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
+import EditarPlan from './EditarPlan'
 
 type Genero = Database['public']['Enums']['genero']
 type Concepto = Database['public']['Enums']['concepto_pago']
@@ -105,7 +106,7 @@ export default async function TarifarioPage({
   const torneos = torneosRes.data ?? []
   const torneoElegido = torneoParam ?? torneos.find((t) => t.activo)?.id ?? torneos[0]?.id ?? null
 
-  const [planesRes, lineasRes] = await Promise.all([
+  const [planesRes, lineasRes, usoRes] = await Promise.all([
     supabase
       .from('plan_tarifa')
       .select('*, torneo(nombre)')
@@ -115,16 +116,25 @@ export default async function TarifarioPage({
       // rotulados con el nombre del primero. Con un solo torneo cargado nunca
       // se notó; con dos, la pantalla mentía.
       .eq('torneo_id', torneoElegido ?? '')
-      .eq('activo', true)
+      // Se traen TODOS, activos y desactivados, y el filtro se hace abajo.
+      // Filtrar acá dejaba un callejón: al desactivar una opción desaparecía de
+      // la pantalla, y con ella el botón para volver a activarla. La tabla de
+      // lectura sigue mostrando solo las vigentes —es lo que un equipo puede
+      // elegir hoy— pero el editor las ve todas.
       .order('genero')
       .order('concepto')
       .order('opcion_orden'),
     supabase.from('plan_tarifa_linea').select('*').order('linea_orden'),
+    // El uso de cada plan: cuántas fichas y cuotas ya se emitieron con él. Es
+    // lo que la isla de edición necesita para avisar que editar no cambia lo ya
+    // emitido — y sale de una vista, no de contar en el cliente (regla 1).
+    supabase.from('v_plan_tarifa_uso').select('*').eq('torneo_id', torneoElegido ?? ''),
   ])
 
-  const error = torneosRes.error ?? planesRes.error ?? lineasRes.error
+  const error = torneosRes.error ?? planesRes.error ?? lineasRes.error ?? usoRes.error
   const planes = planesRes.data ?? []
   const lineas = lineasRes.data ?? []
+  const uso = usoRes.data ?? []
 
   // Del torneo elegido, no del primer plan: si el torneo no tiene tarifario
   // cargado, `planes` viene vacío y el encabezado tiene que decir igual de cuál
@@ -178,9 +188,12 @@ export default async function TarifarioPage({
         const susPlanes = planes.filter((p: Plan) => p.genero === genero && p.concepto === concepto)
         if (susPlanes.length === 0) return null
 
-        const ids = new Set(susPlanes.map((p) => p.id))
-        const nombrePlan = new Map(susPlanes.map((p) => [p.id, p.opcion_nombre]))
-        const ordenPlan = new Map(susPlanes.map((p) => [p.id, p.opcion_orden]))
+        // La tabla muestra las opciones vigentes; el editor, todas.
+        const vigentes = susPlanes.filter((p: Plan) => p.activo)
+
+        const ids = new Set(vigentes.map((p) => p.id))
+        const nombrePlan = new Map(vigentes.map((p) => [p.id, p.opcion_nombre]))
+        const ordenPlan = new Map(vigentes.map((p) => [p.id, p.opcion_orden]))
 
         // Las líneas vienen ordenadas por `linea_orden`, que es el orden DENTRO
         // de un plan. Sin reordenar por plan, las dos opciones quedan
@@ -225,7 +238,7 @@ export default async function TarifarioPage({
               {CONCEPTO[concepto]} · {GENERO[genero]}
             </h2>
             <p className="mb-3 text-[11px] text-muted">
-              {susPlanes.map((p) => p.opcion_nombre).join(' o ')}
+              {vigentes.map((p) => p.opcion_nombre).join(' o ')}
             </p>
 
             {/* Sin fila de total: sumar las líneas de dos opciones alternativas
@@ -236,6 +249,13 @@ export default async function TarifarioPage({
               rows={filas}
               rowKey="id"
               emptyMessage="Este plan no tiene líneas cargadas."
+            />
+
+            <EditarPlan
+              planes={susPlanes}
+              lineas={lineas.filter((l: Linea) => susPlanes.some((p) => p.id === l.plan_tarifa_id))}
+              uso={uso}
+              torneoId={torneoElegido ?? ''}
             />
 
             {observaciones.length > 0 && (

@@ -2179,11 +2179,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "equipo_torneo_plan_inscripcion_id_fkey"
+            columns: ["plan_inscripcion_id"]
+            isOneToOne: false
+            referencedRelation: "v_plan_tarifa_uso"
+            referencedColumns: ["plan_id"]
+          },
+          {
             foreignKeyName: "equipo_torneo_plan_partidos_id_fkey"
             columns: ["plan_partidos_id"]
             isOneToOne: false
             referencedRelation: "plan_tarifa"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_plan_partidos_id_fkey"
+            columns: ["plan_partidos_id"]
+            isOneToOne: false
+            referencedRelation: "v_plan_tarifa_uso"
+            referencedColumns: ["plan_id"]
           },
           {
             foreignKeyName: "equipo_torneo_serie_id_fkey"
@@ -3285,6 +3299,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "plan_tarifa"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_linea_plan_tarifa_id_fkey"
+            columns: ["plan_tarifa_id"]
+            isOneToOne: false
+            referencedRelation: "v_plan_tarifa_uso"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -5723,6 +5744,91 @@ export type Database = {
         }
         Relationships: []
       }
+      v_plan_tarifa_uso: {
+        Row: {
+          activo: boolean | null
+          concepto: string | null
+          cuotas_emitidas: number | null
+          fichas: number | null
+          genero: string | null
+          lineas: number | null
+          monto_emitido: number | null
+          opcion_nombre: string | null
+          opcion_orden: number | null
+          plan_id: string | null
+          torneo_id: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          concepto?: never
+          cuotas_emitidas?: never
+          fichas?: never
+          genero?: never
+          lineas?: never
+          monto_emitido?: never
+          opcion_nombre?: string | null
+          opcion_orden?: number | null
+          plan_id?: string | null
+          torneo_id?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          concepto?: never
+          cuotas_emitidas?: never
+          fichas?: never
+          genero?: never
+          lineas?: never
+          monto_emitido?: never
+          opcion_nombre?: string | null
+          opcion_orden?: number | null
+          plan_id?: string | null
+          torneo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "torneo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_kpi"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_escala"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+        ]
+      }
       v_presupuesto_ambito: {
         Row: {
           ambito: string | null
@@ -6626,6 +6732,7 @@ export type Database = {
         Args: { p_linea_id: string }
         Returns: undefined
       }
+      borrar_linea_tarifa: { Args: { p_linea_id: string }; Returns: undefined }
       borrar_serie: { Args: { p_serie_id: string }; Returns: undefined }
       cambiar_estado_cheque: {
         Args: {
@@ -6744,6 +6851,33 @@ export type Database = {
         Args: { p_fecha?: string; p_numero: number; p_serie_id: string }
         Returns: string
       }
+      crear_linea_tarifa: {
+        Args: {
+          p_cantidad_esperada?: number
+          p_concepto_label: string
+          p_es_playoff?: boolean
+          p_fecha_desde?: number
+          p_fecha_hasta?: number
+          p_fecha_referencia?: string
+          p_linea_orden?: number
+          p_observacion?: string
+          p_plan_id: string
+          p_precio_efectivo: number
+          p_precio_transferencia: number
+          p_regla: Database["public"]["Enums"]["regla_vencimiento"]
+        }
+        Returns: string
+      }
+      crear_plan_tarifa: {
+        Args: {
+          p_concepto: Database["public"]["Enums"]["concepto_pago"]
+          p_genero: Database["public"]["Enums"]["genero"]
+          p_opcion_nombre: string
+          p_opcion_orden?: number
+          p_torneo_id: string
+        }
+        Returns: string
+      }
       crear_playoff: {
         Args: {
           p_cantidad_partidos?: number
@@ -6821,6 +6955,30 @@ export type Database = {
           p_cantidad?: number
           p_linea_id: string
           p_unidad?: string
+        }
+        Returns: undefined
+      }
+      editar_linea_tarifa: {
+        Args: {
+          p_cantidad_esperada?: number
+          p_concepto_label?: string
+          p_fecha_desde?: number
+          p_fecha_hasta?: number
+          p_fecha_referencia?: string
+          p_linea_id: string
+          p_linea_orden?: number
+          p_observacion?: string
+          p_precio_efectivo?: number
+          p_precio_transferencia?: number
+        }
+        Returns: undefined
+      }
+      editar_plan_tarifa: {
+        Args: {
+          p_activo?: boolean
+          p_opcion_nombre?: string
+          p_opcion_orden?: number
+          p_plan_id: string
         }
         Returns: undefined
       }
@@ -7035,6 +7193,18 @@ export type Database = {
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       usd_costo_esperado: { Args: never; Returns: number }
+      validar_linea_tarifa: {
+        Args: {
+          p_cantidad_esperada: number
+          p_es_playoff: boolean
+          p_fecha_desde: number
+          p_fecha_hasta: number
+          p_fecha_referencia: string
+          p_label: string
+          p_regla: Database["public"]["Enums"]["regla_vencimiento"]
+        }
+        Returns: undefined
+      }
       validar_saldo_caja: {
         Args: {
           p_contexto?: string

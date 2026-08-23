@@ -1361,10 +1361,62 @@ sigue en 38/51**: no se activó ninguna tabla nueva, solo se agregaron policies.
 Pantalla `/torneos/[id]/estructura` sobre `v_estructura_torneo`, con el clonado
 destacado cuando el torneo está vacío y secundario cuando ya tiene.
 
-**Falta el paso 3** (tarifario editable) y **el paso 4** (arrastre de fichas),
+#### Estructura de torneo · paso 3 · tarifario editable
+
+`plan_tarifa` y `plan_tarifa_linea` eran las últimas dos tablas de estructura
+que solo se podían cargar por seed. Con esto, un torneo se arma entero desde la
+app.
+
+**La matriz regla↔campos son CUATRO formas, no tres**, y no es una convención
+elegida acá: es lo que `crear_equipo_torneo` exige al armar una ficha.
+
+| Regla | Campos | El precio es |
+|---|---|---|
+| `fecha_fija` | `fecha_referencia` | el monto de la cuota |
+| `por_partido` + `es_playoff` | `cantidad_esperada` (máximo) | unitario |
+| `por_partido` regular | `desde`/`hasta` + `cantidad` | **unitario por partido** |
+| `bloque_adelantado` | `fecha_referencia` **y** `desde`/`hasta` **y** `cantidad` | **el TOTAL del bloque** |
+
+`validar_linea_tarifa` **rechaza también el campo que sobra**, no solo exige el
+que falta: una línea `fecha_fija` con `fecha_desde` cargado es un dato que nadie
+lee y que le miente al que lo mira. Y valida acá y no solo en
+`crear_equipo_torneo` por una cuestión de lugar: si el ABM aceptara una línea
+incoherente, el error aparecería meses después al armar la primera ficha del
+torneo, lejos de quien la escribió.
+
+Dos chequeos propios: `desde <= hasta`, y en `bloque_adelantado`
+**`cantidad = hasta - desde + 1`** — ahí el precio es el total, así que una
+cantidad desalineada factura de más o de menos sin que nadie lo note.
+
+**La regla se elige al crear la línea y no se edita.** Cambiarla obliga a
+completar tres campos y vaciar otro en una sola operación que puede quedar a
+mitad de camino; para cambiarla se borra y se crea de nuevo.
+`editar_linea_tarifa` revalida la matriz con los valores **resultantes**, no con
+los recibidos: una edición parcial puede romper la coherencia aunque cada campo
+suelto parezca válido.
+
+**Editar un plan que ya emitió cuotas avisa, no bloquea.**
+`crear_equipo_torneo` materializa las cuotas al crear la ficha, así que editar
+el plan después no las toca. Verificado: con 10 fichas colgando, cambiar el
+precio de la Seña de 1.000.000 a 9.999.999 dejó las 130 cuotas emitidas en los
+mismos $100.800.000, y el `total_plan` tampoco se movió (deriva de `cuota`). El
+aviso de la pantalla es literalmente cierto, y `v_plan_tarifa_uso` le da el
+número.
+
+**No hay `borrar_plan`**: un plan con fichas no se puede borrar por FK, y no
+debería — es la referencia de lo que esas fichas pactaron. Se desactiva con
+`activo = false`. La tabla de lectura sigue mostrando solo las opciones
+vigentes, pero el editor las trae todas: filtrar en la consulta dejaba un
+callejón sin salida —al desactivar una opción desaparecía, y con ella el botón
+para reactivarla—.
+
+`plan_tarifa` (+I+U) y `plan_tarifa_linea` (+I+U+**D**) eran el tercer caso
+`activo`, otra vez anticipado. **RLS sigue en 38/51.**
+
+**Falta el paso 4** (arrastre de fichas),
 que es el que vuelve usable todo esto: sin él hay que inscribir ~304 equipos a
-mano. El clonado de series es su precondición — el arrastre empareja por nombre
-de serie.
+mano. El clonado de series del paso 2 es su precondición — el arrastre empareja
+por nombre de serie.
 
 
 > **Y el `ambito` rompió dos vistas, latente.** La migración que lo agregó
