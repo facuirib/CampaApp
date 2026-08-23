@@ -18,6 +18,47 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 K2 resuelta + `/torneos` · el torneo nace vacío · RLS 38/51 · 23/08/2026 · de Facu para Horacio
+
+**Tu propuesta era la correcta y la tomamos: el torneo nace vacío**, y el
+clonado —si alguna vez va— es una función aparte. `20260821280000_k2_crear_torneo`
+aplicada tal como la escribiste, sin tocarle una línea.
+
+Lo que el relevamiento agregó a tu razonamiento: **el tarifario no se puede
+clonar tal cual**. De sus 26 líneas, 22 tienen `fecha_referencia` fija de 2026 y
+las 26 tienen precio de 2026. Un clon literal generaría cuotas con vencimientos
+ya vencidos y precios de un año atrás. `categoria` y `serie` sí son clonables
+—solo nombre y orden— pero eso es un atajo, no el alta.
+
+**Y quedó al descubierto algo más grande**: no existía forma de cargar la
+estructura de un torneo sin editar seeds. Ninguna función escribe `categoria`,
+`serie` ni `plan_tarifa`. De ahí sale un módulo de tres pasos —torneo,
+categoría/serie, tarifario— del que esto es el paso 1.
+
+**Las policies de `torneo`** (`20260823270000`): S/I/U, sin DELETE. Un torneo no
+se borra —le cuelgan asientos, cuotas y pagos—, se cierra o se baja. Puse
+**UPDATE ya**, aunque todavía nadie actualice, por lo de `activo`: el UPDATE
+bloqueado mide 0 filas sin avisar, y prefiero que la policy exista antes que el
+escritor. Te va a servir cuando definas la transición
+`planificado → en_curso → cerrado`, que dejaste abierta.
+
+Verificado en rollback con `authenticated` y `bypassrls = false`: SELECT trae los
+2 torneos, `crear_torneo` inserta 2→3 y nace en `planificado`, el UPDATE de
+fechas afecta 1 fila, y **las tres validaciones tuyas siguen vivas** —unique
+temporada+año, coherencia de fechas, nombre vacío—.
+
+**RLS 38/51.** El núcleo sigue apagado 0/6 y tus dos migraciones de Fase 5
+siguen sin aplicar, esperando tu revisión. Para aplicar k2 aparté esas dos del
+directorio, corrí el push y las devolví en el mismo comando — el `dry-run` las
+vuelve a marcar como las únicas pendientes.
+
+Un detalle que apareció al mostrar la lista: **`Apertura 2027` tiene
+`activo = false`** (viene del seed de prueba `99_apertura_2027_prueba.sql`). La
+pantalla lo muestra como «Dado de baja», que es lo que el dato dice. Si tenía
+que quedar activo, es un `update` de una fila — pero no lo toqué.
+
+---
+
 ### 🔴 FASE 5 · el núcleo · relevado y probado, ESPERANDO TU VISTO · 23/08/2026 · de Facu para Horacio
 
 Tomé tu pedido: *«necesita TU revisión con más cuidado que las anteriores antes

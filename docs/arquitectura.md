@@ -1121,7 +1121,8 @@ cambia nada, el `ENABLE` sí.
 | Fase 3 · Tanda E | `cheque` — sola: la escriben tres circuitos | 30 |
 | Fase 3 · Tanda F | `dia_cancha` — cierra la Fase 3 | 31 |
 | Fase 4 · Tanda G | `sueldo_socio` `devengo_socio` `amortizacion` | 34 |
-| Fase 4 · Tanda H | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_sponsor` | **37** |
+| Fase 4 · Tanda H | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_sponsor` | 37 |
+| `torneo` (con K2) | `torneo` — el escritor lo crea `crear_torneo` | **38** |
 | Fase 5 · el núcleo + colgadas (12) | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` `tercero` `equipo_torneo` `jornada` `periodo` `anticipo` `plantilla_mail` | escrita, **sin aplicar** |
 
 La Fase 5 está **relevada y probada entera en rollback** —los doce circuitos con
@@ -1137,7 +1138,7 @@ societario tienen RLS activo.** Quedan 14 tablas apagadas:
 |---|---|
 | **El núcleo** (Fase 5, junto) | `asiento` `asiento_linea` `gasto` `pago` `pago_imputacion` `cuota` |
 | Colgadas del núcleo | `equipo_torneo` `jornada` `periodo` `anticipo` `tercero` `plantilla_mail` |
-| Bloqueadas por decisión | `torneo` (K2) · `_prueba_marca` (testing) |
+| Bloqueadas por decisión | `_prueba_marca` (testing) |
 
 `tercero` tiene policies S/I/U escritas y aplicadas desde la Fase 1, pero **sin
 `ENABLE`**: se dejó para cuando vaya el núcleo, porque la escriben los mismos
@@ -1290,14 +1291,38 @@ escriben desde la app con el rol del usuario — o sea, justo los que sí necesi
 policy. Por eso cada tanda se releva con doble chequeo: funciones **y** grep del
 front.
 
-#### K2 `crear_torneo` · escrita, NO aplicada
+#### ✅ RESUELTO · K2 `crear_torneo` · aplicada, el torneo nace vacío · 23/08
 
-`20260821280000_k2_crear_torneo` está en el repo y **deliberadamente sin
-aplicar**: trae una decisión de producto sin resolver —**¿un torneo nuevo nace
-vacío o clona la estructura de uno anterior?**—. La función no existe en la base.
+`20260821280000_k2_crear_torneo` está aplicada. **El torneo nace vacío**, sin
+categorías ni series, en estado `planificado`.
 
-**Por eso el `db push --dry-run` la marca como pendiente.** Es lo esperado, no un
-olvido: mientras la decisión esté abierta, esa migración no se aplica.
+La decisión se resolvió por relevamiento y no por preferencia: el tarifario
+**no se puede clonar tal cual**. De sus 26 líneas, 22 tienen `fecha_referencia`
+fija de 2026 y las 26 tienen precio de 2026 — un clon literal generaría cuotas
+con vencimientos vencidos y precios de un año atrás. `categoria` y `serie` sí
+son clonables (solo nombre y orden), pero eso queda como **atajo opcional**, no
+como parte del alta.
+
+Lo que sí quedó al descubierto es que el problema real no era K2: **no existía
+forma de cargar la estructura de un torneo sin editar seeds.** De ahí sale el
+módulo de estructura en tres pasos —torneo, categoría/serie, tarifario—, del
+que esta migración es el paso 1.
+
+#### `/torneos` · alta de torneo desde la app · paso 1 del módulo de estructura
+
+`/torneos` lista con `v_torneo_lista` —que trae el conteo de fichas y del molde,
+regla 1— y `/torneos/nuevo` llama a `crear_torneo` por `rpc`. El form **no
+ofrece `ejercicio_id`**: la función lo sigue aceptando, pero los dos torneos
+cargados lo tienen en NULL y nadie lo completa.
+
+`tiene_estructura` en la vista resuelve lo que importa operativamente: un torneo
+sin serie o sin plan de tarifa **no puede recibir una ficha**, porque
+`crear_equipo_torneo` necesita las dos. La lista lo marca «Falta cargar» en vez
+de dejar que se descubra al intentar inscribir.
+
+**Faltan los pasos 2 y 3**: categorías/series y el tarifario editable. Hasta que
+estén, un torneo nuevo se crea desde la app pero su estructura sigue
+cargándose por seed.
 
 
 > **Y el `ambito` rompió dos vistas, latente.** La migración que lo agregó

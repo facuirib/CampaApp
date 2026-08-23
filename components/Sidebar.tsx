@@ -55,8 +55,17 @@ export const GRUPOS: GrupoNav[] = [
   },
   {
     // En el orden en que pasan las cosas: se anota el equipo, se arma el
-    // fixture, se le cobra, y al que no paga se le reclama. El tarifario va
-    // último porque es el catálogo del que sale todo lo anterior, no un paso.
+    // fixture, se le cobra, y al que no paga se le reclama. Después, los dos
+    // que NO son un paso sino el molde del que sale todo lo anterior: el
+    // tarifario y el torneo mismo.
+    //
+    // Torneos va último aunque sea lo primero que existe, por frecuencia: se
+    // crea un torneo dos veces al año, y se cobra todos los días. Ponerlo
+    // arriba empujaría lo cotidiano hacia abajo para hacerle lugar a algo que
+    // se toca dos veces por temporada.
+    //
+    // Cuando lleguen los pasos 2 y 3 del módulo de estructura —categorías y
+    // series, y el tarifario editable— cuelgan de acá como hijos de Torneos.
     titulo: 'Torneo',
     items: [
       { href: '/inscripciones', label: 'Inscripciones', icon: 'inscripciones' },
@@ -64,6 +73,7 @@ export const GRUPOS: GrupoNav[] = [
       { href: '/cobranza', label: 'Cobranza', icon: 'cobranza' },
       { href: '/reclamos', label: 'Reclamos', icon: 'reclamos' },
       { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario' },
+      { href: '/torneos', label: 'Torneos', icon: 'equipos' },
     ],
   },
   {
