@@ -1,0 +1,170 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 5 · EL NÚCLEO — ⚠️ ESCRITA, NO APLICADA
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- ⚠️ **NO APLICAR SIN COORDINAR CON HORACIO.** Él escribió estas policies y
+-- pidió explícitamente revisarlas con más cuidado que el resto antes del
+-- `ENABLE`: *«es el corazón del sistema, si algo está mal, todo el flujo de
+-- cobros/pagos/gastos se rompe de una»*.
+--
+-- Esta migración sube RLS de 37/51 a 49/51. Quedan afuera `torneo` (depende de
+-- la decisión K2) y `_prueba_marca` (testing).
+--
+-- ⚠️ **REQUIERE `20260823250000` aplicada primero** — la policy de DELETE de
+-- `pago_imputacion`. Sin ella el rechazo de cheque se rompe en silencio; está
+-- medido más abajo.
+--
+-- ── Escritores · doble chequeo completo ────────────────────────────────────
+--
+-- `pg_proc` **y** grep del front, que es donde `pg_proc` es ciego (fue lo que
+-- nos rompió `activo`):
+--
+--   asiento          crear_asiento[I] · anular_asiento[U]              I/S/U ✅
+--   asiento_linea    crear_asiento[I]                                    I/S ✅
+--   gasto            registrar_gasto[I+U] · pagar_gasto[U] ·
+--                    anular_gasto[U]                                   I/S/U ✅
+--   pago             registrar_cobro[I+U] ·
+--                    recibir_efectivo_en_transito[I+U]                 I/S/U ✅
+--   pago_imputacion  imputar_pago[I] · cambiar_estado_cheque[D]      I/S + D ⚠️
+--   cuota            crear_equipo_torneo[I] · generar_cuotas_instancia[I]
+--                    sync_cuota_pagada[U] · sync_cuota_vence_at[U]     I/S/U ✅
+--   tercero          NADIE — ni función ni front                       I/S/U ✅
+--   equipo_torneo    crear_equipo_torneo[I] · sync_total_plan[U]       I/S/U ✅
+--   jornada          crear_jornada · crear_playoff · generar_grilla_liga[I]
+--                    mover_jornada · suspender_jornada[U]              I/S/U ✅
+--   periodo          periodo_de_fecha[I] · cerrar_periodo[U]           I/S/U ✅
+--   anticipo         imputar_pago[I]                                   I/S/U ✅
+--   plantilla_mail   **Server Action** app/configuracion/acciones.ts:60
+--                    `.from('plantilla_mail').update()`                I/S/U ✅
+--
+-- **Ninguna es SECURITY DEFINER**: las doce pasan por sus policies.
+--
+-- El front **no escribe ninguna tabla del núcleo directo**. La única escritura
+-- directa en las doce es `plantilla_mail`, desde una Server Action — y su
+-- policy de UPDATE está. Es el caso `activo` de nuevo, pero cubierto.
+--
+-- ── El «UPDATE que nadie mira» · el núcleo está lleno ──────────────────────
+--
+-- Todas insertan, crean el asiento y **vuelven sobre la fila** para guardar el
+-- vínculo. Ninguna relee. Sin policy de UPDATE, la función devuelve el id igual
+-- y la fila queda sin su asiento:
+--
+--   registrar_cobro                update pago set asiento_id            ✅
+--   recibir_efectivo_en_transito   update pago set asiento_id            ✅
+--   registrar_gasto                update gasto set asiento_dev_id       ✅
+--   pagar_gasto                    update gasto set pagado_at            ✅
+--   anular_gasto                   update gasto set pagado_at (revierte) ✅
+--   anular_asiento                 update asiento set anulado_por        ✅
+--
+-- ── Los triggers que cruzan tablas del núcleo ──────────────────────────────
+--
+-- Un trigger corre con **el rol de quien disparó la operación**, así que su
+-- escritura pasa por la policy de la tabla **destino**. Tres cruzan:
+--
+--   pago_imputacion → sync_cuota_pagada   → UPDATE cuota           ✅ cubierto
+--   cuota           → sync_total_plan     → UPDATE equipo_torneo   ✅ cubierto
+--   jornada         → sync_cuota_vence_at → UPDATE cuota           ✅ cubierto
+--
+-- Verificado en vivo: con las doce encendidas, un cobro disparó
+-- `sync_cuota_pagada` y la cuota pasó de 130.000 a saldo 0 con `pagado_at`
+-- escrito. **Es la primera cadena del proyecto donde un trigger escribe de
+-- tabla activa a tabla activa dentro del núcleo.**
+--
+-- Los de auditoría (`trg_audit_*` → `fn_audit`) son **SECURITY DEFINER** y
+-- escapan RLS — importa porque `audit_log` solo tiene policy de SELECT.
+--
+-- ── 🔴 TRES CONSTRAINT TRIGGERS DIFERIDOS A COMMIT ─────────────────────────
+--
+-- Hallazgo de esta fase, y cambia el protocolo de prueba:
+--
+--   trg_asiento_balanceado    on asiento_linea     DEFERRABLE INITIALLY DEFERRED
+--   trg_imputacion_coherente  on pago_imputacion   DEFERRABLE INITIALLY DEFERRED
+--   trg_anticipo_uso          on anticipo_uso      DEFERRABLE INITIALLY DEFERRED
+--
+-- **No corren en el statement: corren en el COMMIT.** O sea que **ninguna
+-- prueba en transacción con `rollback` los ejecuta nunca** — ni las de las
+-- Fases 3 y 4. Se los fuerza con `set constraints all immediate`, y así se
+-- probaron acá: corrieron con `authenticated` sin quejarse.
+--
+-- ── 🔴 Y la razón por la que las policies de SELECT no son opcionales ──────
+--
+-- Los tres validan con `coalesce(sum(...), 0)` sobre la tabla que protegen.
+-- **Con el SELECT bloqueado devuelven 0 — y 0 = 0 «balancea».** El chequeo no
+-- falla: pasa de largo.
+--
+-- Medido, con `trg_asiento_balanceado` forzado a immediate:
+--
+--   CON policy de SELECT   el trigger ve debe=100.000 haber=100.000
+--                          → una línea que descuadra se RECHAZA            ✅
+--   SIN policy de SELECT   el trigger ve debe=0 haber=0
+--                          → la misma línea SE ACEPTA                      🔴
+--
+-- O sea: **la policy de SELECT de `asiento_linea` es lo que sostiene el
+-- invariante Debe = Haber.** Lo mismo `pago`/`pago_imputacion` para
+-- `check_imputacion_coherente`, que evita imputar de más.
+--
+-- Hoy las tres son `using (true)` y por eso funciona. **Si algún día se
+-- restringen por usuario o por rol, estos tres invariantes se caen en
+-- silencio** — no se rompe la lectura, se rompe la validación. Es la nota más
+-- importante de toda la Fase 5.
+--
+-- ── El `if not found` disfrazado ───────────────────────────────────────────
+--
+-- Siete funciones del núcleo leen primero y culpan al dato si no ven la fila:
+-- `anular_asiento`, `anular_gasto`, `pagar_gasto`, `imputar_pago`,
+-- `cerrar_periodo`, `mover_jornada`, `cambiar_estado_cheque`. Con un SELECT
+-- bloqueado dirían «el gasto % no existe» sobre un gasto que existe — el mismo
+-- error mentiroso de `eliminar_dia_cancha`. Con las policies actuales
+-- (`true`), no ocurre.
+--
+-- ── La prueba grande · las doce encendidas a la vez ────────────────────────
+--
+-- Rol `authenticated`, `bypassrls = false` verificado dentro de cada
+-- transacción, RLS en 49/51 y núcleo 6/6:
+--
+--   lecturas    asiento 83 · linea 172 · gasto 13 · pago 20 · imput 28 ·
+--               cuota 297 · tercero 309 · et 34 · jornada 284 · periodo 4 ·
+--               plantilla 4 — nada filtrado                                ✅
+--
+--   COBRO       pago 20 → 21 · `asiento_id` escrito · 1 imputación ·
+--               **trigger**: cuota 130.000 → saldo 0 con `pagado_at` ·
+--               asiento CAJA_TRANSFERENCIA / ING_PARTIDOS                  ✅
+--
+--   GASTO       devengar 13 → 14 con `asiento_dev_id` · pagar con
+--               `pagado_at` + `asiento_pag_id` · anular: asientos 86 → 88,
+--               los dos originales marcados, `pagado_at` revertido a NULL  ✅
+--
+--   RECHAZO     los cinco pasos, incluido el DELETE 1 → 0 y la deuda
+--               reabierta 0 → 130.000                                      ✅
+--
+--   ALTA FICHA  cuotas 297 → 310 · `total_plan` 10.500.000 escrito por el
+--               trigger `sync_total_plan`                                  ✅
+--
+--   PERIFERIA   venta_bar 280.000 con asiento · arqueo dif 0 · comprar_usd ·
+--               devengar socios (2) · devengar sponsors (3)                ✅
+--
+--   VISTAS      v_libro_diario 90 · v_deuda_equipo 29 · v_saldo_caja 9 ·
+--               v_estado_cuota 310 · v_gasto_detalle 13 · v_cashflow 26 ·
+--               v_pl_mensual 168 · v_pl_kpi 1 · v_resultado_cambio 2       ✅
+--
+-- `set constraints all immediate` al final de cada transacción: los tres
+-- diferidos corrieron sin quejarse. **Descuadre 0.** Todo en rollback.
+--
+-- ── Nada quedó pendiente de arreglar ───────────────────────────────────────
+--
+-- Ningún circuito se rompió ni midió 0 donde debía medir. El único hueco del
+-- relevamiento —`pago_imputacion` sin DELETE— está resuelto en
+-- `20260823250000`, que **va antes que ésta**.
+
+alter table asiento         enable row level security;
+alter table asiento_linea   enable row level security;
+alter table gasto           enable row level security;
+alter table pago            enable row level security;
+alter table pago_imputacion enable row level security;
+alter table cuota           enable row level security;
+alter table tercero         enable row level security;
+alter table equipo_torneo   enable row level security;
+alter table jornada         enable row level security;
+alter table periodo         enable row level security;
+alter table anticipo        enable row level security;
+alter table plantilla_mail  enable row level security;

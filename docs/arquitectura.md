@@ -1122,7 +1122,13 @@ cambia nada, el `ENABLE` sí.
 | Fase 3 · Tanda F | `dia_cancha` — cierra la Fase 3 | 31 |
 | Fase 4 · Tanda G | `sueldo_socio` `devengo_socio` `amortizacion` | 34 |
 | Fase 4 · Tanda H | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_sponsor` | **37** |
-| Fase 5 · el núcleo | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` | pendiente |
+| Fase 5 · el núcleo + colgadas (12) | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` `tercero` `equipo_torneo` `jornada` `periodo` `anticipo` `plantilla_mail` | escrita, **sin aplicar** |
+
+La Fase 5 está **relevada y probada entera en rollback** —los doce circuitos con
+las doce tablas encendidas a la vez, descuadre 0— pero el `ENABLE` **no se
+aplicó**: es el carril de Horacio y pidió revisarlo. Migraciones listas:
+`20260823250000` (policy DELETE de `pago_imputacion`, precondición) y
+`20260823260000` (el ENABLE, que va después).
 
 **Fases 3 y 4 completas: todos los circuitos con escritura y todo el
 societario tienen RLS activo.** Quedan 14 tablas apagadas:
@@ -1173,6 +1179,34 @@ Con la policy puesta se verificaron las dos mitades: el día real desaparece
 (60 → 59, `existe = false`) **y** con un uuid falso el error legítimo sigue
 apareciendo. La segunda mitad es la que importa a futuro: ahora ese mensaje
 significa lo que dice.
+
+##### 🔴 Los invariantes dependen de la policy de SELECT · Fase 5
+
+Tres validaciones del núcleo son **constraint triggers diferidos a COMMIT** —no
+corren en el statement, corren al cerrar la transacción:
+
+| Trigger | Sobre | Garantiza |
+|---|---|---|
+| `trg_asiento_balanceado` | `asiento_linea` | Debe = Haber |
+| `trg_imputacion_coherente` | `pago_imputacion` | no imputar de más |
+| `trg_anticipo_uso` | `anticipo_uso` | el anticipo no se usa dos veces |
+
+**Ninguna prueba en transacción con `rollback` los ejecuta** — tampoco las de
+las Fases 3 y 4. Hay que forzarlos con `set constraints all immediate`.
+
+Y los tres validan con `coalesce(sum(...), 0)` sobre la tabla que protegen.
+**Con el SELECT bloqueado devuelven 0 — y 0 = 0 «balancea».** El chequeo no
+falla: pasa de largo. Medido con el trigger forzado a immediate:
+
+| | El trigger ve | Una línea que descuadra |
+|---|---|---|
+| **Con** policy de SELECT | debe 100.000 / haber 100.000 | se **rechaza** ✅ |
+| **Sin** policy de SELECT | debe 0 / haber 0 | **se acepta** 🔴 |
+
+O sea: **la policy de SELECT de `asiento_linea` es lo que sostiene la regla
+Debe = Haber.** No es comodidad de lectura. Hoy las policies son `using (true)`
+y por eso funciona; **si algún día se restringen por usuario o por rol, estos
+tres invariantes se caen en silencio.**
 
 ##### La idempotencia depende de la policy de SELECT · Fase 4
 

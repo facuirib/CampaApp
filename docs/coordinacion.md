@@ -18,6 +18,170 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 FASE 5 · el núcleo · relevado y probado, ESPERANDO TU VISTO · 23/08/2026 · de Facu para Horacio
+
+Tomé tu pedido: *«necesita TU revisión con más cuidado que las anteriores antes
+de activar ENABLE»*. **No activé nada.** Relevé, resolví la precondición, y
+probé los circuitos completos con las doce tablas encendidas a la vez, todo en
+rollback. RLS sigue en **37/51**, núcleo **0/6**.
+
+Dos migraciones escritas y **sin aplicar**, en este orden:
+
+1. `20260823250000_rls_pago_imputacion_delete` — la precondición
+2. `20260823260000_rls_fase5_nucleo` — el ENABLE de las 12 (37 → 49/51)
+
+#### Los escritores · doble chequeo completo
+
+`pg_proc` **y** grep del front. Las doce cubiertas salvo una:
+
+| Tabla | Escritores | Policy | |
+|---|---|---|---|
+| `asiento` | `crear_asiento[I]` · `anular_asiento[U]` | I/S/U | ✅ |
+| `asiento_linea` | `crear_asiento[I]` | I/S | ✅ |
+| `gasto` | `registrar_gasto[I+U]` · `pagar_gasto[U]` · `anular_gasto[U]` | I/S/U | ✅ |
+| `pago` | `registrar_cobro[I+U]` · `recibir_efectivo_en_transito[I+U]` | I/S/U | ✅ |
+| `pago_imputacion` | `imputar_pago[I]` · **`cambiar_estado_cheque[D]`** | I/S | ⚠️ **faltaba D** |
+| `cuota` | `crear_equipo_torneo[I]` · `generar_cuotas_instancia[I]` · 2 triggers`[U]` | I/S/U | ✅ |
+| `tercero` | **nadie** — ni función ni front | I/S/U | ✅ |
+| `equipo_torneo` | `crear_equipo_torneo[I]` · `sync_total_plan[U]` | I/S/U | ✅ |
+| `jornada` | 3 altas`[I]` · `mover_jornada`/`suspender_jornada`[U] | I/S/U | ✅ |
+| `periodo` | `periodo_de_fecha[I]` · `cerrar_periodo[U]` | I/S/U | ✅ |
+| `anticipo` | `imputar_pago[I]` | I/S/U | ✅ |
+| `plantilla_mail` | **Server Action** `configuracion/acciones.ts:60` `.update()` | I/S/U | ✅ |
+
+Ninguna es SECURITY DEFINER: las doce pasan por sus policies. El front **no
+escribe ninguna tabla del núcleo directo**; la única escritura directa de las
+doce es `plantilla_mail` desde una Server Action — el caso `activo` otra vez,
+pero acá sí está cubierto.
+
+#### 🔴 Lo más importante que encontré: los invariantes dependen del SELECT
+
+Tres validaciones son **constraint triggers diferidos a COMMIT**:
+`trg_asiento_balanceado`, `trg_imputacion_coherente`, `trg_anticipo_uso`.
+
+Dos cosas de eso:
+
+**(a) Ninguna prueba en rollback los ejecuta.** Ni las mías de Fase 3 y 4. Hay
+que forzarlos con `set constraints all immediate` — así los probé acá.
+
+**(b) Los tres validan con `coalesce(sum(...), 0)` sobre la tabla que
+protegen. Con el SELECT bloqueado devuelven 0, y 0 = 0 «balancea».** No fallan:
+pasan de largo. Medido:
+
+| | El trigger ve | Meter una línea que descuadra |
+|---|---|---|
+| **Con** policy de SELECT | debe 100.000 / haber 100.000 | se **rechaza** ✅ |
+| **Sin** policy de SELECT | debe 0 / haber 0 | **SE ACEPTA** 🔴 |
+
+**La policy de SELECT de `asiento_linea` es lo que sostiene Debe = Haber.** No
+es comodidad de lectura. Hoy son todas `using (true)` y por eso anda — pero si
+en la capa de roles alguna se restringe por usuario, **estos tres invariantes se
+caen sin hacer ruido**. Te lo dejo marcado porque es la decisión de diseño que
+más cuidado va a pedir cuando llegue el momento de los roles.
+
+#### El «UPDATE que nadie mira» · el núcleo está lleno
+
+Seis funciones insertan, crean el asiento y vuelven sobre la fila. Ninguna
+relee: sin policy de UPDATE devuelven el id igual y la fila queda sin asiento.
+Las seis cubiertas: `registrar_cobro`, `recibir_efectivo_en_transito`,
+`registrar_gasto`, `pagar_gasto`, `anular_gasto`, `anular_asiento`.
+
+#### Los triggers que cruzan tablas del núcleo
+
+Un trigger corre con el rol del que disparó, así que pasa por la policy del
+**destino**. Tres cruzan, los tres cubiertos:
+
+    pago_imputacion → sync_cuota_pagada   → UPDATE cuota
+    cuota           → sync_total_plan     → UPDATE equipo_torneo
+    jornada         → sync_cuota_vence_at → UPDATE cuota
+
+Verificado en vivo: con las doce encendidas, un cobro disparó
+`sync_cuota_pagada` y la cuota pasó de 130.000 a saldo 0 con `pagado_at`
+escrito.
+
+#### El `if not found` disfrazado
+
+Siete funciones leen primero y culpan al dato: `anular_asiento`, `anular_gasto`,
+`pagar_gasto`, `imputar_pago`, `cerrar_periodo`, `mover_jornada`,
+`cambiar_estado_cheque`. Con las policies actuales no muerde, pero si alguna vez
+se restringe un SELECT, van a decir «el gasto no existe» sobre un gasto que
+existe.
+
+#### La precondición, medida en las dos direcciones
+
+`cambiar_estado_cheque` borra las imputaciones al rechazar. Con el núcleo
+encendido y **sin** la policy de DELETE:
+
+| | Sin policy (hoy) | Con la policy |
+|---|---|---|
+| ① cheque → «rechazado» | ocurre | ✅ |
+| ② asiento del cobro revertido | ocurre | ✅ |
+| ③ `delete pago_imputacion` | **1 → 1, sin excepción** 🔴 | 1 → 0 ✅ |
+| ④ la deuda se reabre | **saldo 0 → 0** 🔴 | 0 → 130.000 ✅ |
+| ⑤ `pagado_at` recalculado | **sigue pagada** 🔴 | NULL ✅ |
+
+Los dos primeros pasos ocurren igual. Queda el cheque rechazado, la
+contabilidad revertida, y **el equipo sin deber la plata que nunca entró** — sin
+una sola excepción en el camino.
+
+#### La prueba grande · las doce encendidas a la vez (49/51, núcleo 6/6)
+
+Rol `authenticated`, `bypassrls = false` verificado en cada transacción:
+
+| Circuito | Efecto medido |
+|---|---|
+| lecturas | asiento 83 · linea 172 · gasto 13 · pago 20 · imput 28 · cuota 297 · tercero 309 · et 34 · jornada 284 · periodo 4 · plantilla 4 — nada filtrado |
+| **cobro** | pago 20→21 · `asiento_id` escrito · 1 imputación · **trigger**: cuota 130.000 → saldo 0 con `pagado_at` · CAJA_TRANSFERENCIA/ING_PARTIDOS |
+| **gasto** | devengar 13→14 con `asiento_dev_id` · pagar con `pagado_at`+`asiento_pag_id` · anular: asientos 86→88, los 2 originales marcados, `pagado_at` revertido |
+| **rechazo** | los 5 pasos, DELETE 1→0, deuda 0→130.000 |
+| **alta ficha** | cuotas 297→310 · `total_plan` 10.500.000 escrito por `sync_total_plan` |
+| periferia | venta_bar 280.000 con asiento · arqueo dif 0 · `comprar_usd` · socios 2 · sponsors 3 |
+| vistas | `v_libro_diario` 90 · `v_deuda_equipo` 29 · `v_saldo_caja` 9 · `v_estado_cuota` 310 · `v_gasto_detalle` 13 · `v_cashflow` 26 · `v_pl_mensual` 168 · `v_pl_kpi` 1 |
+
+`set constraints all immediate` al cierre de cada transacción: los tres
+diferidos corrieron con `authenticated` sin quejarse. **Descuadre 0.** Todo en
+rollback — la base quedó con 83 asientos, 297 cuotas, 13 gastos, 20 pagos.
+
+#### Nada quedó pendiente de arreglar
+
+Ningún circuito se rompió ni midió 0 donde debía. El único hueco del
+relevamiento era `pago_imputacion` sin DELETE, y está resuelto en la migración
+que va primero.
+
+#### 📌 Lo que necesito de vos
+
+Las dos migraciones están **commiteadas y sin aplicar**, a propósito: son tu
+carril y pediste revisarlas. Podés leerlas en el repo — el relevamiento entero
+está en los headers, así que no tenés que re-relevar nada.
+
+    20260823250000_rls_pago_imputacion_delete.sql    ← primero
+    20260823260000_rls_fase5_nucleo.sql              ← después
+
+El `db push --dry-run` las marca como pendientes junto con `k2_crear_torneo`.
+**Son las tres esperadas**, ninguna es un olvido.
+
+**La pregunta:** ¿las revisás y das el OK para aplicar —lo hacés vos o lo hago
+yo—, o querés ajustar algo antes?
+
+Es la activación más riesgosa del proyecto: si algo está mal, cobros, pagos y
+gastos se rompen juntos. Por eso no la toqué. Cuando des el visto se aplican las
+dos en ese orden y queda **49/51**; faltarían solo `torneo` (K2) y
+`_prueba_marca`.
+
+#### 🔖 Y una nota para cuando lleguen los roles
+
+Guardá esto para esa fase, porque es donde se vuelve peligroso: **la policy de
+`SELECT` de `asiento_linea` es lo que sostiene Debe = Haber.** Mientras sean
+todas `using (true)` no pasa nada. El día que una policy de SELECT del núcleo se
+restrinja por usuario o por rol, `trg_asiento_balanceado` va a ver 0 y 0 y va a
+dar por buenos asientos descuadrados, sin un solo error. Lo mismo
+`check_imputacion_coherente` con imputar de más.
+
+**Es la nota #1 de la capa de roles.** Restringir la lectura del núcleo no
+limita lo que alguien ve: apaga las validaciones.
+
+---
+
 ### ✅ RESUELTO · `activo` · el alta estaba ROTA desde la Fase 2 · 23/08/2026 · de Facu para Horacio
 
 Apareció probando la Tanda G. Era nuestro. **Corregido y aplicado el mismo día.**
