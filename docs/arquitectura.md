@@ -1060,42 +1060,71 @@ posterior. Lo detecta el arqueo, que para eso existe.
 > Se anularon los 6 `ZZ_TEST_` vigentes: Tirolesa quedó en $4.292.000,
 > transferencia en $3.395.000, y la app sin gastos vigentes (0 de 13).
 
-#### Deuda abierta · las 8 categorías `por_dia_cancha` no deberían pedir jornada
+#### ✅ RESUELTO · la regla de alocación de gastos · 23/08
 
-`/gastos/nuevo` pide **Jornada** a todo gasto de naturaleza `por_fecha`, porque
-`check_gasto_coherente` la exige. Pero de las 11 categorías `por_fecha`, **8 son
-`por_dia_cancha`** —Coordinación, Estacionamiento, Guardias, Limpieza, Media,
-Medicinal, Tribunal, Viáticos— y ésas **no escalan con partidos sino con días de
-cancha**: lo que las identifica es **fecha + predio**, no una jornada.
+**Todos los gastos se anclan a FECHA (`devengado_at`) + predio donde corresponda.
+Ningún gasto se ancla a jornada.** El monto es libre —lo escribe el operador— y
+`cat_gasto` solo clasifica el rubro.
 
-Obligarlas a elegir jornada obliga a elegir una **serie arbitraria**: el tribunal
-de un sábado no es de la serie A ni de la B, es del día. Y no alcanza con pedir
-solo la fecha, porque **una fecha tiene 9,5 jornadas en promedio y hasta 19** —
-23 de 30 fechas tienen más de una.
+**Por qué la jornada no iba:** anclarla ataba el gasto a una **serie**
+(`jornada.serie_id`), y esa dependencia no existe en el negocio — el tribunal de
+un sábado es del día, no de la serie A ni de la B. Y no alcanzaba con pedir la
+fecha para deducirla: **una fecha tiene 9,5 jornadas en promedio y hasta 19**, así
+que elegir «la» jornada era elegir una de diecinueve.
 
-Las 3 `por_partido` —Árbitros Femenino, Árbitros Masculino, Operativos— **sí**
-necesitan la jornada: el costo es por partido, y los partidos son de una serie.
-Y `gasto.jornada_id` no es decorativo: lo usa la exclusión de doble conteo de
-`v_cashflow_estimado` (`g.jornada_id = j.id`).
+Con árbitros el costo **se estima** mirando los partidos, pero el número lo pone
+el operador libre. Que haya pensado en 12 partidos no queda como vínculo de datos.
 
-**Depende de la migración pendiente de Horacio** (`20260821150000`), que exige
-`predio_id` a las `por_dia_cancha`. Con eso aplicado, la rama `por_dia_cancha`
-del formulario pasa a pedir **fecha + predio** y `check_gasto_coherente` deja de
-exigirle jornada. Antes de eso no se puede tocar: el trigger rechaza el insert.
+Los tres cambios, todos aplicados:
 
-> No se maquilló el selector mientras tanto —agrupar o renombrar el optgroup de
-> jornada— porque se rehace entero cuando la rama se reescriba.
+| | |
+|---|---|
+| `check_gasto_coherente` | **Ya no exige jornada** a `por_fecha`. Sigue exigiendo predio a `por_dia_cancha` y activo a `inversion` |
+| `v_cashflow_estimado` | La exclusión de doble conteo de `por_partido` pasó de `g.jornada_id = j.id` a **`cat_gasto` + fecha**, y **sin predio** —a diferencia de la rama `por_dia_cancha`— porque `jornada` no tiene `predio_id`: un partido puede jugarse en cualquiera de los predios de la serie |
+| `/gastos/nuevo` | **Sin selector de jornada.** Categoría → concepto → arancel → cantidad → fecha → torneo → predio |
 
-#### Deuda abierta · `comprar_usd` y `vender_usd` sin responsable
+`gasto.jornada_id` **sigue existiendo y aceptando valor**: lo que cambió es que
+nadie la exige y la pantalla no la pide. Verificado de punta a punta: un gasto de
+árbitros cargado desde la pantalla queda con `jornada_id` NULL y su asiento de
+devengo correcto.
 
-**No tienen parámetro `p_created_by` ni lo pasan a `crear_asiento`**, así que
-dependen de `auth.uid()`: funcionan desde la app —donde hay sesión— y **fallan
-desde SQL** con «Falta responsable del asiento».
+> Migración `20260822100000_gasto_sin_jornada` (de Horacio, que tomó la
+> corrección). La distinción `por_partido`/`por_dia_cancha`/`por_mes` **queda
+> donde corresponde**: proyectar y presupuestar. Ya no condiciona la carga.
 
-Las deja fuera del patrón del resto de las puertas —`pagar_gasto`,
-`crear_arqueo`, `registrar_cobro`, `anular_gasto` toman `p_created_by`
-explícito—, que es lo que se acordó en la **decisión 89** al sacar el fallback a
-`auth.users`. El arreglo es agregarles el parámetro como a las demás.
+#### ✅ RESUELTO · `comprar_usd` y `vender_usd` sin responsable · 23/08
+
+Ya toman `p_created_by` y lo pasan a `crear_asiento`, como el resto de las
+puertas (decisión 89). Migración `20260821270000_usd_created_by`, con `drop
+function` de las firmas viejas — agregar un parámetro **sobrecarga**, no
+reemplaza.
+
+#### RLS · 104 policies escritas, RLS APAGADO en las 51 tablas
+
+Horacio tomó el bloque 10 y escribió **20 migraciones, tabla por tabla**: 104
+policies en 48 de 51 tablas, verificando función por función cuáles no son
+`SECURITY DEFINER` y por lo tanto necesitan policy de escritura explícita.
+
+**Ninguna tabla tiene `relrowsecurity = true`.** Las policies están inertes: no
+cambian el comportamiento del sistema hasta que se active el `ENABLE`.
+
+**El `ENABLE` se activa tabla por tabla, con confirmación previa y sin plazos.**
+El orden acordado es: catálogos y solo-lectura primero, después los circuitos con
+escritura de a uno, y **el núcleo al final** —`asiento`, `asiento_linea`, `gasto`,
+`pago`, `cuota`, `pago_imputacion`, `caja`— con revisión especial: si esas están
+mal, todo el flujo de cobros, pagos y gastos se rompe junto. Ver `coordinacion.md`.
+
+Faltan `torneo` —depende de la decisión K2— y `_prueba_marca`, que es de testing.
+
+#### K2 `crear_torneo` · escrita, NO aplicada
+
+`20260821280000_k2_crear_torneo` está en el repo y **deliberadamente sin
+aplicar**: trae una decisión de producto sin resolver —**¿un torneo nuevo nace
+vacío o clona la estructura de uno anterior?**—. La función no existe en la base.
+
+**Por eso el `db push --dry-run` la marca como pendiente.** Es lo esperado, no un
+olvido: mientras la decisión esté abierta, esa migración no se aplica.
+
 
 > **Y el `ambito` rompió dos vistas, latente.** La migración que lo agregó
 > permitió dos arqueos por día, y `v_saldo_efectivo_dia_cancha` y

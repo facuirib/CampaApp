@@ -6399,6 +6399,7 @@ export type Database = {
       comprar_usd: {
         Args: {
           p_cantidad: number
+          p_created_by?: string
           p_fecha: string
           p_medio?: string
           p_motivo?: string
@@ -6744,9 +6745,20 @@ export type Database = {
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       usd_costo_esperado: { Args: never; Returns: number }
+      validar_saldo_caja: {
+        Args: {
+          p_contexto?: string
+          p_cuenta: string
+          p_fecha: string
+          p_monto: number
+          p_predio_id: string
+        }
+        Returns: undefined
+      }
       vender_usd: {
         Args: {
           p_cantidad: number
+          p_created_by?: string
           p_fecha: string
           p_medio?: string
           p_motivo?: string

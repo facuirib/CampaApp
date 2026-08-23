@@ -20,21 +20,6 @@ type Predio = Pick<Database['public']['Tables']['predio']['Row'], 'id' | 'nombre
 type Torneo = Pick<Database['public']['Tables']['torneo']['Row'], 'id' | 'nombre'>
 type Activo = Pick<Database['public']['Tables']['activo']['Row'], 'id' | 'nombre' | 'categoria'>
 
-/**
- * Una jornada con el camino hasta su torneo, que es lo que hace falta para
- * agruparla y para filtrarla por el torneo elegido: la jornada cuelga de una
- * serie, la serie de una categoría, y recién ahí aparece el torneo.
- */
-interface JornadaOpcion {
-  id: string
-  /** Null en playoff: ahí manda `instancia` (lo garantiza chk_liga_o_playoff). */
-  numero: number | null
-  /** Nullable en el schema: una jornada puede crearse sin fecha todavía. */
-  fecha: string | null
-  es_playoff: boolean
-  instancia: string | null
-  serie: { nombre: string; categoria: { nombre: string; torneo_id: string } } | null
-}
 
 /** Sentinel del <option> "concepto libre" — no es un id real. */
 const CONCEPTO_LIBRE = '__libre__'
@@ -73,7 +58,6 @@ export default function CargarGastoPage() {
   const [conceptos, setConceptos] = useState<ConceptoGasto[]>([])
   const [predios, setPredios] = useState<Predio[]>([])
   const [torneos, setTorneos] = useState<Torneo[]>([])
-  const [jornadas, setJornadas] = useState<JornadaOpcion[]>([])
   const [activos, setActivos] = useState<Activo[]>([])
 
   const [catGastoId, setCatGastoId] = useState<string | null>(null)
@@ -85,7 +69,6 @@ export default function CargarGastoPage() {
   const [devengadoAt, setDevengadoAt] = useState(hoyEnCordoba())
   const [torneoId, setTorneoId] = useState<string | null>(null)
   const [predioId, setPredioId] = useState<string | null>(null)
-  const [jornadaId, setJornadaId] = useState<string | null>(null)
   const [activoId, setActivoId] = useState<string | null>(null)
 
   const [previewCargando, setPreviewCargando] = useState(false)
@@ -109,7 +92,6 @@ export default function CargarGastoPage() {
         { data: conceptosData, error: errorConceptos },
         { data: prediosData, error: errorPredios },
         { data: torneosData, error: errorTorneos },
-        { data: jornadasData, error: errorJornadas },
         { data: activosData, error: errorActivos },
       ] = await Promise.all([
         supabase
@@ -124,16 +106,6 @@ export default function CargarGastoPage() {
           .order('nombre'),
         supabase.from('predio').select('id, nombre').order('nombre'),
         supabase.from('torneo').select('id, nombre').order('nombre'),
-        // La jornada cuelga de serie → categoría, y el torneo está recién ahí:
-        // se trae el camino entero porque el <optgroup> y el filtro por torneo
-        // lo necesitan. Una jornada suspendida no se ofrece.
-        supabase
-          .from('jornada')
-          .select(
-            'id, numero, fecha, es_playoff, instancia, serie:serie_id(nombre, categoria:categoria_id(nombre, torneo_id))',
-          )
-          .in('estado', ['programada', 'jugada'])
-          .order('fecha'),
         supabase
           .from('activo')
           .select('id, nombre, categoria')
@@ -148,7 +120,6 @@ export default function CargarGastoPage() {
         errorConceptos ??
         errorPredios ??
         errorTorneos ??
-        errorJornadas ??
         errorActivos
       if (error) {
         setErrorCarga(error.message)
@@ -160,7 +131,6 @@ export default function CargarGastoPage() {
       setConceptos(conceptosData ?? [])
       setPredios(prediosData ?? [])
       setTorneos(torneosData ?? [])
-      setJornadas(jornadasData ?? [])
       setActivos(activosData ?? [])
       setCargando(false)
     }
@@ -187,7 +157,7 @@ export default function CargarGastoPage() {
    * distinto— así que sin el grupo quedarían dos opciones idénticas.
    *
    * La naturaleza desaparece de la vista y NO del dato: `naturaleza` se sigue
-   * leyendo del objeto para decidir `pideJornada` y `pideActivo`, y el trigger
+   * leyendo del objeto para decidir `pideActivo`, y el trigger
    * `check_gasto_coherente` la valida en la base. Sacarla del label no toca nada.
    */
   const categoriasPorArea = useMemo(() => {
@@ -227,35 +197,31 @@ export default function CargarGastoPage() {
   )
 
   // La naturaleza decide qué anclaje pide check_gasto_coherente: `por_fecha`
-  // exige jornada e `inversion` exige activo. El trigger es el que manda; acá
+  // ── Por qué acá NO se pide jornada (23/08) ───────────────────────────────
+  //
+  // Un gasto se ancla a FECHA + predio donde corresponda, y a nada más. Anclarlo
+  // a una jornada lo ataba a una SERIE —`jornada.serie_id`—, y esa dependencia
+  // no existe en el negocio: el tribunal de un sábado es del día, no de la serie
+  // A ni de la B. Y no alcanzaba con pedir la fecha para deducirla: una fecha
+  // tiene 9,5 jornadas en promedio y hasta 19, así que elegir «la» jornada era
+  // elegir una de diecinueve, casi siempre arbitrariamente.
+  //
+  // Con árbitros el costo se ESTIMA mirando los partidos, pero el número lo pone
+  // el operador libre — `arancel × cantidad`, los dos a mano. Que haya pensado
+  // en 12 partidos no tiene por qué quedar como vínculo de datos.
+  //
+  // `check_gasto_coherente` dejó de exigirla (20260822100000), y la exclusión de
+  // doble conteo de `v_cashflow_estimado` pasó a cruzar por cat_gasto + fecha.
+  // `gasto.jornada_id` sigue existiendo y aceptando valor: lo que cambió es que
+  // esta pantalla no lo pide.
+  //
+  // `inversion` exige activo. El trigger es el que manda; acá
   // se muestra el campo que corresponde para no ofrecer un gasto imposible.
   const naturaleza = useMemo(
     () => categorias.find((c) => c.id === catGastoId)?.naturaleza ?? null,
     [categorias, catGastoId],
   )
-  const pideJornada = naturaleza === 'por_fecha'
   const pideActivo = naturaleza === 'inversion'
-
-  /**
-   * Las jornadas agrupadas por «Categoría · Serie», que es como las nombra
-   * quien carga el gasto. Si hay torneo elegido, solo las de ese torneo: un
-   * gasto imputado a un torneo con la jornada de otro no lo rechaza nada.
-   */
-  const gruposDeJornadas = useMemo(() => {
-    const grupos = new Map<string, JornadaOpcion[]>()
-
-    for (const j of jornadas) {
-      if (!j.serie) continue
-      if (torneoId && j.serie.categoria.torneo_id !== torneoId) continue
-
-      const rotulo = `${j.serie.categoria.nombre} · ${j.serie.nombre}`
-      const grupo = grupos.get(rotulo)
-      if (grupo) grupo.push(j)
-      else grupos.set(rotulo, [j])
-    }
-
-    return [...grupos.entries()].sort(([a], [b]) => a.localeCompare(b, 'es'))
-  }, [jornadas, torneoId])
 
   function elegirCategoria(id: string) {
     setCatGastoId(id || null)
@@ -264,7 +230,6 @@ export default function CargarGastoPage() {
     setUsarConceptoLibre(false)
     setConceptoLibre('')
     // Y el anclaje también: la categoría nueva puede pedir otro, o ninguno.
-    setJornadaId(null)
     setActivoId(null)
   }
 
@@ -338,7 +303,6 @@ export default function CargarGastoPage() {
     arancel > 0 &&
     cantidad > 0 &&
     !!devengadoAt &&
-    (!pideJornada || !!jornadaId) &&
     (!pideActivo || !!activoId) &&
     previewResultado?.balanceado === true
 
@@ -373,7 +337,6 @@ export default function CargarGastoPage() {
       p_concepto_libre: usarConceptoLibre ? conceptoLibre : undefined,
       p_torneo_id: torneoId ?? undefined,
       p_predio_id: predioId ?? undefined,
-      p_jornada_id: jornadaId ?? undefined,
       p_activo_id: activoId ?? undefined,
       p_created_by: user.id,
     })
@@ -395,7 +358,6 @@ export default function CargarGastoPage() {
     setDevengadoAt(hoyEnCordoba())
     setTorneoId(null)
     setPredioId(null)
-    setJornadaId(null)
     setActivoId(null)
   }
 
@@ -523,30 +485,6 @@ export default function CargarGastoPage() {
                 </Select>
               </Field>
 
-              {pideJornada && (
-                <Field
-                  label="Jornada"
-                  required
-                  error={jornadaId ? null : 'Un gasto por fecha se ancla a una jornada.'}
-                  hint={torneoId ? undefined : 'Elegí el torneo para acortar la lista.'}
-                >
-                  <Select
-                    placeholder="Elegir jornada…"
-                    value={jornadaId ?? ''}
-                    onChange={(e) => setJornadaId(e.target.value || null)}
-                  >
-                    {gruposDeJornadas.map(([rotulo, delGrupo]) => (
-                      <optgroup key={rotulo} label={rotulo}>
-                        {delGrupo.map((j) => (
-                          <option key={j.id} value={j.id}>
-                            {j.es_playoff ? j.instancia : `Fecha ${j.numero}`} — {j.fecha}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </Select>
-                </Field>
-              )}
 
               {pideActivo && (
                 <Field
