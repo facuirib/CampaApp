@@ -1,0 +1,80 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 4 · TANDA H · la cadena sponsor — CIERRA LA FASE 4
+-- contrato_sponsor · cuota_cobro_sponsor · devengo_sponsor — RLS 37/51.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- Las tres van **juntas, no en orden**, y el motivo es concreto:
+-- `crear_contrato_sponsor` llama a `cargar_cuotas_sponsor` **en la misma
+-- transacción**. Activar el padre sin el hijo parte el alta al medio: el
+-- contrato queda creado, con su asiento, y sin cronograma — y como el asiento
+-- de firma ya cargó los $4.800.000 a DEUDORES_SPONSORS, quedaría una deuda sin
+-- ninguna cuota que la cobre.
+--
+-- ── Los escritores, con doble chequeo ──────────────────────────────────────
+--
+--   contrato_sponsor      crear_contrato_sponsor [I + U] común
+--   cuota_cobro_sponsor   cargar_cuotas_sponsor [I + D] común
+--                         registrar_cobro_sponsor [U] común
+--   devengo_sponsor       devengar_sponsors [I] común
+--
+-- Ninguna de las tres aparece en el front: cero `.from()`, cero Server Actions,
+-- cero `rpc()`. El circuito sponsor es backend y seed por ahora. Sin triggers
+-- ajenos; `contrato_sponsor` tiene el suyo de validación
+-- (`check_contrato_sponsor`), que no escribe.
+--
+-- ── El alta completa · el efecto medido ────────────────────────────────────
+--
+-- Con las tres activas a la vez, rol `authenticated` y `bypassrls = false`
+-- verificado dentro de la transacción:
+--
+--   ① `insert into contrato_sponsor`            3 → 4                       ✅
+--   ② **`update ... asiento_firma_id`**          escrito                     ✅
+--   ③ el asiento de firma                        DEUDORES_SPONSORS /
+--                                                INGRESO_DIFERIDO 4.800.000  ✅
+--   ④ `cargar_cuotas_sponsor` en la misma tx     2 cuotas, suma 4.800.000    ✅
+--
+-- El ② es el «UPDATE que nadie mira»: la función inserta el contrato, crea el
+-- asiento, y **vuelve sobre la fila** para guardar el `asiento_firma_id`. Nadie
+-- lo relee. Sin policy de UPDATE el contrato quedaba sin puntero a su asiento
+-- y la función devolvía el id igual.
+--
+-- ── La recarga del cronograma · lo que la policy de DELETE evita ───────────
+--
+-- Recargar el cronograma del contrato reemplazando 2 cuotas por 3:
+--
+--   3 cuotas · suma 4.800.000 · las de 10-15 y 11-15 **desaparecieron**      ✅
+--
+-- **La suma es la prueba, no el retorno.** `cargar_cuotas_sponsor` devuelve el
+-- `row_count` del INSERT, así que devuelve 3 igual si las 2 viejas siguen
+-- abajo. Sin la policy de DELETE —aplicada en `20260823210000`— quedaban 5
+-- cuotas sumando 8.400.000 sobre un contrato de 4.800.000, con la función
+-- informando éxito. Ver el detalle en esa migración.
+--
+-- ── El cobro y el devengo ──────────────────────────────────────────────────
+--
+--   registrar_cobro_sponsor   `cobrado_at` seteado + `asiento_id` vinculado  ✅
+--   devengar_sponsors         8 → 12, las 4 con `asiento_id`                 ✅
+--   ↳ idempotencia            segunda corrida: 12 → 12, devuelve 0           ✅
+--
+-- Igual que en la Tanda G, la idempotencia se apoya en una guarda que **lee su
+-- propia tabla** (`not exists ... from devengo_sponsor`). Con la policy de
+-- SELECT lee bien y ni entra al loop. `devengo_sponsor` además tiene
+-- `UNIQUE (contrato_id, periodo_id)` como red.
+--
+-- Descuadre 0. 14 de 14, en transacción con rollback: no quedó ningún contrato
+-- de prueba.
+--
+-- ═══ FASE 4 COMPLETA · 37/51 ══════════════════════════════════════════════
+--
+-- Quedan 14 apagadas: el núcleo (6), las colgadas del núcleo —`equipo_torneo`,
+-- `jornada`, `periodo`, `anticipo`, `tercero`, `plantilla_mail`—, `torneo`
+-- (K2) y `_prueba_marca`.
+--
+-- **Precondición viva de la Fase 5:** `pago_imputacion` no tiene policy de
+-- DELETE, y `cambiar_estado_cheque` la borra al rechazar un cheque. Encender el
+-- núcleo sin esa policy rompe la reapertura de la deuda en silencio. Ver
+-- `coordinacion.md`.
+
+alter table contrato_sponsor    enable row level security;
+alter table cuota_cobro_sponsor enable row level security;
+alter table devengo_sponsor     enable row level security;

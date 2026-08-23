@@ -18,6 +18,115 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 `activo` · el alta está ROTA en producción desde la Fase 2 · 23/08/2026 · de Facu para Horacio
+
+Apareció probando la Tanda G. Es nuestro, y es de las que hay que arreglar ya.
+
+`activo` se encendió en la **Fase 2**, clasificada como «solo lectura» porque
+**ninguna función de Postgres la escribe**. Tiene una sola policy: SELECT.
+
+Pero la escribe el **front**, directo desde un Client Component:
+
+    app/activos/nuevo/page.tsx:102
+      await supabase.from('activo').insert({ nombre, categoria, ... })
+
+Verificado con `authenticated` y `bypassrls = false`:
+
+| | |
+|---|---|
+| SELECT sobre `activo` | 1 fila ✅ |
+| INSERT como hace `/activos/nuevo` | *«new row violates row-level security policy»* 🔴 |
+| UPDATE (la baja, cuando se construya) | **0 filas, sin excepción** 🔴 |
+
+**Es el punto ciego de `pg_proc` en su forma más literal.** El relevamiento de
+la Fase 2 fue solo por funciones; el doble chequeo —funciones **y** grep del
+front— se instauró recién en la Fase 3. `activo` quedó del lado viejo de esa
+línea, y desde entonces nadie puede dar de alta un activo.
+
+**Barrí las 31 tablas encendidas buscando el mismo error.** Solo dos reciben
+escrituras directas del front:
+
+| | |
+|---|---|
+| `activo` | solo SELECT → 🔴 rota |
+| `reclamo` | tiene INSERT desde la Fase 3 → ✅ verificada, anda (6 → 7) |
+
+Ninguna otra. `plantilla_mail` la escribe una Server Action pero sigue apagada.
+
+La corrección está escrita en `20260823240000_rls_activo_insert_update`
+—INSERT + UPDATE, calcando el patrón— y **NO la apliqué**: la dejo para que Facu
+confirme, como cualquier otra. Va con UPDATE además del INSERT porque la baja de
+un activo es un cambio de estado, y hoy mediría 0 filas en silencio; mejor que
+la policy esté antes de que alguien construya esa pantalla.
+
+---
+
+### 🟢 RLS · FASE 4 COMPLETA (37/51) · el societario · 23/08/2026 · de Facu para Horacio
+
+Las 6 tablas del societario, en dos tandas, más la policy de DELETE que faltaba.
+
+**Tanda G — `sueldo_socio`, `devengo_socio`, `amortizacion`.** Las verdes.
+
+| | Efecto medido |
+|---|---|
+| `sueldo_socio` | SELECT 2 filas · `sueldo_vigente()` devuelve 1.800.000 y 1.350.000, no NULL |
+| `devengo_socio` | 6 → 8 · asientos 83 → 85 · los 2 con `asiento_id` · suma 3.150.000 |
+| `amortizacion` | 0 → 1 · «confirmada», vinculada · GAS_AMORT/AMORT_ACUM 100.000 (cuota 6/60) |
+
+`sueldo_socio` **no la escribe nada** —ni función ni pantalla, solo la lee
+`sueldo_vigente`—: es catálogo de seed. De paso: hoy **no hay camino para
+cambiarle el sueldo a un socio**. Hueco de producto, no de RLS, pero queda
+anotado.
+
+**Tanda H — `contrato_sponsor`, `cuota_cobro_sponsor`, `devengo_sponsor`**, las
+tres juntas. Van juntas porque `crear_contrato_sponsor` llama a
+`cargar_cuotas_sponsor` **en la misma transacción**: activar el padre sin el
+hijo parte el alta al medio, y como el asiento de firma ya cargó el monto a
+DEUDORES_SPONSORS, quedaría una deuda sin ninguna cuota que la cobre.
+
+| | Efecto medido |
+|---|---|
+| ① `insert contrato_sponsor` | 3 → 4 |
+| ② **`update ... asiento_firma_id`** | escrito — el «UPDATE que nadie mira» |
+| ③ asiento de firma | DEUDORES_SPONSORS / INGRESO_DIFERIDO 4.800.000 |
+| ④ `cargar_cuotas_sponsor` en la misma tx | 2 cuotas, suma 4.800.000 |
+| ⑤ **recarga del cronograma** (2 → 3) | 3 cuotas, **suma 4.800.000**, las viejas desaparecieron |
+| ⑥ `registrar_cobro_sponsor` | `cobrado_at` seteado + `asiento_id` vinculado |
+| ⑦ `devengar_sponsors` | 8 → 12, las 4 con `asiento_id` · 2ª corrida: 0, sin duplicar |
+
+El ⑤ es el que justifica la policy de DELETE aplicada en `20260823210000`. **La
+suma es la prueba, no el retorno**: `cargar_cuotas_sponsor` devuelve el
+`row_count` del INSERT, así que devuelve 3 igual si las 2 viejas siguen abajo.
+Medido sin la policy, quedaban **5 cuotas sumando 8.400.000 sobre un contrato de
+4.800.000** — y la función informaba éxito.
+
+**El hallazgo de método de esta fase: la idempotencia depende de la policy de
+SELECT.** Los procesos mensuales se protegen con una guarda que lee su propia
+tabla (`not exists ... from devengo_socio`). En la Fase 3 un SELECT bloqueado
+daba un **error falso**; acá daría un **éxito falso** — la guarda lee 0, la
+función cree que el mes está sin devengar, y re-devenga todo. Probado de las dos
+formas: con policy, la 2ª corrida devuelve 0 y ni entra al loop; sin policy,
+entra y muere con `23505` contra el unique. **La policy hace que funcione; el
+unique es la red.** Por eso `cuota_cobro_sponsor` era la peligrosa: no tiene
+unique, o sea que no tenía red.
+
+Lecturas como `authenticated`, todas con datos: `v_socio_lista` 2 ·
+`v_saldo_socio` 2 · `v_socio_kpi` 1 · `v_sponsor_lista` 3 · `v_estado_sponsor` 3
+· `v_cuotas_sponsor` 6 · `v_sponsor_kpi` 1 · `v_amortizacion` 0 ·
+`v_libro_diario` 83. Descuadre 0. **Núcleo apagado 0/6.** Datos intactos
+(3/6/6/8/2/0): todo en transacción con rollback.
+
+**Quedan 14 apagadas:** el núcleo (6), las colgadas —`equipo_torneo`, `jornada`,
+`periodo`, `anticipo`, `tercero`, `plantilla_mail`—, `torneo` (K2) y
+`_prueba_marca`.
+
+Dos detalles menores anotados al pasar: `crear_contrato_sponsor` y
+`registrar_cobro_sponsor` **no toman `p_created_by`**, a diferencia del resto de
+las puertas (decisión 89). No bloquea nada, pero el asiento queda sin
+responsable.
+
+---
+
 ### 🟢 RLS · Fase 3 COMPLETA (31/51) · Tanda F: `dia_cancha` · 23/08/2026 · de Facu para Horacio
 
 **Todos los circuitos con escritura tienen RLS activo.** Cierra con

@@ -1,0 +1,72 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 4 · TANDA G · socios y activos
+-- sueldo_socio · devengo_socio · amortizacion — RLS queda en 34/51.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- Las tres verdes del societario: solo INSERT (más el SELECT), sin UPDATE que
+-- se pueda perder y sin DELETE. Y las tres con **unique** que respalda la
+-- idempotencia, que es lo que las separa de la cadena sponsor.
+--
+-- ── Los escritores, con doble chequeo ──────────────────────────────────────
+--
+--   sueldo_socio       NADIE la escribe. Ni función ni pantalla; solo la lee
+--                      `sueldo_vigente`. Es catálogo de seed.
+--   devengo_socio      devengar_sueldos_socios [I] común
+--   amortizacion       asentar_amortizacion [I] común, por rpc() desde
+--                      /activos/amortizar
+--
+-- Ningún trigger de otra tabla las escribe. Cero escrituras directas del front,
+-- cero Server Actions.
+--
+-- ── El efecto medido ───────────────────────────────────────────────────────
+--
+-- Con RLS activo, rol `authenticated`, `bypassrls = false` verificado dentro de
+-- la transacción, sobre el período 11/2026 (virgen):
+--
+--   sueldo_socio       SELECT 2 filas · `sueldo_vigente()` devuelve
+--                      1.800.000 y 1.350.000, no NULL                       ✅
+--   devengo_socio      6 → 8 · asientos 83 → 85 · los 2 con `asiento_id`
+--                      escrito · suma 3.150.000                             ✅
+--   amortizacion       0 → 1 · «confirmada», `asiento_id` escrito,
+--                      GAS_AMORT / AMORT_ACUM por 100.000 (cuota 6/60)      ✅
+--
+-- Los tres devengos usan el patrón **seguro**: `crear_asiento` primero y
+-- después `insert` con el id ya en mano. **No hay «UPDATE que nadie mira»** en
+-- ninguna de las tres, y por eso su policy no necesita UPDATE.
+--
+-- ── La idempotencia con RLS · el punto que había que probar ────────────────
+--
+-- `devengar_sueldos_socios` y `asentar_amortizacion` son idempotentes por una
+-- **guarda que lee su propia tabla**:
+--
+--     and not exists (select 1 from devengo_socio d
+--                      where d.socio_id = t.id and d.periodo_id = p_periodo_id)
+--
+-- Eso invierte el modo de falla que veníamos viendo. En la Fase 3 un SELECT
+-- bloqueado producía un **error falso** (`eliminar_dia_cancha` diciendo «día
+-- inexistente»). Acá produciría un **éxito falso**: la guarda lee 0, la función
+-- cree que no devengó nada este mes, y **vuelve a devengar el mes entero**.
+--
+-- Se probó de las dos formas:
+--
+--   · Con la policy de SELECT (lo real): la guarda lee 2 filas, la segunda
+--     corrida devuelve 0 y la tabla queda en 8. **No entra al loop**, así que
+--     tampoco crea asientos huérfanos.                                      ✅
+--
+--   · Sin la policy de SELECT (simulado, para ver qué protege): la guarda lee
+--     0, la función entra al loop e intenta re-insertar → `23505` contra
+--     `devengo_socio_socio_id_periodo_id_key` y aborta.
+--
+-- O sea: **la policy de SELECT es lo que hace que la idempotencia funcione, y
+-- el unique es la red por si no funciona.** Las dos capas están, y las dos se
+-- verificaron.
+--
+-- Esto es lo que distingue a estas tres de `cuota_cobro_sponsor`, que **no
+-- tiene unique** y por eso duplicaba en silencio. Ver la migración
+-- `20260823210000`.
+--
+-- Descuadre 0. En transacción con rollback: no quedó ningún devengo de prueba.
+
+alter table sueldo_socio  enable row level security;
+alter table devengo_socio enable row level security;
+alter table amortizacion  enable row level security;

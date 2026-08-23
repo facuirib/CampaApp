@@ -1099,7 +1099,7 @@ puertas (decisión 89). Migración `20260821270000_usd_created_by`, con `drop
 function` de las firmas viejas — agregar un parámetro **sobrecarga**, no
 reemplaza.
 
-#### RLS · 31 de 51 · Fase 3 completa · el núcleo todavía apagado
+#### RLS · 37 de 51 · Fases 3 y 4 completas · el núcleo todavía apagado
 
 Horacio escribió **20 migraciones, tabla por tabla**: 104 policies en 48 de 51
 tablas, verificando función por función cuáles no son `SECURITY DEFINER` y por lo
@@ -1119,16 +1119,17 @@ cambia nada, el `ENABLE` sí.
 | Fase 3 · Tanda C | `venta_bar` `retiro_bar` `arqueo` | 25 |
 | Fase 3 · Tanda D | `cat_gasto` `presupuesto` `presupuesto_linea` `gasto_planificado` | 29 |
 | Fase 3 · Tanda E | `cheque` — sola: la escriben tres circuitos | 30 |
-| Fase 3 · Tanda F | `dia_cancha` — cierra la Fase 3 | **31** |
+| Fase 3 · Tanda F | `dia_cancha` — cierra la Fase 3 | 31 |
+| Fase 4 · Tanda G | `sueldo_socio` `devengo_socio` `amortizacion` | 34 |
+| Fase 4 · Tanda H | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_sponsor` | **37** |
 | Fase 5 · el núcleo | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` | pendiente |
 
-**La Fase 3 está completa: todos los circuitos con escritura tienen RLS activo.**
-Quedan 20 tablas apagadas:
+**Fases 3 y 4 completas: todos los circuitos con escritura y todo el
+societario tienen RLS activo.** Quedan 14 tablas apagadas:
 
 | Grupo | Tablas |
 |---|---|
 | **El núcleo** (Fase 5, junto) | `asiento` `asiento_linea` `gasto` `pago` `pago_imputacion` `cuota` |
-| Societario (Fase 4) | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_socio` `devengo_sponsor` `sueldo_socio` `amortizacion` |
 | Colgadas del núcleo | `equipo_torneo` `jornada` `periodo` `anticipo` `tercero` `plantilla_mail` |
 | Bloqueadas por decisión | `torneo` (K2) · `_prueba_marca` (testing) |
 
@@ -1172,6 +1173,43 @@ Con la policy puesta se verificaron las dos mitades: el día real desaparece
 (60 → 59, `existe = false`) **y** con un uuid falso el error legítimo sigue
 apareciendo. La segunda mitad es la que importa a futuro: ahora ese mensaje
 significa lo que dice.
+
+##### La idempotencia depende de la policy de SELECT · Fase 4
+
+Los procesos mensuales —`devengar_sueldos_socios`, `devengar_sponsors`,
+`asentar_amortizacion`— son idempotentes por una **guarda que lee su propia
+tabla**: `and not exists (select 1 from devengo_socio where ...)`.
+
+Eso invierte el modo de falla de la Fase 3. Un SELECT bloqueado allá producía un
+**error falso** (`eliminar_dia_cancha` diciendo «día inexistente»). Acá produce
+un **éxito falso**: la guarda lee 0, la función cree que el mes está sin
+devengar, y **vuelve a devengar el mes entero**.
+
+Probado de las dos formas: con la policy, la segunda corrida devuelve 0 y ni
+entra al loop; sin la policy (simulado), entra y muere con `23505` contra el
+unique. O sea: **la policy de SELECT hace que la idempotencia funcione, y el
+unique es la red por si no funciona.**
+
+Y eso explica por qué `cuota_cobro_sponsor` era la peligrosa: **no tiene
+unique**, así que no hay red — su DELETE bloqueado duplicaba en silencio, con la
+función devolviendo el número correcto.
+
+##### ⚠️ `activo` · el alta rota desde la Fase 2
+
+`activo` se encendió en la Fase 2 como «solo lectura» porque ninguna función la
+escribe — pero **la escribe el front**, `app/activos/nuevo/page.tsx:102`, con un
+`.from('activo').insert()` directo. Con solo policy de SELECT, el alta falla con
+*«new row violates row-level security policy»* y el UPDATE mide 0 filas sin
+excepción.
+
+Es el punto ciego de `pg_proc` en su forma más literal: el relevamiento de la
+Fase 2 fue solo por funciones, y el doble chequeo se instauró en la Fase 3.
+`activo` quedó del lado viejo de esa línea.
+
+Se barrieron **las 31 tablas encendidas** buscando lo mismo: solo `activo` y
+`reclamo` reciben escrituras directas del front, y `reclamo` tiene su policy de
+INSERT desde la Fase 3 (verificada, anda). Corrección en
+`20260823240000_rls_activo_insert_update` — **escrita, pendiente de aplicar**.
 
 ##### RLS activo leyendo RLS activo · verificado en la Tanda F
 
