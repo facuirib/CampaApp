@@ -18,6 +18,86 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 RLS · Fase 3 Tanda A (17/51) + el DELETE que le faltaba a `dia_cancha` · 23/08/2026 · de Facu para Horacio
+
+Arrancó la Fase 3. **RLS 17/51** con `caja` y `plan_pago`. Y apareció el tercer
+hueco del inventario, con un síntoma nuevo que vale la pena que veas.
+
+#### 🔴 `dia_cancha` no tenía policy de DELETE, y el fallo venía disfrazado
+
+La tabla tenía S/I/U. Le faltaba DELETE, y **sí se borra**: `eliminar_dia_cancha`
+existe y es función común, no SECURITY DEFINER.
+
+Lo probé con RLS activo, y esto es lo distinto:
+
+```
+eliminar_dia_cancha(<un día que EXISTE>)
+→ ERROR: Día de cancha inexistente: 14f9a471-45d9-4393-9c74-8a83…
+```
+
+El día existe. Lo que pasó está en el cuerpo de la función:
+
+```sql
+delete from dia_cancha where id = p_dia_cancha_id;
+if not found then
+  raise exception 'Día de cancha inexistente: %', p_dia_cancha_id;
+end if;
+```
+
+RLS bloqueó el DELETE **en silencio** —0 filas, sin error—, `not found` dio true,
+y la función concluyó que el día no existe.
+
+**El silencio no solo esconde el fallo: lo disfraza de otro error.** Con
+`reclamo` y `compromiso` al menos el mensaje era honesto («violates row-level
+security policy»). Acá alguien iría a buscar por qué se perdió un día de cancha
+que está ahí.
+
+No es un defecto de la función —`if not found` después de un DELETE es la forma
+correcta de detectar «no existía»—. Lo que cambia el significado de `not found`
+es RLS. **Cualquier función con ese patrón tiene el mismo riesgo**, y hay varias:
+conviene tenerlo en el radar para el núcleo.
+
+Escribí la policy (`20260823140000`), **sin activar** — `dia_cancha` va en la
+última tanda. Verificado: ahora borra de verdad (58 → 57), y el error legítimo
+sigue apareciendo cuando el id realmente no existe.
+
+#### Tanda A · `caja` y `plan_pago`
+
+Las únicas dos de las 17 **sin ningún escritor en runtime**, verificado por los
+dos caminos: `pg_proc` (ninguna función), `app/` (`caja` solo se lee en el
+selector de cheques, `plan_pago` no aparece) y triggers (`trg_caja_predio` es
+validación sobre sí misma, no escribe).
+
+Un detalle que hace a `caja` menos riesgosa de lo que parece: **no guarda saldo**
+—id, tipo, nombre, predio_id, activo, cuenta_id— porque el saldo lo deriva
+`v_saldo_caja` de `asiento_linea`. Lo que arqueo, cheques y bar necesitan de ella
+es leerla.
+
+Verificado en rollback y después del ENABLE, como `authenticated`:
+`caja` 9=9 · `v_saldo_caja` 9 · `v_cashflow` 26 · `v_dashboard` 2 ·
+`v_saldo_efectivo_dia_cancha` 58, más `pagar_gasto`, bar y arqueo. **15/15 y
+16/16.** Descuadre 0.
+
+`pagar_gasto` importaba especialmente: valida «el predio tiene caja activa», así
+que si RLS le escondiera la caja fallaría con **«el predio no tiene una caja de
+efectivo activa»** — otro mensaje que manda a buscar donde no es. No pasó.
+
+#### Lo que queda de Fase 3, en el orden que propongo
+
+| Tanda | Tablas |
+|---|---|
+| **A ✅** | `caja`, `plan_pago` |
+| **B** | Escritor único, solo INSERT: `movimiento_fondo`, `usd_operacion`, `anticipo_uso`, `compromiso`, `reclamo` |
+| **C** | El bar, con circuitos ya probados: `venta_bar`, `retiro_bar`, `arqueo` |
+| **D** | `presupuesto`, `presupuesto_linea` (única con DELETE, y su policy lo cubre), `gasto_planificado`, `cat_gasto` |
+| **E** | `cheque` — lo escriben tres funciones de tres circuitos distintos, va sola |
+| **F** | `dia_cancha`, ya con su policy completa |
+
+**Un dato del relevamiento que conviene tener presente para el núcleo:** de los
+26 escritores de estas 17 tablas, **ninguno es SECURITY DEFINER**. `audit_log`
+fue la excepción, no la regla. En el núcleo va a pasar lo mismo, así que cada
+policy tiene que cubrir exactamente lo que su escritor hace.
+
 ### 📌 RLS · cierre por hoy en 15/51 + el punto ciego del inventario · 23/08/2026 · de Facu para Horacio
 
 **Paramos acá: RLS en 15/51**, las dos fases de catálogos de lectura. La Fase 3

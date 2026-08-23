@@ -1,0 +1,52 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 3 · TANDA A · `caja` y `plan_pago`
+-- Primeras dos de los "circuitos con escritura" — y las únicas que, en
+-- realidad, NO se escriben en runtime. RLS queda en 17/51.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- ── Por qué estas dos abren la Fase 3 ──────────────────────────────────────
+--
+-- Son las únicas de las 17 sin ningún escritor en tiempo de ejecución.
+-- Verificado por los dos caminos que la Fase 2 nos enseñó a mirar:
+--
+--   pg_proc   → ninguna función las inserta, actualiza ni borra
+--   app/      → `caja` solo se lee (el selector de /cheques);
+--               `plan_pago` no aparece
+--   triggers  → `caja` tiene `trg_caja_predio`, pero es una VALIDACIÓN sobre
+--               sí misma (BEFORE INSERT/UPDATE), no escribe nada
+--
+-- `caja` se puebla por migración —las cajas del bar entraron así— y eso corre
+-- como `postgres`, que tiene `rolbypassrls`: RLS no lo toca.
+--
+-- ── Un detalle que hace a `caja` menos riesgosa de lo que parece ───────────
+--
+-- `caja` NO guarda saldo. Sus columnas son id, tipo, nombre, predio_id, activo,
+-- cuenta_id — nada más. El saldo sale de `v_saldo_caja`, que lo deriva de
+-- `asiento_linea`. Así que aunque la tabla sea central para arqueo, cheques y
+-- bar, lo que esos circuitos necesitan de ella es **leerla**: qué cajas hay, de
+-- qué tipo y de qué predio.
+--
+-- ── Lo verificado, en rollback y como `authenticated` ──────────────────────
+--
+-- (`bypassrls = false` confirmado dentro de la transacción.)
+--
+--     caja 9=9 · plan_pago 0=0 (vacía sin RLS también, no es bloqueo)
+--     v_saldo_caja 9 · v_saldo_caja_total 1 · v_cashflow 26
+--     v_cashflow_real 16 · v_dashboard 2 · caja activas 9
+--     v_saldo_efectivo_dia_cancha 58 · v_efectivo_sin_rendir 0
+--
+-- Y los circuitos que dependen de leer `caja`:
+--
+--     pagar_gasto  → ok. Importa porque valida «el predio tiene caja activa»:
+--                    si RLS le escondiera la caja, fallaría con «el predio no
+--                    tiene una caja de efectivo activa» — un mensaje que manda
+--                    a buscar el problema al lugar equivocado, igual que el de
+--                    `dia_cancha`. No pasó.
+--     bar venta + retiro → ok
+--     arqueo             → ok
+--     descuadre          → 0
+--
+-- 15 de 15.
+
+alter table caja      enable row level security;
+alter table plan_pago enable row level security;
