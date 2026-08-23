@@ -1099,22 +1099,56 @@ puertas (decisión 89). Migración `20260821270000_usd_created_by`, con `drop
 function` de las firmas viejas — agregar un parámetro **sobrecarga**, no
 reemplaza.
 
-#### RLS · 104 policies escritas, RLS APAGADO en las 51 tablas
+#### RLS · 29 de 51 tablas activas · el núcleo todavía apagado
 
-Horacio tomó el bloque 10 y escribió **20 migraciones, tabla por tabla**: 104
-policies en 48 de 51 tablas, verificando función por función cuáles no son
-`SECURITY DEFINER` y por lo tanto necesitan policy de escritura explícita.
-
-**Ninguna tabla tiene `relrowsecurity = true`.** Las policies están inertes: no
-cambian el comportamiento del sistema hasta que se active el `ENABLE`.
+Horacio escribió **20 migraciones, tabla por tabla**: 104 policies en 48 de 51
+tablas, verificando función por función cuáles no son `SECURITY DEFINER` y por lo
+tanto necesitan policy de escritura explícita. Faltan `torneo` —depende de K2— y
+`_prueba_marca`, que es de testing.
 
 **El `ENABLE` se activa tabla por tabla, con confirmación previa y sin plazos.**
-El orden acordado es: catálogos y solo-lectura primero, después los circuitos con
-escritura de a uno, y **el núcleo al final** —`asiento`, `asiento_linea`, `gasto`,
-`pago`, `cuota`, `pago_imputacion`, `caja`— con revisión especial: si esas están
-mal, todo el flujo de cobros, pagos y gastos se rompe junto. Ver `coordinacion.md`.
+Escribir la policy y activarla son dos actos distintos: la policy inerte no
+cambia nada, el `ENABLE` sí.
 
-Faltan `torneo` —depende de la decisión K2— y `_prueba_marca`, que es de testing.
+| Etapa | Tablas | Acumulado |
+|---|---|---|
+| Fase 1 · catálogos | `predio` `serie` `categoria` `cuenta` | 4 |
+| Fase 2 · solo lectura | 11 tablas de catálogo y config | 15 |
+| Fase 3 · Tanda A | `caja` `plan_pago` | 17 |
+| Fase 3 · Tanda B | `movimiento_fondo` `usd_operacion` `anticipo_uso` `compromiso` `reclamo` | 22 |
+| Fase 3 · Tanda C | `venta_bar` `retiro_bar` `arqueo` | 25 |
+| Fase 3 · Tanda D | `cat_gasto` `presupuesto` `presupuesto_linea` `gasto_planificado` | **29** |
+| Tanda E | `cheque` — sola: la escriben tres circuitos | pendiente |
+| Tanda F | `dia_cancha` | pendiente |
+| Fase 5 · el núcleo | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` | pendiente |
+
+**El núcleo va al final y junto, con revisión aparte**: si esas seis están mal,
+todo el flujo de cobros, pagos y gastos se rompe a la vez. Hoy están en 0/6, y
+eso se verifica después de cada tanda.
+
+##### Los tres hallazgos que cambiaron cómo se prueba RLS
+
+1. **`postgres` tiene `rolbypassrls = true`.** Probar desde el editor SQL da
+   OK falsos: nunca se evaluó una policy. Hay que entrar con
+   `set_config('request.jwt.claims', ...)` + `set local role authenticated`, y
+   **verificar `rolbypassrls = false` dentro de la misma transacción**.
+
+2. **RLS bloquea `UPDATE` y `DELETE` EN SILENCIO.** No hay excepción: afecta 0
+   filas y la función sigue como si nada. Solo el `INSERT` habla
+   (*«new row violates row-level security policy»*). Por eso el protocolo no
+   mide «la función no falló» sino **el efecto**: el estado cambió, la fila
+   desapareció, el vínculo quedó escrito.
+
+3. **`if not found` disfraza el bloqueo.** `eliminar_dia_cancha` levantó
+   *«Día de cancha inexistente»* sobre un día que existía: el `select` bloqueado
+   devolvía cero filas y la función culpaba al dato. El mensaje de error
+   miente sobre su propia causa.
+
+Y un punto ciego de método: **una Server Action no aparece en `pg_proc`.**
+Buscar escritores por `SECURITY DEFINER` los encuentra a todos menos a esos, que
+escriben desde la app con el rol del usuario — o sea, justo los que sí necesitan
+policy. Por eso cada tanda se releva con doble chequeo: funciones **y** grep del
+front.
 
 #### K2 `crear_torneo` · escrita, NO aplicada
 

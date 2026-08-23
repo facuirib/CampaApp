@@ -1,0 +1,74 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RLS · FASE 3 · TANDA D · el circuito del presupuesto
+-- presupuesto · presupuesto_linea · gasto_planificado · cat_gasto — RLS 29/51.
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- La tanda con las dos formas de silencio juntas: el **DELETE** (única de toda
+-- la Fase 3 que tiene uno) y el **UPDATE que nadie mira**. En las dos, RLS no
+-- tira excepción: devuelve 0 filas y la función sigue como si nada. Así que no
+-- se midió «la función no falló» sino **el efecto**: la fila desapareció, el
+-- estado cambió, el vínculo quedó escrito.
+--
+-- ── Los once caminos de escritura, con el efecto medido ────────────────────
+--
+-- Con RLS activo, rol `authenticated` y `bypassrls = false` verificado dentro
+-- de la transacción:
+--
+--   cat_gasto          crear_cat_gasto           INSERT  32 → 33            ✅
+--                      editar_cat_gasto          UPDATE  nombre = «QA
+--                                                        Renombrada»       ✅
+--                      desactivar_cat_gasto      UPDATE  activo = false    ✅
+--
+--   presupuesto        crear_presupuesto         INSERT  2 → 3, nace
+--                                                        «borrador»        ✅
+--                      aprobar_presupuesto       UPDATE  estado =
+--                                                        «aprobado»        ✅
+--
+--   presupuesto_linea  agregar_linea_presupuesto INSERT  6 → 7             ✅
+--                      editar_linea_presupuesto  UPDATE  750.000 × 3       ✅
+--                      borrar_linea_presupuesto  DELETE  7 → 6, existe=false ✅
+--
+--   gasto_planificado  crear_gasto_planificado   INSERT  0 → 1, «pendiente» ✅
+--                      marcar_ejecutado          UPDATE  estado =
+--                                                        «ejecutado»       ✅
+--                      ↳ vínculo gasto_id        UPDATE  gasto_id escrito  ✅
+--
+-- ── Por qué `aprobar_presupuesto` era la más peligrosa ─────────────────────
+--
+-- `aprobar_presupuesto` valida antes de escribir (existe, no está ya aprobado,
+-- tiene líneas) y recién ahí hace `update presupuesto set estado='aprobado'`.
+-- **No relee el estado después.** Si la policy de UPDATE faltara, la función
+-- devolvía void sin error, la pantalla decía «aprobado» y el presupuesto
+-- seguía en borrador — y `v_presupuesto_total` filtra por aprobado, así que
+-- el presupuesto simplemente **no proyectaría al cashflow** y nadie sabría por
+-- qué.
+--
+-- Por eso se midió el efecto en dos niveles: el estado quedó en «aprobado» y
+-- `v_presupuesto_total` pasó de 6 a 7 líneas — o sea que el presupuesto entró
+-- al cashflow de verdad, que es lo que aprobar significa.
+--
+-- ── El DELETE de `presupuesto_linea` ───────────────────────────────────────
+--
+-- `borrar_linea_presupuesto` es hard delete, y es la única de la Fase 3. Su
+-- forma —`if not exists ... raise; delete`— es exactamente la que disfrazó el
+-- bloqueo en `eliminar_dia_cancha`: el chequeo pasa (la fila existe y se lee),
+-- el delete borra 0, la función devuelve void. Se contó antes y después, y se
+-- verificó que la fila ya no existe.
+--
+-- ── Lecturas ──────────────────────────────────────────────────────────────
+--
+-- Como `authenticated`: v_presupuesto_total 6 · v_presupuesto_linea 6 ·
+-- v_presupuesto_ambito 3 · v_presupuesto_vs_real 40 · v_cashflow_estimado 568.
+-- Los mismos números que con RLS apagado. Descuadre 0.
+--
+-- ── Lo que queda ──────────────────────────────────────────────────────────
+--
+-- 29/51. Falta cheque (Tanda E, sola: la escriben tres circuitos), dia_cancha
+-- (Tanda F, policy S/I/U/D ya completa) y el núcleo —asiento, asiento_linea,
+-- gasto, pago, cuota, pago_imputacion— que va junto y con revisión aparte.
+-- El núcleo sigue en 0/6: verificado después de aplicar esta tanda.
+
+alter table cat_gasto         enable row level security;
+alter table presupuesto       enable row level security;
+alter table presupuesto_linea enable row level security;
+alter table gasto_planificado enable row level security;

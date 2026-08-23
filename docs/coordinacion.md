@@ -18,6 +18,60 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 RLS · Fase 3 Tanda D (29/51) · el circuito del presupuesto · 23/08/2026 · de Facu para Horacio
+
+`cat_gasto`, `presupuesto`, `presupuesto_linea` y `gasto_planificado`. **RLS
+29/51.** Esta tanda tenía las **dos formas de silencio juntas**: el único
+`DELETE` de toda la Fase 3 y el patrón *«UPDATE que nadie mira»* que apareció en
+la Tanda C. Se midió el efecto de los once caminos, no que la función devolviera
+sin error.
+
+| Tabla | Camino | Efecto medido | |
+|---|---|---|---|
+| `cat_gasto` | `crear_cat_gasto` | 32 → 33 | ✅ |
+| | `editar_cat_gasto` | nombre = «QA Renombrada» | ✅ |
+| | `desactivar_cat_gasto` | `activo = false` | ✅ |
+| `presupuesto` | `crear_presupuesto` | 2 → 3, nace «borrador» | ✅ |
+| | `aprobar_presupuesto` | estado = «aprobado» | ✅ |
+| `presupuesto_linea` | `agregar_linea_presupuesto` | 6 → 7 | ✅ |
+| | `editar_linea_presupuesto` | 750.000 × 3 | ✅ |
+| | **`borrar_linea_presupuesto`** | **7 → 6, `existe = false`** | ✅ |
+| `gasto_planificado` | `crear_gasto_planificado` | 0 → 1, «pendiente» | ✅ |
+| | `marcar_ejecutado` | estado = «ejecutado» | ✅ |
+| | ↳ vínculo `gasto_id` | quedó escrito | ✅ |
+
+**`aprobar_presupuesto` era la más peligrosa de las once.** Valida todo lo que
+tiene que validar —existe, no está aprobado, tiene líneas— y recién ahí hace el
+`update`. Lo que **no** hace es releer el estado después. Si la policy de UPDATE
+faltara: la función devuelve void sin error, la pantalla dice «aprobado», y el
+presupuesto sigue en borrador. Y como `v_presupuesto_total` filtra por aprobado,
+el presupuesto **simplemente no proyectaría al cashflow** — sin ningún síntoma
+que apunte a RLS.
+
+Por eso se midió en dos niveles: el estado quedó en «aprobado» **y**
+`v_presupuesto_total` pasó de 6 a 7 líneas. Aprobar significa entrar al
+cashflow; verificar el estado sin verificar la proyección habría sido media
+prueba.
+
+El `DELETE` de `presupuesto_linea` tiene exactamente la forma que nos disfrazó
+el bloqueo en `eliminar_dia_cancha` —`if not exists ... raise; delete`—: el
+chequeo pasa porque la fila se lee, el delete borra 0, la función devuelve void.
+Se contó antes y después.
+
+**Lecturas como `authenticated`:** `v_presupuesto_total` 6 · `v_presupuesto_linea`
+6 · `v_presupuesto_ambito` 2 · `v_presupuesto_vs_real` 40 ·
+`v_cashflow_estimado` 568 · `v_gasto_detalle` 13. Los mismos números que con el
+rol que hace bypass. Descuadre 0. **Núcleo apagado: 0/6.**
+
+Todo el test corrió en transacción con `rollback` — no quedó ni una fila de
+prueba en la base.
+
+**Lo que queda:** Tanda E (`cheque`, sola — la escriben tres circuitos), Tanda F
+(`dia_cancha`, con la policy de DELETE ya escrita) y el núcleo, que va junto y
+con la revisión aparte que pediste.
+
+---
+
 ### 🟢 RLS · Fase 3 Tanda C (25/51) · los circuitos del bar · 23/08/2026 · de Facu para Horacio
 
 `venta_bar`, `retiro_bar` y `arqueo`. **RLS 25/51.** Era la tanda con más UPDATE
