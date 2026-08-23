@@ -18,6 +18,116 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 RLS · Fase 1 ACTIVADA (4 tablas) + tapé un hueco en `tercero` · 23/08/2026 · de Facu para Horacio
+
+**Arrancó el ENABLE.** Cuatro tablas encendidas, 4/51. Y encontré una tabla que
+faltaba en el inventario.
+
+#### El hueco: `tercero` no tenía ninguna policy
+
+Tu resumen decía que faltaban *«solo `torneo` y `_prueba_marca`»*. **Son tres.**
+`tercero` quedó sin policy, y es el **padrón**: 309 filas —304 equipos, 2 socios,
+3 sponsors— que leen cobranza, reclamos, inscripciones, socios y sponsors.
+
+Hoy no molesta porque RLS está apagado ahí, pero el día que a esa tabla le
+tocara el turno, esas cinco pantallas se quedaban sin datos y no iba a ser obvio
+por qué. La tapé: `20260823100000_rls_tercero.sql`, **policy escrita, RLS NO
+activado** — se enciende cuando le toque su fase.
+
+Es tu carril y no quise dejártelo como sorpresa; si el criterio no te cierra,
+cambialo sin problema.
+
+**Le puse select + insert + update**, y no solo select como a `predio`, aunque
+hoy ninguna función la escriba. Dos razones: `tercero` no es un catálogo cerrado
+sino el padrón —el alta de un equipo o un sponsor es flujo del negocio, no
+excepción—, y el costo de equivocarse es asimétrico. Un INSERT sin policy **falla
+fuerte**; un UPDATE sin policy **falla en silencio**. Para algo que se va a
+editar, ese silencio es peor que la puerta un poco más ancha. Queda con el mismo
+perfil que `cat_gasto`.
+
+Sin DELETE: la baja es por `activo`, como en todo el sistema.
+
+#### Fase 1 · activadas: `predio`, `serie`, `categoria`, `cuenta`
+
+`20260823110000_rls_fase1_enable.sql`. Las cuatro de menor riesgo del inventario:
+solo tienen policy de SELECT porque nadie las escribe, así que lo peor que podía
+pasar era una pantalla vacía.
+
+**RLS activo: 4/51.** Las otras 47 siguen apagadas.
+
+#### 🔴 Dos cosas del protocolo que conviene que sepas, porque cambian cómo probar
+
+**① Desde el editor SQL, RLS no se aplica.** El usuario del editor es `postgres`,
+con `rolbypassrls = true`. **Cualquier prueba desde ahí da un falso OK.** Hay que
+cambiar de rol dentro de la transacción:
+
+```sql
+perform set_config('request.jwt.claims',
+  json_build_object('sub', <uuid>, 'role','authenticated')::text, true);
+set local role authenticated;
+```
+
+Verifiqué dentro de la transacción que quedaba con `bypassrls = false` antes de
+medir nada.
+
+**② RLS no lanza excepción en UPDATE ni DELETE: afecta 0 filas y sigue.**
+Probado: un `delete from asiento` sin policy de DELETE devolvió **0 filas
+afectadas, sin error**, y los 83 asientos quedaron intactos.
+
+Eso significa que **una policy mal escrita en una tabla que se escribe no se
+rompe visiblemente: deja de guardar en silencio.** Es lo contrario de lo que uno
+espera, y es peor. Por eso a partir de acá el protocolo es **medir filas
+afectadas**, no conformarse con que no haya error.
+
+(INSERT sí falla fuerte, con «new row violates row-level security policy». Los
+tres comandos no se comportan igual.)
+
+#### Lo que probé, y una buena noticia para cuando lleguemos al núcleo
+
+Antes de encender nada, probé en rollback **las 48 tablas con RLS activo a la
+vez**, como `authenticated`, corriendo los circuitos completos:
+
+| | |
+|---|---|
+| Cobro — pago + imputación + asiento + trigger de `cuota` | ✅ |
+| Gasto — devengo, pago, anulación con 2 contraasientos | ✅ |
+| Bar — venta, retiro, anulación | ✅ |
+| Arqueo + asentar diferencia | ✅ |
+| USD compra | ✅ |
+| Descuadre | 0 |
+
+**Tus policies aguantan el sistema entero.** Los triggers pasan: corren con el
+rol de quien disparó la operación, así que `sync_cuota_pagada` actualiza la cuota
+sin problema — la policy de UPDATE en `cuota` que agregaste era exactamente lo
+que hacía falta. Y `borrar_linea_presupuesto` borra de verdad.
+
+Eso no cambia el orden —el núcleo sigue yendo último y con revisión— pero baja
+bastante la incertidumbre.
+
+#### El plan, para que sepas por dónde sigo
+
+| Fase | Tablas |
+|---|---|
+| **1 ✅** | `predio`, `serie`, `categoria`, `cuenta` |
+| **2** | 13 de solo lectura: `ejercicio`, `concepto_gasto`, `activo`, `audit_log`, `plan_tarifa`, `plan_tarifa_linea`, `compromiso`, `config_contable`, `envio`, `escenario`, `formato_instancia`, `equipo_playoff`, `reclamo` |
+| **3** | Circuitos con escritura, de a uno: `cat_gasto`, `plantilla_mail`, `cheque`, `movimiento_fondo`, `usd_operacion`, `arqueo`, `retiro_bar`, `venta_bar`, `dia_cancha`, `caja`, `anticipo`, `anticipo_uso`, `plan_pago`, `presupuesto`, `presupuesto_linea`, `gasto_planificado`, `tercero` |
+| **4** | Societario y planificación |
+| **5** | **El núcleo, junto y al final**: `asiento`, `asiento_linea`, `gasto`, `pago`, `pago_imputacion`, `cuota` |
+
+El núcleo va **junto** a propósito: un cobro toca las seis. Activar tres y dejar
+tres sería garantizar que el circuito quede a medias.
+
+#### Lo que sigue sin existir, y no es urgente
+
+**Las 107 policies son `authenticated · using(true)`, sin distinción de rol.**
+Lo que esto logra es cerrarle la puerta al `anon` —la clave del bundle, que hasta
+hoy leía todo sin login—, no repartir permisos entre personas.
+
+Guille, Agus, Mati, Yas y Augusto son, para RLS, el mismo usuario. La
+diferenciación por rol necesita tabla de roles y un claim que la sostenga, y es
+una **capa posterior sobre esto**. El orden me parece el correcto: primero se
+cierra el agujero grande, después se afina.
+
 ### 🛑 RLS · el ENABLE no se activa por plazo · 23/08/2026 · de Facu para Horacio
 
 **Primero: el laburo está, y se nota.** Tomaste las tres cosas que quedaban
