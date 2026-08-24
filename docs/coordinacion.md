@@ -18,6 +18,106 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 SEGURIDAD · agujero cerrado: cualquiera podía hacerse admin · 24/08/2026 · de Facu para Horacio
+
+**Hasta el commit `91781cb`, un usuario logueado con cualquier rol podía
+llamar a `cambiarRol` y hacerse admin.** Medido, no supuesto: con una cuenta
+`operador`, un POST a la Server Action devolvió `"ok":true` y la cuenta
+`read-only` quedó admin.
+
+Una Server Action es un POST con un id que viaja en el bundle: **se la llama
+sin pasar por la pantalla**, así que esconder el menú no cierra nada. Y como
+`cambiarRol` usa `service_role`, no pasa por ninguna policy — no había una
+segunda línea atrás.
+
+El barrido encontró **cuatro** superficies que esquivan RLS, no las dos que
+estaban en el relevamiento:
+
+| Superficie | Esquiva por | Tenía |
+|---|---|---|
+| `cambiarRol` · `invitar` | `service_role` | sólo chequeo de sesión |
+| `UsuariosPage` | `service_role` (`listUsers`) | **nada** — el padrón entero |
+| `enviarReclamoMail` | Resend, sin policy detrás | sólo chequeo de sesión |
+
+`UsuariosPage` no estaba en ninguna lista: es una **lectura**, y el
+relevamiento buscaba escrituras.
+
+Las que **no** llevan `if`: `registrarReclamo` y `guardarPlantilla` escriben
+con el cliente del usuario, así que las frena la policy. Agregarles un chequeo
+sería una segunda fuente de verdad que se desincroniza en la próxima
+migración. **El principio: el `if` va exactamente donde no hay policy.**
+
+---
+
+### 🟢 Roles · Fase 4.0 a 4.3 · el front por rol · 24/08/2026 · de Facu para Horacio
+
+Tres capas de las cuatro. **Falta 4.4: los botones** (23 archivos), que va por
+circuito en una tanda aparte.
+
+**4.1 · `lib/permisos.ts` + el verificador.** 31 operaciones como verbos del
+dominio (`cheque.rechazar`, `bar.cierre`), no como tablas — porque el nivel al
+que la base decide no siempre es la tabla: rechazar y acreditar comparten
+función *y* tabla, y se separan por la guarda de la Fase 3b. Cada entrada
+declara **dónde vive la misma regla en la base**, y eso es lo que la hace
+verificable.
+
+`scripts/verificar-permisos.ts` deriva la matriz real de `pg_policies`
+siguiendo el **grafo de llamadas**, transitivo y por comando:
+`registrar_cobro` no nombra `periodo` en su cuerpo —lo escribe
+`crear_asiento`— y sin `periodo.INSERT` no se puede cobrar. Por comando y no
+por tabla porque `periodo` y `dia_cancha` tienen roles distintos según el
+comando: **el bar abre períodos asentando pero no los cierra**.
+
+Encontró dos cosas apenas corrió: una función que yo había escrito con el
+nombre equivocado, y su propio punto ciego —`/presupuesto` llama
+`.rpc(fn, args)` con el nombre en una variable—, así que ahora cruza todos los
+literales del front contra el catálogo. **Verde: 31 operaciones, 44 funciones,
+cero desacuerdos.**
+
+> **Horacio:** si agregás o cambiás una policy, corré `npm run
+> verificar:permisos`. Si el front quedó desactualizado, te lo dice y falla.
+> Necesita `DATABASE_URL` (hoy vacío en `.env.local`); si no la tenés a mano,
+> `-- --sql` imprime la consulta y `-- --matriz archivo.json` compara con su
+> resultado.
+
+**Y `rolActual()` pasa a `getClaims()`.** `getUser()` trae el registro fresco
+del servidor de auth, así que entre un cambio de rol y la renovación del token
+—hasta una hora— el front dibujaba con el rol nuevo mientras la base decidía
+con el viejo. El claim es lo que lee `auth_rol()`: leyendo lo mismo, pantalla
+y policy no pueden discrepar. `exigirRol()` sí sigue con `getUser()`, porque
+eso **autoriza** lo que esquiva RLS y ahí conviene el dato fresco.
+
+**4.2 · 16 rutas de escritura en 3 reglas**, con rebote a la pantalla padre y
+el motivo visible. Sólo las rutas que son de escritura y nada más: las mixtas
+—detalle de cheque, presupuesto, tarifario— son también la pantalla de lectura
+de eso, y ahí se esconde el botón.
+
+**4.3 · el sidebar.** Societario sin operador; el bar sólo Inicio, Bar y
+Arqueo; Usuarios sólo admin. El default de un ítem sin marcar son los tres de
+oficina y **no** los cuatro: olvidarse de marcar una pantalla nueva la deja
+fuera del menú del bar, que es el lado seguro del error.
+
+> **Esto NO es un permiso.** El sidebar dice qué se *muestra*; `lib/permisos`
+> dice quién puede *escribir*. `bar` puede leer `socio` perfectamente —las 50
+> de SELECT son `using (true)`— y aun así no le ponemos Socios en el menú:
+> es una decisión de producto sobre una cuenta compartida. **Esconder un ítem
+> no impide leer**; para eso habría que restringir el SELECT, que es otra cosa
+> y toca la nota #1.
+
+**Probado con 4 cuentas reales, una por rol** (`facuubosch+qa-<rol>@gmail.com`,
+creadas para esto y **activas**):
+
+    rutas     admin 17/17 · operador 16 · bar 5 · read-only 1 (sólo la de
+              lectura, que es el control). Los 29 rebotes, con motivo.
+    sidebar   admin 25 ítems · read-only 24 · operador 21 · bar 3
+    acciones  operador, bar y read-only rechazados; admin sí, con el efecto
+              medido sobre la misma fila
+
+Las rutas se probaron **tipeando las URLs**, no siguiendo links: esconder el
+link no cierra la puerta.
+
+---
+
 ### 🟢 Roles · Fase 3b · anular asiento y rechazo de cheque, solo admin · 24/08/2026 · de Facu para Horacio
 
 Cierra la Fase 3 y con ella el modelo de roles en la base. **Toca seis funciones
@@ -76,8 +176,8 @@ Estado: **RLS 50/51** · 50 policies de SELECT, **0 tocadas en toda la fase de
 roles** · 79 de escritura · 1 solo-admin por policy (USD) + **2 solo-admin por
 guarda en función** · descuadre 0.
 
-Queda la **Fase 4: el front** — esconder menús, botones y rutas por rol, en una
-sola pasada.
+Queda la **Fase 4: el front**. *(Al 24/08: hechas 4.0 a 4.3 — ver arriba.
+Falta 4.4, los botones.)*
 
 ---
 
