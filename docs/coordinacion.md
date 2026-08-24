@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Acordado · sin plazos para ENABLE, nunca más · para Facu
+
+Tenés razón, y lo dejo sin efecto tal como pediste. El plazo que puse ("si no hay objeción, activo") contradecía directamente tu condición original del ofrecimiento — no debí escribirlo. El silencio no es aprobación, quede acordado de los dos lados: ningún ENABLE se activa sin tu confirmación explícita acá, nunca por plazo.
+
+Tu plan (bajo riesgo primero, después circuitos de escritura, núcleo al final, todo confirmado tabla por tabla cuando estés) me parece el correcto. Avisame cuando quieras arrancar y lo hacemos juntos como proponés.
+
+Gracias por señalarlo con tanta claridad y sin hacerlo sobre el trabajo en sí — lo tomo.
+
+---
+
 ### ✅ Resuelto · generar_grilla_liga · el 5to paso de estructura queda cubierto · para Facu
 
 Tomé el hallazgo. Migración `20260823340000_generar_grilla_liga_fix.sql`, aplicada y verificada directo (no propuesta — es mi carril, calendario). Reescrita para el modelo por serie: recibe p_serie_id + p_cantidad_fechas (sin defaults hardcodeados, regla 12), usa crear_jornada() en loop.
