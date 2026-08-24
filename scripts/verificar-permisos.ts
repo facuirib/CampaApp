@@ -1,0 +1,340 @@
+/**
+ * Verifica que `lib/permisos.ts` diga lo mismo que la base.
+ *
+ *   npm run verificar:permisos                    (usa DATABASE_URL)
+ *   npm run verificar:permisos -- --sql            (imprime las consultas)
+ *   npm run verificar:permisos -- --matriz x.json  (sin acceso directo a la base)
+ *
+ * El modo `--matriz` existe porque no siempre hay conexión directa: el editor
+ * SQL de Supabase y el MCP alcanzan la base, `psql` puede no estar. Se corren
+ * las tres consultas de `--sql`, se guardan sus resultados en un JSON
+ * —{ matriz, porTabla, guardas }— y el script compara igual. La derivación es
+ * la misma; lo único que cambia es de dónde salen las filas.
+ *
+ * ── Por qué hace falta ─────────────────────────────────────────────────────
+ *
+ * El front tiene que decidir qué botón dibuja ANTES de dibujarlo, y RLS no
+ * contesta «¿puedo?»: contesta denegando, y en UPDATE y DELETE lo hace en
+ * silencio. Así que el permiso está escrito de los dos lados —policies acá,
+ * mapa allá— y dos copias se desincronizan en la primera migración.
+ *
+ * Este script cierra eso: deriva la matriz REAL desde `pg_policies` y la
+ * compara con el mapa. No hay que mantenerlo cuando Horacio agrega una
+ * función: la derivación sale del catálogo, no de una lista.
+ *
+ * ── Lo que deriva, y por qué es transitivo ─────────────────────────────────
+ *
+ * El permiso de una función no son las tablas que su cuerpo nombra: son las
+ * que termina escribiendo, incluidas las de las funciones que llama.
+ * `registrar_cobro` no escribe `periodo` en su texto —lo escribe
+ * `crear_asiento`, que llama a `periodo_de_fecha`— y sin embargo un rol sin
+ * `periodo.INSERT` no puede cobrar. Por eso el grafo de llamadas se recorre
+ * entero y el permiso es la INTERSECCIÓN: quien no puede en una de las tablas,
+ * no puede la operación.
+ *
+ * ── Lo que NO puede derivar, y qué hace en su lugar ────────────────────────
+ *
+ * · `guarda` — la restricción vive adentro del plpgsql porque la función se
+ *   comparte con operaciones que otros roles sí pueden. Se busca en `prosrc`.
+ * · `accion` — corre con `service_role` o manda un mail: no hay policy que
+ *   consultar. Se verifica que la Server Action tenga su `exigirRol`.
+ *
+ * Y al final, el chequeo inverso: **toda función que el front llama por rpc
+ * tiene que estar declarada en el mapa.** Es lo que hace que un botón nuevo
+ * sin permiso declarado rompa el script en vez de pasar desapercibido.
+ */
+
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
+import { Client } from 'pg'
+import { PERMISOS } from '../lib/permisos.ts'
+
+// ── Conexión ───────────────────────────────────────────────────────────────
+
+function urlDeLaBase(): string | null {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL
+  const env = readFileSync('.env.local', 'utf8')
+  const linea = env.split('\n').find((l) => l.startsWith('DATABASE_URL='))
+  const url = linea?.slice('DATABASE_URL='.length).trim()
+  return url ? url : null
+}
+
+const argumento = (nombre: string) => {
+  const i = process.argv.indexOf(nombre)
+  return i === -1 ? null : (process.argv[i + 1] ?? '')
+}
+
+// ── La derivación ──────────────────────────────────────────────────────────
+
+const SQL_MATRIZ = `
+with recursive
+fn as (
+  select p.proname, p.prosrc from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+  where p.prokind = 'f'
+),
+pol as (
+  select tablename, cmd,
+    (select array_agg(distinct r order by r)
+       from regexp_matches(coalesce(qual, with_check), '''(admin|operador|bar)''', 'g') m(a),
+            lateral unnest(m.a) r) as roles
+  from pg_policies where schemaname = 'public' and cmd <> 'SELECT'
+),
+-- Escrituras directas, por comando: 'periodo' y 'dia_cancha' tienen roles
+-- distintos según el comando, así que la tabla sola no alcanza.
+escribe as (
+  select f.proname, p.tablename, p.cmd
+  from fn f join pol p on
+    case p.cmd
+      when 'INSERT' then f.prosrc ~* ('insert\\s+into\\s+' || p.tablename || '\\M')
+      when 'UPDATE' then f.prosrc ~* ('update\\s+' || p.tablename || '\\M')
+      when 'DELETE' then f.prosrc ~* ('delete\\s+from\\s+' || p.tablename || '\\M')
+    end
+),
+llama as (
+  select f.proname as caller, g.proname as callee
+  from fn f join fn g on f.proname <> g.proname
+   and f.prosrc ~ ('\\m' || g.proname || '\\s*\\(')
+),
+alcance(entrada, actual) as (
+  select proname, proname from fn
+  union
+  select a.entrada, l.callee from alcance a join llama l on l.caller = a.actual
+),
+efecto as (
+  select distinct a.entrada, e.tablename, e.cmd
+  from alcance a join escribe e on e.proname = a.actual
+)
+select e.entrada as fn,
+       json_agg(distinct (e.tablename || '.' || e.cmd)) as escribe,
+       (select coalesce(json_agg(r order by r), '[]'::json) from (
+          select unnest(p.roles) r
+          from efecto e2 join pol p on p.tablename = e2.tablename and p.cmd = e2.cmd
+          where e2.entrada = e.entrada
+          group by 1
+          having count(*) = (select count(*) from efecto e3 where e3.entrada = e.entrada)
+        ) s) as roles
+from efecto e group by e.entrada;
+`
+
+const SQL_POLICY_TABLA = `
+select tablename, cmd,
+  (select coalesce(json_agg(distinct r order by r), '[]'::json)
+     from regexp_matches(coalesce(qual, with_check), '''(admin|operador|bar)''', 'g') m(a),
+          lateral unnest(m.a) r) as roles
+from pg_policies where schemaname = 'public' and cmd <> 'SELECT';
+`
+
+const SQL_GUARDAS_BASE = `
+select p.proname,
+       (select string_agg(l, chr(10)) from regexp_split_to_table(p.prosrc, chr(10)) l
+         where l ~ 'auth_rol\\(\\)') as prosrc
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+where p.prosrc ~ 'auth_rol\\(\\)'
+`
+
+const SQL_GUARDAS = SQL_GUARDAS_BASE + ';'
+
+/** Las tres en una sola celda, para el modo `--matriz`. */
+const SQL_JSON = `
+select json_build_object(
+  'matriz',   (select coalesce(json_agg(t), '[]'::json) from (${SQL_MATRIZ.replace(/;\s*$/, '')}) t),
+  'porTabla', (select coalesce(json_agg(t), '[]'::json) from (${SQL_POLICY_TABLA.replace(/;\s*$/, '')}) t),
+  'guardas',  (select coalesce(json_agg(t), '[]'::json) from (${SQL_GUARDAS_BASE}) t)
+) as filas;
+`
+
+// ── Los rpc que el front llama de verdad ───────────────────────────────────
+
+function nombresEnElFront(dir = 'app'): Set<string> {
+  // Cualquier literal con forma de nombre de función, no sólo `.rpc('x')`:
+  // `/presupuesto` llama `.rpc(fn, args)` con el nombre en una variable
+  // —`llamar('agregar_linea_presupuesto', …)`— y un patrón atado a `.rpc(` no
+  // lo ve. Después se cruza contra las funciones que escriben de verdad, así
+  // que un literal que no sea una función no molesta.
+  const encontrados = new Set<string>()
+  const recorrer = (d: string) => {
+    for (const entrada of readdirSync(d)) {
+      const ruta = join(d, entrada)
+      if (statSync(ruta).isDirectory()) recorrer(ruta)
+      else if (/\.tsx?$/.test(ruta)) {
+        for (const m of readFileSync(ruta, 'utf8').matchAll(/'([a-z][a-z_]{4,})'/g)) {
+          encontrados.add(m[1])
+        }
+      }
+    }
+  }
+  recorrer(dir)
+  return encontrados
+}
+
+/** Las de sólo lectura: se llaman por rpc pero no escriben nada. */
+const RPC_DE_LECTURA = new Set([
+  'proponer_amortizaciones',
+  'preview_gasto',
+  'preview_pago_gasto',
+  'saldo_bar_predio',
+  'email_usuario',
+  'sugerir_imputacion',
+])
+
+// ── Comparar ───────────────────────────────────────────────────────────────
+
+const igual = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i])
+
+interface Filas {
+  matriz: { fn: string; escribe: string[]; roles: string[] }[]
+  porTabla: { tablename: string; cmd: string; roles: string[] }[]
+  guardas: { proname: string; prosrc: string }[]
+}
+
+async function traerFilas(): Promise<Filas> {
+  const archivo = argumento('--matriz')
+  if (archivo) return JSON.parse(readFileSync(archivo, 'utf8')) as Filas
+
+  const url = urlDeLaBase()
+  if (!url) {
+    throw new Error(
+      'Falta DATABASE_URL (entorno o .env.local). Si no tenés conexión directa, ' +
+        'corré las consultas de `--sql` y pasá el resultado con `--matriz archivo.json`.',
+    )
+  }
+
+  const cliente = new Client({ connectionString: url })
+  await cliente.connect()
+  const filas: Filas = {
+    matriz: (await cliente.query(SQL_MATRIZ)).rows,
+    porTabla: (await cliente.query(SQL_POLICY_TABLA)).rows,
+    guardas: (await cliente.query(SQL_GUARDAS)).rows,
+  }
+  await cliente.end()
+  return filas
+}
+
+async function main() {
+  if (process.argv.includes('--sql')) {
+    // Una sola consulta: devuelve una celda con las tres partes, que es lo que
+    // espera `--matriz`. Copiar el resultado a un archivo y pasarlo.
+    console.log(SQL_JSON)
+    return
+  }
+
+  const filas = await traerFilas()
+
+  const matriz = new Map<string, { escribe: string[]; roles: string[] }>()
+  for (const f of filas.matriz) matriz.set(f.fn, { escribe: f.escribe, roles: f.roles })
+  const porTabla = new Map<string, string[]>()
+  for (const p of filas.porTabla) porTabla.set(`${p.tablename}.${p.cmd}`, p.roles)
+  const fuentes = new Map<string, string>()
+  for (const g of filas.guardas) fuentes.set(g.proname, g.prosrc)
+
+  const problemas: string[] = []
+  const lineas: string[] = []
+  const declaradas = new Set<string>()
+
+  for (const [op, def] of Object.entries(PERMISOS)) {
+    const esperado = [...def.roles].sort()
+    const donde = def.donde as Record<string, unknown>
+
+    if ('fns' in donde) {
+      const fns = donde.fns as string[]
+      fns.forEach((f) => declaradas.add(f))
+
+      // El permiso de la operación es lo que pueden TODAS sus funciones: si el
+      // botón dispara tres y una es más restrictiva, el botón vale la más dura.
+      let real: string[] | null = null
+      for (const f of fns) {
+        const m = matriz.get(f)
+        if (!m) {
+          problemas.push(`🔴 ${op}: la función «${f}» no existe en la base`)
+          continue
+        }
+        real = real === null ? m.roles : real.filter((r) => m.roles.includes(r))
+      }
+      if (real === null) continue
+      const ok = igual(esperado, real)
+      if (!ok) {
+        problemas.push(
+          `🔴 ${op}: el mapa dice [${esperado.join(', ')}] y la base permite [${real.join(', ')}]` +
+            `\n     ${fns.map((f) => `${f} → ${matriz.get(f)?.escribe.join(' ')}`).join('\n     ')}`,
+        )
+      }
+      lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${real.join(' · ')}]   ← ${fns.length} fn`)
+      continue
+    }
+
+    if ('tabla' in donde) {
+      const clave = `${donde.tabla}.${donde.cmd}`
+      const real = porTabla.get(clave)
+      if (!real) {
+        problemas.push(`🔴 ${op}: no hay policy ${clave} — el front escribiría contra RLS cerrado`)
+        continue
+      }
+      const ok = igual(esperado, real)
+      if (!ok) problemas.push(`🔴 ${op}: mapa [${esperado.join(', ')}] vs ${clave} [${real.join(', ')}]`)
+      lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${real.join(' · ')}]   ← ${clave}`)
+      continue
+    }
+
+    if ('guarda' in donde) {
+      const fn = donde.guarda as string
+      declaradas.add(fn)
+      const src = fuentes.get(fn)
+      // La guarda tiene que estar Y tiene que ser de admin: si alguien la
+      // aflojara a operador, el mapa quedaría más estricto que la base.
+      const tiene = !!src && /auth_rol\(\)[^;]*<>\s*'admin'/.test(src)
+      const soloAdmin = igual(esperado, ['admin'])
+      const ok = tiene && soloAdmin
+      if (!ok) {
+        problemas.push(
+          `🔴 ${op}: ${!tiene ? `«${fn}» no tiene la guarda de admin en su cuerpo` : `el mapa dice [${esperado.join(', ')}] y la guarda exige admin`}`,
+        )
+      }
+      lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [admin]          ← guarda en ${fn}()`)
+      continue
+    }
+
+    // `accion`: no hay base del otro lado. Se chequea que el código tenga el if.
+    const conExigirRol = ['app/configuracion/usuarios/acciones.ts', 'app/reclamos/acciones.ts']
+      .map((f) => readFileSync(f, 'utf8'))
+      .join('\n')
+    const ok = conExigirRol.includes('exigirRol')
+    if (!ok) problemas.push(`🔴 ${op}: la Server Action no llama a exigirRol — nada la protege`)
+    lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${esperado.join(' · ')}]   ← exigirRol en la acción`)
+  }
+
+  // ── El chequeo inverso ───────────────────────────────────────────────────
+  const sinDeclarar = [...nombresEnElFront()]
+    .filter((f) => !RPC_DE_LECTURA.has(f))
+    .filter((f) => !declaradas.has(f))
+    .filter((f) => matriz.has(f)) // si no escribe nada, no necesita permiso
+
+  console.log(lineas.sort().join('\n'))
+  console.log()
+
+  if (sinDeclarar.length) {
+    problemas.push(
+      `🔴 el front llama por rpc a funciones que escriben y no están en el mapa: ${sinDeclarar.join(', ')}`,
+    )
+  }
+
+  if (problemas.length) {
+    console.log(problemas.join('\n'))
+    console.log(`\n🔴 ${problemas.length} desacuerdo(s) entre el mapa y la base.`)
+    process.exit(1)
+  }
+
+  console.log(
+    `✅ coherente: ${Object.keys(PERMISOS).length} operaciones · ` +
+      `${declaradas.size} funciones declaradas · ` +
+      `${nombresEnElFront().size} literales del front cruzados contra el catálogo · ` +
+      `cero desacuerdos.`,
+  )
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})
