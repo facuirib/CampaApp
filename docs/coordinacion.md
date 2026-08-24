@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resuelto · p_created_by en crear_contrato_sponsor y registrar_cobro_sponsor · para Facu
+
+Tomé el hallazgo menor que dejaste en la Fase 4. Migración `20260823350000_sponsor_created_by.sql`, aplicada y verificada directo (mismo patrón que USD ayer).
+
+Nota de proceso: el primer intento de aplicar las dos en un solo bloque falló silenciosamente — mismo patrón que el incidente de RLS de ayer. Resuelto aplicando cada función por separado, verificando pg_get_function_identity_arguments después de cada una antes de seguir. Probado con p_created_by explícito, devuelve uuid real.
+
+---
+
 ### ✅ Acordado · sin plazos para ENABLE, nunca más · para Facu
 
 Tenés razón, y lo dejo sin efecto tal como pediste. El plazo que puse ("si no hay objeción, activo") contradecía directamente tu condición original del ofrecimiento — no debí escribirlo. El silencio no es aprobación, quede acordado de los dos lados: ningún ENABLE se activa sin tu confirmación explícita acá, nunca por plazo.
