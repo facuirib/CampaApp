@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { Button, Card, DataTable, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import AsentarDiferencia from './AsentarDiferencia'
 
@@ -116,6 +118,15 @@ const COL_HISTORIAL: ColumnDef<FilaHistorial>[] = [
 export default async function ArqueoPage() {
   const supabase = await createClient()
 
+  // Los tres permisos del circuito, resueltos en el servidor antes de dibujar.
+  // Hoy los tres coinciden —admin, operador y bar—, y aun así se preguntan por
+  // separado: son tres operaciones distintas en el mapa, y el día que una se
+  // restrinja, esta pantalla ya está preparada y el verificador lo va a exigir.
+  const rol = await rolActual()
+  const puedeArquear = puede(rol, 'arqueo.registrar')
+  const puedeAsentar = puede(rol, 'arqueo.diferencia')
+  const puedeEntregar = puede(rol, 'arqueo.entregar')
+
   const [
     { data: sinRendir, error: errorSinRendir },
     { data: diferenciasRaw, error: errorDiferencias },
@@ -139,14 +150,14 @@ export default async function ArqueoPage() {
     diferencia: f.diferencia,
     clase: claseABadge(f.clase),
     ambito: ambitoABadge(f.ambito),
-    accion: (
+    accion: puedeAsentar ? (
       <AsentarDiferencia
         arqueoId={f.arqueo_id!}
         ambito={f.ambito ?? 'torneo'}
         diferencia={f.diferencia ?? 0}
         cuenta={f.ambito === 'bar' ? 'Bar Efectivo' : 'Caja Efectivo'}
       />
-    ),
+    ) : null,
   }))
 
   const historial: FilaHistorial[] = (historialRaw ?? []).map((f) => ({
@@ -181,9 +192,11 @@ export default async function ArqueoPage() {
         {/* El alta vive acá y no solo en la tabla de días: la tabla lista el
             cajón del TORNEO, así que sin este botón el arqueo del bar no
             tendría por dónde entrar. */}
-        <Link href="/arqueo/nuevo">
-          <Button icon="plus">Registrar arqueo</Button>
-        </Link>
+        {puedeArquear && (
+          <Link href="/arqueo/nuevo">
+            <Button icon="plus">Registrar arqueo</Button>
+          </Link>
+        )}
       </header>
 
       {error && (
@@ -245,9 +258,16 @@ export default async function ArqueoPage() {
             columns={COL_DIA_CANCHA}
             rows={diaCancha}
             rowKey={(row, i) => row.dia_cancha_id ?? i}
-            rowHref={(row) =>
-              row.arqueo_id ? `/arqueo/${row.arqueo_id}/entregar` : `/arqueo/nuevo?dia=${row.dia_cancha_id}`
-            }
+            /* La fila deja de ser un link para quien no puede la acción del
+               otro lado: el middleware lo rebotaría igual, pero un renglón
+               clickeable que devuelve al mismo lugar se lee como un error de
+               la pantalla, no como un permiso. */
+            rowHref={(row) => {
+              const destino = row.arqueo_id
+                ? { href: `/arqueo/${row.arqueo_id}/entregar`, ok: puedeEntregar }
+                : { href: `/arqueo/nuevo?dia=${row.dia_cancha_id}`, ok: puedeArquear }
+              return destino.ok ? destino.href : undefined
+            }}
             maxHeight={400}
             emptyMessage="No hay días de cancha registrados"
           />
@@ -268,7 +288,9 @@ export default async function ArqueoPage() {
                rechaza — mandarlo a esa pantalla sería ofrecer una acción que la
                base no va a aceptar. */
             rowHref={(row) =>
-              row.ambito.label === 'Torneo' ? `/arqueo/${row.arqueo_id}/entregar` : undefined
+              row.ambito.label === 'Torneo' && puedeEntregar
+                ? `/arqueo/${row.arqueo_id}/entregar`
+                : undefined
             }
             maxHeight={400}
             emptyMessage="No hay arqueos registrados"

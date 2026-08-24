@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { Button, DataTable, Money, type ColumnDef } from '@/components/ui'
 import AnularCierre from './AnularCierre'
 
@@ -26,9 +28,31 @@ interface FilaCierre {
  *
  * Todos los números salen de `v_venta_bar` — incluido el total de cada cierre,
  * que es la columna generada de la tabla. Acá no se suma nada.
+ *
+ * ── Los botones, por rol ───────────────────────────────────────────────────
+ *
+ * El permiso se resuelve **acá, en el servidor, antes de renderizar**, y sale
+ * de `puede()` sobre el mapa — no de una condición escrita a mano en la
+ * pantalla, que se desincronizaría de las policies sin que nadie lo note.
+ *
+ * Y se decide antes por una razón concreta: **no se puede mostrar el botón y
+ * esperar el error.** Un `update` o un `delete` que RLS deniega devuelve 0
+ * filas *sin excepción*, así que el front no tiene de dónde concluir que salió
+ * mal. Si el botón se dibuja, el usuario aprieta y no pasa nada — en silencio.
+ *
+ * La isla de anular **no se renderiza** cuando el rol no puede: no es que se
+ * dibuje deshabilitada, es que no cruza al cliente. Es la forma más simple del
+ * patrón y sirve mientras la isla tenga UNA sola acción; cuando tiene varias
+ * con permisos distintos —el detalle de un cheque, donde acreditar es del
+ * operador y rechazar es de admin— el permiso baja como prop.
  */
 export default async function BarPage() {
   const supabase = await createClient()
+  const rol = await rolActual()
+
+  const puedeCerrar = puede(rol, 'bar.cierre')
+  const puedeRetirar = puede(rol, 'bar.retiro')
+  const puedeAnular = puede(rol, 'bar.cierre.anular')
 
   const { data, error } = await supabase
     .from('v_venta_bar')
@@ -89,18 +113,20 @@ export default async function BarPage() {
       estado: anulado
         ? { estado: 'neutro' as const, label: 'Anulado' }
         : { estado: 'ok' as const, label: 'Vigente' },
+      // El motivo del anulado se muestra siempre —es información, no una
+      // acción—; el botón de anular, sólo a quien puede usarlo.
       acciones: anulado ? (
         <span className="text-[11px] text-muted" title={c.anulado_motivo ?? undefined}>
           {c.anulado_motivo ? `Anulado: ${c.anulado_motivo}` : 'Anulado'}
         </span>
-      ) : (
+      ) : puedeAnular ? (
         <AnularCierre
           ventaBarId={c.venta_bar_id!}
           fecha={formatDate(c.fecha)}
           predio={c.predio_nombre ?? c.predio ?? ''}
           total={c.total ?? 0}
         />
-      ),
+      ) : null,
     }
   })
 
@@ -116,14 +142,18 @@ export default async function BarPage() {
         <div className="flex flex-wrap gap-2">
           {/* Retiro como acción secundaria: el cierre de ventas es lo de todos
               los días, el retiro pasa cuando alguien se lleva la plata. */}
-          <Link href="/bar/retiro">
-            <Button variant="secondary" icon="monedas">
-              Retirar efectivo
-            </Button>
-          </Link>
-          <Link href="/bar/nuevo">
-            <Button icon="plus">Registrar cierre</Button>
-          </Link>
+          {puedeRetirar && (
+            <Link href="/bar/retiro">
+              <Button variant="secondary" icon="monedas">
+                Retirar efectivo
+              </Button>
+            </Link>
+          )}
+          {puedeCerrar && (
+            <Link href="/bar/nuevo">
+              <Button icon="plus">Registrar cierre</Button>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -134,11 +164,16 @@ export default async function BarPage() {
             Cada día que abre el bar se carga un cierre con lo que entró por efectivo, tarjeta y
             Mercado Pago. No hace falta que se haya jugado.
           </p>
-          <div className="mt-4 flex justify-center">
-            <Link href="/bar/nuevo">
-              <Button icon="plus">Registrar el primero</Button>
-            </Link>
-          </div>
+          {/* El vacío también cambia según el rol: ofrecerle «registrá el
+              primero» a quien no puede registrar es prometer algo que la
+              pantalla siguiente le va a negar. */}
+          {puedeCerrar && (
+            <div className="mt-4 flex justify-center">
+              <Link href="/bar/nuevo">
+                <Button icon="plus">Registrar el primero</Button>
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <DataTable columns={columnas} rows={filas} rowKey="venta_bar_id" />
