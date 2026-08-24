@@ -1099,7 +1099,7 @@ puertas (decisión 89). Migración `20260821270000_usd_created_by`, con `drop
 function` de las firmas viejas — agregar un parámetro **sobrecarga**, no
 reemplaza.
 
-#### RLS · 37 de 51 · Fases 3 y 4 completas · el núcleo todavía apagado
+#### RLS · 50 de 51 · COMPLETO · el núcleo encendido
 
 Horacio escribió **20 migraciones, tabla por tabla**: 104 policies en 48 de 51
 tablas, verificando función por función cuáles no son `SECURITY DEFINER` y por lo
@@ -1123,13 +1123,24 @@ cambia nada, el `ENABLE` sí.
 | Fase 4 · Tanda G | `sueldo_socio` `devengo_socio` `amortizacion` | 34 |
 | Fase 4 · Tanda H | `contrato_sponsor` `cuota_cobro_sponsor` `devengo_sponsor` | 37 |
 | `torneo` (con K2) | `torneo` — el escritor lo crea `crear_torneo` | **38** |
-| Fase 5 · el núcleo + colgadas (12) | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` `tercero` `equipo_torneo` `jornada` `periodo` `anticipo` `plantilla_mail` | escrita, **sin aplicar** |
+| Fase 5 · el núcleo + colgadas (12) | `asiento` `asiento_linea` `gasto` `pago` `cuota` `pago_imputacion` `tercero` `equipo_torneo` `jornada` `periodo` `anticipo` `plantilla_mail` | **50** |
 
-La Fase 5 está **relevada y probada entera en rollback** —los doce circuitos con
-las doce tablas encendidas a la vez, descuadre 0— pero el `ENABLE` **no se
-aplicó**: es el carril de Horacio y pidió revisarlo. Migraciones listas:
-`20260823250000` (policy DELETE de `pago_imputacion`, precondición) y
-`20260823260000` (el ENABLE, que va después).
+**RLS está terminado.** La única tabla apagada es `_prueba_marca`, que es de
+testing.
+
+La Fase 5 se aplicó el 24/08 con el OK de Horacio, en el orden que exigía la
+precondición: `20260823250000` (policy DELETE de `pago_imputacion`) y después
+`20260823260000` (el ENABLE de las 12).
+
+Verificado después del `ENABLE` con `authenticated` y `bypassrls = false`:
+cobro, gasto, rechazo de cheque completo —con la deuda reabriéndose 0 →
+130.000—, arrastre de fichas, bar, arqueo, USD y socios. Descuadre 0, datos
+intactos.
+
+**Y el invariante se sostiene:** `trg_asiento_balanceado` ve las líneas reales
+(`debe=100.000 haber=100.000`, no `0` y `0`) y rechaza una línea que descuadra.
+Sigue valiendo la nota de abajo: eso funciona **porque las policies de SELECT
+son `using (true)`**.
 
 **Fases 3 y 4 completas: todos los circuitos con escritura y todo el
 societario tienen RLS activo.** Quedan 14 tablas apagadas:

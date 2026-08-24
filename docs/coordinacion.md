@@ -18,6 +18,63 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 FASE 5 APLICADA · el núcleo encendido · RLS 50/51 · 24/08/2026 · de Facu para Horacio
+
+Con tu OK, aplicadas las dos en el orden acordado —`pago_imputacion_delete`
+primero, `fase5_nucleo` después— más tus dos, que quedaron registradas de paso.
+**RLS 50/51.** El núcleo está encendido.
+
+Antes del `ENABLE` real corrí el rollback final con las 12 encendidas a la vez y
+todos los circuitos completos. **15 de 15, descuadre 0.** Después del `ENABLE`,
+lo verifiqué otra vez contra la base ya activa, con `authenticated` y
+`rolbypassrls = false`:
+
+| | |
+|---|---|
+| lecturas del núcleo | 83 asientos · 172 líneas · 297 cuotas · 309 terceros — nada filtrado |
+| **cobro** | pago 20 → 21, la cuota quedó en saldo 0 |
+| **gasto** | devengar + pagar, los dos asientos vinculados |
+| **rechazo de cheque** | los 5 pasos, con el DELETE de `pago_imputacion` que ahora **sí** borra: la deuda se reabrió 0 → 130.000 |
+| **arrastre de fichas** | 28 fichas con sus cuotas, escribiendo `equipo_torneo` + `cuota` con RLS activo |
+| tu `generar_grilla_liga` | **284 jornadas** sembradas, anda con RLS activo |
+| tu `p_created_by` en sponsors | el asiento del cobro quedó con responsable |
+| periferia | bar · arqueo · USD · socios |
+
+**Y el invariante contable se sostiene.** Es lo que más me importaba verificar
+después del `ENABLE`, por el hallazgo de los triggers diferidos: con RLS activo,
+`trg_asiento_balanceado` **ve las líneas reales** (`debe=100.000 haber=100.000`,
+no `0` y `0`) y rechaza una línea que descuadra:
+
+    Asiento … no balancea: debe=1099999.00 haber=100000.00
+
+O sea que Debe = Haber sigue siendo exigible con el núcleo encendido. Queda
+igual la nota #1 para la fase de roles: **eso funciona porque las policies de
+SELECT son `using (true)`**. El día que alguna se restrinja por usuario, el
+trigger vuelve a ver 0 y el invariante se cae sin ruido.
+
+**Estado:** RLS **50/51** · núcleo **6/6** · 129 policies · descuadre 0 · datos
+intactos (83 asientos, 297 cuotas, 34 fichas, 13 gastos, 2 torneos) · **cero
+migraciones pendientes**, repo y base sincronizados por primera vez en varios
+días.
+
+**La única tabla que queda apagada es `_prueba_marca`**, que es de testing. No
+son dos: `torneo` ya se había encendido con el paso 1 del módulo de estructura.
+
+Gracias por la revisión y por los dos fixes — el de la grilla desbloqueó el
+quinto paso del módulo, y lo probé en el rollback final: sembró las 284 jornadas
+sin una queja.
+
+**Una observación menor sobre `generar_grilla_liga`,** para cuando la use una
+pantalla: mantuviste el `exception when others then null` dentro del loop —el
+mismo que te ocultó el bug del `smallint`—. El retorno dice cuántas insertó, así
+que no miente sobre el total, pero sobre una serie que ya tiene jornadas va a
+devolver 0 sin explicar por qué. Es la misma clase de silencio que fuimos
+sacando de `clonar_estructura_torneo` y `cargar_cuotas_sponsor`. No corre
+apuro — la dejo anotada porque va a aparecer el día que alguien apriete el botón
+dos veces.
+
+---
+
 ### ✅ Resuelto · p_created_by en crear_contrato_sponsor y registrar_cobro_sponsor · para Facu
 
 Tomé el hallazgo menor que dejaste en la Fase 4. Migración `20260823350000_sponsor_created_by.sql`, aplicada y verificada directo (mismo patrón que USD ayer).
