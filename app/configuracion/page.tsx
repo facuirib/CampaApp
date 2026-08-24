@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { puede, type Op } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { Card, Icon } from '@/components/ui'
 
 /**
@@ -16,6 +18,8 @@ interface Seccion {
   titulo: string
   descripcion: string
   pronto?: boolean
+  /** Si la sección tiene permiso, la operación que la gobierna. */
+  op?: Op
 }
 
 const SECCIONES: Seccion[] = [
@@ -41,11 +45,18 @@ const SECCIONES: Seccion[] = [
     href: '/configuracion/usuarios',
     titulo: 'Usuarios',
     descripcion: 'Quién entra al sistema y con qué permisos.',
+    /** La única sección que no ve todo el mundo: reparte permisos. */
+    op: 'usuario.gestionar' as const,
   },
 ]
 
 export default async function ConfiguracionPage() {
   const supabase = await createClient()
+
+  // El índice también es una puerta: una tarjeta que lleva a una pantalla que
+  // el middleware va a rebotar es un link roto con otro nombre.
+  const rol = await rolActual()
+  const secciones = SECCIONES.filter((s) => !s.op || puede(rol, s.op))
 
   // Un dato en vivo por sección, para que el índice informe y no sea sólo un
   // menú. Hoy hay uno solo porque hay una sola sección construida.
@@ -63,7 +74,7 @@ export default async function ConfiguracionPage() {
       </header>
 
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
-        {SECCIONES.map((s) =>
+        {secciones.map((s) =>
           s.pronto ? (
             <div
               key={s.href}

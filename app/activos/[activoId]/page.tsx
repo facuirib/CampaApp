@@ -48,7 +48,12 @@ export default async function ActivoDetallePage({
   if (!UUID.test(activoId)) notFound()
 
   const supabase = await createClient()
-  const puedeAmortizar = puede(await rolActual(), 'activo.amortizar')
+  const rol = await rolActual()
+  const puedeAmortizar = puede(rol, 'activo.amortizar')
+  // El aviso de «falta registrar la compra» enlaza a /gastos/nuevo, que es una
+  // ruta de escritura: para quien no puede cargar un gasto, el aviso se dice
+  // igual —es información— pero sin el link que lo rebotaría.
+  const puedeCargarGasto = puede(rol, 'gasto.registrar')
 
   const [activoRes, cuotasRes, periodosRes] = await Promise.all([
     supabase.from('v_activo').select('*').eq('activo_id', activoId).maybeSingle(),
@@ -173,9 +178,13 @@ export default async function ActivoDetallePage({
             <p className="mb-6 rounded-md bg-warnbg px-4 py-3 text-[11px] text-warntx">
               <strong className="font-bold">Falta registrar la compra.</strong> El bien está dado de
               alta pero su compra todavía no se cargó, así que no figura en Bienes de uso.{' '}
-              <Link href="/gastos/nuevo" className="font-semibold underline">
-                Se carga desde Gastos
-              </Link>{' '}
+              {puedeCargarGasto ? (
+                <Link href="/gastos/nuevo" className="font-semibold underline">
+                  Se carga desde Gastos
+                </Link>
+              ) : (
+                <span className="font-semibold">Se carga desde Gastos</span>
+              )}{' '}
               con una categoría de naturaleza inversión, eligiendo este activo.
             </p>
           ) : (
