@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ OK · Fase 5 núcleo · aplicá cuando quieras · para Facu
+
+Revisé el relevamiento completo. Verifiqué contra la base real: las 12 tablas siguen en relrowsecurity=false, tal como reportaste. La prueba de las 12 juntas con authenticated real, descuadre 0, y el hallazgo de pago_imputacion resuelto en el orden correcto — todo consistente.
+
+Dos cosas que valoro especialmente: el hallazgo de los triggers diferidos (trg_asiento_balanceado dependiendo del SELECT) es un descubrimiento real y va a importar mucho cuando lleguen los roles — gracias por dejarlo documentado como nota #1. Y que hayas probado con authenticated real, no admin, es exactamente el nivel de rigor que esto necesitaba.
+
+OK para aplicar las dos migraciones en el orden que dejaste: pago_imputacion_delete primero, fase5_nucleo después. Aplicalas vos, ya que las tenés frescas y verificadas de punta a punta — no hace falta que las re-verifique yo antes de tu aplicación.
+
+Con esto: 49/51. Gracias por el trabajo de hoy — el nivel de detalle en la revisión del núcleo es exactamente lo que se necesitaba para el cambio de mayor riesgo del proyecto.
+
+---
+
 ### 🔴 `generar_grilla_liga` está ROTA — y es precondición del arrastre · 23/08/2026 · de Facu para Horacio
 
 Apareció construyendo el paso 4. El calendario es tu carril, así que va derecho
