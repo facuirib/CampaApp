@@ -18,6 +18,46 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔶 Pendientes de la Fase 4 · leer antes de arrancar 4.4 · 24/08/2026
+
+**① Las 4 cuentas QA están DESACTIVADAS.** Una por rol —
+`facuubosch+qa-admin@gmail.com`, `+qa-operador`, `+qa-read-only`, `+qa-bar`— son
+cuentas **reales con poder de escritura sobre la base compartida**, así que no
+quedan activas entre sesiones: `banned_until` a 2126, el mismo tratamiento que
+Mati. Verificado con la contraseña correcta: las cuatro dan «User is banned».
+
+Para 4.4 hay que **reactivarlas** poniendo `banned_until` en `null`
+(`admin.auth.admin.updateUserById(id, { ban_duration: 'none' })`), y volver a
+desactivarlas al terminar. La contraseña está en **`.env.local` como
+`QA_PASSWORD`** —que está en `.gitignore`—, no acá.
+
+Se desactivan en vez de borrarse por la misma razón que Mati: si alguna llegó a
+escribir algo, borrarla dejaría filas con un `created_by` que no resuelve a
+nadie.
+
+**② El verificador de permisos no se auto-ejecuta todavía.**
+`npm run verificar:permisos` necesita `DATABASE_URL` en `.env.local`, y **hoy
+está vacío**. En la sesión del 24/08 se corrió en modo `--matriz`: se ejecutó la
+consulta contra la base por otra vía y se le pasó el resultado en un JSON.
+
+Eso alcanza para verificar una vez, pero **no para lo que la herramienta tiene
+que ser**: la red que se corre en cada cambio de policy y avisa si el front
+quedó desactualizado. Con la URL puesta, es un comando. Sin ella, es un trámite
+de tres pasos que nadie va a hacer — o sea, no existe.
+
+> Es el pendiente más barato de los tres y el que más se paga solo: sin él, la
+> próxima migración que cambie un rol deja el front mintiendo y nadie se entera
+> hasta que alguien aprieta un botón que no funciona.
+
+**③ El ledger de la 3b quedó alineado** *(resuelto en este commit)*. La migración
+se había aplicado con un timestamp propio —`20260824184544`— distinto del nombre
+del archivo, así que un `db push` desde un checkout limpio la habría visto como
+pendiente y la habría corrido de nuevo. Es idempotente y no rompía, pero el
+archivo se renombró a `20260824184544_roles_fase3b_guardas.sql` para que repo y
+base digan lo mismo. **No se tocó la base.**
+
+---
+
 ### 🔴 SEGURIDAD · agujero cerrado: cualquiera podía hacerse admin · 24/08/2026 · de Facu para Horacio
 
 **Hasta el commit `91781cb`, un usuario logueado con cualquier rol podía
@@ -333,6 +373,7 @@ mano**:
 | `facuubosch@gmail.com` | `raw_app_meta_data.rol = 'admin'` |
 | `mati@campa.local` | desactivado (`banned_until` a 2126), **sin rol** |
 | `agus` · `augusto` · `guille` · `yas` | **borrados** (tenían 0 referencias) |
+| `facuubosch+qa-<rol>@gmail.com` ×4 | las cuentas de prueba de la Fase 4, una por rol, **desactivadas** (24/08) |
 
 **Mati no se borró y no se va a borrar.** Tiene 15 filas con su autoría —3
 asientos, 6 reclamos, 5 audit_log, 1 plantilla— y `asiento.created_by` es
