@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Asap } from 'next/font/google'
+import AvisoSinPermiso from '@/components/AvisoSinPermiso'
 import Sidebar from '@/components/Sidebar'
 import { rolActual } from '@/lib/rol-actual'
 import { createClient } from '@/lib/db/server'
@@ -59,7 +61,16 @@ export default async function RootLayout({
           <div className="md:flex md:items-start">
             <Sidebar email={user.email} rol={rol} />
             <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
-              <div className="mx-auto max-w-6xl">{children}</div>
+              <div className="mx-auto max-w-6xl">
+                {/* El motivo del rebote del middleware, arriba de cualquier
+                    pantalla: el redirect puede caer en cualquiera de las 12
+                    pantallas padre y ninguna tiene por qué saber de esto.
+                    `useSearchParams` necesita el Suspense. */}
+                <Suspense>
+                  <AvisoSinPermiso />
+                </Suspense>
+                {children}
+              </div>
             </main>
           </div>
         ) : (
