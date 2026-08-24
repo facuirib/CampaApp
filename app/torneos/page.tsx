@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 
 interface Fila {
@@ -70,6 +72,12 @@ const COLUMNAS: ColumnDef<Fila>[] = [
 
 export default async function TorneosPage() {
   const supabase = await createClient()
+  const rol = await rolActual()
+  const puedeCrear = puede(rol, 'torneo.crear')
+  // Las dos celdas de la tabla son links a pantallas de edición. El número
+  // se muestra igual —es dato—; lo que se cae es el link.
+  const puedeFichas = puede(rol, 'torneo.fichas')
+  const puedeEstructura = puede(rol, 'torneo.estructura')
 
   const { data, error } = await supabase
     .from('v_torneo_lista')
@@ -87,24 +95,28 @@ export default async function TorneosPage() {
     estado: estadoABadge(t.estado, t.activo),
     // Link a los inscriptos: el número es lo que uno mira antes de querer
     // tocarlos, igual que el molde.
-    equipos: (
+    equipos: puedeFichas ? (
       <Link
         href={`/torneos/${t.torneo_id}/fichas`}
         className="text-blue-600 hover:underline"
       >
         {t.equipos ?? 0}
       </Link>
+    ) : (
+      (t.equipos ?? 0)
     ),
     // Los tres números del molde en una sola celda: sueltos serían tres
     // columnas de dos dígitos que nadie compara entre filas. Y es link: el
     // número es lo que uno mira antes de querer editarlo.
-    molde: (
+    molde: puedeEstructura ? (
       <Link
         href={`/torneos/${t.torneo_id}/estructura`}
         className="text-blue-600 hover:underline"
       >
         {t.categorias ?? 0} cat · {t.series ?? 0} series · {t.planes ?? 0} planes
       </Link>
+    ) : (
+      `${t.categorias ?? 0} cat · ${t.series ?? 0} series · ${t.planes ?? 0} planes`
     ),
     estructura: estructuraABadge(t.tiene_estructura),
   }))
@@ -119,9 +131,11 @@ export default async function TorneosPage() {
             propia contabilidad. Lo que no cuelga de ninguno es estructura permanente.
           </p>
         </div>
-        <Link href="/torneos/nuevo">
-          <Button icon="plus">Nuevo torneo</Button>
-        </Link>
+        {puedeCrear && (
+          <Link href="/torneos/nuevo">
+            <Button icon="plus">Nuevo torneo</Button>
+          </Link>
+        )}
       </div>
 
       {error && (

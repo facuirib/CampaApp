@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { formatDate } from '@/lib/format'
 import { MESES_LARGO } from '@/lib/domain/pl'
 import { areaLabel, estadoGasto, naturalezaLabel, NATURALEZAS } from '@/lib/domain/gasto'
@@ -91,6 +93,11 @@ export default async function GastosPage({
   // tanto como uno de agosto.
   const soloImpagos = params.impagos === '1'
   const supabase = await createClient()
+  const rol = await rolActual()
+  const puedeRegistrar = puede(rol, 'gasto.registrar')
+  // El detalle del gasto ES la pantalla de pago, y esa ruta la corta el
+  // middleware: para quien no puede pagar, la fila no es un link.
+  const puedePagar = puede(rol, 'gasto.pagar')
 
   // Los años primero: el resto de las consultas dependen de cuál.
   const aniosRes = await supabase
@@ -244,9 +251,11 @@ export default async function GastosPage({
         {/* La pantalla de alta existía y no la enlazaba nada: sólo se llegaba
             escribiendo la URL. Es de otro carril, así que de acá sale un link
             y nada más. */}
-        <Link href="/gastos/nuevo">
-          <Button icon="plus">Registrar gasto</Button>
-        </Link>
+        {puedeRegistrar && (
+          <Link href="/gastos/nuevo">
+            <Button icon="plus">Registrar gasto</Button>
+          </Link>
+        )}
       </header>
 
       {error && (
@@ -358,7 +367,7 @@ export default async function GastosPage({
         columns={COLUMNAS}
         rows={filas}
         rowKey="gasto_id"
-        rowHref={(f) => `/gastos/${f.gasto_id}/pagar`}
+        rowHref={puedePagar ? (f) => `/gastos/${f.gasto_id}/pagar` : undefined}
         maxHeight={560}
         emptyMessage={
           soloImpagos

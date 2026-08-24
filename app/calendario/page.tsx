@@ -1,6 +1,8 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { formatDate } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
@@ -68,6 +70,9 @@ export default async function CalendarioPage({
 }) {
   const { serie } = await searchParams
   const supabase = await createClient()
+  // Una sola operación gobierna las tres pantallas del calendario —crear,
+  // mover y suspender—, así que también gobierna el link y el rowHref.
+  const puedeEditar = puede(await rolActual(), 'calendario.editar')
 
   // Un solo fetch: 284 filas es poco para el servidor, y de acá salen tanto
   // las opciones del filtro de serie (distinct sobre estas mismas filas) como
@@ -153,12 +158,14 @@ export default async function CalendarioPage({
                       </>
                     )}
                   </p>
-                  <Link
-                    href={`/calendario/nueva?serie=${serie}`}
-                    className="text-[11px] font-semibold text-blue-d hover:underline"
-                  >
-                    + Agregar jornada
-                  </Link>
+                  {puedeEditar && (
+                    <Link
+                      href={`/calendario/nueva?serie=${serie}`}
+                      className="text-[11px] font-semibold text-blue-d hover:underline"
+                    >
+                      + Agregar jornada
+                    </Link>
+                  )}
                 </div>
               )}
 
@@ -166,7 +173,7 @@ export default async function CalendarioPage({
                 columns={COL_CALENDARIO}
                 rows={filas}
                 rowKey="jornada_id"
-                rowHref={(row) => `/calendario/${row.jornada_id}/mover`}
+                rowHref={puedeEditar ? (row) => `/calendario/${row.jornada_id}/mover` : undefined}
                 maxHeight={600}
                 emptyMessage="Esta serie no tiene jornadas."
               />

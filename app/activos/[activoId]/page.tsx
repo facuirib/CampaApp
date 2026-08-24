@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { formatDate, formatMoney, formatPorcentaje } from '@/lib/format'
 import { Badge, Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
@@ -46,6 +48,7 @@ export default async function ActivoDetallePage({
   if (!UUID.test(activoId)) notFound()
 
   const supabase = await createClient()
+  const puedeAmortizar = puede(await rolActual(), 'activo.amortizar')
 
   const [activoRes, cuotasRes, periodosRes] = await Promise.all([
     supabase.from('v_activo').select('*').eq('activo_id', activoId).maybeSingle(),
@@ -207,7 +210,7 @@ export default async function ActivoDetallePage({
                 maxHeight={420}
                 emptyMessage="Sin cuotas."
               />
-              {propuesta && (
+              {propuesta && puedeAmortizar && (
                 <div className="mt-4">
                   <Link href="/activos/amortizar">
                     <Button>Asentar la amortización de {propuesta.periodo}</Button>

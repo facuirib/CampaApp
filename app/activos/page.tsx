@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { formatPorcentaje } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
@@ -56,6 +58,9 @@ export default async function ActivosPage({
 }) {
   const params = await searchParams
   const supabase = await createClient()
+  const rol = await rolActual()
+  const puedeAlta = puede(rol, 'activo.alta')
+  const puedeAmortizar = puede(rol, 'activo.amortizar')
 
   // El default es `activo`: los dados de baja existen y se pueden ver, pero no
   // son el caso frecuente y ensuciarían la posición actual.
@@ -137,12 +142,16 @@ export default async function ActivosPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/activos/amortizar">
-            <Button variant="secondary">Asentar amortización</Button>
-          </Link>
-          <Link href="/activos/nuevo">
-            <Button>Dar de alta un activo</Button>
-          </Link>
+          {puedeAmortizar && (
+            <Link href="/activos/amortizar">
+              <Button variant="secondary">Asentar amortización</Button>
+            </Link>
+          )}
+          {puedeAlta && (
+            <Link href="/activos/nuevo">
+              <Button>Dar de alta un activo</Button>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -215,11 +224,13 @@ export default async function ActivosPage({
             mes que se compra: una desmalezadora, unos arcos, una heladera. Por debajo de{' '}
             <strong className="font-semibold">$500.000</strong> conviene cargarlo como gasto común.
           </p>
-          <div className="mt-5 flex justify-center">
-            <Link href="/activos/nuevo">
-              <Button>Registrá el primer activo</Button>
-            </Link>
-          </div>
+          {puedeAlta && (
+            <div className="mt-5 flex justify-center">
+              <Link href="/activos/nuevo">
+                <Button>Registrá el primer activo</Button>
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <DataTable

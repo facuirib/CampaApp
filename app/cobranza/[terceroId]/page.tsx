@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
@@ -76,6 +78,7 @@ export default async function CuentaCorrientePage({
   if (!UUID.test(terceroId)) notFound()
 
   const supabase = await createClient()
+  const puedeCobrar = puede(await rolActual(), 'cobro.registrar')
   const [fichasRes, cuotasRes] = await Promise.all([
     supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
     supabase
@@ -104,9 +107,11 @@ export default async function CuentaCorrientePage({
             Cuenta corriente — una sección por ficha, con sus cuotas.
           </p>
         </div>
-        <Link href={`/cobranza/${terceroId}/cobrar`}>
-          <Button icon="plus">Registrar cobro</Button>
-        </Link>
+        {puedeCobrar && (
+          <Link href={`/cobranza/${terceroId}/cobrar`}>
+            <Button icon="plus">Registrar cobro</Button>
+          </Link>
+        )}
       </header>
 
       {error && (
