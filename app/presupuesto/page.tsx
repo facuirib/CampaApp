@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { KpiCard } from '@/components/ui'
 import EditorPresupuesto, { type AmbitoPresupuesto, type LineaPresupuesto } from './EditorPresupuesto'
 import VsReal, { type FilaAnual, type FilaKpi, type FilaMes } from './VsReal'
@@ -226,6 +228,7 @@ export default async function PresupuestoPage({
       )}
 
       <EditorPresupuesto
+        puedeEditar={puede(await rolActual(), 'presupuesto.editar')}
         secciones={secciones}
         categorias={cats.map((c) => ({
           id: c.id,

@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { formatDate, formatMoney } from '@/lib/format'
 import { Badge, type CeldaBadge } from '@/components/ui'
 import AccionesCheque from './AccionesCheque'
@@ -37,6 +39,7 @@ export default async function ChequeDetallePage({
   if (!UUID.test(chequeId)) notFound()
 
   const supabase = await createClient()
+  const rol = await rolActual()
   const { data: ch, error } = await supabase
     .from('v_cheque')
     .select('*')
@@ -187,6 +190,13 @@ export default async function ChequeDetallePage({
           <h2 className="mb-2 text-[13px] font-bold text-ink">Acciones</h2>
 
           {ch.estado === 'pendiente' ? (
+            /* Los dos permisos van SEPARADOS y resueltos acá, en el servidor.
+               Es la única isla del sistema con dos botones vecinos de permisos
+               distintos: el operador acredita y debita —curso normal del
+               cheque— pero no rechaza, porque rechazar revierte el cobro y
+               reabre la deuda del equipo. Del otro lado no hay una policy que
+               los separe: es la misma función y la misma tabla, y lo que los
+               separa es una guarda adentro de `cambiar_estado_cheque`. */
             <AccionesCheque
               chequeId={chequeId}
               sentido={esRecibido ? 'recibido' : 'emitido'}
@@ -195,6 +205,8 @@ export default async function ChequeDetallePage({
               contraparte={ch.contraparte}
               pagoId={ch.pago_id}
               asientoAltaId={ch.asiento_alta_id}
+              puedeMover={puede(rol, 'cheque.mover')}
+              puedeRechazar={puede(rol, 'cheque.rechazar')}
             />
           ) : (
             <div className="rounded-md border border-line bg-panel px-4 py-5 text-center">

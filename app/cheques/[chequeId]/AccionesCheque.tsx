@@ -54,6 +54,30 @@ export interface AccionesChequeProps {
   contraparte: string | null
   pagoId: string | null
   asientoAltaId: string | null
+  /**
+   * Acreditar y debitar: el curso normal del cheque. admin + operador.
+   *
+   * Los dos permisos bajan RESUELTOS desde la Server Page —booleanos, no el
+   * rol— por dos motivos. Uno, el rol sólo se puede leer en el servidor. Dos,
+   * si acá llegara el rol, esta isla tendría que volver a decidir *quién puede
+   * qué*, y esa decisión ya está tomada en `lib/permisos` y verificada contra
+   * las policies: repetirla es la forma más silenciosa de que las dos se
+   * separen.
+   */
+  puedeMover: boolean
+  /**
+   * Rechazar: **solo admin**, y es el único lugar del sistema donde dos
+   * botones vecinos tienen permisos distintos.
+   *
+   * No se puede resolver no renderizando la isla, como en el bar: el operador
+   * necesita la isla para acreditar. Lo que desaparece es un botón de adentro.
+   *
+   * Del otro lado hay una guarda dentro de `cambiar_estado_cheque` —no una
+   * policy, porque es la misma función y la misma tabla que acreditar—, así que
+   * si este booleano se pusiera mal, la base igual lo frena. Pero frenarlo acá
+   * es lo que evita ofrecer un botón que va a fallar.
+   */
+  puedeRechazar: boolean
 }
 
 function hoyEnCordoba(): string {
@@ -75,6 +99,8 @@ export default function AccionesCheque({
   contraparte,
   pagoId,
   asientoAltaId,
+  puedeMover,
+  puedeRechazar,
 }: AccionesChequeProps) {
   const router = useRouter()
   const esRecibido = sentido === 'recibido'
@@ -342,17 +368,23 @@ export default function AccionesCheque({
         <div className="flex flex-wrap items-center gap-2">
           {esRecibido ? (
             <>
-              <Button icon="check" onClick={() => elegir('acreditado')}>
-                Acreditar
-              </Button>
-              <Button variant="tertiary" icon="alerta" onClick={() => elegir('rechazado')}>
-                Rechazar
-              </Button>
+              {puedeMover && (
+                <Button icon="check" onClick={() => elegir('acreditado')}>
+                  Acreditar
+                </Button>
+              )}
+              {puedeRechazar && (
+                <Button variant="tertiary" icon="alerta" onClick={() => elegir('rechazado')}>
+                  Rechazar
+                </Button>
+              )}
             </>
           ) : (
-            <Button icon="check" onClick={() => elegir('debitado')}>
-              Debitar
-            </Button>
+            puedeMover && (
+              <Button icon="check" onClick={() => elegir('debitado')}>
+                Debitar
+              </Button>
+            )
           )}
         </div>
         <p className="mt-3 text-[11px] text-muted">

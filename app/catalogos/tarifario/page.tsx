@@ -3,6 +3,8 @@ import { formatDate } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { Badge, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import EditarPlan from './EditarPlan'
 
 type Genero = Database['public']['Enums']['genero']
@@ -93,6 +95,7 @@ export default async function TarifarioPage({
 }) {
   const { torneo: torneoParam } = await searchParams
   const supabase = await createClient()
+  const puedeEditarTarifario = puede(await rolActual(), 'tarifario.editar')
 
   // Los torneos primero: el elegido sale de la URL, y si no hay nada en la URL
   // se usa el activo. La consulta de planes depende de cuál sea, así que esta
@@ -251,12 +254,17 @@ export default async function TarifarioPage({
               emptyMessage="Este plan no tiene líneas cargadas."
             />
 
+            {/* Forma A y no prop: la tabla de arriba es la lectura del
+                tarifario, y esta isla es SOLO el botón «Editar precios» con su
+                panel. Sin permiso no hay nada que mostrar de ella. */}
+            {puedeEditarTarifario && (
             <EditarPlan
               planes={susPlanes}
               lineas={lineas.filter((l: Linea) => susPlanes.some((p) => p.id === l.plan_tarifa_id))}
               uso={uso}
               torneoId={torneoElegido ?? ''}
             />
+            )}
 
             {observaciones.length > 0 && (
               <ul className="mt-2 space-y-1">

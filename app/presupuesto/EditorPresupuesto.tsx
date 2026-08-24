@@ -7,7 +7,7 @@ import { formatMoney } from '@/lib/format'
 import { Badge, Button, Card, Field, Input, Select } from '@/components/ui'
 
 /**
- * La parte editable del presupuesto.
+ * El presupuesto: lo MUESTRA y lo edita.
  *
  * Escribe SIEMPRE por las funciones de PR1 —`agregar_linea_presupuesto`,
  * `editar_linea_presupuesto`, `borrar_linea_presupuesto`, `aprobar_presupuesto`,
@@ -18,6 +18,14 @@ import { Badge, Button, Card, Field, Input, Select } from '@/components/ui'
  * Mismo molde que `AccionesCheque` y `/activos/amortizar`: componente cliente
  * que llama `supabase.rpc(...)` y después `router.refresh()`, porque la página
  * de arriba es Server Component y si no seguiría mostrando los números viejos.
+ *
+ * ── Por qué el permiso baja como prop y no se resuelve no-renderizando ─────
+ *
+ * Porque este componente **es también la pantalla de lectura del presupuesto**:
+ * las tarjetas por ámbito, las líneas y los totales salen de acá. No dibujarlo
+ * para quien no puede editar le sacaría el presupuesto entero a `read-only`,
+ * que tiene que poder verlo. Así que se dibuja igual y lo que desaparece son
+ * las acciones: agregar, editar, borrar, aprobar y crear.
  */
 
 export interface LineaPresupuesto {
@@ -54,6 +62,16 @@ interface Categoria {
 }
 
 export interface EditorPresupuestoProps {
+  /**
+   * Si el rol puede editar el presupuesto. Baja RESUELTO desde la Server Page
+   * —`puede(rol, 'presupuesto.editar')`—: acá no se decide quién puede qué.
+   *
+   * Una sola operación para las cinco acciones (agregar, editar, borrar,
+   * aprobar, crear), porque en la base también son una: las cinco funciones
+   * escriben `presupuesto` o `presupuesto_linea` y las dos policies dicen
+   * admin + operador.
+   */
+  puedeEditar: boolean
   secciones: AmbitoPresupuesto[]
   categorias: Categoria[]
   torneosSinPresupuesto: { id: string; nombre: string }[]
@@ -76,6 +94,7 @@ function rotuloFactor(unidad: string | null, factor: number): string {
 }
 
 export default function EditorPresupuesto({
+  puedeEditar,
   secciones,
   categorias,
   torneosSinPresupuesto,
@@ -280,7 +299,7 @@ export default function EditorPresupuesto({
                                   Cancelar
                                 </Button>
                               </div>
-                            ) : (
+                            ) : !puedeEditar ? null : (
                               <div className="flex justify-end gap-1.5">
                                 <Button
                                   size="pill"
@@ -373,7 +392,7 @@ export default function EditorPresupuesto({
                       </Button>
                     </div>
                   </div>
-                ) : (
+                ) : !puedeEditar ? null : (
                   <div className="flex flex-wrap items-center gap-3">
                     <Button
                       variant="secondary"
@@ -464,7 +483,7 @@ export default function EditorPresupuesto({
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : !puedeEditar ? null : (
             <div className="flex flex-wrap items-center gap-3">
               <Button variant="secondary" icon="plus" onClick={() => setCreando(true)}>
                 Crear presupuesto
