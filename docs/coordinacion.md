@@ -18,6 +18,91 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔶 PENDIENTE de Fase 3 · dos operaciones sensibles sin guarda todavía · 24/08/2026
+
+Quedan abiertas a propósito, y conviene tenerlas a la vista mientras tanto.
+
+**`anular_asiento` no tiene guarda de rol.** El front **no la expone** —grepeadas
+las 25 pantallas, las únicas menciones son comentarios; los botones de anular
+son `anular_gasto`, `anular_venta_bar` y `anular_retiro_bar`—, así que el hueco
+es **un POST a mano contra la API** por alguien con sesión válida. Acotado, pero
+real.
+
+Se cierra en la Fase 3 con `p_via_circuito`, y eso implica **reescribir las 5
+funciones que la llaman** para que pasen el flag: `anular_gasto`,
+`anular_venta_bar`, `anular_retiro_bar`, `anular_arqueo` y
+`cambiar_estado_cheque`.
+
+**Por qué no fue un `revoke`, que era el plan.** Se probó y rompe las 5. Las
+funciones son `SECURITY INVOKER`, así que llamar a `anular_asiento` requiere
+`EXECUTE` **como el usuario que llama**: sacarle el permiso a `authenticated` se
+lo saca también a las funciones que corren con su rol. Medido:
+
+    llamada directa   permission denied  ✅
+    anular_gasto      permission denied  🔴
+    anular_venta_bar  permission denied  🔴
+
+Y de paso apareció una trampa que vale recordar: el primer `revoke` **no hizo
+nada**, porque las funciones tienen un grant a **`PUBLIC`** del que
+`authenticated` es miembro. Revocarle solo a `authenticated` deja el permiso
+intacto. Hay que revocar a `PUBLIC` también.
+
+*(Hacer las 5 `SECURITY DEFINER` se descartó: escaparían RLS por completo y
+`anular_gasto` dejaría de pasar por las policies de `gasto` — sería romper el
+modelo de roles para proteger una función.)*
+
+**El rechazo de cheque tampoco tiene guarda.** `cambiar_estado_cheque` hace las
+cuatro transiciones y `cheque.UPDATE` no distingue cuál. La guarda es una línea
+—`if p_nuevo_estado = 'rechazado' and auth_rol() <> 'admin'`— y entra en la
+misma pasada, porque esa función ya está en la lista de las 5.
+
+---
+
+### 🟢 Roles · Fase 2 · el bar restringido a su circuito · 24/08/2026 · de Facu para Horacio
+
+El rol `bar` bajó de «casi todo» (heredado de la Fase 1) a su módulo: **11
+policies lo permiten, 68 no.**
+
+**El circuito del bar escribe mucho más que `venta_bar`**, y eso hubo que
+medirlo rompiéndolo primero. Con `bar` solo en las dos tablas obvias:
+
+    ① crear_dia_cancha    → violates RLS for table "dia_cancha"
+    ② registrar_venta_bar → violates RLS for table "asiento"
+
+Y al destrabar eso apareció una tercera que no estaba en ninguna lista:
+
+    ③ registrar_venta_bar → violates RLS for table "periodo"
+
+**`crear_asiento` llama a `periodo_de_fecha()`, que crea el período si no
+existe.** No se ve probando con meses ya abiertos: aparece la primera vez que
+alguien asienta en un mes nuevo. Lo necesita cualquier rol que escriba algo.
+
+Las 11: `venta_bar` I/U · `retiro_bar` I/U · `asiento` I/U · `asiento_linea` I ·
+`periodo` I · `dia_cancha` I · `arqueo` I/U.
+
+**`asiento.UPDATE` queda con `bar`, y es su forma definitiva.** Parece
+contradecir el modelo —«anular asientos: solo admin»— pero es la resolución de
+una colisión: cinco circuitos comparten `anular_asiento`, y `asiento.UPDATE` es
+su único punto de control. Restringirlo a admin no bloquearía «anular un asiento
+suelto»: bloquearía que el bar anule su venta y el operador su gasto. **Una
+policy sobre una tabla no distingue por qué se llegó a ella.** La restricción de
+admin va dentro de la función, en la Fase 3 — por eso esta línea no se vuelve a
+tocar.
+
+Probado 13/13 con contraste sobre las mismas filas: el bar hace su circuito
+entero —día, venta con asiento y **período nuevo**, retiro, arqueo, anulación— y
+falla en gasto, cobro, torneo y edición de categoría (**0 filas y la fila no
+cambió**); el operador hace lo mismo **más** su día a día y el **mismo** UPDATE
+afecta **1 fila**. `read-only` nada, sin rol nada, la nota #1 en pie.
+
+Las 50 de SELECT: **0 modificadas**. La migración lo protege por construcción y
+lo verifica antes de terminar, y además aborta si las policies con `bar` no son
+exactamente 11.
+
+RLS 50/51 · descuadre 0 · los 2 torneos intactos · un cobro real anda.
+
+---
+
 ### 🟢 Roles · Fase 1 · read-only · 24/08/2026 · de Facu para Horacio
 
 Primera fase que restringe algo. Las **79 policies de escritura** pasaron de
