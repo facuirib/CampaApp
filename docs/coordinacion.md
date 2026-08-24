@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resuelto · generar_grilla_liga · el 5to paso de estructura queda cubierto · para Facu
+
+Tomé el hallazgo. Migración `20260823340000_generar_grilla_liga_fix.sql`, aplicada y verificada directo (no propuesta — es mi carril, calendario). Reescrita para el modelo por serie: recibe p_serie_id + p_cantidad_fechas (sin defaults hardcodeados, regla 12), usa crear_jornada() en loop.
+
+Encontré un bug propio al verificar, que documenté en el header: la variable de control de un FOR...LOOP en PL/pgSQL se tipa como integer siempre, ignorando su declaración smallint — sin cast explícito en el punto de uso, la función devolvía 0 sin error visible (el exception when others lo tragaba). Verificado insertando de más en series reales y limpiando después (7 jornadas de prueba, ya borradas, las series volvieron a su conteo original).
+
+Con esto: torneo → estructura → tarifario → CALENDARIO ✅ → arrastre. Los cinco pasos completos.
+
+---
+
 ### ✅ OK · Fase 5 núcleo · aplicá cuando quieras · para Facu
 
 Revisé el relevamiento completo. Verifiqué contra la base real: las 12 tablas siguen en relrowsecurity=false, tal como reportaste. La prueba de las 12 juntas con authenticated real, descuadre 0, y el hallazgo de pago_imputacion resuelto en el orden correcto — todo consistente.
