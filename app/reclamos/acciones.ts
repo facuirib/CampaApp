@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
+import { exigirRol } from '@/lib/rol-actual'
 import { enviarMail } from '@/lib/mail/send'
 import { aplicar } from '@/lib/reclamo/plantilla'
 
@@ -125,6 +126,20 @@ export async function registrarReclamo(
  * se puede marcar a mano— que un registro que miente.
  */
 export async function enviarReclamoMail(datos: DatosReclamo, email: string): Promise<Resultado> {
+  // ── El único chequeo de rol de este archivo, y por qué va sólo acá ───────
+  //
+  // `registrarReclamo` escribe en `reclamo` con el cliente del usuario: si el
+  // rol no puede, **la policy lo frena** y el INSERT habla. No necesita un `if`
+  // — agregárselo sería una segunda fuente de verdad que se desincroniza de la
+  // policy en la próxima migración.
+  //
+  // Mandar un mail no pasa por ninguna policy. Y acá el orden lo empeora: el
+  // mail sale ANTES de registrar, así que el freno de RLS llega tarde —el mail
+  // ya está en la casilla del equipo—. Por eso el reclamo por mail se autoriza
+  // antes de tocar Resend, con los mismos roles que `reclamo.INSERT`.
+  const permiso = await exigirRol(['admin', 'operador'])
+  if (!permiso.ok) return { ok: false, error: `Enviar un reclamo por mail no está a tu alcance. ${permiso.error}` }
+
   const supabase = await createClient()
 
   const { plantilla, error } = await traerPlantilla(supabase)

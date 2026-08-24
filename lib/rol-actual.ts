@@ -32,3 +32,41 @@ export async function rolActual(): Promise<Rol | null> {
 export function puedeEscribir(rol: Rol | null): boolean {
   return rol === 'admin' || rol === 'operador' || rol === 'bar'
 }
+
+/**
+ * El rol, para AUTORIZAR — que es un trabajo distinto al de `rolActual()`.
+ *
+ * La diferencia no es estilística. `rolActual()` dibuja, y para dibujar lo
+ * correcto es el claim del JWT: es lo que la base va a leer con `auth_rol()`,
+ * así que pantalla y policy dicen lo mismo. Acá no hay policy del otro lado
+ * —quien llama a esto usa `service_role` o manda un mail—, así que **esta
+ * función ES la autorización**, y entonces conviene el dato fresco del
+ * servidor de auth: si a alguien le sacan admin, se le cae en el momento y no
+ * cuando venza su token.
+ *
+ * Devuelve el rol o el motivo del rechazo, nunca un booleano suelto: el que
+ * llama tiene que poder decirle al usuario por qué no.
+ */
+export async function exigirRol(
+  permitidos: readonly Rol[],
+): Promise<{ ok: true; rol: Rol } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { ok: false, error: 'Sesión vencida. Volvé a entrar.' }
+
+  const rol = (user.app_metadata as { rol?: string } | undefined)?.rol as Rol | undefined
+
+  // Allowlist positiva, igual que las policies: un rol desconocido —o ninguno—
+  // no está en la lista y queda afuera. Un `!==` dejaría pasar el typo.
+  if (!rol || !permitidos.includes(rol)) {
+    return {
+      ok: false,
+      error: `No tenés permiso para esta acción. Tu rol es «${rol ?? 'sin rol'}».`,
+    }
+  }
+
+  return { ok: true, rol }
+}

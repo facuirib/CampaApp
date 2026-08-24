@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient, ROLES, type Rol } from '@/lib/db/admin'
-import { createClient } from '@/lib/db/server'
+import { exigirRol } from '@/lib/rol-actual'
 
 /**
  * La gestión de usuarios, del lado del servidor.
@@ -12,11 +12,14 @@ import { createClient } from '@/lib/db/server'
  * saltea RLS entero. Cualquier cosa que lo toque desde un componente cliente
  * termina en el bundle que baja el navegador.
  *
- * Cada acción vuelve a chequear que quien la pide esté logueado. Hoy eso es
- * todo lo que se puede chequear —ninguna policy lee el rol todavía— pero cuando
- * llegue la Fase 3 este es el lugar donde va «y que sea admin»: una Server
- * Action que usa service_role NO pasa por ninguna policy, así que su única
- * defensa es la que se escriba acá.
+ * **Cada acción exige admin acá adentro, y ese `if` ES la seguridad.** Una
+ * Server Action es un POST con un id que viaja en el bundle: se la puede llamar
+ * sin pasar por la pantalla, así que esconder el menú no cierra nada. Y como
+ * `service_role` no pasa por ninguna policy, no hay una segunda línea atrás
+ * que ataje lo que se escape de acá.
+ *
+ * Hasta el 24/08 estas dos chequeaban sólo que hubiera sesión — o sea que
+ * cualquier usuario logueado podía llamar a `cambiarRol` y hacerse admin.
  */
 
 interface Resultado {
@@ -24,20 +27,16 @@ interface Resultado {
   error?: string
 }
 
-async function usuarioActual() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
-}
-
 function esRolValido(rol: string): rol is Rol {
   return (ROLES as readonly string[]).includes(rol)
 }
 
 export async function cambiarRol(userId: string, rol: string): Promise<Resultado> {
-  if (!(await usuarioActual())) return { ok: false, error: 'Sesión vencida. Volvé a entrar.' }
+  // Primero de todo, antes de construir el cliente admin: repartir permisos es
+  // la operación que más manda de todas — con ésta se consiguen las demás.
+  const permiso = await exigirRol(['admin'])
+  if (!permiso.ok) return { ok: false, error: `Cambiar roles es de administrador. ${permiso.error}` }
+
   if (!esRolValido(rol)) return { ok: false, error: `Rol desconocido: «${rol}».` }
 
   const admin = createAdminClient()
@@ -58,7 +57,10 @@ export async function cambiarRol(userId: string, rol: string): Promise<Resultado
 }
 
 export async function invitar(email: string, rol: string): Promise<Resultado> {
-  if (!(await usuarioActual())) return { ok: false, error: 'Sesión vencida. Volvé a entrar.' }
+  // Invitar es cambiarRol con un paso previo: crea la cuenta Y le pone el rol.
+  const permiso = await exigirRol(['admin'])
+  if (!permiso.ok) return { ok: false, error: `Invitar usuarios es de administrador. ${permiso.error}` }
+
   if (!esRolValido(rol)) return { ok: false, error: `Rol desconocido: «${rol}».` }
 
   const limpio = email.trim().toLowerCase()

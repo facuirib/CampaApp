@@ -1,14 +1,28 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/db/admin'
+import { exigirRol } from '@/lib/rol-actual'
 import type { Rol } from '@/lib/roles'
 import { Card } from '@/components/ui'
 import UsuariosEditor, { type FilaUsuario } from './UsuariosEditor'
 
 export default async function UsuariosPage() {
+  // ── La guarda va acá y NO sólo en el middleware ──────────────────────────
+  //
+  // Esta pantalla lista TODOS los usuarios —mail, rol, último ingreso— con
+  // `service_role`, o sea salteando RLS. Sin este `if`, cualquiera con sesión
+  // que entrara a la URL veía el padrón entero: no es una lista de escritura,
+  // es una lectura que ninguna policy cubre.
+  //
+  // El middleware la va a bloquear también, y eso está bien: son dos capas y
+  // la de acá es la que no se puede esquivar cambiando una regla de ruteo.
+  const permiso = await exigirRol(['admin'])
+
   let filas: FilaUsuario[] = []
   let error: string | null = null
 
   try {
+    if (!permiso.ok) throw new Error(`La gestión de usuarios es de administrador. ${permiso.error}`)
+
     const admin = createAdminClient()
     const { data, error: err } = await admin.auth.admin.listUsers()
     if (err) throw err
@@ -60,16 +74,20 @@ export default async function UsuariosPage() {
           equivocado, que es peor que no decir nada.
           
           Así que se enuncia el hecho, sin fingir que se conoce el estado. */}
-      <p className="mb-6 rounded-md bg-warnbg px-4 py-3 text-[11px] text-warntx">
-        <strong>Las invitaciones salen por el servidor de correo de Supabase</strong>, que se
-        configura en su panel y es independiente del correo de los reclamos. Sin un SMTP
-        propio, el mailer por defecto manda ~2 mails por hora y suele caer en spam. Si una
-        invitación falla, es por ahí.
-      </p>
+      {permiso.ok && (
+        <>
+          <p className="mb-6 rounded-md bg-warnbg px-4 py-3 text-[11px] text-warntx">
+            <strong>Las invitaciones salen por el servidor de correo de Supabase</strong>, que se
+            configura en su panel y es independiente del correo de los reclamos. Sin un SMTP
+            propio, el mailer por defecto manda ~2 mails por hora y suele caer en spam. Si una
+            invitación falla, es por ahí.
+          </p>
 
-      <Card>
-        <UsuariosEditor usuarios={filas} />
-      </Card>
+          <Card>
+            <UsuariosEditor usuarios={filas} />
+          </Card>
+        </>
+      )}
     </div>
   )
 }
