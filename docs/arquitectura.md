@@ -51,14 +51,34 @@ Esto no es una excepción al principio ni un permiso para calcular por fuera. **
 
 ## 2. Roles
 
+**Construidos y activos** desde el 24/08. Son cuatro, y el rol vive en
+`raw_app_meta_data.rol` de `auth.users` —o sea, en el JWT, escribible solo con
+`service_role`—, no en una tabla. La base lo lee con `auth_rol()`.
+
 | Rol | Alcance |
 |---|---|
-| `admin` | Todo. Guille y Agus (socios/dueños). |
-| `operador` | Carga diaria: pagos, gastos de fecha, arqueos. Sin configuración ni societario. Mati. |
-| `administracion` | Solo lectura sobre toda la operación y las finanzas. Puede exportar y cerrar períodos. Yas. |
-| `encargado_bar` | Solo el módulo Bar, y solo su predio. Augusto. |
+| `admin` | Todo. Los socios/dueños. |
+| `operador` | El día a día: cobros, gastos, arqueos, cierre de períodos, torneos, tarifario. |
+| `read-only` | Lee todo, no escribe nada. El perfil de control. |
+| `bar` | Solo el circuito del bar, en las 11 tablas que ese circuito toca. |
 
-Nota: el rol antes llamado `contador` se renombra a `administracion`. La distinción importa: es un perfil de control, de solo lectura sobre la operación, sin capacidad de modificar asientos.
+**Las policies usan allowlist positiva, nunca denylist** —`auth_rol() = any
+(array[...])`—, para que un typo deniegue en vez de permitir: con el rol
+`'read-only'` y el typo `'readonly'`, un `rol <> 'readonly'` da `true` y deja
+escribir. Un rol nulo también queda afuera.
+
+**Lo que NO se puede separar por policy va adentro de la función.** Una policy
+sobre una tabla no distingue *por qué* se llegó a ella, y tres operaciones
+sensibles comparten función con operaciones que otros roles sí pueden hacer:
+
+| Operación | Solo admin, por |
+|---|---|
+| Comprar / vender USD | policy — `usd_operacion.INSERT` |
+| Anular un asiento suelto | guarda en `anular_asiento` (`p_via_circuito`) |
+| Rechazar un cheque | guarda en `cambiar_estado_cheque` |
+
+Falta la parte del front: esconder menús, botones y rutas por rol. Hoy la base
+deniega, pero la pantalla todavía ofrece.
 
 ---
 
@@ -1142,24 +1162,14 @@ intactos.
 Sigue valiendo la nota de abajo: eso funciona **porque las policies de SELECT
 son `using (true)`**.
 
-**Fases 3 y 4 completas: todos los circuitos con escritura y todo el
-societario tienen RLS activo.** Quedan 14 tablas apagadas:
+**Cómo se llegó.** Las Fases 3 y 4 encendieron los circuitos con escritura y
+todo el societario; el núcleo y sus once colgadas fueron al final y **juntas**,
+con revisión aparte: si esas seis están mal, todo el flujo de cobros, pagos y
+gastos se rompe a la vez. `tercero` tenía policies escritas desde la Fase 1 pero
+sin `ENABLE`, y esperó al núcleo porque la escriben los mismos circuitos de alta
+de ficha y cobro.
 
-| Grupo | Tablas |
-|---|---|
-| **El núcleo** (Fase 5, junto) | `asiento` `asiento_linea` `gasto` `pago` `pago_imputacion` `cuota` |
-| Colgadas del núcleo | `equipo_torneo` `jornada` `periodo` `anticipo` `tercero` `plantilla_mail` |
-| Bloqueadas por decisión | `_prueba_marca` (testing) |
-
-`tercero` tiene policies S/I/U escritas y aplicadas desde la Fase 1, pero **sin
-`ENABLE`**: se dejó para cuando vaya el núcleo, porque la escriben los mismos
-circuitos de alta de ficha y cobro.
-
-**El núcleo va al final y junto, con revisión aparte**: si esas seis están mal,
-todo el flujo de cobros, pagos y gastos se rompe a la vez. Hoy están en 0/6, y
-eso se verifica después de cada tanda.
-
-##### ⚠️ Dos DELETE sin policy · bloquean la Fase 5
+##### ✅ RESUELTO · dos DELETE sin policy · eran la precondición de la Fase 5
 
 Barrido de todos los `delete from` del sistema contra sus policies:
 
@@ -1176,8 +1186,11 @@ otros cuatro efectos del rechazo ocurren normalmente: el cheque queda
 «rechazado», el asiento del cobro revertido, y **el equipo sigue sin deber la
 plata que nunca entró**. Falla parcial y muda — el peor modo posible.
 
-Hoy no pasa porque `pago_imputacion` tiene RLS apagado. **Es una precondición de
-la Fase 5, no un pendiente suelto.**
+No llegó a pasar: se detectó con `pago_imputacion` todavía apagada y la policy
+entró **antes** del `ENABLE` (`20260823250000`, aplicada en ese orden). La de
+`cuota_cobro_sponsor` fue igual, antes de la Tanda H. **Eran precondiciones, no
+pendientes sueltos** — de ahí que el barrido de `delete from` se haga por tabla
+antes de cada encendido.
 
 ##### El mensaje que mentía · resuelto en la Tanda F
 
@@ -1301,6 +1314,49 @@ Buscar escritores por `SECURITY DEFINER` los encuentra a todos menos a esos, que
 escriben desde la app con el rol del usuario — o sea, justo los que sí necesitan
 policy. Por eso cada tanda se releva con doble chequeo: funciones **y** grep del
 front.
+
+##### Roles · quién puede escribir · fases 0 a 3b · 24/08
+
+RLS resolvió *que haya reglas*; los roles, *para quién*. Hasta la Fase 0 las 129
+policies decían `authenticated`, o sea «cualquiera con sesión puede todo».
+
+| Fase | Qué hizo | Estado |
+|---|---|---|
+| 0 | La infraestructura: `rol` en `raw_app_meta_data`, `/configuracion/usuarios`, invitación por email | — |
+| 1 | `read-only`: las 79 policies de escritura pasan a allowlist positiva | 79 |
+| 2 | `bar` acotado a su circuito | 11 sí / 68 no |
+| 3a | USD solo admin, por policy | 1 |
+| 3b | Anular asiento y rechazar cheque, por guarda en función | 6 funciones |
+| 4 | El front: menús, botones y rutas por rol | **pendiente** |
+
+**Las 50 policies de SELECT no se tocaron en ninguna fase, y no es un olvido.**
+Los invariantes del núcleo dependen de que el SELECT sea `using (true)` — ver el
+hallazgo de arriba: con el SELECT restringido, `trg_asiento_balanceado` ve
+`debe 0 / haber 0` y **acepta** una línea que descuadra. Son 15 funciones sobre
+5 tablas las que validan con `coalesce(sum(...), 0)`; 9 de ellas levantan
+excepción. Restringir el SELECT del núcleo no produce un error: produce un
+**éxito falso**.
+
+**El circuito del bar escribe mucho más que `venta_bar`**, y eso se midió
+rompiéndolo: además de `venta_bar` y `retiro_bar` necesita `asiento`,
+`asiento_linea`, `dia_cancha`, `arqueo` y —la que no estaba en ninguna lista—
+**`periodo`**, porque `crear_asiento` llama a `periodo_de_fecha()`, que crea el
+período si no existe. No se ve probando con meses ya abiertos: aparece la
+primera vez que alguien asienta en un mes nuevo.
+
+**Y hay una tercera capa, la que no se puede expresar en una policy.** Cinco
+circuitos comparten `anular_asiento` —gasto, venta de bar, retiro de bar, arqueo
+y el rechazo de cheque— y `asiento.UPDATE` es su único punto de control:
+restringirlo a admin no bloquearía «anular un asiento suelto», bloquearía que el
+bar anule su venta. Lo mismo con `cambiar_estado_cheque`, que hace las cuatro
+transiciones bajo un solo `cheque.UPDATE`. La restricción va **adentro de la
+función** (§2), con `p_via_circuito boolean default false` en `anular_asiento` y
+sus **siete** puntos de llamada pasándolo en `true`.
+
+El `revoke execute` era el plan y no sirve: las cinco son `SECURITY INVOKER`, así
+que sacarle `EXECUTE` a `authenticated` se lo saca también a ellas. (Y el primer
+`revoke` no hizo nada, porque las funciones llevan un grant a **`PUBLIC`** del
+que `authenticated` es miembro.)
 
 #### ✅ RESUELTO · K2 `crear_torneo` · aplicada, el torneo nace vacío · 23/08
 
@@ -3042,13 +3098,16 @@ público · las seis llamadas de escritura pasando el id de sesión
 **fallback a `auth.users` sacado de `crear_asiento`**, que era la deuda de la
 decisión 89 en el motor.
 
-**Falta:** roles diferenciados, **RLS** —hoy apagado en las 48 tablas—, permisos
-por pantalla, y el usuario de sistema para los devengos automáticos, que por
-ahora reciben un `p_created_by` transitorio.
+**Faltaba:** roles diferenciados, **RLS**, permisos por pantalla, y el usuario de
+sistema para los devengos automáticos, que por ahora reciben un `p_created_by`
+transitorio.
 
 > **El mínimo arregla la auditoría, no la seguridad.** Con RLS apagado y la anon
-> key en el bundle, cualquiera puede escribir la base con o sin login. Cambia
+> key en el bundle, cualquiera podía escribir la base con o sin login. Cambia
 > *quién dice ser* el que escribe; no *quién puede*.
+
+**Resuelto el 24/08**: RLS 50/51 y los cuatro roles activos (§2). De la lista
+sigue abierto **el usuario de sistema** y los **permisos por pantalla**.
 
 > **Consecuencia operativa:** sembrar datos por SQL o MCP ahora exige pasar
 > `p_created_by` explícito. `service_role` ya no alcanza — antes el fallback lo
@@ -3058,13 +3117,13 @@ ahora reciben un `p_created_by` transitorio.
 
 ## 7. Notas de implementación
 
-**⚠ RLS — esto es el DISEÑO, no el estado.** Hoy **RLS está apagado en las 48 tablas y hay 0 políticas**, y los roles `operador`, `administracion` y `encargado_bar` **no existen** ni en el schema ni en el código: la app tiene un solo tipo de usuario, cualquiera con sesión puede todo. Verificado contra la base.
+**✅ RLS construido y activo: 50 de 51 tablas**, 129 policies (50 de SELECT, 79 de escritura). La única apagada es `_prueba_marca`, que es de testing. Los roles son cuatro —`admin`, `operador`, `read-only`, `bar`— y viven en el JWT (§2). Verificado contra la base el 24/08.
 
-Lo que sigue es cómo tiene que quedar cuando se construya:
+Esto cierra el agujero que el bloque 10 dejaba abierto: la anon key viaja en el bundle del navegador, así que **con RLS apagado cualquiera con esa clave podía leer y escribir la base con o sin login**. El bloque 10 resolvió *quién dice ser* el que escribe; RLS resolvió *quién puede*.
 
-> Todas las tablas con RLS activo. El rol `administracion` tiene `select` sobre todo y `update` solo sobre `periodo.estado`. `encargado_bar` filtra por `predio_id`. `operador` no accede a `socio`, `usd_operacion` ni `cfg_*`.
+El diseño original hablaba de `administracion` y `encargado_bar` filtrando por `predio_id`. Se construyeron como `read-only` y `bar`, y **el filtro por predio no se implementó**: el bar es compartido entre predios, así que `bar` está acotado por circuito, no por predio.
 
-**Y no es una postergación menor:** la anon key viaja en el bundle del navegador, así que con RLS apagado cualquiera con esa clave puede leer y escribir la base **con o sin login**. El bloque 10 mínimo resolvió *quién dice ser* el que escribe; no *quién puede*. Ver `decisiones.md` § Abiertas.
+Lo que falta es el front: los permisos por pantalla. Hoy la base deniega, pero la pantalla todavía ofrece el botón.
 
 **Cálculos en base, no en el cliente.** Los totales del P&L, saldos de cuenta corriente y flujo proyectado son vistas SQL. El cliente no suma: consulta. Es la traducción técnica del principio (c) — si el front calcula, en algún momento dos pantallas van a discrepar.
 

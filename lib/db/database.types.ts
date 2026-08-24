@@ -6855,6 +6855,7 @@ export type Database = {
           p_created_by?: string
           p_fecha?: string
           p_motivo: string
+          p_via_circuito?: boolean
         }
         Returns: string
       }

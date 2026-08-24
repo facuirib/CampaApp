@@ -18,6 +18,69 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Roles · Fase 3b · anular asiento y rechazo de cheque, solo admin · 24/08/2026 · de Facu para Horacio
+
+Cierra la Fase 3 y con ella el modelo de roles en la base. **Toca seis funciones
+del núcleo del dinero, y van juntas en una sola migración**
+(`20260824130000_roles_fase3b_guardas`).
+
+Las dos operaciones son «solo admin» en el modelo pero **ninguna policy puede
+expresarlo**: comparten función con operaciones que otros roles sí pueden. Por
+eso la restricción vive **adentro de la función**.
+
+**`anular_asiento` suma un quinto parámetro, `p_via_circuito boolean default
+false`.** Los cinco circuitos lo pasan en `true`; una llamada directa lo deja en
+`false` y exige admin. Son **siete** puntos de llamada, no cinco: `anular_gasto`
+y `anular_arqueo` llaman dos veces cada una —un gasto tiene devengo y pago, un
+arqueo puede tener entrega y ajuste—. El `default false` es lo que deja la
+puerta cerrada por omisión: quien no sabe del flag, no pasa.
+
+**`cambiar_estado_cheque` gana una guarda de una línea, solo para
+`'rechazado'`.** Acreditar y debitar mueven plata pero son el curso normal;
+anular no asienta nada. El rechazo es el único que revierte un cobro y reabre la
+deuda de un equipo.
+
+**Va de arriba el arreglo de la fecha.** `anular_asiento` pasaba `p_fecha` crudo
+a `crear_asiento`, y de los siete llamadores **`anular_gasto` era el único sin
+`coalesce`**: anular un gasto con fecha nula moría con «No hay ejercicio que
+contenga la fecha», un mensaje que no dice nada del gasto. Ahora es
+`coalesce(p_fecha, v_orig.fecha)` — el default es la fecha del **asiento
+original**, no `current_date`: el contraasiento de algo de agosto pertenece a
+agosto, no al día en que alguien lo anuló.
+
+**El estado intermedio era el peligroso** —guarda puesta y llamadores sin el
+flag deja *anular un gasto* roto para el operador—, así que las seis se
+escribieron, se probaron y se aplicaron en un solo acto.
+
+Probado 14/14 con `bypassrls = false`, y el contraste sobre **la misma fila**:
+
+    OPERADOR ✅  anular_gasto con fecha NULL a propósito → los 2 asientos
+                 marcados, pagado_at a NULL  (el coalesce, medido)
+                 anular_venta_bar · anular_retiro_bar
+                 anular_arqueo con entrega + ajuste → revertidos = 2
+                 cheque acreditar → no bloqueado
+    OPERADOR ❌  anular_asiento directo · rechazar cheque
+    BAR      ✅  su venta entera        ❌ anular_asiento directo
+    ADMIN    ✅  el MISMO asiento y el MISMO cheque: rechazo con sus 5
+                 efectos, imputaciones 1 → 0, saldo 0 → 130.000, la deuda
+                 reabierta
+
+`set constraints all immediate` sin quejas, descuadre 0, y **la base quedó sin
+datos de prueba**: todo corrió en transacción con `rollback`.
+
+**El front no llama a `anular_asiento`** —grepeado: las únicas menciones son
+comentarios—, así que esto no le saca un botón a nadie. `database.types.ts` sí
+lleva el parámetro nuevo.
+
+Estado: **RLS 50/51** · 50 policies de SELECT, **0 tocadas en toda la fase de
+roles** · 79 de escritura · 1 solo-admin por policy (USD) + **2 solo-admin por
+guarda en función** · descuadre 0.
+
+Queda la **Fase 4: el front** — esconder menús, botones y rutas por rol, en una
+sola pasada.
+
+---
+
 ### 🟢 Roles · Fase 3a · USD solo admin · 24/08/2026
 
 La **única** operación sensible del modelo que se separa por policy limpia.
@@ -46,46 +109,6 @@ esa pantalla, hay que recordar que solo admin la va a poder usar.
 
 Estado: **1 policy solo-admin · 78 admin+operador · 11 de ésas también bar · 0
 de 50 de SELECT tocadas** · RLS 50/51 · descuadre 0.
-
----
-
-### 🔶 PENDIENTE de Fase 3 · dos operaciones sensibles sin guarda todavía · 24/08/2026
-
-Quedan abiertas a propósito, y conviene tenerlas a la vista mientras tanto.
-
-**`anular_asiento` no tiene guarda de rol.** El front **no la expone** —grepeadas
-las 25 pantallas, las únicas menciones son comentarios; los botones de anular
-son `anular_gasto`, `anular_venta_bar` y `anular_retiro_bar`—, así que el hueco
-es **un POST a mano contra la API** por alguien con sesión válida. Acotado, pero
-real.
-
-Se cierra en la Fase 3 con `p_via_circuito`, y eso implica **reescribir las 5
-funciones que la llaman** para que pasen el flag: `anular_gasto`,
-`anular_venta_bar`, `anular_retiro_bar`, `anular_arqueo` y
-`cambiar_estado_cheque`.
-
-**Por qué no fue un `revoke`, que era el plan.** Se probó y rompe las 5. Las
-funciones son `SECURITY INVOKER`, así que llamar a `anular_asiento` requiere
-`EXECUTE` **como el usuario que llama**: sacarle el permiso a `authenticated` se
-lo saca también a las funciones que corren con su rol. Medido:
-
-    llamada directa   permission denied  ✅
-    anular_gasto      permission denied  🔴
-    anular_venta_bar  permission denied  🔴
-
-Y de paso apareció una trampa que vale recordar: el primer `revoke` **no hizo
-nada**, porque las funciones tienen un grant a **`PUBLIC`** del que
-`authenticated` es miembro. Revocarle solo a `authenticated` deja el permiso
-intacto. Hay que revocar a `PUBLIC` también.
-
-*(Hacer las 5 `SECURITY DEFINER` se descartó: escaparían RLS por completo y
-`anular_gasto` dejaría de pasar por las policies de `gasto` — sería romper el
-modelo de roles para proteger una función.)*
-
-**El rechazo de cheque tampoco tiene guarda.** `cambiar_estado_cheque` hace las
-cuatro transiciones y `cheque.UPDATE` no distingue cuál. La guarda es una línea
-—`if p_nuevo_estado = 'rechazado' and auth_rol() <> 'admin'`— y entra en la
-misma pasada, porque esa función ya está en la lista de las 5.
 
 ---
 
