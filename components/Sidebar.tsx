@@ -8,10 +8,44 @@ import { ROL_LABEL, type Rol } from '@/lib/roles'
 import { createClient } from '@/lib/db/client'
 import { Icon, type NombreIcono } from '@/components/ui'
 
+/**
+ * Quiénes ven un ítem. `undefined` = todos los que tienen sesión.
+ *
+ * ── Esto NO es un permiso ──────────────────────────────────────────────────
+ *
+ * `lib/permisos.ts` dice quién puede ESCRIBIR, y se verifica contra las
+ * policies. Esto dice qué se MUESTRA, y no sale de la base: `bar` puede leer
+ * `socio` perfectamente —las 50 policies de SELECT son `using (true)`— y aun
+ * así no le ponemos Socios en el menú. Es una decisión de producto sobre una
+ * cuenta compartida, no un límite.
+ *
+ * Y conviene tenerlo claro: **esconder un ítem no impide leer**. La anon key
+ * viaja en el bundle, así que con la sesión del bar se puede pedir cualquier
+ * tabla por la API. Si algún día hace falta que no lean de verdad, eso es
+ * restringir el SELECT, que es otra cosa y toca la nota #1.
+ */
+type Visible = readonly Rol[] | undefined
+
+/**
+ * El default cuando un ítem no declara `roles`: los tres de oficina.
+ *
+ * Está al revés a propósito. Si el default fuera «todos», el bar vería cada
+ * pantalla nueva hasta que alguien se acordara de marcarla — y el olvido
+ * mostraría de más. Así, agregar una pantalla y no decir nada la deja fuera
+ * del menú del bar, que es el lado seguro del error.
+ */
+const OFICINA = ['admin', 'operador', 'read-only'] as const
+/** Sin operador: la decisión A (Societario). */
+const SIN_SOCIETARIO = ['admin', 'read-only'] as const
+/** Lo único que el bar ve: la decisión B. */
+const CON_BAR = ['admin', 'operador', 'read-only', 'bar'] as const
+
 export interface ItemNav {
   href: string
   label: string
   icon: NombreIcono
+  /** Ver `Visible`. Sin esto, `OFICINA`: todos menos el bar. */
+  roles?: Visible
   /**
    * Sub-secciones. Con esto el ítem deja de ser un link y pasa a desplegar.
    *
@@ -25,6 +59,7 @@ export interface ItemNav {
 export interface SubItemNav {
   href: string
   label: string
+  roles?: Visible
   /**
    * Una sección planeada que todavía no existe.
    *
@@ -52,7 +87,7 @@ export interface GrupoNav {
 export const GRUPOS: GrupoNav[] = [
   {
     titulo: null,
-    items: [{ href: '/', label: 'Inicio', icon: 'inicio' }],
+    items: [{ href: '/', label: 'Inicio', icon: 'inicio', roles: CON_BAR }],
   },
   {
     // En el orden en que pasan las cosas: se anota el equipo, se arma el
@@ -95,8 +130,8 @@ export const GRUPOS: GrupoNav[] = [
     items: [
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
       { href: '/caja', label: 'Caja', icon: 'caja' },
-      { href: '/arqueo', label: 'Arqueo', icon: 'arqueo' },
-      { href: '/bar', label: 'Bar', icon: 'bar' },
+      { href: '/arqueo', label: 'Arqueo', icon: 'arqueo', roles: CON_BAR },
+      { href: '/bar', label: 'Bar', icon: 'bar', roles: CON_BAR },
       { href: '/cheques', label: 'Cheques', icon: 'banco' },
       { href: '/activos', label: 'Activos', icon: 'activos' },
     ],
@@ -118,9 +153,11 @@ export const GRUPOS: GrupoNav[] = [
   {
     titulo: 'Societario',
     items: [
-      { href: '/socios', label: 'Socios', icon: 'socios' },
-      { href: '/sponsors', label: 'Sponsors', icon: 'sponsors' },
-      { href: '/usd', label: 'USD', icon: 'usd' },
+      // Societario sin operador (decisión A): son sueldos de los dueños y
+      // contratos de sponsors. La base lo deja leer; el menú no lo ofrece.
+      { href: '/socios', label: 'Socios', icon: 'socios', roles: SIN_SOCIETARIO },
+      { href: '/sponsors', label: 'Sponsors', icon: 'sponsors', roles: SIN_SOCIETARIO },
+      { href: '/usd', label: 'USD', icon: 'usd', roles: SIN_SOCIETARIO },
     ],
   },
   {
@@ -138,7 +175,9 @@ export const GRUPOS: GrupoNav[] = [
           { href: '/configuracion/plantillas', label: 'Plantillas' },
           { href: '/configuracion/categorias', label: 'Categorías de gasto', pronto: true },
           { href: '/configuracion/cierres', label: 'Cierres de período', pronto: true },
-          { href: '/configuracion/usuarios', label: 'Usuarios' },
+          // La única regla del menú que además es un permiso de verdad: la
+          // pantalla lee el padrón con service_role y el middleware la corta.
+          { href: '/configuracion/usuarios', label: 'Usuarios', roles: ['admin'] },
         ],
       },
     ],
@@ -152,6 +191,26 @@ export const GRUPOS: GrupoNav[] = [
  * Cobranza sin que `/` se lo dispute: `/` matchea todo, así que si ganara el
  * primero, Inicio quedaría activo en cada pantalla.
  */
+/**
+ * El árbol que le toca a un rol: se filtran ítems, hijos y grupos que quedaron
+ * vacíos —un encabezado «Societario» sin nada abajo es peor que no estar—.
+ *
+ * Se filtra ANTES de renderizar y con el rol, nunca escondiendo con CSS ni
+ * reaccionando a un error: el ítem que no corresponde no llega al DOM.
+ */
+export function gruposDe(rol: Rol | null, grupos: GrupoNav[] = GRUPOS): GrupoNav[] {
+  const ve = (roles: Visible) => !!rol && (roles ?? OFICINA).includes(rol)
+
+  return grupos
+    .map((g) => ({
+      ...g,
+      items: g.items
+        .filter((i) => ve(i.roles))
+        .map((i) => (i.hijos ? { ...i, hijos: i.hijos.filter((h) => ve(h.roles)) } : i)),
+    }))
+    .filter((g) => g.items.length > 0)
+}
+
 export function hrefActivo(pathname: string, grupos: GrupoNav[] = GRUPOS): string | null {
   const candidatos = grupos
     // Los hijos entran en la comparación: estando en /configuracion/plantillas,
@@ -243,7 +302,11 @@ export default function Sidebar({ email, rol }: SidebarProps) {
   const [abierto, setAbierto] = useState(false)
   const itemActivo = useRef<HTMLLIElement | null>(null)
 
-  const activo = hrefActivo(pathname)
+  // El árbol del rol, y `hrefActivo` sobre ESE árbol: si se marcara el activo
+  // contra el árbol completo, una pantalla que el rol no ve por menú —pero
+  // alcanza por link— resaltaría un ítem que no está dibujado.
+  const grupos = gruposDe(rol ?? null)
+  const activo = hrefActivo(pathname, grupos)
 
   // Traer a la vista el ítem de la pantalla en la que estás.
   //
@@ -305,7 +368,7 @@ export default function Sidebar({ email, rol }: SidebarProps) {
       <nav
         className={`${abierto ? 'block' : 'hidden'} px-2 pb-4 md:block md:min-h-0 md:flex-1 md:overflow-y-auto`}
       >
-        {GRUPOS.map((grupo, i) => (
+        {grupos.map((grupo, i) => (
           <div key={grupo.titulo ?? 'inicio'} className={i > 0 ? 'mt-4' : ''}>
             {grupo.titulo && (
               <h2 className="px-2.5 pb-1.5 text-[8.5px] font-bold uppercase tracking-[.07em] text-muted">
