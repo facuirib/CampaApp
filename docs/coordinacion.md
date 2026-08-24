@@ -18,15 +18,69 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ ROLES COMPLETO · base + front · 24/08/2026 · de Facu para Horacio
+
+Cerró la Fase 4.4 y con ella el módulo entero. **El front ya no ofrece lo que la
+base deniega.**
+
+| | admin | operador | bar | read-only |
+|---|:--:|:--:|:--:|:--:|
+| Ítems del sidebar | 25 | 21 | 3 | 24 |
+| Rutas de escritura (de 17) | 17 | 16 | 5 | 1 |
+| Botones de escritura | 31 | 31 | 4 | **0** |
+| Links a rutas de escritura | 192 | 191 | 120 | **0** |
+
+Medido sobre 27 pantallas con las cuatro cuentas, sin apretar un solo botón de
+escritura: lo que se mide es **qué se ve**, que la operación funcione ya está
+probado a nivel base. La diferencia admin↔operador es exactamente un link: la
+tarjeta de Usuarios.
+
+**Las tres formas del patrón**, por si tocás una pantalla:
+
+1. **No renderizar la isla** — cuando la isla es sólo la acción (`AnularCierre`,
+   `AsentarDiferencia`, `EditarPlan`).
+2. **El permiso baja como prop** — cuando la isla **también muestra**
+   (`EditorPresupuesto`: no dibujarlo le sacaría el presupuesto a `read-only`) o
+   cuando tiene **varias acciones de distinto permiso**. De eso hay un solo
+   caso: `AccionesCheque`, donde el operador acredita y no rechaza.
+3. **Partir en page server + componente client** — para las mixtas que eran
+   Client enteras: `/reclamos/[t]` y `/configuracion/plantillas`.
+
+El rol **siempre se resuelve en el servidor**, nunca adentro de la isla: si la
+isla recibiera el rol tendría que volver a decidir quién puede qué, y esa
+decisión ya está en `lib/permisos` verificada contra las policies.
+
+**Lo que no se puede hacer nunca:** mostrar el botón y esperar el error. Un
+UPDATE o un DELETE que RLS deniega devuelve 0 filas **sin excepción**, así que
+el front no tiene de dónde concluir que salió mal — el usuario aprieta y no
+pasa nada, en silencio.
+
+**Dos huecos aparecieron en la corrida final**, y los dos eran links de
+escritura escondidos en prosa, no botones: la tarjeta «Usuarios» del índice de
+Configuración y el «Se carga desde Gastos» del aviso de un activo. Aparecieron
+al cambiar la medición —contar links cuyo destino el mapa declara de escritura,
+en vez de buscar textos de acción—. Si tocás una pantalla, esa es la medición
+que sirve.
+
+**Lo que quedó sin medir por falta de datos**, no por falta de chequeo: las
+islas por fila del bar (0 cierres, 0 arqueos), el botón de rechazar sobre un
+cheque real (0 cheques) y el link de amortizar (`proponer_amortizaciones` no
+propone nada). El rechazo se midió montando la isla real con un cheque
+fabricado en memoria; los otros dos los gobierna el mismo booleano que sí se
+midió en su pantalla. Conviene mirarlos cuando haya movimientos.
+
+---
+
 ### 🔶 Pendientes de la Fase 4 · leer antes de arrancar 4.4 · 24/08/2026
 
-**① Las 4 cuentas QA están DESACTIVADAS.** Una por rol —
+**① Las 4 cuentas QA están DESACTIVADAS.** *(Se reactivaron para 4.4 el 24/08
+y se volvieron a desactivar al terminar. Verificado las dos veces.)* Una por rol —
 `facuubosch+qa-admin@gmail.com`, `+qa-operador`, `+qa-read-only`, `+qa-bar`— son
 cuentas **reales con poder de escritura sobre la base compartida**, así que no
 quedan activas entre sesiones: `banned_until` a 2126, el mismo tratamiento que
 Mati. Verificado con la contraseña correcta: las cuatro dan «User is banned».
 
-Para 4.4 hay que **reactivarlas** poniendo `banned_until` en `null`
+Para volver a usarlas hay que **reactivarlas** poniendo `banned_until` en `null`
 (`admin.auth.admin.updateUserById(id, { ban_duration: 'none' })`), y volver a
 desactivarlas al terminar. La contraseña está en **`.env.local` como
 `QA_PASSWORD`** —que está en `.gitignore`—, no acá.

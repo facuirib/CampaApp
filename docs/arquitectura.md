@@ -77,8 +77,27 @@ sensibles comparten función con operaciones que otros roles sí pueden hacer:
 | Anular un asiento suelto | guarda en `anular_asiento` (`p_via_circuito`) |
 | Rechazar un cheque | guarda en `cambiar_estado_cheque` |
 
-Falta la parte del front: esconder menús, botones y rutas por rol. Hoy la base
-deniega, pero la pantalla todavía ofrece.
+**El front acompaña desde el 24/08** y el modelo se aplica en cuatro capas, que
+no son redundantes sino distintas:
+
+| Capa | Qué hace | Dónde |
+|---|---|---|
+| Policies + guardas | **Impiden** la escritura | la base |
+| Middleware | Rebota las rutas de escritura, con motivo | `middleware.ts` |
+| Sidebar | No ofrece lo que el rol no usa | `GRUPOS` |
+| Botones | No dibuja el control que la base va a negar | cada pantalla |
+
+Las tres de arriba salen de **`lib/permisos.ts`**, un mapa de 31 operaciones
+—verbos del dominio, no tablas— que declara para cada una **dónde vive la misma
+regla en la base**. `scripts/verificar-permisos.ts` deriva la matriz real de
+`pg_policies` siguiendo el grafo de llamadas y falla si el mapa y la base no
+coinciden: es lo que impide que las dos copias del permiso se separen.
+
+**Esconder no es impedir.** El botón se decide con `puede(rol, op)` **antes de
+renderizar**, nunca reaccionando a un error, porque un UPDATE o un DELETE que
+RLS deniega devuelve 0 filas sin excepción: el front no tiene de dónde concluir
+que salió mal. Y al revés: lo que protege la tabla es la policy, no el botón
+ausente.
 
 ---
 
@@ -3123,7 +3142,7 @@ Esto cierra el agujero que el bloque 10 dejaba abierto: la anon key viaja en el 
 
 El diseño original hablaba de `administracion` y `encargado_bar` filtrando por `predio_id`. Se construyeron como `read-only` y `bar`, y **el filtro por predio no se implementó**: el bar es compartido entre predios, así que `bar` está acotado por circuito, no por predio.
 
-Lo que falta es el front: los permisos por pantalla. Hoy la base deniega, pero la pantalla todavía ofrece el botón.
+**Y el front acompaña**: menús, rutas y botones por rol, todo derivado de `lib/permisos.ts` y verificado contra las policies con `npm run verificar:permisos` (§2). Medido con una cuenta por rol: `read-only` no tiene un solo botón de escritura en las 27 pantallas.
 
 **Cálculos en base, no en el cliente.** Los totales del P&L, saldos de cuenta corriente y flujo proyectado son vistas SQL. El cliente no suma: consulta. Es la traducción técnica del principio (c) — si el front calcula, en algún momento dos pantallas van a discrepar.
 
