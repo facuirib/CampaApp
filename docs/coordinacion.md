@@ -18,6 +18,37 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Roles · Fase 3a · USD solo admin · 24/08/2026
+
+La **única** operación sensible del modelo que se separa por policy limpia.
+`usd_operacion.INSERT` pasó de `['admin','operador']` a `auth_rol() = 'admin'`.
+Una línea.
+
+Se separa porque sus dos escritores —`comprar_usd` y `vender_usd`— **son la
+misma operación sensible**: no hay una tercera función que escriba esa tabla por
+otro motivo. Ahí está toda la diferencia con `anular_asiento` y el rechazo de
+cheque, que comparten función con operaciones que otros roles sí pueden.
+
+**El fallo es limpio**, que era la duda razonable: `comprar_usd` crea el asiento
+**antes** de insertar en `usd_operacion`, así que podía quedar un asiento sin su
+operación. Medido con `operador`: `asiento 83 → 83`, `asiento_linea 172 → 172` —
+la excepción propaga y revierte todo. Con `admin`, la misma compra: `usd_op
+5 → 6`.
+
+Probado 10/10: operador rechazado pero **sigue leyendo** `/usd` y su día a día
+intacto · bar rechazado, su circuito intacto · read-only nada, pero lee el
+núcleo · admin sí.
+
+**Un dato de contexto:** no hay pantalla de compra/venta. `/usd` es solo lectura
+y las dos menciones a `comprar_usd` en el front son comentarios. Esto **no le
+saca un botón a nadie**: cierra una puerta de la API. Si algún día se construye
+esa pantalla, hay que recordar que solo admin la va a poder usar.
+
+Estado: **1 policy solo-admin · 78 admin+operador · 11 de ésas también bar · 0
+de 50 de SELECT tocadas** · RLS 50/51 · descuadre 0.
+
+---
+
 ### 🔶 PENDIENTE de Fase 3 · dos operaciones sensibles sin guarda todavía · 24/08/2026
 
 Quedan abiertas a propósito, y conviene tenerlas a la vista mientras tanto.
