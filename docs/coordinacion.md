@@ -18,6 +18,42 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ⚠️ Estado de `auth` que NO está versionado · 24/08/2026 · de Facu para Horacio
+
+Arrancó el módulo de roles. La Fase 0 —la infraestructura— toca `auth.users`, y
+eso **no es schema**: no hay migración que lo registre.
+
+Si algún día se recrea la base desde las migraciones, **esto hay que rehacerlo a
+mano**:
+
+| | |
+|---|---|
+| `facuubosch@gmail.com` | `raw_app_meta_data.rol = 'admin'` |
+| `mati@campa.local` | desactivado (`banned_until` a 2126), **sin rol** |
+| `agus` · `augusto` · `guille` · `yas` | **borrados** (tenían 0 referencias) |
+
+**Mati no se borró y no se va a borrar.** Tiene 15 filas con su autoría —3
+asientos, 6 reclamos, 5 audit_log, 1 plantilla— y `asiento.created_by` es
+`NOT NULL`. Reasignarlas a otro usuario sería reescribir quién hizo cada cosa,
+que es exactamente lo que la regla 4 existe para impedir. Se desactiva y sus
+filas quedan como están.
+
+Las 17 columnas que apuntan a `auth.users` son todas `ON DELETE NO ACTION`, así
+que **la base ya impide borrar un usuario con actividad**. Es una buena
+propiedad y conviene no tocarla: significa que la autoría no se puede perder por
+accidente.
+
+**Nada de comportamiento cambió.** Las 129 policies siguen en `using(true)` y
+**ninguna menciona el rol** — verificado. El rol de Facu viaja en su JWT pero no
+lo lee nadie todavía. Cobro y gasto probados en rollback: idénticos.
+
+**Y una nota para vos, por si tocás `auth`:** el rol vive en
+`raw_app_meta_data`, no en `raw_user_meta_data`. El segundo lo edita el propio
+usuario desde el cliente con `updateUser()` — un rol ahí sería un permiso que su
+portador puede subirse solo. Cuidado si alguna vez escribís ese campo.
+
+---
+
 ### 🟢 FASE 5 APLICADA · el núcleo encendido · RLS 50/51 · 24/08/2026 · de Facu para Horacio
 
 Con tu OK, aplicadas las dos en el orden acordado —`pago_imputacion_delete`

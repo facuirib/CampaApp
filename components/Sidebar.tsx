@@ -137,7 +137,7 @@ export const GRUPOS: GrupoNav[] = [
           { href: '/configuracion/plantillas', label: 'Plantillas' },
           { href: '/configuracion/categorias', label: 'Categorías de gasto', pronto: true },
           { href: '/configuracion/cierres', label: 'Cierres de período', pronto: true },
-          { href: '/configuracion/usuarios', label: 'Usuarios', pronto: true },
+          { href: '/configuracion/usuarios', label: 'Usuarios' },
         ],
       },
     ],

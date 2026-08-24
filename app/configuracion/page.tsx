@@ -41,7 +41,6 @@ const SECCIONES: Seccion[] = [
     href: '/configuracion/usuarios',
     titulo: 'Usuarios',
     descripcion: 'Quién entra al sistema y con qué permisos.',
-    pronto: true,
   },
 ]
 
