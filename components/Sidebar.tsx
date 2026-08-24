@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { ROL_LABEL, type Rol } from '@/lib/roles'
 import { createClient } from '@/lib/db/client'
 import { Icon, type NombreIcono } from '@/components/ui'
 
@@ -190,6 +191,15 @@ function Lockup() {
 export interface SidebarProps {
   /** El email de quien está adentro. Sin sesión no se renderiza el sidebar. */
   email?: string | null
+  /**
+   * Su rol, leído del JWT en el layout.
+   *
+   * Por ahora solo se MUESTRA, en el pie junto al email: saber con qué permisos
+   * estás mirando la pantalla evita el desconcierto de que un botón no haga
+   * nada. Filtrar los ítems del menú por rol es la fase de front — se hace de
+   * una vez con la regla final, no en dos pasadas con reglas parciales.
+   */
+  rol?: Rol | null
 }
 
 /**
@@ -199,7 +209,7 @@ export interface SidebarProps {
  * pantallas, saber con qué usuario se está escribiendo importa antes de
  * apretar nada — el asiento que se genere va a quedar con ese id.
  */
-function PieSesion({ email }: { email: string }) {
+function PieSesion({ email, rol }: { email: string; rol?: Rol | null }) {
   const [saliendo, setSaliendo] = useState(false)
 
   async function salir() {
@@ -214,6 +224,7 @@ function PieSesion({ email }: { email: string }) {
     <div className="mt-auto border-t border-line px-4 py-3">
       <p className="truncate text-[10px] text-muted" title={email}>
         {email}
+        {rol && <span className="ml-1 text-muted/70">· {ROL_LABEL[rol]}</span>}
       </p>
       <button
         type="button"
@@ -227,7 +238,7 @@ function PieSesion({ email }: { email: string }) {
   )
 }
 
-export default function Sidebar({ email }: SidebarProps) {
+export default function Sidebar({ email, rol }: SidebarProps) {
   const pathname = usePathname()
   const [abierto, setAbierto] = useState(false)
   const itemActivo = useRef<HTMLLIElement | null>(null)
@@ -391,7 +402,7 @@ export default function Sidebar({ email }: SidebarProps) {
 
       {/* Sólo con sesión: el sidebar no se muestra en /login, pero si algún día
           se renderizara sin usuario, no tiene que inventar un pie vacío. */}
-      {email && <PieSesion email={email} />}
+      {email && <PieSesion email={email} rol={rol} />}
     </aside>
   )
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Asap } from 'next/font/google'
 import Sidebar from '@/components/Sidebar'
+import { rolActual } from '@/lib/rol-actual'
 import { createClient } from '@/lib/db/server'
 import './globals.css'
 
@@ -32,6 +33,11 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser()
 
+  // El rol, leído del JWT. Hoy solo se muestra en el pie del sidebar: quién
+  // está y con qué permisos. Esconder ítems por rol es la fase de front — se
+  // hace de una vez con la regla final, no dos veces con reglas parciales.
+  const rol = await rolActual()
+
   return (
     <html lang="es-AR" className={asap.variable}>
       <body className="antialiased">
@@ -51,7 +57,7 @@ export default async function RootLayout({
           // desde md pasan a ser dos columnas. El `min-w-0` del main es lo que
           // impide que una tabla ancha empuje el ancho de todo el layout.
           <div className="md:flex md:items-start">
-            <Sidebar email={user.email} />
+            <Sidebar email={user.email} rol={rol} />
             <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
               <div className="mx-auto max-w-6xl">{children}</div>
             </main>

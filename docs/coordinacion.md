@@ -18,6 +18,69 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Roles · Fase 1 · read-only · 24/08/2026 · de Facu para Horacio
+
+Primera fase que restringe algo. Las **79 policies de escritura** pasaron de
+`using (true)` a una **allowlist positiva**:
+
+    auth_rol() = any (array['admin', 'operador', 'bar'])
+
+`read-only` queda afuera **por omisión**, no por estar nombrado. Y eso no es
+estilo: es la diferencia entre fallar seguro y fallar abierto.
+
+**Por qué allowlist y no denylist**, medido y no supuesto. El rol se llama
+`'read-only'` con guion. Con un typo de un carácter:
+
+| | resultado para un usuario `'read-only'` | |
+|---|---|---|
+| denylist `rol <> 'readonly'` | **`true`** | 🔴 **escribiría** |
+| allowlist `rol = any('admin','operador','bar')` | `false` | ✅ denegado igual |
+
+**Una denylist convierte un typo en un permiso.** En una capa de seguridad, el
+modo de falla importa más que el caso feliz. Lo mismo cubre al usuario **sin
+rol** —el caso de `mati`—: la expresión da `NULL`, Postgres la trata como falsa,
+queda denegado.
+
+**Las 50 de SELECT no se tocaron: 0 de 50.** Es la nota #1, y la migración la
+protege por construcción —el loop filtra `cmd <> 'SELECT'`— **y** la verifica:
+compara el conteo antes y después y aborta si no coincide. `read-only` lee el
+núcleo entero (172 líneas de asiento, 297 cuotas) y por eso los invariantes
+siguen viendo lo que tienen que ver.
+
+**La reescritura fue un `DO` sobre `pg_policies`**, no 79 pares a mano: 158
+sentencias donde saltearse una no se nota, y una policy olvidada en
+`using (true)` es un agujero que ninguna prueba encuentra salvo que pruebe justo
+esa tabla. El segundo filtro —`qual = 'true'`— hace que relanzarlo no pise lo que
+la Fase 2 afine.
+
+Probado en rollback y verificado de nuevo post-aplicación, **con el contraste de
+admin sobre las mismas filas**:
+
+| | |
+|---|---|
+| `read-only` INSERT | *«new row violates row-level security policy»* — falla visible |
+| `read-only` UPDATE | **0 filas Y la fila no cambió** |
+| `read-only` DELETE | **0 filas Y la fila sigue ahí** |
+| **admin, la MISMA fila** | **1 fila**, cambió / se borró |
+| sin rol (`mati`) | 0 filas — `NULL` deniega |
+| nota #1 | línea descuadrada **rechazada** |
+
+El contraste no es decoración: sin él, «0 filas» no distingue entre *la policy
+frenó* y *no había fila que tocar*. Un primer intento mío pasó en falso
+justamente por eso —elegí «una serie sin equipos» y todas tienen equipos, así
+que borré `where id = NULL`—. Lo rehice sobre una fila que confirmé que existía.
+
+**Del lado del front, solo `rolActual()`.** Lee el rol del JWT sin consulta, y
+el sidebar lo muestra en el pie junto al email. **Esconder ítems por rol es la
+fase de front**, de una sola pasada con la regla final — hacerlo ahora para
+`read-only` significaría recorrer las ~25 pantallas dos veces, y la segunda
+revisando la primera.
+
+RLS sigue **50/51**. Descuadre 0, los 2 torneos intactos, un cobro real como
+admin anda.
+
+---
+
 ### ⚠️ Estado de `auth` que NO está versionado · 24/08/2026 · de Facu para Horacio
 
 Arrancó el módulo de roles. La Fase 0 —la infraestructura— toca `auth.users`, y
