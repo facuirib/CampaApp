@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta · tabla factura + registrar_factura_emitida · para Facu
+
+Con Facu en línea, definimos el modelo de facturación: la condición de IVA se elige POR TRANSACCIÓN (no vive en tercero), emitir factura es un paso separado del cobro, tipo de comprobante se deriva automático (A si RI, B para el resto), un solo punto de venta (200) para todo.
+
+Migración `20260825200000_factura_arca.sql`, verificada con begin/rollback, sin aplicar. Tabla factura (admite pago_id O cuota_cobro_sponsor_id, no ambos) + función registrar_factura_emitida (persiste el resultado ya confirmado por ARCA — la llamada real a ARCA vive en TypeScript, no en SQL).
+
+Falta: escribir el código TypeScript de FECAESolicitar (el pedido de CAE en sí), que todavía no se escribió — es el paso más delicado, sigue pendiente de más tiempo con calma.
+
+---
+
 ### ✅ ARCA · autenticación WSAA verificada contra el servicio real · para Facu
 
 Primer hito técnico grande de la integración: la autenticación (WSAA) contra ARCA funciona contra el servidor real de producción. Verificado hoy — el certificado generado, la firma CMS/PKCS#7 (con node-forge, sin dependencias de terceros para AFIP) y el parseo de la respuesta, todo correcto a la primera prueba.
