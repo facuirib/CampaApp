@@ -100,3 +100,19 @@ condicionesIvaReceptor no encontraba resultados por un problema de mayúsculas: 
 ## Nota operativa
 
 ARCA avisó mantenimiento programado el lunes 31/08 ~22:00hs (~1 hora) — evitar pruebas en esa ventana.
+
+## Alícuota de IVA — CONFIRMADA (25/08)
+
+FEParamGetTiposIva contra producción: Id 5 = 21% (confirmado, coincidía con la suposición inicial pero ahora verificado, no asumido).
+
+Lista completa: Id 3=0%, Id 4=10.5%, Id 5=21%, Id 6=27%, Id 8=5%, Id 9=2.5%.
+
+## Hallazgo de diseño importante: reuso del Ticket de Acceso
+
+El WSAA de ARCA RECHAZA pedir un token nuevo si ya hay uno vigente para el mismo servicio (error coe.alreadyAuthenticated: "El CEE ya posee un TA valido"). Un ticket dura 12hs.
+
+Esto significa que el código real (no solo el script de prueba) NO puede llamar a autenticarArca() en cada función por separado — hay que autenticar UNA VEZ y reusar el mismo TicketAcceso en todas las llamadas de esa sesión/request. Ya corregido en lib/arca-wsfev1-consultas.ts (las funciones ahora reciben el ticket como parámetro, no lo piden ellas mismas).
+
+Cuando se escriba FECAESolicitar, aplicar el mismo patrón: un solo autenticarArca() por Server Action, pasado a cualquier función de wsfev1 que se llame dentro de esa acción.
+
+## TODAS las decisiones y datos técnicos confirmados — listo para escribir FECAESolicitar en la próxima sesión

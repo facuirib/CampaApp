@@ -1,4 +1,14 @@
-import { autenticarArca } from './arca-wsaa-core.ts'
+import { autenticarArca, type TicketAcceso } from './arca-wsaa-core.ts'
+
+/**
+ * Métodos de CONSULTA del webservice de negocio wsfev1. Todas las
+ * funciones (salvo feDummy, que no necesita autenticación) reciben un
+ * TicketAcceso ya obtenido, en vez de autenticar cada una por su
+ * cuenta — el WSAA de ARCA rechaza pedir un token nuevo si ya hay uno
+ * vigente para el mismo servicio (error coe.alreadyAuthenticated,
+ * confirmado hoy 25/08). Un ticket dura 12hs — se pide una vez y se
+ * reusa en todas las llamadas de esa sesión.
+ */
 
 const WSFEV1_URL_PRODUCCION = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
 const WSFEV1_URL_HOMOLOGACION = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx'
@@ -38,6 +48,15 @@ async function llamarWsfev1(
   return respuesta.text()
 }
 
+function bloqueAuth(ticket: TicketAcceso, cuit: string): string {
+  return `
+    <ar:Auth>
+      <ar:Token>${ticket.token}</ar:Token>
+      <ar:Sign>${ticket.sign}</ar:Sign>
+      <ar:Cuit>${cuit}</ar:Cuit>
+    </ar:Auth>`
+}
+
 export async function feDummy(produccion: boolean): Promise<{
   appServer: string
   dbServer: string
@@ -53,19 +72,13 @@ export async function feDummy(produccion: boolean): Promise<{
 }
 
 export async function ultimoComprobanteAutorizado(
+  ticket: TicketAcceso,
   cuit: string,
   puntoVenta: number,
   tipoComprobante: number,
   produccion: boolean
 ): Promise<number> {
-  const ticket = await autenticarArca('wsfe', produccion)
-
-  const cuerpo = `
-    <ar:Auth>
-      <ar:Token>${ticket.token}</ar:Token>
-      <ar:Sign>${ticket.sign}</ar:Sign>
-      <ar:Cuit>${cuit}</ar:Cuit>
-    </ar:Auth>
+  const cuerpo = `${bloqueAuth(ticket, cuit)}
     <ar:PtoVta>${puntoVenta}</ar:PtoVta>
     <ar:CbteTipo>${tipoComprobante}</ar:CbteTipo>`
 
@@ -91,18 +104,11 @@ export interface PuntoVenta {
 }
 
 export async function puntosDeVentaHabilitados(
+  ticket: TicketAcceso,
   cuit: string,
   produccion: boolean
 ): Promise<PuntoVenta[]> {
-  const ticket = await autenticarArca('wsfe', produccion)
-
-  const cuerpo = `
-    <ar:Auth>
-      <ar:Token>${ticket.token}</ar:Token>
-      <ar:Sign>${ticket.sign}</ar:Sign>
-      <ar:Cuit>${cuit}</ar:Cuit>
-    </ar:Auth>`
-
+  const cuerpo = bloqueAuth(ticket, cuit)
   const xml = await llamarWsfev1('FEParamGetPtosVenta', cuerpo, produccion)
 
   const puntos: PuntoVenta[] = []
@@ -133,17 +139,10 @@ export interface CondicionIva {
 }
 
 export async function condicionesIvaReceptor(
+  ticket: TicketAcceso,
   produccion: boolean
 ): Promise<CondicionIva[]> {
-  const ticket = await autenticarArca('wsfe', produccion)
-
-  const cuerpo = `
-    <ar:Auth>
-      <ar:Token>${ticket.token}</ar:Token>
-      <ar:Sign>${ticket.sign}</ar:Sign>
-      <ar:Cuit>30715502670</ar:Cuit>
-    </ar:Auth>`
-
+  const cuerpo = bloqueAuth(ticket, '30715502670')
   const xml = await llamarWsfev1('FEParamGetCondicionIvaReceptor', cuerpo, produccion)
 
   const condiciones: CondicionIva[] = []
@@ -164,4 +163,36 @@ export async function condicionesIvaReceptor(
   }
 
   return condiciones
+}
+
+export interface TipoIva {
+  id: number
+  descripcion: string
+}
+
+export async function tiposDeIva(
+  ticket: TicketAcceso,
+  produccion: boolean
+): Promise<TipoIva[]> {
+  const cuerpo = bloqueAuth(ticket, '30715502670')
+  const xml = await llamarWsfev1('FEParamGetTiposIva', cuerpo, produccion)
+
+  const tipos: TipoIva[] = []
+  const regex = /<IvaTipo>([\s\S]*?)<\/IvaTipo>/g
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(xml)) !== null) {
+    const bloque = match[1]
+    const id = bloque.match(/<Id>([\s\S]*?)<\/Id>/)?.[1]
+    const desc = bloque.match(/<Desc>([\s\S]*?)<\/Desc>/)?.[1]
+
+    if (id) {
+      tipos.push({
+        id: parseInt(id, 10),
+        descripcion: desc ?? 'desconocido',
+      })
+    }
+  }
+
+  return tipos
 }
