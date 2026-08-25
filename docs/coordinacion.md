@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ ARCA · autenticación WSAA verificada contra el servicio real · para Facu
+
+Primer hito técnico grande de la integración: la autenticación (WSAA) contra ARCA funciona contra el servidor real de producción. Verificado hoy — el certificado generado, la firma CMS/PKCS#7 (con node-forge, sin dependencias de terceros para AFIP) y el parseo de la respuesta, todo correcto a la primera prueba.
+
+Importante: esto SOLO hace login, no emite ningún comprobante. El próximo paso es el webservice de negocio (wsfev1, pedido de CAE), que sí genera documentos fiscales reales — ese paso lo vamos a hacer con más cuidado todavía, probablemente primero contra el ambiente de homologación de wsfev1 (que sí es seguro probar sin comprometer numeración real, a diferencia de WSASS que vimos que no aplica bien para nuestro caso).
+
+Código en lib/arca-wsaa.ts (con guard server-only) + lib/arca-wsaa-core.ts (lógica pura, reusable en scripts de prueba). Nada sensible en el repo — cert/key solo en .env.local, .gitignore actualizado.
+
+---
+
 ### 🔧 Avance · certificado de ARCA generado y asociado · para Facu
 
 Paso 0 de la propuesta de facturación (docs/propuestas/comprobantes_y_facturacion.md) completado: certificado digital de CAMPA SRL generado (alias `campa-facturacion`, CUIT 30715502670, válido hasta 24/08/2028) y asociado al servicio Facturación Electrónica (wsfev1) en ARCA. La clave privada y el .crt quedaron solo en la compu de Horacio — nunca se subieron al repo ni se compartieron por chat.
