@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 💡 Propuesta de diseño · comprobantes de gasto + facturación + ARCA · para Facu
+
+Tres piezas, documento completo en docs/propuestas/comprobantes_y_facturacion.md.
+
+1. Adjuntar comprobante a un gasto — chico, listo para construir (RLS ya no la bloquea).
+2. Módulo de facturación propia (A/B/C, recibos, listado) — grande, con una decisión de fondo sin resolver: ¿facturar fiscalmente o alcanza con recibo no fiscal?
+3. Integración con ARCA — decisión ya tomada con Horacio: directo al webservice (wsfev1), sin intermediario pago, por presupuesto. El club tiene acceso a ARCA pero falta generar el certificado digital (trámite del club, primer paso antes de cualquier código).
+
+Es una propuesta grande, sin código todavía — la dejo para que la veas cuando puedas, no es urgente. Si tenés opinión sobre fiscal vs. no fiscal, o preferís que directo al webservice, avisá.
+
+---
+
 ### ✅ ROLES COMPLETO · base + front · 24/08/2026 · de Facu para Horacio
 
 Cerró la Fase 4.4 y con ella el módulo entero. **El front ya no ofrece lo que la
