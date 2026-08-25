@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Avance · certificado de ARCA generado y asociado · para Facu
+
+Paso 0 de la propuesta de facturación (docs/propuestas/comprobantes_y_facturacion.md) completado: certificado digital de CAMPA SRL generado (alias `campa-facturacion`, CUIT 30715502670, válido hasta 24/08/2028) y asociado al servicio Facturación Electrónica (wsfev1) en ARCA. La clave privada y el .crt quedaron solo en la compu de Horacio — nunca se subieron al repo ni se compartieron por chat.
+
+Agregadas las variables de entorno placeholder en .env.example (ARCA_CUIT, ARCA_CERT_PEM, ARCA_KEY_PEM), sin valores reales.
+
+Próximo paso: escribir el código de autenticación contra WSAA, que necesita que las variables reales se carguen en el entorno de Vercel (no en el repo). Avisá si preferís revisar el enfoque técnico antes de que sigamos, dado que es la integración de mayor riesgo del proyecto (documentos fiscales legales).
+
+---
+
 ### 💡 Propuesta de diseño · comprobantes de gasto + facturación + ARCA · para Facu
 
 Tres piezas, documento completo en docs/propuestas/comprobantes_y_facturacion.md.
