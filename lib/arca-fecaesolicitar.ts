@@ -1,5 +1,29 @@
-import 'server-only'
-import type { TicketAcceso } from './arca-wsaa'
+import type { TicketAcceso } from './arca-wsaa-core.ts'
+
+/**
+ * FECAESolicitar — pedido de CAE (Código de Autorización Electrónico).
+ * Este método SÍ emite documentos fiscales reales. Toda llamada exitosa
+ * genera un comprobante numerado que queda registrado en ARCA de forma
+ * irreversible — no hay "deshacer" un CAE otorgado (se corrige con
+ * nota de crédito, un comprobante nuevo, no borrando el original).
+ *
+ * Decisiones confirmadas con Horacio (25/08):
+ *  - Concepto: 2 (Servicio) siempre.
+ *  - Punto de venta: 200, fijo.
+ *  - Tipo de comprobante: 01 (Factura A) si condicionIvaReceptorId=1
+ *    (Responsable Inscripto), 06 (Factura B) para el resto.
+ *  - El monto recibido YA INCLUYE IVA — se desarma matemáticamente
+ *    (neto = monto/1.21, iva = monto-neto) PARA LOS DOS TIPOS.
+ *  - CORREGIDO tras el primer intento real (25/08): el array <Iva> es
+ *    obligatorio para Factura A Y B por igual — ARCA rechazó el primer
+ *    intento con "Si ImpNeto es mayor a 0 el objeto IVA es
+ *    obligatorio". La diferencia entre A y B no es "con/sin IVA
+ *    discriminado ante ARCA", es sobre si el receptor puede tomarlo
+ *    como crédito fiscal.
+ *  - Alícuota: Id 5 = 21% (verificado contra ARCA, no de memoria).
+ *  - Resultado='A' (aprobado, con o sin observaciones) -> se guarda con
+ *    el CAE. Solo Resultado='R' (rechazado) es error real, sin CAE.
+ */
 
 const WSFEV1_URL_PRODUCCION = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
 const WSFEV1_URL_HOMOLOGACION = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx'
@@ -76,14 +100,10 @@ export async function solicitarCAE(
     ? TIPO_COMPROBANTE_FACTURA_A
     : TIPO_COMPROBANTE_FACTURA_B
 
-  let impNeto: number
-  let impIva: number
-  let bloqueIva = ''
+  const impNeto = Math.round((datos.montoConIva / 1.21) * 100) / 100
+  const impIva = Math.round((datos.montoConIva - impNeto) * 100) / 100
 
-  if (esResponsableInscripto) {
-    impNeto = Math.round((datos.montoConIva / 1.21) * 100) / 100
-    impIva = Math.round((datos.montoConIva - impNeto) * 100) / 100
-    bloqueIva = `
+  const bloqueIva = `
       <ar:Iva>
         <ar:AlicIva>
           <ar:Id>${ALICUOTA_ID_21_PORCIENTO}</ar:Id>
@@ -91,10 +111,6 @@ export async function solicitarCAE(
           <ar:Importe>${impIva.toFixed(2)}</ar:Importe>
         </ar:AlicIva>
       </ar:Iva>`
-  } else {
-    impNeto = datos.montoConIva
-    impIva = 0
-  }
 
   const fechaHoy = new Date()
   const cbteFch =
