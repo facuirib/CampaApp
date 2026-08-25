@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Corrección · condición de IVA SÍ vive en tercero (default) · para Facu
+
+Ajuste sobre la entrada anterior ("la condición de IVA se elige por transacción, no vive en tercero, no se toca tercero") — esa decisión quedó desactualizada. Horacio pidió que cada equipo tenga un default de facturación (doc_tipo, doc_nro, condición de IVA), editable puntualmente en cada cobro si hace falta cambiarlo.
+
+Migración `20260825210000_tercero_facturacion_default.sql`, aditiva (3 columnas nullable), verificada con begin/rollback.
+
+Modelo final: tercero guarda el default, la función de facturar lo usa salvo que el usuario lo pise explícito para ese cobro puntual. No es "todo por transacción" como decía la entrada vieja — es "default por tercero, override por transacción".
+
+---
+
 ### 💡 Propuesta · tabla factura + registrar_factura_emitida · para Facu
 
 Con Facu en línea, definimos el modelo de facturación: la condición de IVA se elige POR TRANSACCIÓN (no vive en tercero), emitir factura es un paso separado del cobro, tipo de comprobante se deriva automático (A si RI, B para el resto), un solo punto de venta (200) para todo.
