@@ -126,3 +126,42 @@ export async function puntosDeVentaHabilitados(
 
   return puntos
 }
+
+export interface CondicionIva {
+  id: number
+  descripcion: string
+}
+
+export async function condicionesIvaReceptor(
+  produccion: boolean
+): Promise<CondicionIva[]> {
+  const ticket = await autenticarArca('wsfe', produccion)
+
+  const cuerpo = `
+    <ar:Auth>
+      <ar:Token>${ticket.token}</ar:Token>
+      <ar:Sign>${ticket.sign}</ar:Sign>
+      <ar:Cuit>30715502670</ar:Cuit>
+    </ar:Auth>`
+
+  const xml = await llamarWsfev1('FEParamGetCondicionIvaReceptor', cuerpo, produccion)
+
+  const condiciones: CondicionIva[] = []
+  const regex = /<CondicionIvaReceptor>([\s\S]*?)<\/CondicionIvaReceptor>/g
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(xml)) !== null) {
+    const bloque = match[1]
+    const id = bloque.match(/<Id>([\s\S]*?)<\/Id>/)?.[1]
+    const desc = bloque.match(/<Desc>([\s\S]*?)<\/Desc>/)?.[1]
+
+    if (id) {
+      condiciones.push({
+        id: parseInt(id, 10),
+        descripcion: desc ?? 'desconocido',
+      })
+    }
+  }
+
+  return condiciones
+}

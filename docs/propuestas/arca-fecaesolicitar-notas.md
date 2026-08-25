@@ -66,3 +66,37 @@ IMPORTANTE — esto corrige una suposición de las notas anteriores: "Ri Iva" si
 Nota técnica de infraestructura: para correr los scripts de Node contra los servidores de ARCA, hace falta el flag --tls-cipher-list='DEFAULT@SECLEVEL=1' (el servidor de ARCA usa una configuración TLS antigua que Node rechaza por defecto). Esto es solo para los scripts de prueba en Node directo — dentro de Next.js/Vercel puede no hacer falta (verificar cuando se despliegue).
 
 Falta todavía: FECompUltimoAutorizado (elegir uno de los 10 puntos de venta y consultar el próximo número), FEParamGetCondicionIvaReceptor, y confirmar con Facu/contador el tipo de comprobante correcto (A o B) antes de armar FECAESolicitar.
+
+## Condiciones de IVA de receptor — CONFIRMADAS (25/08)
+
+Consultado FEParamGetCondicionIvaReceptor contra producción. Las 11 válidas:
+
+- 1 — IVA Responsable Inscripto
+- 4 — IVA Sujeto Exento
+- 5 — Consumidor Final
+- 6 — Responsable Monotributo
+- 7 — Sujeto No Categorizado
+- 8 — Proveedor del Exterior
+- 9 — Cliente del Exterior
+- 10 — IVA Liberado – Ley N° 19.640
+- 13 — Monotributista Social
+- 15 — IVA No Alcanzado
+- 16 — Monotributo Trabajador Independiente Promovido
+
+Confirma lo que Horacio dijo ("puede haber ambas"): un equipo puede ser Consumidor Final (5) o tener CUIT propio con cualquier otra condición (1, 6, etc).
+
+## Pieza de modelo que falta, no técnica
+
+El sistema (tabla tercero) NO tiene ningún campo hoy que registre la condición de IVA de un equipo/sponsor. Sin ese dato, no se puede armar CondicionIVAReceptorId al facturar. Hace falta:
+1. Agregar una columna a tercero (ej. condicion_iva_id, o el texto directo)
+2. Definir de dónde sale ese dato al cargar un equipo nuevo — ¿lo carga el operador a mano al alta? ¿tiene un default (Consumidor Final) hasta que se corrija?
+
+Esto es una decisión de producto (con Facu), no algo que se resuelva solo con más consultas a ARCA — el dato lo tiene que decidir alguien del proyecto, no ARCA.
+
+## Bug propio corregido durante la verificación
+
+condicionesIvaReceptor no encontraba resultados por un problema de mayúsculas: el código buscaba <CondicionIVAReceptor> (IVA todo mayúscula) pero ARCA devuelve <CondicionIvaReceptor> (solo la I mayúscula). Corregido y verificado — las 11 condiciones se listan correctamente ahora.
+
+## Nota operativa
+
+ARCA avisó mantenimiento programado el lunes 31/08 ~22:00hs (~1 hora) — evitar pruebas en esa ventana.

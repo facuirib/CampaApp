@@ -2,9 +2,9 @@
 // Script de prueba AISLADO. Solo CONSULTA datos de ARCA — no emite
 // ningún comprobante. Seguro de correr contra producción.
 //
-// Correr con: node --env-file=.env.local --experimental-strip-types scripts/probar-arca-consultas.ts
+// Correr con: node --env-file=.env.local --tls-cipher-list='DEFAULT@SECLEVEL=1' --experimental-strip-types scripts/probar-arca-consultas.ts
 
-import { feDummy, puntosDeVentaHabilitados } from '../lib/arca-wsfev1-consultas.ts'
+import { feDummy, puntosDeVentaHabilitados, condicionesIvaReceptor } from '../lib/arca-wsfev1-consultas.ts'
 
 const CUIT_CAMPA = '30715502670'
 
@@ -18,14 +18,16 @@ async function main() {
 
   console.log('2. Consultando puntos de venta habilitados para CAMPA SRL...')
   const puntos = await puntosDeVentaHabilitados(CUIT_CAMPA, true)
-  if (puntos.length === 0) {
-    console.log('   ⚠️  No hay puntos de venta habilitados para web services.')
-    console.log('   Hace falta crear uno en ARCA: "Administración de puntos de venta y domicilios" > A/B/M de puntos de venta.')
-  } else {
-    puntos.forEach((p) => {
-      console.log(`   Punto ${p.numero} — tipo: ${p.emisionTipo} — bloqueado: ${p.bloqueado}`)
-    })
-  }
+  puntos.forEach((p) => {
+    console.log(`   Punto ${p.numero} — tipo: ${p.emisionTipo} — bloqueado: ${p.bloqueado}`)
+  })
+  console.log('')
+
+  console.log('3. Consultando condiciones de IVA de receptor válidas...')
+  const condiciones = await condicionesIvaReceptor(true)
+  condiciones.forEach((c) => {
+    console.log(`   Id ${c.id} — ${c.descripcion}`)
+  })
 }
 
 main().catch((err) => {
