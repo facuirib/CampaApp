@@ -107,6 +107,9 @@ export const GRUPOS: GrupoNav[] = [
       { href: '/inscripciones', label: 'Inscripciones', icon: 'inscripciones' },
       { href: '/calendario', label: 'Calendario', icon: 'calendario' },
       { href: '/cobranza', label: 'Cobranza', icon: 'cobranza' },
+      // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
+      // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
+      { href: '/clientes', label: 'Clientes', icon: 'equipos' },
       { href: '/reclamos', label: 'Reclamos', icon: 'reclamos' },
       { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario' },
       { href: '/torneos', label: 'Torneos', icon: 'equipos' },

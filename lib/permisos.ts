@@ -115,6 +115,15 @@ export const PERMISOS = {
     roles: TODOS_MENOS_LECTURA,
     donde: { fns: ['registrar_cobro', 'imputar_pago'] },
   },
+  'cliente.editar': {
+    // Los datos fiscales de un cliente: lo que después se congela en el
+    // comprobante. Mismos roles que el resto de `tercero` —el que carga un CUIT
+    // es el mismo que carga un cobro— y la policy de la tabla los gobierna sin
+    // función de por medio: la validación ya vive en la base, como constraint.
+    que: 'Editar los datos fiscales y de contacto de un cliente',
+    roles: TODOS_MENOS_LECTURA,
+    donde: { tabla: 'tercero', cmd: 'UPDATE' },
+  },
   'reclamo.registrar': {
     que: 'Dejar registrado un reclamo hecho por WhatsApp o a mano',
     roles: TODOS_MENOS_LECTURA,

@@ -1,7 +1,8 @@
 "use client"
 
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Field, Select } from '@/components/ui'
+import { Field, Input, Select } from '@/components/ui'
 
 export interface FiltroUrl {
   /** Nombre del parámetro en la query string. */
@@ -25,8 +26,25 @@ export interface FiltroUrl {
   valorPorDefecto?: string
 }
 
+/**
+ * Un buscador de texto, opcional, en la misma barra.
+ *
+ * Vive acá y no en un componente aparte porque es el mismo problema: estado en
+ * la URL para que la pantalla filtrada sea un link y la página siga siendo
+ * Server Component. Separarlo daría dos barras que se ven igual y navegan
+ * distinto.
+ */
+export interface BusquedaUrl {
+  parametro: string
+  label: string
+  placeholder?: string
+  /** Clase de ancho. El default —`w-[240px]`— sirve para buscar por nombre. */
+  ancho?: string
+}
+
 export interface FiltrosUrlProps {
   filtros: FiltroUrl[]
+  busqueda?: BusquedaUrl
 }
 
 /**
@@ -46,10 +64,30 @@ export interface FiltrosUrlProps {
  * agrega un paso que nadie espera. `scroll: false` evita el salto al tope
  * cuando alguien filtra con la tabla ya scrolleada.
  */
-export default function FiltrosUrl({ filtros }: FiltrosUrlProps) {
+export default function FiltrosUrl({ filtros, busqueda }: FiltrosUrlProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  // ── El texto se escribe acá y viaja a la URL con retraso ─────────────────
+  //
+  // El `<select>` navega al cambiar porque cambia una vez; el texto cambia en
+  // cada tecla, y navegar por tecla serían diez consultas al servidor para
+  // escribir «Barcelo». Se guarda local mientras se tipea y recién ahí va a la
+  // URL, que sigue siendo la fuente de la verdad.
+  const textoUrl = busqueda ? (searchParams.get(busqueda.parametro) ?? '') : ''
+  const [texto, setTexto] = useState(textoUrl)
+
+  // Si la URL cambia por afuera —el botón atrás, un link con la búsqueda
+  // puesta— el campo tiene que seguirla.
+  useEffect(() => setTexto(textoUrl), [textoUrl])
+
+  useEffect(() => {
+    if (!busqueda || texto === textoUrl) return
+    const id = setTimeout(() => cambiar(busqueda.parametro, texto.trim()), 300)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [texto])
 
   function cambiar(parametro: string, valor: string) {
     const params = new URLSearchParams(searchParams)
@@ -65,6 +103,15 @@ export default function FiltrosUrl({ filtros }: FiltrosUrlProps) {
 
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3">
+      {busqueda && (
+        <Field label={busqueda.label} className={busqueda.ancho ?? 'w-[240px]'}>
+          <Input
+            value={texto}
+            placeholder={busqueda.placeholder}
+            onChange={(e) => setTexto(e.target.value)}
+          />
+        </Field>
+      )}
       {filtros.map((filtro) => (
         <Field key={filtro.parametro} label={filtro.label} className="w-[190px]">
           <Select
