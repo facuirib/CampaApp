@@ -34,11 +34,25 @@ type Visible = readonly Rol[] | undefined
  * mostraría de más. Así, agregar una pantalla y no decir nada la deja fuera
  * del menú del bar, que es el lado seguro del error.
  */
-const OFICINA = ['admin', 'operador', 'read-only'] as const
-/** Sin operador: la decisión A (Societario). */
-const SIN_SOCIETARIO = ['admin', 'read-only'] as const
-/** Lo único que el bar ve: la decisión B. */
+const OFICINA = ['admin', 'operador', 'read-only', 'finanzas'] as const
+/**
+ * Societario: sin operador, con finanzas.
+ *
+ * Sueldos de los dueños y contratos de sponsors. El operador no los ve; finanzas
+ * sí, porque es el rol que los opera.
+ */
+const SIN_SOCIETARIO = ['admin', 'read-only', 'finanzas'] as const
+/** El bar y el arqueo. Finanzas arquea, así que también está. */
 const CON_BAR = ['admin', 'operador', 'read-only', 'bar'] as const
+/** Igual que CON_BAR pero con finanzas: el arqueo es caja, no bar. */
+const CON_ARQUEO = ['admin', 'operador', 'read-only', 'bar', 'finanzas'] as const
+/**
+ * La estructura de la competencia: torneos, series, tarifario, calendario.
+ *
+ * Finanzas queda afuera a propósito — no es su trabajo y no puede escribir esas
+ * tablas, así que ofrecerle la pantalla sería ofrecerle botones que fallan.
+ */
+const SIN_FINANZAS = ['admin', 'operador', 'read-only'] as const
 
 export interface ItemNav {
   href: string
@@ -87,7 +101,7 @@ export interface GrupoNav {
 export const GRUPOS: GrupoNav[] = [
   {
     titulo: null,
-    items: [{ href: '/', label: 'Inicio', icon: 'inicio', roles: CON_BAR }],
+    items: [{ href: '/', label: 'Inicio', icon: 'inicio', roles: CON_ARQUEO }],
   },
   {
     // En el orden en que pasan las cosas: se anota el equipo, se arma el
@@ -105,14 +119,14 @@ export const GRUPOS: GrupoNav[] = [
     titulo: 'Torneo',
     items: [
       { href: '/inscripciones', label: 'Inscripciones', icon: 'inscripciones' },
-      { href: '/calendario', label: 'Calendario', icon: 'calendario' },
+      { href: '/calendario', label: 'Calendario', icon: 'calendario', roles: SIN_FINANZAS },
       { href: '/cobranza', label: 'Cobranza', icon: 'cobranza' },
       // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
       // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
       { href: '/clientes', label: 'Clientes', icon: 'equipos' },
       { href: '/reclamos', label: 'Reclamos', icon: 'reclamos' },
-      { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario' },
-      { href: '/torneos', label: 'Torneos', icon: 'equipos' },
+      { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario', roles: SIN_FINANZAS },
+      { href: '/torneos', label: 'Torneos', icon: 'equipos', roles: SIN_FINANZAS },
     ],
   },
   {
@@ -133,7 +147,7 @@ export const GRUPOS: GrupoNav[] = [
     items: [
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
       { href: '/caja', label: 'Caja', icon: 'caja' },
-      { href: '/arqueo', label: 'Arqueo', icon: 'arqueo', roles: CON_BAR },
+      { href: '/arqueo', label: 'Arqueo', icon: 'arqueo', roles: CON_ARQUEO },
       { href: '/bar', label: 'Bar', icon: 'bar', roles: CON_BAR },
       { href: '/cheques', label: 'Cheques', icon: 'banco' },
       { href: '/activos', label: 'Activos', icon: 'activos' },

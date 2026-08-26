@@ -316,17 +316,31 @@ async function main() {
       const fn = donde.guarda as string
       declaradas.add(fn)
       const src = fuentes.get(fn)
-      // La guarda tiene que estar Y tiene que ser de admin: si alguien la
-      // aflojara a operador, el mapa quedaría más estricto que la base.
-      const tiene = !!src && /auth_rol\(\)[^;]*<>\s*'admin'/.test(src)
-      const soloAdmin = igual(esperado, ['admin'])
-      const ok = tiene && soloAdmin
-      if (!ok) {
+
+      // Ya no alcanza con «¿está la guarda?»: desde que hay más de un rol
+      // habilitado, hay que leer CUÁLES nombra y compararlos con el mapa. Si
+      // alguien le suma un rol a la guarda y no al mapa, el front escondería un
+      // botón que la base permite —y al revés, ofrecería uno que va a fallar.
+      const enLaGuarda = [
+        ...new Set(
+          [...(src ?? '').matchAll(/'(admin|operador|bar|finanzas|read-only)'/g)].map((m) => m[1]),
+        ),
+      ].sort()
+
+      const tiene = !!src && enLaGuarda.length > 0
+      const coinciden = tiene && igual(esperado, enLaGuarda)
+      const ok = tiene && coinciden
+
+      if (!tiene) {
+        problemas.push(`🔴 ${op}: «${fn}» no tiene ninguna guarda de rol en su cuerpo`)
+      } else if (!coinciden) {
         problemas.push(
-          `🔴 ${op}: ${!tiene ? `«${fn}» no tiene la guarda de admin en su cuerpo` : `el mapa dice [${esperado.join(', ')}] y la guarda exige admin`}`,
+          `🔴 ${op}: el mapa dice [${esperado.join(', ')}] y la guarda de «${fn}» nombra [${enLaGuarda.join(', ')}]`,
         )
       }
-      lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [admin]          ← guarda en ${fn}()`)
+      lineas.push(
+        `${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${enLaGuarda.join(' · ')}]   ← guarda en ${fn}()`,
+      )
       continue
     }
 

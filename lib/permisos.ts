@@ -60,8 +60,33 @@ export interface Operacion {
   donde: Donde
 }
 
-const TODOS_MENOS_LECTURA = ['admin', 'operador'] as const
+/**
+ * El día a día: cobros, gastos, cheques, clientes, activos, presupuesto.
+ *
+ * `finanzas` entra en todo esto porque es **admin menos tres cosas**: el bar,
+ * la estructura del torneo y la administración de usuarios.
+ */
+const CON_FINANZAS = ['admin', 'operador', 'finanzas'] as const
+
+/**
+ * Las sensibles y la facturación: admin y finanzas, no el operador.
+ *
+ * Rechazar un cheque reabre la deuda de un equipo, anular un asiento reescribe
+ * el diario, comprar dólares mueve el promedio ponderado y emitir una factura
+ * consume numeración fiscal. Son decisiones de quien responde por la plata.
+ */
+const SENSIBLE = ['admin', 'finanzas'] as const
+
+/** El circuito del bar. Finanzas NO carga el bar. */
 const CON_EL_BAR = ['admin', 'operador', 'bar'] as const
+
+/** El arqueo es caja física del torneo: el bar lo hace, y finanzas también. */
+const ARQUEO = ['admin', 'operador', 'bar', 'finanzas'] as const
+
+/** La estructura del torneo: sin finanzas. */
+const TODOS_MENOS_LECTURA = ['admin', 'operador'] as const
+
+/** Repartir permisos no se delega. */
 const SOLO_ADMIN = ['admin'] as const
 
 export const PERMISOS = {
@@ -112,7 +137,7 @@ export const PERMISOS = {
   // ── Cobranza ─────────────────────────────────────────────────────────────
   'cobro.registrar': {
     que: 'Registrar un cobro e imputarlo a cuotas',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['registrar_cobro', 'imputar_pago'] },
   },
   'cliente.editar': {
@@ -121,45 +146,45 @@ export const PERMISOS = {
     // es el mismo que carga un cobro— y la policy de la tabla los gobierna sin
     // función de por medio: la validación ya vive en la base, como constraint.
     que: 'Editar los datos fiscales y de contacto de un cliente',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { tabla: 'tercero', cmd: 'UPDATE' },
   },
   'reclamo.registrar': {
     que: 'Dejar registrado un reclamo hecho por WhatsApp o a mano',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { tabla: 'reclamo', cmd: 'INSERT' },
   },
   'reclamo.mail': {
     // Mandar el mail NO pasa por RLS, y encima sale antes de registrar: cuando
     // la policy frena el INSERT, el mail ya está en la casilla del equipo.
     que: 'Mandar el reclamo por mail (Resend, sin policy detrás)',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { accion: 'enviarReclamoMail' },
   },
 
   // ── Gastos ───────────────────────────────────────────────────────────────
   'gasto.registrar': {
     que: 'Cargar un gasto (devengo)',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['registrar_gasto'] },
   },
   'gasto.pagar': {
     que: 'Pagar un gasto cargado',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['pagar_gasto'] },
   },
   'gasto.anular': {
     // El bar NO puede, aunque anular sea «un circuito»: la función toca `gasto`
     // y esa tabla no lo tiene en su policy.
     que: 'Anular un gasto (contraasienta devengo y pago)',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['anular_gasto'] },
   },
 
   // ── Cheques ──────────────────────────────────────────────────────────────
   'cheque.mover': {
     que: 'Acreditar o debitar un cheque: el curso normal',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['cambiar_estado_cheque'] },
   },
   'cheque.rechazar': {
@@ -167,7 +192,7 @@ export const PERMISOS = {
     // la MISMA tabla que acreditar. Rechazar revierte el cobro y reabre la
     // deuda del equipo — deshace plata que alguien ya dio por cobrada.
     que: 'Rechazar un cheque: revierte el cobro y reabre la deuda',
-    roles: SOLO_ADMIN,
+    roles: SENSIBLE,
     donde: { guarda: 'cambiar_estado_cheque' },
   },
 
@@ -178,29 +203,29 @@ export const PERMISOS = {
     // de admin. Tampoco se puede separar por policy: asiento.UPDATE es el único
     // punto de control de los cinco circuitos a la vez.
     que: 'Anular un asiento suelto, fuera de todo circuito',
-    roles: SOLO_ADMIN,
+    roles: SENSIBLE,
     donde: { guarda: 'anular_asiento' },
   },
 
   // ── Caja física y bar ────────────────────────────────────────────────────
   'arqueo.registrar': {
     que: 'Registrar un arqueo (contar la caja de un día)',
-    roles: CON_EL_BAR,
+    roles: ARQUEO,
     donde: { fns: ['crear_arqueo'] },
   },
   'arqueo.diferencia': {
     que: 'Asentar la diferencia de un arqueo',
-    roles: CON_EL_BAR,
+    roles: ARQUEO,
     donde: { fns: ['asentar_diferencia_arqueo'] },
   },
   'arqueo.entregar': {
     que: 'Entregar a central el efectivo de un arqueo del torneo',
-    roles: CON_EL_BAR,
+    roles: ARQUEO,
     donde: { fns: ['registrar_entrega_central'] },
   },
   'arqueo.anular': {
     que: 'Anular un arqueo y sus asientos',
-    roles: CON_EL_BAR,
+    roles: ARQUEO,
     donde: { fns: ['anular_arqueo'] },
   },
   'bar.cierre': {
@@ -230,17 +255,17 @@ export const PERMISOS = {
     // la regla. (Y estuvo rota en producción desde la Fase 2 justamente por
     // eso: ninguna función la escribe, así que el relevamiento no la vio.)
     que: 'Dar de alta un activo',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { tabla: 'activo', cmd: 'INSERT' },
   },
   'activo.amortizar': {
     que: 'Asentar la amortización del período',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['asentar_amortizacion'] },
   },
   'presupuesto.editar': {
     que: 'Crear, aprobar y editar el presupuesto y sus líneas',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: {
       fns: [
         'crear_presupuesto',
@@ -256,19 +281,19 @@ export const PERMISOS = {
     // cierra: `periodo` tiene roles distintos por comando, INSERT con bar y
     // UPDATE sin él.
     que: 'Cerrar un período contable',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['cerrar_periodo'] },
   },
   'fondo.movimiento': {
     que: 'Registrar un movimiento del fondo',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { fns: ['registrar_movimiento_fondo'] },
   },
   'usd.operar': {
     // La única sensible que SÍ se separa por policy limpia: sus dos escritores
     // son la misma operación, no hay una tercera función que escriba la tabla.
     que: 'Comprar o vender dólares',
-    roles: SOLO_ADMIN,
+    roles: SENSIBLE,
     donde: { fns: ['comprar_usd', 'vender_usd'] },
   },
 
@@ -280,7 +305,7 @@ export const PERMISOS = {
     // condición por columna: el operador sólo puede filas con
     // `tipo_comprobante = 0`, que son las que NO van a ARCA.
     que: 'Emitir una factura ante ARCA (documento fiscal con CAE)',
-    roles: SOLO_ADMIN,
+    roles: SENSIBLE,
     donde: { tabla: 'comprobante', cmd: 'INSERT', soloSi: 'tipo_comprobante = 0' },
   },
   'comprobante.cerrar': {
@@ -288,21 +313,21 @@ export const PERMISOS = {
     // contesta. Mismo alcance que emitirla: es el segundo tiempo del mismo
     // acto.
     que: 'Cerrar una factura pendiente con la respuesta de ARCA',
-    roles: SOLO_ADMIN,
+    roles: SENSIBLE,
     donde: { tabla: 'comprobante', cmd: 'UPDATE' },
   },
   'recibo.generar': {
     // El comprobante que se le da al equipo al cobrar. No es fiscal, no tiene
     // CAE y no consume numeración de ARCA, así que lo genera quien cobra.
     que: 'Generar un recibo interno (no fiscal, sin CAE)',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { tabla: 'comprobante', cmd: 'INSERT' },
   },
 
   // ── Sistema ──────────────────────────────────────────────────────────────
   'plantilla.editar': {
     que: 'Editar la plantilla de reclamos',
-    roles: TODOS_MENOS_LECTURA,
+    roles: CON_FINANZAS,
     donde: { tabla: 'plantilla_mail', cmd: 'UPDATE' },
   },
   'usuario.gestionar': {

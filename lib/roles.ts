@@ -13,7 +13,7 @@
  *
  * Fijos en el código por ahora. Configurables es fase futura.
  */
-export const ROLES = ['admin', 'operador', 'read-only', 'bar'] as const
+export const ROLES = ['admin', 'operador', 'read-only', 'bar', 'finanzas'] as const
 
 export type Rol = (typeof ROLES)[number]
 
@@ -22,4 +22,5 @@ export const ROL_LABEL: Record<Rol, string> = {
   operador: 'Operador',
   'read-only': 'Solo lectura',
   bar: 'Bar',
+  finanzas: 'Finanzas',
 }

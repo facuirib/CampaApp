@@ -17,6 +17,10 @@ export interface FilaUsuario {
 
 const ROL_BADGE: Record<Rol, CeldaBadge['estado']> = {
   admin: 'info',
+  // Finanzas comparte color con admin: son los dos que pueden lo sensible
+  // —rechazar un cheque, anular un asiento, operar dólares— y conviene que se
+  // lean como el mismo peso al mirar la lista de usuarios.
+  finanzas: 'info',
   operador: 'ok',
   'read-only': 'neutro',
   bar: 'porVencer',
