@@ -71,6 +71,70 @@ Verificador **verde con 34 operaciones**.
 
 ---
 
+### 🟢 Facturación · el generador de recibo PDF, listo para enganchar · 26/08/2026 · de Facu para Horacio
+
+`lib/pdf/recibo.ts` — `generarReciboPDF(datos)` devuelve los bytes de un PDF de
+una hoja. **Es una función pura**: recibe los datos y no consulta la base, así
+que sirve igual en los tres momentos que van a existir —al cobrar, al
+descargarlo de nuevo, al mandarlo por mail— sin tocarla.
+
+**Y por eso el PDF no se guarda en ningún lado.** La fila de `comprobante` tiene
+el receptor y el detalle congelados, así que el render se repite idéntico cuando
+haga falta. El PDF no es el documento: la fila lo es. (Storage sólo va a hacer
+falta el día que se mande por WhatsApp, que necesita un link.)
+
+Lleva la leyenda **«RECIBO — NO VÁLIDO COMO FACTURA»** en una banda con borde
+arriba de todo, antes del contenido: es lo que define qué es ese papel. Con
+borde y negrita y no sólo color de fondo, porque se va a imprimir en blanco y
+negro y ahí el color no existe. No lleva CAE, ni QR, ni punto de venta — eso es
+de la factura fiscal.
+
+`pdf-lib` (JS puro, sin binarios, anda en serverless). El PDF pesa 2 KB porque
+usa Helvetica, una de las 14 estándar del formato, que no se embebe.
+
+**Un hallazgo que vale para cualquier cosa que imprima texto del usuario:** las
+fuentes estándar encodean WinAnsi, y `drawText` con un carácter afuera —un
+emoji, una flecha— **tira excepción**. Un equipo llamado «Barcelo 🏆» habría
+roto el recibo al cobrarle, con el operador y el equipo esperando el papel. Se
+sanea en el render (se descarta el carácter, no se falla) y lo guardado queda
+intacto.
+
+**Falta el domicilio del emisor** y por eso no se imprime: antes que un
+placeholder que alguien lea como dato, no va. Cuando Facu lo pase, es una línea.
+
+---
+
+### 📌 PARA HORACIO · lo del recibo que toca tu carril · 26/08/2026
+
+Tres cosas que quedan pendientes de coordinar, en orden de dependencia:
+
+**① Que el recibo nazca en `registrar_cobro`.** La fila del comprobante tiene
+que crearse **en la misma transacción que el pago**: si la crea el front en una
+segunda llamada, existe el estado «cobro sin recibo» —la plata entró y el equipo
+se fue sin comprobante, y nadie se entera—. Es el mismo argumento que el pago y
+su asiento. Toca tu función, así que lo hablamos antes.
+
+El número sale de `nextval('comprobante_recibo_numero_seq')`, que ya está
+aplicada. **Los huecos no importan** —una sequence no vuelve atrás con el
+rollback— y es a propósito: el recibo interno no es fiscal y no exige
+correlatividad sin saltos. La factura de ARCA sí, y por eso ésa **no** usa la
+sequence: su número lo da ARCA y necesita el advisory lock alrededor de
+«preguntar + emitir».
+
+**② El envío por mail.** `enviarMail({to, subject, html})` **no soporta
+adjuntos**; Resend sí, es agregarle `attachments` al wrapper. Se mandan estos
+bytes, sin guardar nada.
+
+**③ WhatsApp necesita Storage.** El `wa.me` sólo lleva texto, así que para
+mandar el PDF hay que hospedarlo y mandar el link. Es la primera necesidad real
+de Storage del proyecto — 0 buckets hoy.
+
+*(Y el freno de siempre: 1 contacto y 5 emails de 307 clientes. El recibo se
+**genera** siempre; el **envío** depende de que haya dónde mandarlo. Para el
+resto: descargar o imprimir.)*
+
+---
+
 ### 📌 PARA HORACIO · el motor, la puerta y el punto de venta · 26/08/2026
 
 Los dos salieron del relevamiento de integración, y **los dos son de tu carril**
