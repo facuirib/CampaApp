@@ -49,23 +49,30 @@ export interface DatosRecibo {
   monto: number
   /** Quién lo emitió, para el pie. Opcional: puede no saberse el nombre. */
   emitidoPor?: string | null
+  /**
+   * El emisor, traído de la tabla `emisor` por quien llama.
+   *
+   * Entra por parámetro y no se lee acá: el generador no consulta la base, y
+   * así el día que la razón social cambie en Configuración este módulo no se
+   * entera —ni tiene por qué—.
+   */
+  emisor: DatosEmisor
+}
+
+export interface DatosEmisor {
+  razonSocial: string
+  cuit: string
 }
 
 /**
- * El emisor.
+ * Lo único del emisor que no sale de la base: el subtítulo de marca.
  *
- * Vive acá y no en la base porque hoy hay uno solo y no cambia. El CUIT es el
- * del certificado de ARCA, verificado contra el servicio.
- *
- * **Falta el domicilio y por eso no se imprime.** Antes que poner un placeholder
- * que alguien lea como dato, no va: un domicilio inventado en un comprobante es
- * peor que un comprobante sin domicilio. Cuando Facu lo pase, se agrega acá.
+ * **El recibo no lleva domicilio, y ahora hay una razón mejor que «no hace
+ * falta»:** el domicilio pertenece al PUNTO DE VENTA —es el que determina
+ * Comercio e Industria— y el recibo interno **no tiene punto** (usa 0). Un
+ * recibo con dirección estaría afirmando algo sobre C&I que no le corresponde.
  */
-const EMISOR = {
-  nombre: 'CAMPA',
-  descripcion: 'Gestión administrativa',
-  cuit: '30-71550267-0',
-} as const
+const BAJADA = 'Gestión administrativa'
 
 // La paleta del sistema, para que el papel se parezca a la pantalla.
 const TINTA = rgb(0.043, 0.082, 0.141) //  --ink   #0b1524
@@ -159,7 +166,7 @@ function textoDerecha(
 export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
 
-  pdf.setTitle(`Recibo ${numeroFormateado(datos.numero)} · ${EMISOR.nombre}`)
+  pdf.setTitle(`Recibo ${numeroFormateado(datos.numero)} · ${datos.emisor.razonSocial}`)
   pdf.setSubject('Recibo interno — no válido como factura')
   pdf.setProducer('CAMPA')
 
@@ -191,13 +198,13 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
   // El nombre arranca después del isologo, con el aire que usa el sidebar.
   const xTexto = MARGEN + ISOLOGO + 12
 
-  texto(ctx, EMISOR.nombre, xTexto, y - 18, { font: negrita, size: 22 })
-  texto(ctx, EMISOR.descripcion.toUpperCase(), xTexto, y - 30, {
+  texto(ctx, datos.emisor.razonSocial, xTexto, y - 18, { font: negrita, size: 22 })
+  texto(ctx, BAJADA.toUpperCase(), xTexto, y - 30, {
     font: regular,
     size: 7.5,
     color: GRIS,
   })
-  texto(ctx, `CUIT ${EMISOR.cuit}`, xTexto, y - 46, { font: regular, size: 9, color: GRIS })
+  texto(ctx, `CUIT ${datos.emisor.cuit}`, xTexto, y - 46, { font: regular, size: 9, color: GRIS })
 
   // El bloque del documento, a la derecha: lo primero que se busca al recibirlo.
   textoDerecha(ctx, 'RECIBO', derecha, y - 18, { font: negrita, size: 22, color: AZUL })
@@ -317,7 +324,7 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
       color: GRIS,
     })
   }
-  textoDerecha(ctx, `${EMISOR.nombre} · CUIT ${EMISOR.cuit}`, derecha, yPie, {
+  textoDerecha(ctx, `${datos.emisor.razonSocial} · CUIT ${datos.emisor.cuit}`, derecha, yPie, {
     font: regular,
     size: 8,
     color: GRIS,

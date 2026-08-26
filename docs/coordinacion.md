@@ -71,6 +71,60 @@ Verificador **verde con 34 operaciones**.
 
 ---
 
+### ⚠️ PARA HORACIO · `registrar_factura_emitida` CAMBIÓ DE FIRMA · 26/08/2026
+
+**Le agregamos `p_punto_venta` y ya no hardcodea el 200.** Si tenías pensado
+llamarla con la firma vieja, no existe más — va con `drop` porque agregar un
+parámetro sobrecarga en vez de reemplazar.
+
+    registrar_factura_emitida(
+      p_pago_id                   uuid,
+      p_cuota_cobro_sponsor_id    uuid,
+      p_tipo_comprobante          smallint,
+      p_punto_venta               smallint,   ← NUEVO, en 4º lugar
+      p_numero                    integer,
+      p_condicion_iva_receptor_id smallint,
+      p_monto                     numeric,
+      p_cae                       text,
+      p_cae_vencimiento           date,
+      p_emitida_por               uuid default null,
+      p_receptor_nombre           text default null,
+      p_receptor_doc_tipo         smallint default null,
+      p_receptor_doc_nro          text default null,
+      p_neto                      numeric default null,
+      p_iva                       numeric default null,
+      p_fecha_emision             date default null,
+      p_detalle                   text default null
+    ) returns uuid
+
+**El punto va cuarto, no al final**, para que quede al lado del tipo de
+comprobante: los dos juntos son lo que identifica el comprobante ante ARCA.
+
+Se parametrizó ahora porque era gratis —cero llamadores, cero comprobantes— y
+porque dejarla con el 200 fijo era una bomba para el día de la integración:
+habría facturado todo desde el Aeropuerto sin que nadie lo note, y **con el
+domicilio decidiendo Comercio e Industria eso es un error fiscal, no un bug de
+display**.
+
+**La función hace dos cosas más, y conviene saberlas:**
+
+· **Congela el domicilio** del punto elegido en `comprobante.emisor_domicilio`.
+  Es el único momento en que corresponde mirarlo; después la fila es el
+  documento. Vos no tenés que pasarlo.
+
+· **Valida que el punto exista y esté activo**, y si no, el error dice cuáles
+  hay: «El punto de venta 200 no existe o está desactivado. Los habilitados son:
+  10 (TORNEO AEP), 11 (TORNEO TIR).» Mejor que se caiga acá y lo diga, a que
+  falle del otro lado con un mensaje de ARCA.
+
+**Y del lado del motor** (`lib/arca-fecaesolicitar.ts`, tu carril, no lo
+tocamos): `const PUNTO_VENTA = 200` y el CUIT hardcodeado en
+`arca-wsfev1-consultas.ts` tienen que pasar a leerse de las tablas `punto_venta`
+y `emisor`. El 200 no es un punto habilitado del club: los reales son el **10
+(TORNEO AEP)** y el **11 (TORNEO TIR)**, los dos RECE.
+
+---
+
 ### 🟢 Facturación · el generador de recibo PDF, listo para enganchar · 26/08/2026 · de Facu para Horacio
 
 `lib/pdf/recibo.ts` — `generarReciboPDF(datos)` devuelve los bytes de un PDF de
@@ -99,8 +153,11 @@ roto el recibo al cobrarle, con el operador y el equipo esperando el papel. Se
 sanea en el render (se descarta el carácter, no se falla) y lo guardado queda
 intacto.
 
-**El emisor no lleva domicilio, y es decisión tomada** (Facu, 26/08): el recibo
-es interno y no lo necesita. El de la Factura A es otra cosa y va cuando exista
+**El emisor del recibo entra por parámetro** —lo trae quien llama, de la tabla
+`emisor`— y **no lleva domicilio**, ahora con una razón mejor que «no hace
+falta»: el domicilio pertenece al PUNTO DE VENTA, y el recibo interno no tiene
+punto (usa 0). Un recibo con dirección afirmaría algo sobre C&I que no le
+corresponde. El de la Factura A es otra cosa y va cuando exista
 esa hoja.
 
 **El isologo va como PATH vectorial, no como imagen.** El PNG son 512×512 y

@@ -1139,6 +1139,7 @@ export type Database = {
           created_at: string
           cuota_cobro_sponsor_id: string | null
           detalle: string | null
+          emisor_domicilio: string | null
           emitida_por: string | null
           error_detalle: string | null
           estado: string
@@ -1163,6 +1164,7 @@ export type Database = {
           created_at?: string
           cuota_cobro_sponsor_id?: string | null
           detalle?: string | null
+          emisor_domicilio?: string | null
           emitida_por?: string | null
           error_detalle?: string | null
           estado?: string
@@ -1173,7 +1175,7 @@ export type Database = {
           neto?: number | null
           numero: number
           pago_id?: string | null
-          punto_venta?: number
+          punto_venta: number
           receptor_doc_nro?: string | null
           receptor_doc_tipo?: number | null
           receptor_domicilio?: string | null
@@ -1187,6 +1189,7 @@ export type Database = {
           created_at?: string
           cuota_cobro_sponsor_id?: string | null
           detalle?: string | null
+          emisor_domicilio?: string | null
           emitida_por?: string | null
           error_detalle?: string | null
           estado?: string
@@ -2148,6 +2151,41 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      emisor: {
+        Row: {
+          condicion_iva_id: number
+          cuit: string
+          id: boolean
+          ingresos_brutos: string | null
+          inicio_actividades: string | null
+          razon_social: string
+        }
+        Insert: {
+          condicion_iva_id: number
+          cuit: string
+          id?: boolean
+          ingresos_brutos?: string | null
+          inicio_actividades?: string | null
+          razon_social: string
+        }
+        Update: {
+          condicion_iva_id?: number
+          cuit?: string
+          id?: boolean
+          ingresos_brutos?: string | null
+          inicio_actividades?: string | null
+          razon_social?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emisor_condicion_iva_id_fkey"
+            columns: ["condicion_iva_id"]
+            isOneToOne: false
+            referencedRelation: "condicion_iva_receptor"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       envio: {
         Row: {
@@ -3688,6 +3726,27 @@ export type Database = {
             referencedColumns: ["presupuesto_id"]
           },
         ]
+      }
+      punto_venta: {
+        Row: {
+          activo: boolean
+          domicilio: string
+          nombre: string
+          numero: number
+        }
+        Insert: {
+          activo?: boolean
+          domicilio: string
+          nombre: string
+          numero: number
+        }
+        Update: {
+          activo?: boolean
+          domicilio?: string
+          nombre?: string
+          numero?: number
+        }
+        Relationships: []
       }
       reclamo: {
         Row: {
@@ -7642,6 +7701,7 @@ export type Database = {
           p_neto?: number
           p_numero: number
           p_pago_id: string
+          p_punto_venta: number
           p_receptor_doc_nro?: string
           p_receptor_doc_tipo?: number
           p_receptor_nombre?: string

@@ -24,6 +24,9 @@ const bytes = await generarReciboPDF({
   detalle: 'Cuota 3 · Clausura 2026',
   monto: 130000,
   emitidoPor: 'Facundo Bosch',
+  // En la app esto sale de la tabla `emisor`; acá se pasa a mano porque el
+  // script no toca la base.
+  emisor: { razonSocial: 'CAMPA SRL', cuit: '30-71550267-0' },
 })
 
 writeFileSync(salida, bytes)

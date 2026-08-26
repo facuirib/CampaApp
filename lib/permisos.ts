@@ -330,6 +330,28 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { tabla: 'plantilla_mail', cmd: 'UPDATE' },
   },
+  'emisor.editar': {
+    // Los datos fiscales del club: razón social, CUIT, ingresos brutos. Solo
+    // admin — `finanzas` factura, pero no cambia quién factura.
+    que: 'Editar los datos fiscales del emisor',
+    roles: SOLO_ADMIN,
+    donde: { tabla: 'emisor', cmd: 'UPDATE' },
+  },
+  'punto_venta.crear': {
+    // Un punto de venta nuevo se habilita primero en ARCA y después se carga
+    // acá. Es configuración fiscal, no operación.
+    que: 'Agregar un punto de venta',
+    roles: SOLO_ADMIN,
+    donde: { tabla: 'punto_venta', cmd: 'INSERT' },
+  },
+  'punto_venta.editar': {
+    // Incluye desactivarlo, que es como se da de baja: borrarlo dejaría a los
+    // comprobantes que emitió apuntando al vacío.
+    que: 'Editar o desactivar un punto de venta',
+    roles: SOLO_ADMIN,
+    donde: { tabla: 'punto_venta', cmd: 'UPDATE' },
+  },
+
   'usuario.gestionar': {
     // `service_role` no pasa por ninguna policy: el `if` de la Server Action no
     // es una comodidad de UI, es la única defensa que hay.

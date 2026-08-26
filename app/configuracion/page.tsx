@@ -42,6 +42,11 @@ const SECCIONES: Seccion[] = [
     pronto: true,
   },
   {
+    href: '/configuracion/emisor',
+    titulo: 'Emisor y puntos de venta',
+    descripcion: 'Con qué datos factura el club y desde qué domicilios.',
+  },
+  {
     href: '/configuracion/usuarios',
     titulo: 'Usuarios',
     descripcion: 'Quién entra al sistema y con qué permisos.',
