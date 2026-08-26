@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 // corre tal cual en Node —el script de prueba lo importa directo— y eso es
 // parte de que sea una función pura y no una pieza atada al framework.
 import { formatDate, formatMoney } from '../format.ts'
+import { ISOLOGO_LADO, ISOLOGO_PATH } from './isologo.ts'
 
 /**
  * El recibo interno, en PDF.
@@ -75,6 +76,9 @@ const BLANCO = rgb(1, 1, 1)
 
 const A4 = { ancho: 595.28, alto: 841.89 }
 const MARGEN = 48
+
+/** El lado del isologo en el encabezado, en puntos. */
+const ISOLOGO = 34
 
 /**
  * Los caracteres que WinAnsi agrega arriba de Latin-1 (comillas curvas, guion
@@ -174,13 +178,26 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
   // ── Encabezado ───────────────────────────────────────────────────────────
   let y = A4.alto - MARGEN
 
-  texto(ctx, EMISOR.nombre, MARGEN, y - 18, { font: negrita, size: 22 })
-  texto(ctx, EMISOR.descripcion.toUpperCase(), MARGEN, y - 32, {
+  // El isologo, en vector. `drawSvgPath` toma (x, y) como la esquina SUPERIOR
+  // izquierda y dibuja hacia abajo, al revés que el resto de pdf-lib: por eso
+  // este `y` es el tope del bloque y no su base.
+  page.drawSvgPath(ISOLOGO_PATH, {
+    x: MARGEN,
+    y: y,
+    scale: ISOLOGO / ISOLOGO_LADO,
+    color: TINTA,
+  })
+
+  // El nombre arranca después del isologo, con el aire que usa el sidebar.
+  const xTexto = MARGEN + ISOLOGO + 12
+
+  texto(ctx, EMISOR.nombre, xTexto, y - 18, { font: negrita, size: 22 })
+  texto(ctx, EMISOR.descripcion.toUpperCase(), xTexto, y - 30, {
     font: regular,
     size: 7.5,
     color: GRIS,
   })
-  texto(ctx, `CUIT ${EMISOR.cuit}`, MARGEN, y - 48, { font: regular, size: 9, color: GRIS })
+  texto(ctx, `CUIT ${EMISOR.cuit}`, xTexto, y - 46, { font: regular, size: 9, color: GRIS })
 
   // El bloque del documento, a la derecha: lo primero que se busca al recibirlo.
   textoDerecha(ctx, 'RECIBO', derecha, y - 18, { font: negrita, size: 22, color: AZUL })

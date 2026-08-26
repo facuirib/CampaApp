@@ -99,8 +99,17 @@ roto el recibo al cobrarle, con el operador y el equipo esperando el papel. Se
 sanea en el render (se descarta el carácter, no se falla) y lo guardado queda
 intacto.
 
-**Falta el domicilio del emisor** y por eso no se imprime: antes que un
-placeholder que alguien lea como dato, no va. Cuando Facu lo pase, es una línea.
+**El emisor no lleva domicilio, y es decisión tomada** (Facu, 26/08): el recibo
+es interno y no lo necesita. El de la Factura A es otra cosa y va cuando exista
+esa hoja.
+
+**El isologo va como PATH vectorial, no como imagen.** El PNG son 512×512 y
+24 KB —reducido a 120 px seguía pesando 8,9 KB— y habría llevado el PDF de 2 a
+más de 10 KB. El SVG es un solo path, así que `drawSvgPath` lo dibuja como
+vector: **el recibo pasó de 2,0 a 2,7 KB**, es nítido a cualquier tamaño y en
+papel sale con el filo de la impresora. Va como constante en `lib/pdf/isologo.ts`
+y no leyendo el archivo: `public/` no viaja al bundle de una función serverless,
+así que un `readFile` andaría en local y fallaría en Vercel.
 
 ---
 
