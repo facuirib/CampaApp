@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1110,6 +1110,110 @@ export type Database = {
           },
         ]
       }
+      comprobante: {
+        Row: {
+          cae: string | null
+          cae_vencimiento: string | null
+          condicion_iva_receptor_id: number
+          created_at: string
+          cuota_cobro_sponsor_id: string | null
+          detalle: string | null
+          emitida_por: string | null
+          error_detalle: string | null
+          estado: string
+          fecha_emision: string
+          id: string
+          iva: number | null
+          monto: number
+          neto: number | null
+          numero: number
+          pago_id: string | null
+          punto_venta: number
+          receptor_doc_nro: string | null
+          receptor_doc_tipo: number | null
+          receptor_domicilio: string | null
+          receptor_nombre: string | null
+          tipo_comprobante: number
+        }
+        Insert: {
+          cae?: string | null
+          cae_vencimiento?: string | null
+          condicion_iva_receptor_id: number
+          created_at?: string
+          cuota_cobro_sponsor_id?: string | null
+          detalle?: string | null
+          emitida_por?: string | null
+          error_detalle?: string | null
+          estado?: string
+          fecha_emision?: string
+          id?: string
+          iva?: number | null
+          monto: number
+          neto?: number | null
+          numero: number
+          pago_id?: string | null
+          punto_venta?: number
+          receptor_doc_nro?: string | null
+          receptor_doc_tipo?: number | null
+          receptor_domicilio?: string | null
+          receptor_nombre?: string | null
+          tipo_comprobante: number
+        }
+        Update: {
+          cae?: string | null
+          cae_vencimiento?: string | null
+          condicion_iva_receptor_id?: number
+          created_at?: string
+          cuota_cobro_sponsor_id?: string | null
+          detalle?: string | null
+          emitida_por?: string | null
+          error_detalle?: string | null
+          estado?: string
+          fecha_emision?: string
+          id?: string
+          iva?: number | null
+          monto?: number
+          neto?: number | null
+          numero?: number
+          pago_id?: string | null
+          punto_venta?: number
+          receptor_doc_nro?: string | null
+          receptor_doc_tipo?: number | null
+          receptor_domicilio?: string | null
+          receptor_nombre?: string | null
+          tipo_comprobante?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factura_cuota_cobro_sponsor_id_fkey"
+            columns: ["cuota_cobro_sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "cuota_cobro_sponsor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factura_cuota_cobro_sponsor_id_fkey"
+            columns: ["cuota_cobro_sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuotas_sponsor"
+            referencedColumns: ["cuota_id"]
+          },
+          {
+            foreignKeyName: "factura_cuota_cobro_sponsor_id_fkey"
+            columns: ["cuota_cobro_sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuotas_sponsor_futuras"
+            referencedColumns: ["cuota_id"]
+          },
+          {
+            foreignKeyName: "factura_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compromiso: {
         Row: {
           asiento_id: string | null
@@ -1353,6 +1457,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      condicion_iva_receptor: {
+        Row: {
+          activa: boolean
+          descripcion: string
+          id: number
+        }
+        Insert: {
+          activa?: boolean
+          descripcion: string
+          id: number
+        }
+        Update: {
+          activa?: boolean
+          descripcion?: string
+          id?: number
+        }
+        Relationships: []
       }
       config_contable: {
         Row: {
@@ -3863,29 +3985,52 @@ export type Database = {
       tercero: {
         Row: {
           activo: boolean
+          condicion_iva_receptor_default: number | null
           contacto: string | null
+          doc_nro_default: string | null
+          doc_tipo_default: number | null
+          domicilio_fiscal: string | null
           email: string | null
           id: string
           nombre: string
+          razon_social: string | null
           tipo: string
         }
         Insert: {
           activo?: boolean
+          condicion_iva_receptor_default?: number | null
           contacto?: string | null
+          doc_nro_default?: string | null
+          doc_tipo_default?: number | null
+          domicilio_fiscal?: string | null
           email?: string | null
           id?: string
           nombre: string
+          razon_social?: string | null
           tipo: string
         }
         Update: {
           activo?: boolean
+          condicion_iva_receptor_default?: number | null
           contacto?: string | null
+          doc_nro_default?: string | null
+          doc_tipo_default?: number | null
+          domicilio_fiscal?: string | null
           email?: string | null
           id?: string
           nombre?: string
+          razon_social?: string | null
           tipo?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tercero_condicion_iva_fk"
+            columns: ["condicion_iva_receptor_default"]
+            isOneToOne: false
+            referencedRelation: "condicion_iva_receptor"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       torneo: {
         Row: {
@@ -6915,6 +7060,7 @@ export type Database = {
         Args: { p_arqueo_id: string; p_created_by?: string; p_fecha?: string }
         Returns: string
       }
+      auth_rol: { Args: never; Returns: string }
       borrar_categoria: { Args: { p_categoria_id: string }; Returns: undefined }
       borrar_linea_presupuesto: {
         Args: { p_linea_id: string }
@@ -7000,6 +7146,7 @@ export type Database = {
       }
       crear_contrato_sponsor: {
         Args: {
+          p_created_by?: string
           p_cuotas?: Json
           p_fecha_firma?: string
           p_monto_total: number
@@ -7104,6 +7251,7 @@ export type Database = {
         }
         Returns: string
       }
+      cuit_valido: { Args: { p_cuit: string }; Returns: boolean }
       desactivar_cat_gasto: {
         Args: { p_cat_gasto_id: string }
         Returns: undefined
@@ -7185,11 +7333,7 @@ export type Database = {
       }
       generar_cuotas_plan: { Args: { p_plan_id: string }; Returns: number }
       generar_grilla_liga: {
-        Args: {
-          p_fechas_fem?: number
-          p_fechas_masc?: number
-          p_torneo_id: string
-        }
+        Args: { p_cantidad_fechas: number; p_serie_id: string }
         Returns: number
       }
       imputar_pago: {
@@ -7292,6 +7436,7 @@ export type Database = {
       }
       registrar_cobro_sponsor: {
         Args: {
+          p_created_by?: string
           p_cuota_id: string
           p_fecha?: string
           p_medio: string
@@ -7304,6 +7449,27 @@ export type Database = {
           p_arqueo_id: string
           p_fecha?: string
           p_responsable_id?: string
+        }
+        Returns: string
+      }
+      registrar_factura_emitida: {
+        Args: {
+          p_cae: string
+          p_cae_vencimiento: string
+          p_condicion_iva_receptor_id: number
+          p_cuota_cobro_sponsor_id: string
+          p_detalle?: string
+          p_emitida_por?: string
+          p_fecha_emision?: string
+          p_iva?: number
+          p_monto: number
+          p_neto?: number
+          p_numero: number
+          p_pago_id: string
+          p_receptor_doc_nro?: string
+          p_receptor_doc_tipo?: number
+          p_receptor_nombre?: string
+          p_tipo_comprobante: number
         }
         Returns: string
       }
