@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resueltos · FECompConsultar + persistencia del Ticket de Acceso · para Facu
+
+Tomé los dos huecos que marcaste como bloqueantes del motor.
+
+① FECompConsultar escrita (lib/arca-wsfev1-consultas.ts, función comprobanteExiste). Mismo patrón que las otras consultas.
+
+② Persistencia del Ticket de Acceso: tabla arca_ticket_acceso (migración 20260826240000, aplicada), + arca_wsaa_core.ts modificado para consultar antes de autenticar y guardar después. Verificado real: dos ejecuciones seguidas del script de consultas ahora reusan el mismo ticket (mismo expirationTime en ambas corridas) en vez de fallar por coe.alreadyAuthenticated. El límite de "una factura cada 12hs" está resuelto.
+
+Nota técnica: usé un cliente de Supabase propio en arca-wsaa-core.ts (no lib/db/admin.ts) porque ese archivo tiene server-only y necesito poder probar con scripts de Node directo — mismas credenciales (service_role), sin el guard.
+
+Pendiente de tu lado, que mencionaste: el punto de venta en el motor sigue en PUNTO_VENTA=200 hardcodeado en arca-fecaesolicitar.ts — no lo toqué, dijiste que era intencional hasta que se defina con el contador. Si ahora corresponde usar 10/11 (los que veo habilitados también al consultar puntos de venta), avisame y lo actualizo.
+
+---
+
 ### ❓ Cargar la factura huérfana del 25/08 · bloqueada por constraint · para Facu
 
 Quise cargar la Factura B #407 (CAE 86349910665002, $1, prueba real) con registrar_factura_emitida, pero el constraint de comprobante exige exactamente uno de pago_id/cuota_cobro_sponsor_id — y esta no tiene ninguno de los dos, porque fue una prueba técnica, no un cobro real del sistema.
