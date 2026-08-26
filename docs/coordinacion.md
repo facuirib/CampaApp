@@ -18,6 +18,116 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Facturación · la tabla `comprobante`, cerrada y aplicada · 26/08/2026 · de Facu para Horacio
+
+Se aplicaron **las dos migraciones juntas**: la tuya (`20260825200000`) —ésta es
+la revisión que pediste— y la nuestra, que la completa. **RLS 51/52**: la única
+tabla apagada sigue siendo `_prueba_marca`.
+
+`factura` pasó a llamarse **`comprobante`**, porque adentro van dos cosas:
+facturas de ARCA y **recibos internos** (`tipo_comprobante = 0`, sin CAE).
+Decisión de Facu: una tabla, un listado, una numeración que proteger.
+
+**Lo que se le agregó a tu diseño:**
+
+| | |
+|---|---|
+| RLS + 3 policies | `select using(true)` por la nota #1; escritura con allowlist |
+| Receptor congelado | `receptor_nombre`, `doc_tipo`, `doc_nro` + la condición de IVA que ya tenías |
+| `detalle` congelado | el concepto, en texto |
+| `neto` / `iva` | discriminados, no sólo el total |
+| `fecha_emision` | el `CbteFch`, distinto de `created_at` |
+| `emitida_por` | con FK a `auth.users` |
+| 4 checks de coherencia | recibo sin CAE, factura emitida CON CAE, neto+iva=monto, receptor obligatorio para ARCA |
+| `comprobante_recibo_numero_seq` | la numeración del recibo |
+
+**Por qué congelado y no por JOIN**, que es la parte que más nos importó: el
+detalle derivado —`pago → pago_imputacion → cuota`— **mutaría**, porque
+`cambiar_estado_cheque` hace `delete from pago_imputacion` al rechazar un
+cheque. El equipo se quedaría con un papel que dice qué cuotas pagó y el
+sistema reimprimiría el mismo comprobante sin ninguna. Un comprobante no es una
+consulta: es lo que se entregó.
+
+**Dos detalles de implementación que valen la pena:**
+
+- **El punto de venta del recibo es 0, no NULL.** El único que protege la
+  numeración es `(punto_venta, tipo_comprobante, numero)` y en Postgres dos
+  NULL no se pisan: con NULL entraban dos recibos número 5 sin que la base
+  dijera nada. Medido.
+- **La sequence es del recibo y no de la factura.** El recibo numera solo
+  —atómico, sin locks, los huecos no importan—; el número de la factura lo da
+  ARCA, y ahí va un advisory lock alrededor de «preguntar + emitir», en el paso
+  siguiente. Una sequence para la factura sería una segunda numeración que se
+  desincroniza en el primer rechazo.
+
+**Tu función `registrar_factura_emitida` sigue siendo tuya**: se la apuntó a la
+tabla renombrada —el `rename` la dejaba fallando en runtime— y se le sumaron los
+campos congelados. Va con `drop` primero: agregarle parámetros **la sobrecarga,
+no la reemplaza**.
+
+Probado en rollback: los 4 roles (admin factura y recibo · operador sólo recibo ·
+bar y read-only nada · **los 4 leen**), 9 constraints, un cobro real, descuadre 0.
+Verificador **verde con 34 operaciones**.
+
+---
+
+### 📌 PARA HORACIO · el motor, la puerta y el punto de venta · 26/08/2026
+
+Los dos salieron del relevamiento de integración, y **los dos son de tu carril**
+(el motor). Sin ellos la puerta de facturación no se puede construir encima.
+
+**① `FECompConsultar` no existe.** Están `FECompUltimoAutorizado`, `FEDummy`,
+puntos de venta y las tablas de parámetros, pero **no hay forma de preguntar
+por UN comprobante puntual**. Sin eso, un pedido que se corta a la mitad —ARCA
+autorizó, la respuesta se perdió— **no se puede resolver sin adivinar**:
+reintentar con el mismo número duplica o rechaza, y avanzar al siguiente quema
+un número y deja un comprobante fiscal vivo que el sistema no conoce.
+
+Es la pieza que convierte un «pendiente» en algo reconciliable en vez de un
+misterio. Y es barata: mismo patrón que las consultas que ya escribiste.
+
+**② El Ticket de Acceso hay que persistirlo.** Vos mismo documentaste que WSAA
+rechaza pedir un token nuevo si hay uno vigente (`coe.alreadyAuthenticated`,
+dura 12 h) y sacaste la conclusión de «un solo `autenticarArca()` por Server
+Action». **Eso alcanza dentro de un request y no entre requests**: el primer
+cobro del día autentica bien, y el segundo —otro request, cinco minutos
+después— se encuentra el token todavía vivo y falla.
+
+O sea que hoy **no se puede facturar más de una vez cada 12 horas**. Hace falta
+guardar el ticket con su `expirationTime` y reusarlo mientras viva (tabla o
+cache del servidor); dónde guardarlo es decisión tuya.
+
+**③ Cuando se construya la puerta, el recibo tiene que nacer adentro de
+`registrar_cobro`.** Y eso toca tu función, así que lo coordinamos.
+
+La razón es la de siempre: si la fila del recibo la crea el front en una
+segunda llamada, existe el estado «cobro sin recibo» —la plata entró y el
+equipo se fue sin comprobante, y nadie se entera—. El pago y su recibo tienen
+que estar en la misma transacción, como el pago y su asiento.
+
+*(El PDF no: eso es un render de la fila y se puede regenerar cuando sea, justo
+porque el receptor y el detalle quedan congelados.)*
+
+**④ El punto de venta: los que nombró el contador NO sirven.** Los 3, 4, 6, 8 y
+9 son de **«Factura en Línea»** —el portal manual de ARCA— y no se pueden usar
+por web service. Campa sólo puede emitir por los de tipo **RECE (200-209)**,
+que son los que ya listaste como habilitados.
+
+Queda pendiente definir con el contador si se crean puntos RECE nuevos por
+predio o si se usan los genéricos. **Hasta que eso se defina, el 200 queda
+hardcodeado** —está en dos lugares, `const PUNTO_VENTA` en el TS y el default
+de la tabla—.
+
+---
+
+*(Y un dato para tu lado: la Factura B #407 que emitiste el 25/08 —CAE
+86349910665002, $1 a Consumidor Final— existe en ARCA y **no está registrada en
+CAMPA**. La tabla ya está aplicada (26/08), así que ahora sí se puede cargar a
+mano para que el histórico arranque completo. Y conviene avisarle al estudio
+contable que ese comprobante entra en la posición de IVA del período.)*
+
+---
+
 ### 🔧 Corrección · condición de IVA SÍ vive en tercero (default) · para Facu
 
 Ajuste sobre la entrada anterior ("la condición de IVA se elige por transacción, no vive en tercero, no se toca tercero") — esa decisión quedó desactualizada. Horacio pidió que cada equipo tenga un default de facturación (doc_tipo, doc_nro, condición de IVA), editable puntualmente en cada cobro si hace falta cambiarlo.

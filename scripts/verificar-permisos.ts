@@ -121,7 +121,8 @@ const SQL_POLICY_TABLA = `
 select tablename, cmd,
   (select coalesce(json_agg(distinct r order by r), '[]'::json)
      from regexp_matches(coalesce(qual, with_check), '''(admin|operador|bar)''', 'g') m(a),
-          lateral unnest(m.a) r) as roles
+          lateral unnest(m.a) r) as roles,
+  coalesce(qual, with_check) as expr
 from pg_policies where schemaname = 'public' and cmd <> 'SELECT';
 `
 
@@ -186,7 +187,7 @@ const igual = (a: readonly string[], b: readonly string[]) =>
 
 interface Filas {
   matriz: { fn: string; escribe: string[]; roles: string[] }[]
-  porTabla: { tablename: string; cmd: string; roles: string[] }[]
+  porTabla: { tablename: string; cmd: string; roles: string[]; expr?: string }[]
   guardas: { proname: string; prosrc: string }[]
 }
 
@@ -226,7 +227,15 @@ async function main() {
   const matriz = new Map<string, { escribe: string[]; roles: string[] }>()
   for (const f of filas.matriz) matriz.set(f.fn, { escribe: f.escribe, roles: f.roles })
   const porTabla = new Map<string, string[]>()
-  for (const p of filas.porTabla) porTabla.set(`${p.tablename}.${p.cmd}`, p.roles)
+  const exprDe = new Map<string, string>()
+  for (const p of filas.porTabla) {
+    const clave = `${p.tablename}.${p.cmd}`
+    // Varias policies sobre la misma tabla+cmd: los roles se unen y las
+    // expresiones se concatenan, que es como se comportan de verdad (basta que
+    // UNA deje pasar).
+    porTabla.set(clave, [...new Set([...(porTabla.get(clave) ?? []), ...p.roles])])
+    exprDe.set(clave, (exprDe.get(clave) ?? '') + ' ' + (p.expr ?? ''))
+  }
   const fuentes = new Map<string, string>()
   for (const g of filas.guardas) fuentes.set(g.proname, g.prosrc)
 
@@ -272,6 +281,31 @@ async function main() {
         problemas.push(`🔴 ${op}: no hay policy ${clave} — el front escribiría contra RLS cerrado`)
         continue
       }
+
+      const soloSi = 'soloSi' in donde ? (donde.soloSi as string) : null
+
+      if (soloSi) {
+        // La policy discrimina por columna, así que los roles declarados son un
+        // SUBCONJUNTO de los que la policy nombra. Se chequean las dos mitades:
+        // que no se declare un rol que la policy no permite, y que el predicado
+        // que hace la distinción siga escrito.
+        const dentro = esperado.every((r) => real.includes(r))
+        const conPredicado = (exprDe.get(clave) ?? '').replace(/\s+/g, ' ').includes(soloSi)
+        const ok = dentro && conPredicado
+        if (!dentro) {
+          problemas.push(`🔴 ${op}: declara [${esperado.join(', ')}] y ${clave} sólo permite [${real.join(', ')}]`)
+        }
+        if (!conPredicado) {
+          problemas.push(
+            `🔴 ${op}: la policy ${clave} ya no dice «${soloSi}» — sin ese predicado el permiso quedó más ancho de lo que el mapa declara`,
+          )
+        }
+        lineas.push(
+          `${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${esperado.join(' · ')}]   ← ${clave} · soloSi «${soloSi}»`,
+        )
+        continue
+      }
+
       const ok = igual(esperado, real)
       if (!ok) problemas.push(`🔴 ${op}: mapa [${esperado.join(', ')}] vs ${clave} [${real.join(', ')}]`)
       lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${real.join(' · ')}]   ← ${clave}`)

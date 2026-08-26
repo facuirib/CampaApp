@@ -42,6 +42,14 @@ import type { Rol } from './roles'
 type Donde =
   | { fns: readonly string[] }
   | { tabla: string; cmd: 'INSERT' | 'UPDATE' | 'DELETE' }
+  /**
+   * Como `tabla`, pero la policy además discrimina **por columna**: el rol de
+   * más amplio alcance puede todas las filas y otro sólo algunas. `soloSi` es
+   * el pedazo de la condición que hace esa distinción, y el verificador
+   * comprueba que siga estando en la policy — si alguien lo saca, la
+   * restricción desaparece sin que cambie ningún rol y nadie se entera.
+   */
+  | { tabla: string; cmd: 'INSERT' | 'UPDATE' | 'DELETE'; soloSi: string }
   | { guarda: string }
   | { accion: string }
 
@@ -253,6 +261,33 @@ export const PERMISOS = {
     que: 'Comprar o vender dólares',
     roles: SOLO_ADMIN,
     donde: { fns: ['comprar_usd', 'vender_usd'] },
+  },
+
+  // ── Comprobantes ─────────────────────────────────────────────────────────
+  'comprobante.emitir': {
+    // Solo admin: emitir ante ARCA crea un documento legal y consume un número
+    // de la numeración fiscal, que no se recupera. La policy deja escribir
+    // `comprobante` a admin y operador, y lo que separa a uno del otro es la
+    // condición por columna: el operador sólo puede filas con
+    // `tipo_comprobante = 0`, que son las que NO van a ARCA.
+    que: 'Emitir una factura ante ARCA (documento fiscal con CAE)',
+    roles: SOLO_ADMIN,
+    donde: { tabla: 'comprobante', cmd: 'INSERT', soloSi: 'tipo_comprobante = 0' },
+  },
+  'comprobante.cerrar': {
+    // Pasar una factura de «pendiente» a «emitida» o «error» cuando ARCA
+    // contesta. Mismo alcance que emitirla: es el segundo tiempo del mismo
+    // acto.
+    que: 'Cerrar una factura pendiente con la respuesta de ARCA',
+    roles: SOLO_ADMIN,
+    donde: { tabla: 'comprobante', cmd: 'UPDATE' },
+  },
+  'recibo.generar': {
+    // El comprobante que se le da al equipo al cobrar. No es fiscal, no tiene
+    // CAE y no consume numeración de ARCA, así que lo genera quien cobra.
+    que: 'Generar un recibo interno (no fiscal, sin CAE)',
+    roles: TODOS_MENOS_LECTURA,
+    donde: { tabla: 'comprobante', cmd: 'INSERT' },
   },
 
   // ── Sistema ──────────────────────────────────────────────────────────────
