@@ -196,3 +196,39 @@ export async function tiposDeIva(
 
   return tipos
 }
+
+export interface ComprobanteExistente {
+  existe: boolean
+  cae: string | null
+  caeVencimiento: string | null
+  resultado: string | null
+}
+
+export async function comprobanteExiste(
+  ticket: TicketAcceso,
+  cuit: string,
+  puntoVenta: number,
+  tipoComprobante: number,
+  numero: number,
+  produccion: boolean
+): Promise<ComprobanteExistente> {
+  const cuerpo = `${bloqueAuth(ticket, cuit)}
+    <ar:FeCompConsReq>
+      <ar:CbteTipo>${tipoComprobante}</ar:CbteTipo>
+      <ar:CbteNro>${numero}</ar:CbteNro>
+      <ar:PtoVta>${puntoVenta}</ar:PtoVta>
+    </ar:FeCompConsReq>`
+
+  const xml = await llamarWsfev1('FECompConsultar', cuerpo, produccion)
+
+  const codigoError = xml.match(/<Code>(\d+)<\/Code>/)?.[1]
+  if (codigoError === '602') {
+    return { existe: false, cae: null, caeVencimiento: null, resultado: null }
+  }
+
+  const cae = xml.match(/<CodAutorizacion>([\s\S]*?)<\/CodAutorizacion>/)?.[1] ?? null
+  const caeVencimiento = xml.match(/<FchVto>([\s\S]*?)<\/FchVto>/)?.[1] ?? null
+  const resultado = xml.match(/<Resultado>([\s\S]*?)<\/Resultado>/)?.[1] ?? null
+
+  return { existe: cae !== null, cae, caeVencimiento, resultado }
+}
