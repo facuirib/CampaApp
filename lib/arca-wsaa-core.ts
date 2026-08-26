@@ -1,4 +1,5 @@
 import forge from 'node-forge'
+import { createClient } from '@supabase/supabase-js'
 
 /**
  * Autenticación contra el WSAA (Web Service de Autenticación y
@@ -128,10 +129,53 @@ async function llamarWSAA(cms: string, urlWsaa: string): Promise<string> {
  * arrancar SIEMPRE por homologación hasta verificar que todo el
  * circuito funciona antes de tocar producción real.
  */
+function crearClienteAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error(
+      "Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el entorno."
+    )
+  }
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+async function ticketPersistido(servicio: string): Promise<TicketAcceso | null> {
+  const admin = crearClienteAdmin()
+  const { data, error } = await admin.rpc("arca_ticket_vigente", {
+    p_servicio: servicio,
+  })
+  if (error) return null
+  if (!data || data.length === 0) return null
+  const fila = data[0]
+  return {
+    token: fila.token,
+    sign: fila.sign,
+    expirationTime: new Date(fila.expira_at),
+  }
+}
+
+async function guardarTicket(servicio: string, ticket: TicketAcceso): Promise<void> {
+  const admin = crearClienteAdmin()
+  const { error } = await admin.rpc("arca_guardar_ticket", {
+    p_servicio: servicio,
+    p_token: ticket.token,
+    p_sign: ticket.sign,
+    p_expira_at: ticket.expirationTime.toISOString(),
+  })
+  if (error) console.error("No se pudo persistir el ticket de ARCA:", error)
+}
 export async function autenticarArca(
   servicio: string,
   produccion: boolean
 ): Promise<TicketAcceso> {
+  const persistido = await ticketPersistido(servicio)
+  if (persistido) {
+    return persistido
+  }
+
   const certPem = process.env.ARCA_CERT_PEM
   const keyPem = process.env.ARCA_KEY_PEM
 
@@ -158,9 +202,13 @@ export async function autenticarArca(
     )
   }
 
-  return {
+  const ticket: TicketAcceso = {
     token,
     sign,
     expirationTime: new Date(expirationTimeStr),
   }
+
+  await guardarTicket(servicio, ticket)
+
+  return ticket
 }
