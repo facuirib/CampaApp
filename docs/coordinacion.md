@@ -18,6 +18,19 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ❓ Cargar la factura huérfana del 25/08 · bloqueada por constraint · para Facu
+
+Quise cargar la Factura B #407 (CAE 86349910665002, $1, prueba real) con registrar_factura_emitida, pero el constraint de comprobante exige exactamente uno de pago_id/cuota_cobro_sponsor_id — y esta no tiene ninguno de los dos, porque fue una prueba técnica, no un cobro real del sistema.
+
+No quiero forzar un pago_id inventado. ¿Cómo la cargamos? Algunas opciones que veo:
+1. Relajar el constraint para permitir null en los dos (casos de "comprobante manual/de prueba")
+2. Un flag/estado especial en comprobante para este tipo de caso
+3. Otra idea tuya
+
+Mientras esperamos, la factura sigue existiendo en ARCA (confirmado con FECompUltimoAutorizado=407) — no se pierde nada, solo queda sin reflejar en nuestra tabla hasta que decidamos cómo.
+
+---
+
 ### 🟢 Facturación · la tabla `comprobante`, cerrada y aplicada · 26/08/2026 · de Facu para Horacio
 
 Se aplicaron **las dos migraciones juntas**: la tuya (`20260825200000`) —ésta es
