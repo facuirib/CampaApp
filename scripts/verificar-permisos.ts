@@ -48,6 +48,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { Client } from 'pg'
 import { PERMISOS } from '../lib/permisos.ts'
+import { ROLES } from '../lib/roles.ts'
 
 // ── Conexión ───────────────────────────────────────────────────────────────
 
@@ -64,6 +65,31 @@ const argumento = (nombre: string) => {
   return i === -1 ? null : (process.argv[i + 1] ?? '')
 }
 
+// ── Los roles que se buscan ───────────────────────────────────────────────
+//
+// La alternancia sale de ROLES, que es donde los roles ya estaban declarados.
+// Antes era una lista escrita a mano en tres lugares, y el 5º rol la rompió:
+// el commit que agregó `finanzas` actualizó la de las guardas y no las dos de
+// las policies, así que la extracción dejaba `finanzas` afuera. Las policies
+// decían una cosa, el verificador leía otra, y 21 de 38 operaciones daban un
+// rojo que no existía.
+//
+// Falló del lado seguro —rojos de más, nunca verdes de más— pero eso no lo
+// vuelve inofensivo: un verificador que grita sin motivo se empieza a ignorar,
+// y el día que el rojo sea de verdad ya nadie lo mira. Y el rojo puede
+// aparecer al revés: si un rol futuro se le agrega a una policy y no al mapa,
+// la extracción sin ese rol lo pasaría por alto.
+//
+// Derivarla de ROLES cierra las dos puertas: no hay lista que mantener, así
+// que el próximo rol entra solo. La lista era el bug, no su contenido.
+const PATRON_ROL = ROLES.join('|')
+
+/** Para las policies: string dentro de un literal SQL (comillas dobladas). */
+const PATRON_ROL_SQL = `'''(${PATRON_ROL})'''`
+
+/** Para las guardas: se lee `prosrc` desde JS. */
+const RE_ROL = new RegExp(`'(${PATRON_ROL})'`, 'g')
+
 // ── La derivación ──────────────────────────────────────────────────────────
 
 const SQL_MATRIZ = `
@@ -76,7 +102,7 @@ fn as (
 pol as (
   select tablename, cmd,
     (select array_agg(distinct r order by r)
-       from regexp_matches(coalesce(qual, with_check), '''(admin|operador|bar)''', 'g') m(a),
+       from regexp_matches(coalesce(qual, with_check), ${PATRON_ROL_SQL}, 'g') m(a),
             lateral unnest(m.a) r) as roles
   from pg_policies where schemaname = 'public' and cmd <> 'SELECT'
 ),
@@ -120,7 +146,7 @@ from efecto e group by e.entrada;
 const SQL_POLICY_TABLA = `
 select tablename, cmd,
   (select coalesce(json_agg(distinct r order by r), '[]'::json)
-     from regexp_matches(coalesce(qual, with_check), '''(admin|operador|bar)''', 'g') m(a),
+     from regexp_matches(coalesce(qual, with_check), ${PATRON_ROL_SQL}, 'g') m(a),
           lateral unnest(m.a) r) as roles,
   coalesce(qual, with_check) as expr
 from pg_policies where schemaname = 'public' and cmd <> 'SELECT';
@@ -323,7 +349,7 @@ async function main() {
       // botón que la base permite —y al revés, ofrecería uno que va a fallar.
       const enLaGuarda = [
         ...new Set(
-          [...(src ?? '').matchAll(/'(admin|operador|bar|finanzas|read-only)'/g)].map((m) => m[1]),
+          [...(src ?? '').matchAll(RE_ROL)].map((m) => m[1]),
         ),
       ].sort()
 
