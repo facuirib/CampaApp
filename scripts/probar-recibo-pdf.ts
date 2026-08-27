@@ -22,7 +22,7 @@ const bytes = await generarReciboPDF({
   receptorCondicionIva: 'Consumidor Final',
   receptorDomicilio: null,
   detalle: 'Cuota 3 · Clausura 2026',
-  monto: 130000,
+  monto: 10242.55,
   emitidoPor: 'Facundo Bosch',
   // En la app esto sale de la tabla `emisor`; acá se pasa a mano porque el
   // script no toca la base.

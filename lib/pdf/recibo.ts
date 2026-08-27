@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib'
 // Relativo y no `@/lib/format` a propósito: sin el alias de Next, este módulo
 // corre tal cual en Node —el script de prueba lo importa directo— y eso es
 // parte de que sea una función pura y no una pieza atada al framework.
-import { formatDate, formatMoney } from '../format.ts'
+import { formatDate, formatMoneyExacto } from '../format.ts'
 import {
   A4,
   AZUL,
@@ -219,7 +219,7 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
 
   y -= 26
   texto(ctx, datos.detalle, MARGEN + 10, y, { font: regular, size: 10.5 })
-  textoDerecha(ctx, formatMoney(datos.monto), derecha - 10, y, { font: regular, size: 10.5 })
+  textoDerecha(ctx, formatMoneyExacto(datos.monto), derecha - 10, y, { font: regular, size: 10.5 })
 
   y -= 18
   page.drawLine({ start: { x: MARGEN, y }, end: { x: derecha, y }, thickness: 0.5, color: LINEA })
@@ -227,7 +227,7 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
   // El total, grande: es el número por el que se firma el recibo.
   y -= 26
   textoDerecha(ctx, 'TOTAL', derecha - 130, y, { font: negrita, size: 10, color: GRIS })
-  textoDerecha(ctx, formatMoney(datos.monto), derecha, y, { font: negrita, size: 18 })
+  textoDerecha(ctx, formatMoneyExacto(datos.monto), derecha, y, { font: negrita, size: 18 })
 
   // ── Pie ──────────────────────────────────────────────────────────────────
   const yPie = MARGEN + 40
