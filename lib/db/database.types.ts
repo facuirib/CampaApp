@@ -1160,6 +1160,7 @@ export type Database = {
           cae: string | null
           cae_vencimiento: string | null
           condicion_iva_receptor_id: number
+          cotizacion: number
           created_at: string
           cuota_cobro_sponsor_id: string | null
           detalle: string | null
@@ -1170,6 +1171,7 @@ export type Database = {
           fecha_emision: string
           id: string
           iva: number | null
+          moneda: string
           monto: number
           motivo_sin_origen: string | null
           neto: number | null
@@ -1181,12 +1183,14 @@ export type Database = {
           receptor_domicilio: string | null
           receptor_nombre: string | null
           sin_origen: boolean
+          tipo_cod_aut: string
           tipo_comprobante: number
         }
         Insert: {
           cae?: string | null
           cae_vencimiento?: string | null
           condicion_iva_receptor_id: number
+          cotizacion?: number
           created_at?: string
           cuota_cobro_sponsor_id?: string | null
           detalle?: string | null
@@ -1197,6 +1201,7 @@ export type Database = {
           fecha_emision?: string
           id?: string
           iva?: number | null
+          moneda?: string
           monto: number
           motivo_sin_origen?: string | null
           neto?: number | null
@@ -1208,12 +1213,14 @@ export type Database = {
           receptor_domicilio?: string | null
           receptor_nombre?: string | null
           sin_origen?: boolean
+          tipo_cod_aut?: string
           tipo_comprobante: number
         }
         Update: {
           cae?: string | null
           cae_vencimiento?: string | null
           condicion_iva_receptor_id?: number
+          cotizacion?: number
           created_at?: string
           cuota_cobro_sponsor_id?: string | null
           detalle?: string | null
@@ -1224,6 +1231,7 @@ export type Database = {
           fecha_emision?: string
           id?: string
           iva?: number | null
+          moneda?: string
           monto?: number
           motivo_sin_origen?: string | null
           neto?: number | null
@@ -1235,6 +1243,7 @@ export type Database = {
           receptor_domicilio?: string | null
           receptor_nombre?: string | null
           sin_origen?: boolean
+          tipo_cod_aut?: string
           tipo_comprobante?: number
         }
         Relationships: [

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "verificar:permisos": "node --experimental-strip-types scripts/verificar-permisos.ts",
-    "probar:recibo": "node --experimental-strip-types scripts/probar-recibo-pdf.ts"
+    "probar:recibo": "node --experimental-strip-types scripts/probar-recibo-pdf.ts",
+    "probar:qr": "node --experimental-strip-types scripts/probar-qr-arca.ts",
+    "probar:factura": "node --experimental-strip-types scripts/probar-factura-pdf.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
@@ -17,6 +19,7 @@
     "next": "15.5.21",
     "node-forge": "^1.4.0",
     "pdf-lib": "^1.17.1",
+    "qrcode-generator": "^2.0.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "resend": "^6.18.1",
@@ -32,6 +35,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.21",
+    "jsqr": "^1.4.0",
     "pg": "^8.23.0",
     "tailwindcss": "^4",
     "typescript": "^5"

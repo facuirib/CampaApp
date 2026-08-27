@@ -1,9 +1,29 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 // Relativo y no `@/lib/format` a propósito: sin el alias de Next, este módulo
 // corre tal cual en Node —el script de prueba lo importa directo— y eso es
 // parte de que sea una función pura y no una pieza atada al framework.
-import { formatDate, formatMoney } from '../format.ts'
+import { formatDate, formatMoneyExacto } from '../format.ts'
+import {
+  A4,
+  AZUL,
+  BAJADA,
+  BLANCO,
+  GRIS,
+  ISOLOGO,
+  LINEA,
+  MARGEN,
+  PANEL,
+  TINTA,
+  numeroFormateado,
+  saneaWinAnsi,
+  texto,
+  textoDerecha,
+  type Ctx,
+  type DatosEmisor,
+} from './comun.ts'
 import { ISOLOGO_LADO, ISOLOGO_PATH } from './isologo.ts'
+
+export type { DatosEmisor }
 
 /**
  * El recibo interno, en PDF.
@@ -59,10 +79,6 @@ export interface DatosRecibo {
   emisor: DatosEmisor
 }
 
-export interface DatosEmisor {
-  razonSocial: string
-  cuit: string
-}
 
 /**
  * Lo único del emisor que no sale de la base: el subtítulo de marca.
@@ -72,101 +88,10 @@ export interface DatosEmisor {
  * Comercio e Industria— y el recibo interno **no tiene punto** (usa 0). Un
  * recibo con dirección estaría afirmando algo sobre C&I que no le corresponde.
  */
-const BAJADA = 'Gestión administrativa'
-
-// La paleta del sistema, para que el papel se parezca a la pantalla.
-const TINTA = rgb(0.043, 0.082, 0.141) //  --ink   #0b1524
-const GRIS = rgb(0.42, 0.463, 0.525) //   --muted #6b7686
-const LINEA = rgb(0.906, 0.918, 0.941) // --line  #e7eaf0
-const AZUL = rgb(0.078, 0.408, 0.984) //  --blue  #1468fb
-const BLANCO = rgb(1, 1, 1)
-
-const A4 = { ancho: 595.28, alto: 841.89 }
-const MARGEN = 48
-
-/** El lado del isologo en el encabezado, en puntos. */
-const ISOLOGO = 34
-
-/**
- * Los caracteres que WinAnsi agrega arriba de Latin-1 (comillas curvas, guion
- * largo, €, …). Todo lo demás por encima de 0xFF no se puede encodear.
- */
-const EXTRA_WINANSI = new Set(
-  '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ'.split('').map((c) => c.codePointAt(0)!),
-)
-
-/**
- * Deja el texto en lo que las fuentes estándar del PDF pueden escribir.
- *
- * **Esto no es cosmética: sin esto el recibo no se genera.** Las 14 fuentes
- * estándar encodean WinAnsi, y `drawText` con un carácter afuera —un emoji, una
- * flecha— **tira una excepción**. Un equipo que se llame «Barcelo 🏆» es
- * perfectamente posible, y el error aparecería recién al cobrarle, con el
- * operador y el equipo esperando el papel.
- *
- * Se descarta el carácter en vez de fallar, y esa es la decisión: un recibo
- * impreso sin el emoji del nombre sirve; uno que no se imprime, no. Lo que se
- * guarda en `comprobante.receptor_nombre` queda intacto — esto sólo afecta al
- * render.
- */
-function saneaWinAnsi(s: string): string {
-  return Array.from(s.normalize('NFC'))
-    .filter((c) => {
-      const cp = c.codePointAt(0)!
-      return cp < 0x100 || EXTRA_WINANSI.has(cp)
-    })
-    .join('')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-}
-
-/** `0000-00000123`, como se numeran los comprobantes acá. */
-function numeroFormateado(n: number): string {
-  return `0000-${n.toString().padStart(8, '0')}`
-}
-
-interface Ctx {
-  page: PDFPage
-  regular: PDFFont
-  negrita: PDFFont
-}
-
-function texto(
-  { page }: Ctx,
-  s: string,
-  x: number,
-  y: number,
-  opciones: { font: PDFFont; size: number; color?: ReturnType<typeof rgb> },
-) {
-  // El saneo va acá, en el único lugar por donde pasa TODO el texto de la hoja:
-  // así no depende de que cada llamada se acuerde.
-  page.drawText(saneaWinAnsi(s), {
-    x,
-    y,
-    size: opciones.size,
-    font: opciones.font,
-    color: opciones.color ?? TINTA,
-  })
-}
-
-/** Alineado a la derecha: los importes se leen por la unidad, no por el inicio. */
-function textoDerecha(
-  ctx: Ctx,
-  s: string,
-  xDerecha: number,
-  y: number,
-  opciones: { font: PDFFont; size: number; color?: ReturnType<typeof rgb> },
-) {
-  // Se mide el texto YA saneado: si se midiera el original, un nombre con emoji
-  // quedaría corrido respecto del borde.
-  const ancho = opciones.font.widthOfTextAtSize(saneaWinAnsi(s), opciones.size)
-  texto(ctx, s, xDerecha - ancho, y, opciones)
-}
-
 export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
 
-  pdf.setTitle(`Recibo ${numeroFormateado(datos.numero)} · ${datos.emisor.razonSocial}`)
+  pdf.setTitle(`Recibo ${numeroFormateado(datos.numero, 0)} · ${datos.emisor.razonSocial}`)
   pdf.setSubject('Recibo interno — no válido como factura')
   pdf.setProducer('CAMPA')
 
@@ -208,7 +133,7 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
 
   // El bloque del documento, a la derecha: lo primero que se busca al recibirlo.
   textoDerecha(ctx, 'RECIBO', derecha, y - 18, { font: negrita, size: 22, color: AZUL })
-  textoDerecha(ctx, `N° ${numeroFormateado(datos.numero)}`, derecha, y - 34, {
+  textoDerecha(ctx, `N° ${numeroFormateado(datos.numero, 0)}`, derecha, y - 34, {
     font: negrita,
     size: 11,
   })
@@ -287,14 +212,14 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
     y: y - 4,
     width: derecha - MARGEN,
     height: 22,
-    color: rgb(0.965, 0.973, 0.984),
+    color: PANEL,
   })
   texto(ctx, 'EN CONCEPTO DE', MARGEN + 10, y + 3, { font: negrita, size: 8, color: GRIS })
   textoDerecha(ctx, 'IMPORTE', derecha - 10, y + 3, { font: negrita, size: 8, color: GRIS })
 
   y -= 26
   texto(ctx, datos.detalle, MARGEN + 10, y, { font: regular, size: 10.5 })
-  textoDerecha(ctx, formatMoney(datos.monto), derecha - 10, y, { font: regular, size: 10.5 })
+  textoDerecha(ctx, formatMoneyExacto(datos.monto), derecha - 10, y, { font: regular, size: 10.5 })
 
   y -= 18
   page.drawLine({ start: { x: MARGEN, y }, end: { x: derecha, y }, thickness: 0.5, color: LINEA })
@@ -302,7 +227,7 @@ export async function generarReciboPDF(datos: DatosRecibo): Promise<Uint8Array> 
   // El total, grande: es el número por el que se firma el recibo.
   y -= 26
   textoDerecha(ctx, 'TOTAL', derecha - 130, y, { font: negrita, size: 10, color: GRIS })
-  textoDerecha(ctx, formatMoney(datos.monto), derecha, y, { font: negrita, size: 18 })
+  textoDerecha(ctx, formatMoneyExacto(datos.monto), derecha, y, { font: negrita, size: 18 })
 
   // ── Pie ──────────────────────────────────────────────────────────────────
   const yPie = MARGEN + 40
