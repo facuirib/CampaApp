@@ -3264,7 +3264,7 @@ Se registran acá con su razonamiento. Una decisión derogada sin explicación e
 
 - Nivel de automatización de reclamos: `manual` / `mixto` / `automatico` — a definir con la dirección.
 - Proveedor de mail (Resend / Postmark) y dominio de envío.
-- Formato fiscal del recibo: si necesita numeración formal o alcanza comprobante interno.
+- ~~Formato fiscal del recibo~~ — **resuelto**. El recibo es un comprobante interno (`comprobante.tipo_comprobante = 0`, punto de venta 0, sin CAE) con numeración propia por `comprobante_recibo_numero_seq`; admite huecos porque el número es nuestro. La factura fiscal es el otro camino y numera contra ARCA, con las puertas `reservar_numero_comprobante` → `cerrar_comprobante` (migraciones `20260826120000_comprobante_seguro.sql` y `20260827130000_puertas_emision.sql`).
 - Comparaciones C3 (torneo vs torneo), C4 (diferencias de caja por responsable) y C5 (inscripción como cobertura de costo fijo): siguen de interés, no priorizadas.
 
 

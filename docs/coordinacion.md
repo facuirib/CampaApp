@@ -98,57 +98,106 @@ Verificador **verde con 34 operaciones**.
 
 ---
 
-### ⚠️ PARA HORACIO · `registrar_factura_emitida` CAMBIÓ DE FIRMA · 26/08/2026
+### ⚠️ PARA HORACIO · la emisión son DOS puertas, y `registrar_factura_emitida` ya no existe · 27/08/2026
 
-**Le agregamos `p_punto_venta` y ya no hardcodea el 200.** Si tenías pensado
-llamarla con la firma vieja, no existe más — va con `drop` porque agregar un
-parámetro sobrecarga en vez de reemplazar.
+**Reemplaza a la nota de ayer sobre su firma.** Aquella decía cómo llamarla con
+el punto de venta; esta dice que no se llama más. Se dropeó —no quedó como
+wrapper— y en su lugar hay dos puertas.
 
-    registrar_factura_emitida(
-      p_pago_id                   uuid,
-      p_cuota_cobro_sponsor_id    uuid,
+**Por qué se partió.** Hacía todo en un paso: insertaba la fila ya en `emitida`,
+con CAE. Eso obliga a llamar a ARCA ANTES de tener fila, y esa ventana es el
+problema: si ARCA autoriza y la app se cae —timeout, deploy, red— **la factura
+existe en ARCA y no existe en Campa**. Un documento fiscal emitido del que no
+queda rastro. Con el orden invertido, lo peor que queda es una `pendiente`:
+visible, y reconciliable con tu `FECompConsultar`.
+
+No quedó wrapper a propósito: sería exactamente el camino que estamos sacando,
+disponible al lado del bueno.
+
+**① Reservar** — antes de hablar con ARCA:
+
+    reservar_numero_comprobante(
+      p_punto_venta               smallint,
       p_tipo_comprobante          smallint,
-      p_punto_venta               smallint,   ← NUEVO, en 4º lugar
-      p_numero                    integer,
       p_condicion_iva_receptor_id smallint,
       p_monto                     numeric,
-      p_cae                       text,
-      p_cae_vencimiento           date,
-      p_emitida_por               uuid default null,
-      p_receptor_nombre           text default null,
-      p_receptor_doc_tipo         smallint default null,
-      p_receptor_doc_nro          text default null,
+      p_receptor_nombre           text,
+      p_receptor_doc_tipo         smallint,
+      p_receptor_doc_nro          text,
+      p_pago_id                   uuid    default null,
+      p_cuota_cobro_sponsor_id    uuid    default null,
+      p_receptor_domicilio        text    default null,
+      p_detalle                   text    default null,
       p_neto                      numeric default null,
       p_iva                       numeric default null,
-      p_fecha_emision             date default null,
-      p_detalle                   text default null
-    ) returns uuid
+      p_fecha_emision             date    default null,
+      p_ultimo_numero_arca        integer default null,
+      p_emitida_por               uuid    default null
+    ) returns table (id uuid, numero integer)
 
-**El punto va cuarto, no al final**, para que quede al lado del tipo de
-comprobante: los dos juntos son lo que identifica el comprobante ante ARCA.
+**② Cerrar** — cuando ARCA contestó:
 
-Se parametrizó ahora porque era gratis —cero llamadores, cero comprobantes— y
-porque dejarla con el 200 fijo era una bomba para el día de la integración:
-habría facturado todo desde el Aeropuerto sin que nadie lo note, y **con el
-domicilio decidiendo Comercio e Industria eso es un error fiscal, no un bug de
-display**.
+    cerrar_comprobante(p_id uuid, p_cae text, p_cae_vencimiento date) returns void
+    marcar_error_comprobante(p_id uuid, p_detalle text)              returns void
 
-**La función hace dos cosas más, y conviene saberlas:**
+**Pasale `p_ultimo_numero_arca`** con lo que devuelva `FECompUltimoAutorizado`.
+La puerta reserva `greatest(nuestro máximo, el de ARCA) + 1`, y los dos términos
+hacen falta por razones distintas: **el de ARCA manda** y cubre lo emitido por
+afuera de Campa; **el nuestro** cubre lo que ARCA todavía no sabe, porque dos
+reservas seguidas tienen que dar 408 y 409 aunque ARCA siga contestando 407 a
+las dos. Si no se lo pasás igual funciona, pero entonces la numeración es sólo
+la nuestra y se despega de ARCA al primer comprobante emitido por afuera.
 
-· **Congela el domicilio** del punto elegido en `comprobante.emisor_domicilio`.
-  Es el único momento en que corresponde mirarlo; después la fila es el
-  documento. Vos no tenés que pasarlo.
+**El advisory lock ya está adentro de la puerta**, por `(punto, tipo)`. No
+tenés que coordinar nada del lado TS ni serializar las llamadas.
 
-· **Valida que el punto exista y esté activo**, y si no, el error dice cuáles
-  hay: «El punto de venta 200 no existe o está desactivado. Los habilitados son:
-  10 (TORNEO AEP), 11 (TORNEO TIR).» Mejor que se caiga acá y lo diga, a que
-  falle del otro lado con un mensaje de ARCA.
+**Si ARCA rechaza, `marcar_error_comprobante` LIBERA el número.** Los tres
+únicos de `comprobante` pasaron a excluir las filas en `error`, así que el
+reintento vuelve a pedir el mismo número — que es lo que ARCA espera, porque
+nunca lo consumió. Saltearlo dejaría un hueco, y ARCA rechaza los huecos.
 
-**Y del lado del motor** (`lib/arca-fecaesolicitar.ts`, tu carril, no lo
-tocamos): `const PUNTO_VENTA = 200` y el CUIT hardcodeado en
-`arca-wsfev1-consultas.ts` tienen que pasar a leerse de las tablas `punto_venta`
-y `emisor`. El 200 no es un punto habilitado del club: los reales son el **10
-(TORNEO AEP)** y el **11 (TORNEO TIR)**, los dos RECE.
+**Las `pendiente` que queden colgadas son tu `FECompConsultar`**: preguntale a
+ARCA si ese número existe y cerrala con el CAE o marcala como error según
+conteste. Ese es exactamente el caso para el que la escribiste.
+
+**Lo que la puerta hace sola y no tenés que mandarle:** congela el
+`emisor_domicilio` del punto elegido, valida que el punto exista y esté activo
+—y si no, el error lista los habilitados—, y rechaza el `tipo_comprobante = 0`,
+porque el recibo interno no va a ARCA y numera con su propia sequence.
+
+**Permisos:** las tres son admin + finanzas, por guarda adentro del plpgsql. En
+`cerrar` la guarda no es simetría: RLS deniega el UPDATE **en silencio**, así
+que sin ella un «cerré» que no cerró dejaría la fila en `pendiente` con el CAE
+ya otorgado.
+
+**Sigue pendiente de tu lado** lo de la nota anterior que no cambia: el motor
+todavía tiene `PUNTO_VENTA = 200` en `arca-fecaesolicitar.ts` y el CUIT
+hardcodeado en `arca-wsfev1-consultas.ts`, y tienen que leerse de `punto_venta`
+y `emisor`. Los puntos reales son el **10 (TORNEO AEP)** y el **11 (TORNEO
+TIR)** — los mismos que te devolvió ARCA al consultar.
+
+---
+
+### 🔴 PENDIENTE · falta probar la ESPERA real del advisory lock · 27/08/2026
+
+Del lock de `reservar_numero_comprobante` está verificado el mecanismo: se toma,
+es `ExclusiveLock`, y la clave es por punto+tipo —`classid=586340887`, `objid`
+10006 y 11006 para los puntos 10 y 11—, o sea que dos puntos distintos no
+compiten entre sí. También está verificado que dos reservas seguidas dan 408 y
+409, sin repetir.
+
+**Lo que NO está probado es la espera**: dos reservas *simultáneas* del mismo
+punto+tipo, una bloqueando a la otra. Eso necesita dos sesiones a la vez, y las
+herramientas con las que se verificó abren una sola conexión por consulta.
+
+Se hace desde `psql` el día que haya `DATABASE_URL`: dos terminales, `begin` +
+`reservar` en las dos, ver que la segunda queda esperando y que al commitear la
+primera saca el número siguiente y no el mismo.
+
+**No se forzó ahora a propósito.** Las dos formas de provocarlo hoy ensucian la
+base compartida: o deja dos comprobantes `pendiente` reales contra pagos reales,
+o exige crear y borrar una función de prueba. Ninguna de las dos vale por una
+verificación que se puede hacer limpia más adelante.
 
 ---
 

@@ -351,6 +351,30 @@ export type Database = {
           },
         ]
       }
+      arca_ticket_acceso: {
+        Row: {
+          expira_at: string
+          servicio: string
+          sign: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          expira_at: string
+          servicio: string
+          sign: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          expira_at?: string
+          servicio?: string
+          sign?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       arqueo: {
         Row: {
           ambito: string
@@ -1147,6 +1171,7 @@ export type Database = {
           id: string
           iva: number | null
           monto: number
+          motivo_sin_origen: string | null
           neto: number | null
           numero: number
           pago_id: string | null
@@ -1155,6 +1180,7 @@ export type Database = {
           receptor_doc_tipo: number | null
           receptor_domicilio: string | null
           receptor_nombre: string | null
+          sin_origen: boolean
           tipo_comprobante: number
         }
         Insert: {
@@ -1172,6 +1198,7 @@ export type Database = {
           id?: string
           iva?: number | null
           monto: number
+          motivo_sin_origen?: string | null
           neto?: number | null
           numero: number
           pago_id?: string | null
@@ -1180,6 +1207,7 @@ export type Database = {
           receptor_doc_tipo?: number | null
           receptor_domicilio?: string | null
           receptor_nombre?: string | null
+          sin_origen?: boolean
           tipo_comprobante: number
         }
         Update: {
@@ -1197,6 +1225,7 @@ export type Database = {
           id?: string
           iva?: number | null
           monto?: number
+          motivo_sin_origen?: string | null
           neto?: number | null
           numero?: number
           pago_id?: string | null
@@ -1205,6 +1234,7 @@ export type Database = {
           receptor_doc_tipo?: number | null
           receptor_domicilio?: string | null
           receptor_nombre?: string | null
+          sin_origen?: boolean
           tipo_comprobante?: number
         }
         Relationships: [
@@ -7274,6 +7304,23 @@ export type Database = {
         Args: { p_presupuesto_id: string }
         Returns: undefined
       }
+      arca_guardar_ticket: {
+        Args: {
+          p_expira_at: string
+          p_servicio: string
+          p_sign: string
+          p_token: string
+        }
+        Returns: undefined
+      }
+      arca_ticket_vigente: {
+        Args: { p_servicio: string }
+        Returns: {
+          expira_at: string
+          sign: string
+          token: string
+        }[]
+      }
       arrastrar_fichas: {
         Args: {
           p_destino_id: string
@@ -7316,6 +7363,10 @@ export type Database = {
       cargar_cuotas_sponsor: {
         Args: { p_contrato_id: string; p_cuotas: Json }
         Returns: number
+      }
+      cerrar_comprobante: {
+        Args: { p_cae: string; p_cae_vencimiento: string; p_id: string }
+        Returns: undefined
       }
       cerrar_periodo: {
         Args: { p_periodo_id: string; p_responsable_id?: string }
@@ -7585,6 +7636,10 @@ export type Database = {
         }
         Returns: string
       }
+      marcar_error_comprobante: {
+        Args: { p_detalle: string; p_id: string }
+        Returns: undefined
+      }
       marcar_gasto_planificado_ejecutado: {
         Args: { p_gasto_id: string; p_planificado_id: string }
         Returns: undefined
@@ -7687,28 +7742,6 @@ export type Database = {
         }
         Returns: string
       }
-      registrar_factura_emitida: {
-        Args: {
-          p_cae: string
-          p_cae_vencimiento: string
-          p_condicion_iva_receptor_id: number
-          p_cuota_cobro_sponsor_id: string
-          p_detalle?: string
-          p_emitida_por?: string
-          p_fecha_emision?: string
-          p_iva?: number
-          p_monto: number
-          p_neto?: number
-          p_numero: number
-          p_pago_id: string
-          p_punto_venta: number
-          p_receptor_doc_nro?: string
-          p_receptor_doc_tipo?: number
-          p_receptor_nombre?: string
-          p_tipo_comprobante: number
-        }
-        Returns: string
-      }
       registrar_gasto: {
         Args: {
           p_activo_id?: string
@@ -7756,6 +7789,30 @@ export type Database = {
           p_responsable_id?: string
         }
         Returns: string
+      }
+      reservar_numero_comprobante: {
+        Args: {
+          p_condicion_iva_receptor_id: number
+          p_cuota_cobro_sponsor_id?: string
+          p_detalle?: string
+          p_emitida_por?: string
+          p_fecha_emision?: string
+          p_iva?: number
+          p_monto: number
+          p_neto?: number
+          p_pago_id?: string
+          p_punto_venta: number
+          p_receptor_doc_nro: string
+          p_receptor_doc_tipo: number
+          p_receptor_domicilio?: string
+          p_receptor_nombre: string
+          p_tipo_comprobante: number
+          p_ultimo_numero_arca?: number
+        }
+        Returns: {
+          id: string
+          numero: number
+        }[]
       }
       retirar_efectivo_bar: {
         Args: {

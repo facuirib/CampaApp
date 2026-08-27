@@ -308,13 +308,32 @@ export const PERMISOS = {
     roles: SENSIBLE,
     donde: { tabla: 'comprobante', cmd: 'INSERT', soloSi: 'tipo_comprobante = 0' },
   },
-  'comprobante.cerrar': {
-    // Pasar una factura de «pendiente» a «emitida» o «error» cuando ARCA
-    // contesta. Mismo alcance que emitirla: es el segundo tiempo del mismo
-    // acto.
-    que: 'Cerrar una factura pendiente con la respuesta de ARCA',
+  'comprobante.reservar': {
+    // Primera de las dos puertas de emisión: saca el número y deja la fila en
+    // «pendiente» ANTES de que se llame a ARCA. La policy de la tabla no
+    // alcanza para declararlo —nombra también a operador, por el recibo—, así
+    // que el permiso vive en una guarda adentro de la función.
+    que: 'Reservar el número de una factura y dejarla pendiente',
     roles: SENSIBLE,
-    donde: { tabla: 'comprobante', cmd: 'UPDATE' },
+    donde: { guarda: 'reservar_numero_comprobante' },
+  },
+  'comprobante.cerrar': {
+    // Segunda puerta: llegó el CAE. Mismo alcance que reservar, porque es el
+    // segundo tiempo del mismo acto.
+    //
+    // La guarda acá no es simetría, es lo único que hace ruido: RLS deniega el
+    // UPDATE en silencio, y un «cerré» que no cerró dejaría la fila en
+    // pendiente con el CAE ya otorgado por ARCA.
+    que: 'Cerrar una factura pendiente con el CAE de ARCA',
+    roles: SENSIBLE,
+    donde: { guarda: 'cerrar_comprobante' },
+  },
+  'comprobante.error': {
+    // ARCA rechazó. Deja la fila como registro del intento y libera el número
+    // para el reintento.
+    que: 'Marcar como fallida una factura pendiente',
+    roles: SENSIBLE,
+    donde: { guarda: 'marcar_error_comprobante' },
   },
   'recibo.generar': {
     // El comprobante que se le da al equipo al cobrar. No es fiscal, no tiene
