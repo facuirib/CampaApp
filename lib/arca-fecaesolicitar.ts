@@ -1,35 +1,18 @@
 import type { TicketAcceso } from './arca-wsaa-core.ts'
 
 /**
- * FECAESolicitar — pedido de CAE (Código de Autorización Electrónico).
- * Este método SÍ emite documentos fiscales reales. Toda llamada exitosa
- * genera un comprobante numerado que queda registrado en ARCA de forma
- * irreversible — no hay "deshacer" un CAE otorgado (se corrige con
- * nota de crédito, un comprobante nuevo, no borrando el original).
- *
- * Decisiones confirmadas con Horacio (25/08):
- *  - Concepto: 2 (Servicio) siempre.
- *  - Punto de venta: 200, fijo.
- *  - Tipo de comprobante: 01 (Factura A) si condicionIvaReceptorId=1
- *    (Responsable Inscripto), 06 (Factura B) para el resto.
- *  - El monto recibido YA INCLUYE IVA — se desarma matemáticamente
- *    (neto = monto/1.21, iva = monto-neto) PARA LOS DOS TIPOS.
- *  - CORREGIDO tras el primer intento real (25/08): el array <Iva> es
- *    obligatorio para Factura A Y B por igual — ARCA rechazó el primer
- *    intento con "Si ImpNeto es mayor a 0 el objeto IVA es
- *    obligatorio". La diferencia entre A y B no es "con/sin IVA
- *    discriminado ante ARCA", es sobre si el receptor puede tomarlo
- *    como crédito fiscal.
- *  - Alícuota: Id 5 = 21% (verificado contra ARCA, no de memoria).
- *  - Resultado='A' (aprobado, con o sin observaciones) -> se guarda con
- *    el CAE. Solo Resultado='R' (rechazado) es error real, sin CAE.
+ * FECAESolicitar — pedido de CAE, orquestado con el modelo de DOS
+ * PUERTAS de Facu (27/08): reservar_numero_comprobante() antes de
+ * llamar a ARCA (advisory lock adentro, evita que dos requests
+ * simultáneos reserven el mismo número), y cerrar_comprobante() o
+ * marcar_error_comprobante() después, según el resultado real.
+ * Reemplaza registrar_factura_emitida (ya no existe).
  */
 
 const WSFEV1_URL_PRODUCCION = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
 const WSFEV1_URL_HOMOLOGACION = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx'
 
 const ALICUOTA_ID_21_PORCIENTO = 5
-const PUNTO_VENTA = 200
 const CONCEPTO_SERVICIO = 2
 const CONDICION_IVA_RESPONSABLE_INSCRIPTO = 1
 const TIPO_COMPROBANTE_FACTURA_A = 1
@@ -74,11 +57,15 @@ export interface DatosFactura {
   cuit: string
   montoConIva: number
   condicionIvaReceptorId: number
-  docTipo: number
-  docNro: string
+  receptorNombre: string
+  receptorDocTipo: number
+  receptorDocNro: string
+  pagoId?: string
+  cuotaCobroSponsorId?: string
 }
 
 export interface ResultadoFactura {
+  comprobanteId: string
   aprobado: boolean
   cae: string | null
   caeVencimiento: string | null
@@ -88,10 +75,13 @@ export interface ResultadoFactura {
   errorMensaje: string | null
 }
 
-export async function solicitarCAE(
+export async function emitirFactura(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
   ticket: TicketAcceso,
   datos: DatosFactura,
-  numeroComprobante: number,
+  puntoVenta: number,
+  ultimoNumeroArca: number,
   produccion: boolean
 ): Promise<ResultadoFactura> {
   const esResponsableInscripto =
@@ -102,6 +92,32 @@ export async function solicitarCAE(
 
   const impNeto = Math.round((datos.montoConIva / 1.21) * 100) / 100
   const impIva = Math.round((datos.montoConIva - impNeto) * 100) / 100
+
+  const { data: reserva, error: errorReserva } = await admin.rpc(
+    'reservar_numero_comprobante',
+    {
+      p_punto_venta: puntoVenta,
+      p_tipo_comprobante: tipoComprobante,
+      p_condicion_iva_receptor_id: datos.condicionIvaReceptorId,
+      p_monto: datos.montoConIva,
+      p_receptor_nombre: datos.receptorNombre,
+      p_receptor_doc_tipo: datos.receptorDocTipo,
+      p_receptor_doc_nro: datos.receptorDocNro,
+      p_pago_id: datos.pagoId ?? null,
+      p_cuota_cobro_sponsor_id: datos.cuotaCobroSponsorId ?? null,
+      p_neto: impNeto,
+      p_iva: impIva,
+      p_ultimo_numero_arca: ultimoNumeroArca,
+    }
+  )
+
+  if (errorReserva || !reserva || reserva.length === 0) {
+    throw new Error(
+      `No se pudo reservar el número de comprobante: ${errorReserva?.message ?? 'sin filas'}`
+    )
+  }
+
+  const { id: comprobanteId, numero: numeroComprobante } = reserva[0]
 
   const bloqueIva = `
       <ar:Iva>
@@ -127,14 +143,14 @@ export async function solicitarCAE(
     <ar:FeCAEReq>
       <ar:FeCabReq>
         <ar:CantReg>1</ar:CantReg>
-        <ar:PtoVta>${PUNTO_VENTA}</ar:PtoVta>
+        <ar:PtoVta>${puntoVenta}</ar:PtoVta>
         <ar:CbteTipo>${tipoComprobante}</ar:CbteTipo>
       </ar:FeCabReq>
       <ar:FeDetReq>
         <ar:FECAEDetRequest>
           <ar:Concepto>${CONCEPTO_SERVICIO}</ar:Concepto>
-          <ar:DocTipo>${datos.docTipo}</ar:DocTipo>
-          <ar:DocNro>${datos.docNro}</ar:DocNro>
+          <ar:DocTipo>${datos.receptorDocTipo}</ar:DocTipo>
+          <ar:DocNro>${datos.receptorDocNro}</ar:DocNro>
           <ar:CbteDesde>${numeroComprobante}</ar:CbteDesde>
           <ar:CbteHasta>${numeroComprobante}</ar:CbteHasta>
           <ar:CbteFch>${cbteFch}</ar:CbteFch>
@@ -167,22 +183,39 @@ export async function solicitarCAE(
     observaciones.push(matchObs[1])
   }
 
-  if (resultado !== 'A') {
+  if (resultado !== 'A' || !cae) {
+    const detalle = observaciones.join(' | ') || 'ARCA rechazó el comprobante sin detalle'
+    await admin.rpc('marcar_error_comprobante', {
+      p_id: comprobanteId,
+      p_detalle: detalle,
+    })
     return {
+      comprobanteId,
       aprobado: false,
       cae: null,
       caeVencimiento: null,
       numero: numeroComprobante,
       tipoComprobante,
       observaciones: [],
-      errorMensaje: observaciones.join(' | ') || 'ARCA rechazó el comprobante sin detalle',
+      errorMensaje: detalle,
     }
   }
 
+  const caeVencimientoFormateado = caeFchVto
+    ? `${caeFchVto.slice(0, 4)}-${caeFchVto.slice(4, 6)}-${caeFchVto.slice(6, 8)}`
+    : null
+
+  await admin.rpc('cerrar_comprobante', {
+    p_id: comprobanteId,
+    p_cae: cae,
+    p_cae_vencimiento: caeVencimientoFormateado,
+  })
+
   return {
+    comprobanteId,
     aprobado: true,
     cae,
-    caeVencimiento: caeFchVto,
+    caeVencimiento: caeVencimientoFormateado,
     numero: numeroComprobante,
     tipoComprobante,
     observaciones,

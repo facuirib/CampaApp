@@ -129,7 +129,7 @@ async function llamarWSAA(cms: string, urlWsaa: string): Promise<string> {
  * arrancar SIEMPRE por homologación hasta verificar que todo el
  * circuito funciona antes de tocar producción real.
  */
-function crearClienteAdmin() {
+export function crearClienteAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) {
