@@ -80,7 +80,13 @@ export interface DatosFactura {
   iva: number
 
   cae: string
-  caeVencimiento: string
+  /**
+   * Puede faltar. En las que emite el sistema nunca falta —`cerrar_comprobante`
+   * lo recibe de ARCA—, pero un comprobante histórico cargado a mano puede no
+   * tenerlo todavía. Se imprime el hueco en vez de inventarle una fecha: un
+   * vencimiento equivocado en un documento fiscal es peor que uno ausente.
+   */
+  caeVencimiento: string | null
   /** `E` = CAE · `A` = CAEA. De la fila, no una constante. */
   tipoCodAut: TipoCodAut
   moneda: string
@@ -309,11 +315,17 @@ export async function generarFacturaPDF(datos: DatosFactura): Promise<Uint8Array
   yFiscal -= 18
   texto(ctx, `CAE N°: ${datos.cae}`, xFiscal, yFiscal, { font: negrita, size: 10 })
   yFiscal -= 14
-  texto(ctx, `Vencimiento del CAE: ${formatDate(datos.caeVencimiento)}`, xFiscal, yFiscal, {
-    font: regular,
-    size: 9,
-    color: GRIS,
-  })
+  // Sin fecha se escribe el hueco, no la palabra «null» ni una línea que
+  // desaparece: que el campo esté y se vea vacío dice la verdad —falta el
+  // dato—, mientras que omitir la línea haría pensar que el comprobante no
+  // lleva vencimiento.
+  texto(
+    ctx,
+    `Vencimiento del CAE: ${datos.caeVencimiento ? formatDate(datos.caeVencimiento) : '(a completar)'}`,
+    xFiscal,
+    yFiscal,
+    { font: regular, size: 9, color: GRIS },
+  )
 
   if (!tipo.discrimina) {
     yFiscal -= 16

@@ -46,3 +46,6 @@ next-env.d.ts
 # Los PDF de ejemplo que generan los scripts de prueba. Se regeneran con
 # `npm run probar:recibo` / `probar:factura`; no son fuente.
 *-ejemplo.pdf
+
+# PDF generados desde una fila real (scripts/factura-de-comprobante.ts).
+factura-*-*.pdf
