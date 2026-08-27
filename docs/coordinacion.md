@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ❓ Usuarios QA baneados · ¿cómo pruebo el flujo con sesión real? · para Facu
+
+Necesito probar el flujo completo de emitirFactura (código adaptado al modelo de 2 puertas, compilando, verificado hasta acá) con una sesión de usuario real, porque reservar_numero_comprobante exige auth_rol() = admin/finanzas, y con service_role auth.uid() es null.
+
+Probé con qa-finanzas y qa-admin (generando magic link) — los dos dan "User is banned". ¿Los baneaste vos a propósito (parte de la seguridad de ayer), o es un efecto secundario de algo? ¿Cómo pruebo el flujo completo de forma legítima — reactivo alguno temporalmente, hay otro usuario de prueba, o preferís probarlo vos del otro lado?
+
+Mientras tanto, el código quedó verificado hasta el límite correcto (autenticación con ARCA, consulta de número, y el bloqueo de rol funcionando como debe) — no forcé nada para esquivarlo.
+
+---
+
 ### ✅ Resueltos · FECompConsultar + persistencia del Ticket de Acceso · para Facu
 
 Tomé los dos huecos que marcaste como bloqueantes del motor.
