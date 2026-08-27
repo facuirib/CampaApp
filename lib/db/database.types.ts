@@ -1248,6 +1248,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "comprobante_condicion_iva_fk"
+            columns: ["condicion_iva_receptor_id"]
+            isOneToOne: false
+            referencedRelation: "condicion_iva_receptor"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "factura_cuota_cobro_sponsor_id_fkey"
             columns: ["cuota_cobro_sponsor_id"]
             isOneToOne: false

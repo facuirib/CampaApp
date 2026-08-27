@@ -31,23 +31,24 @@ const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE
   auth: { persistSession: false },
 })
 
+// El join sale de la foreign key: PostgREST deduce las relaciones del catálogo
+// de constraints. Cuando este script se escribió, `comprobante` no tenía la FK al
+// catálogo de IVA y hubo que traerlo aparte — así apareció el hallazgo. Con la FK
+// puesta, el embed funciona.
 const { data: c, error } = await db
   .from('comprobante')
-  .select('*')
+  .select('*, condicion_iva_receptor(descripcion)')
   .eq('punto_venta', punto)
   .eq('numero', numero)
   .single()
 if (error || !c) throw new Error(`No encontré el comprobante ${punto}-${numero}: ${error?.message}`)
 
-const { data: e } = await db.from('emisor').select('*').eq('id', true).single()
+const { data: e } = await db
+  .from('emisor')
+  .select('*, condicion_iva_receptor(descripcion)')
+  .eq('id', true)
+  .single()
 if (!e) throw new Error('No hay emisor cargado.')
-
-// El catálogo se trae aparte y no por join: `comprobante.condicion_iva_receptor_id`
-// NO tiene foreign key —`emisor` y `tercero` sí la tienen—, así que PostgREST no
-// conoce la relación. Queda anotado como hallazgo; acá se resuelve leyendo.
-const { data: condiciones } = await db.from('condicion_iva_receptor').select('id, descripcion')
-const descIva = (id: number | null) =>
-  condiciones?.find((x) => x.id === id)?.descripcion ?? ''
 
 const datos: DatosFactura = {
   tipoComprobante: c.tipo_comprobante,
@@ -57,7 +58,7 @@ const datos: DatosFactura = {
   receptorNombre: c.receptor_nombre ?? '',
   receptorDocTipo: c.receptor_doc_tipo ?? 99,
   receptorDocNro: c.receptor_doc_nro ?? '0',
-  receptorCondicionIva: descIva(c.condicion_iva_receptor_id),
+  receptorCondicionIva: c.condicion_iva_receptor?.descripcion ?? '',
   receptorDomicilio: c.receptor_domicilio,
   detalle: c.detalle ?? '',
   monto: Number(c.monto),
@@ -74,7 +75,7 @@ const datos: DatosFactura = {
     // El domicilio sale de la FILA (congelado del punto elegido al emitir), no
     // de la tabla punto_venta: es el que valía ese día.
     domicilioComercial: c.emisor_domicilio,
-    condicionIva: descIva(e.condicion_iva_id),
+    condicionIva: e.condicion_iva_receptor?.descripcion ?? null,
     ingresosBrutos: e.ingresos_brutos,
     inicioActividades: e.inicio_actividades,
   },
