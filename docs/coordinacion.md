@@ -178,6 +178,36 @@ TIR)** — los mismos que te devolvió ARCA al consultar.
 
 ---
 
+### 📌 PARA HORACIO · `tipo_cod_aut` — cuando exista CAEA, pasámelo · 27/08/2026
+
+`comprobante` ganó tres columnas para poder armar el QR de ARCA:
+`moneda` ('PES'), `cotizacion` (1) y **`tipo_cod_aut`** ('E' = CAE · 'A' = CAEA).
+
+Las tres tienen default y **hoy no tenés que hacer nada**: `cerrar_comprobante`
+deja `tipo_cod_aut` en 'E', que es lo correcto mientras todo salga por CAE.
+
+Lo que sí conviene que sepas para más adelante: **el día que implementes
+contingencia con CAEA, `cerrar_comprobante` va a necesitar recibir el tipo.**
+Hoy la firma es
+
+    cerrar_comprobante(p_id uuid, p_cae text, p_cae_vencimiento date)
+
+y ahí habría que agregarle un `p_tipo_cod_aut text default 'E'`. No lo agregamos
+ahora porque sería un parámetro que nadie usa y que igual habría que revisar
+cuando exista el circuito real —recién ahí se sabe de dónde sale el dato.
+
+**Por qué se guarda por fila y no como constante:** el QR codifica el tipo de
+autorización, y quien lo escanea llega al validador del organismo. Si el valor
+viviera en el generador de PDF, el día que convivan CAE y CAEA **las facturas
+viejas se reimprimirían con el tipo de hoy** — un QR afirmando 'E' sobre un
+comprobante que se autorizó por CAEA. No rompe nada visible: rompe cuando
+alguien escanea una factura del año pasado.
+
+Es el mismo criterio que ya usamos con el receptor, el detalle y el domicilio
+del emisor. Esta es la cuarta vez.
+
+---
+
 ### 🔴 PENDIENTE · falta probar la ESPERA real del advisory lock · 27/08/2026
 
 Del lock de `reservar_numero_comprobante` está verificado el mecanismo: se toma,
