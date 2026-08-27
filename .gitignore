@@ -42,3 +42,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Los PDF de ejemplo que generan los scripts de prueba. Se regeneran con
+# `npm run probar:recibo` / `probar:factura`; no son fuente.
+*-ejemplo.pdf

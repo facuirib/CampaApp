@@ -24,6 +24,35 @@ export function formatMoney(n: number): string {
   return MONEDA.format(n).replace('\u00A0', '')
 }
 
+const MONEDA_EXACTA = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'ARS',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+/**
+ * Importe con los centavos, para los comprobantes fiscales.
+ *
+ * **No es una variante estética de `formatMoney`: es la diferencia entre un
+ * número informativo y uno declarado.** En pantalla, redondear a peso entero
+ * está bien —lo que se lee es la magnitud— y esa decisión está tomada arriba.
+ *
+ * En una factura no. El IVA impreso es el que el receptor toma como crédito
+ * fiscal, y es el mismo que se le declaró a ARCA al pedir el CAE. Sobre un
+ * total de $10.000 el neto es 8.264,46 y el IVA 1.735,54; redondeados dan
+ * 8.264 y 1.736, que no son los valores autorizados. Un comprobante que
+ * imprime cifras distintas de las que tiene el organismo está mal emitido,
+ * aunque sume igual.
+ *
+ * Por eso vive acá al lado y no reemplaza al otro: los dos formateos son
+ * correctos, cada uno en su lugar. `formatMoney` para la app, éste para el
+ * papel con CAE.
+ */
+export function formatMoneyExacto(n: number): string {
+  return MONEDA_EXACTA.format(n).replace('\u00A0', '')
+}
+
 /**
  * Importe abreviado, para donde no entra la cifra completa: ejes de gráficos,
  * barras, etiquetas apretadas.
