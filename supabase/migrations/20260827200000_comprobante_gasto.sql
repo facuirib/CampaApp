@@ -1,6 +1,16 @@
 -- ═══════════════════════════════════════════════════════════════
 -- Adjuntar comprobante a un gasto — bucket + columna + RLS de Storage
--- PROPUESTA, NO APLICAR sin revisión.
+-- APLICADA el 27/08/2026.
+--
+-- El encabezado decía «PROPUESTA, NO APLICAR» y la migración estaba aplicada.
+-- Se alinea con la realidad: el archivo es lo que corre sobre una base limpia,
+-- y uno marcado «no aplicar» que sí está aplicado hace dudar de todo el resto.
+--
+-- ⚠️ Las cuatro policies de Storage de más abajo quedaron REEMPLAZADAS por
+-- 20260828120000_storage_comprobantes_gasto_por_rol.sql. Decían `to
+-- authenticated` validando sólo el bucket, sin mirar auth_rol(), y con eso los
+-- cinco roles podían subir —incluidos read-only y bar—. Se dejan acá porque una
+-- migración es historia y no se reescribe; la que manda es la posterior.
 --
 -- Diseño de hace unos días (docs/propuestas/comprobantes_y_facturacion.md,
 -- punto 1), construido ahora. Bucket privado, sin acceso público —
