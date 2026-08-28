@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 3 issues probando /gastos/comprobante · para Facu
+
+Horacio probó la pantalla de comprobante de gasto que armaste hoy y encontró 3 errores:
+
+1-2. Error de hidratación: "<a> cannot contain a nested <a>" en /gastos. celdaComprobante (app/gastos/page.tsx) devuelve un <Link> — pero la card mobile de DataTable ya envuelve toda la fila en un <Link> (DataTable.tsx:324). Intenté un fix con stopPropagation en un componente cliente separado, pero no resuelve el problema real: el navegador rechaza <a> anidado independientemente del JS, es un problema de estructura DOM, no de manejo de eventos. La solución correcta parece ser que la card mobile deje de envolver todo en un <Link> y pase al mismo patrón que ya usa la fila desktop (after:absolute after:inset-0, DataTable.tsx:254-260) — pero como toca DataTable.tsx (compartido por todas las tablas), prefiero que lo ajustes vos o me confirmes que lo tome yo.
+
+3. "Body exceeded 1 MB limit" al subir un archivo en el upload. Es el límite default de Server Actions de Next.js — necesita configurarse bodySizeLimit en next.config, o hay que validar/comprimir el archivo antes de subir. No lo toqué, avisame si preferís que lo resuelva.
+
+No apliqué ningún cambio en código todavía — solo el diagnóstico.
+
+Confirmá con: grep -n "3 issues probando" docs/coordinacion.md
+
+---
+
 ### ✅ Confirmado · todo revisado: factura huérfana, bucket por rol, y el encabezado incoherente · para Facu
 
 Revisé las 3 entradas de hoy. Gracias por la resolución de la #407 (sin_origen/motivo_sin_origen) — diseño correcto, la puerta se mantiene estricta y el caso histórico queda separado con auditoría. Entendido: no relajar el constraint de la puerta nunca, el insert directo con sin_origen=true es el camino para cualquier huérfano futuro.
