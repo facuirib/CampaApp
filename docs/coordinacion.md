@@ -39,6 +39,141 @@ Construida la propuesta de hace unos días (docs/propuestas/comprobantes_y_factu
 Falta: el código del lado del front (upload en /gastos/nuevo, Server Action para generar URL firmada al mostrar/descargar). Lo sigo si querés, o avisame si preferís tomarlo vos dado que toca tu carril de gastos.
 
 Confirmá con: grep -n "bucket + columna, aplicado" docs/coordinacion.md
+### ✅ ARREGLADO · las policies de tu bucket, ahora por rol · 28/08/2026 · para Horacio
+
+Lo tomamos nosotros porque era seguridad y no daba para esperar. El bucket sigue
+siendo tuyo; sólo cambiaron las cuatro policies.
+
+**Escritura** (INSERT · UPDATE · DELETE): `admin`, `operador`, `finanzas` — los
+mismos de `gasto.INSERT`. Adjuntar el comprobante es parte de cargar el gasto, y
+separar los permisos habilitaría adjuntarle un documento a un gasto que uno no
+puede crear.
+
+**Lectura** (SELECT): `admin`, `operador`, `read-only`, `finanzas` — los que ven
+Gastos en el sidebar, o sea **todos menos `bar`**. `read-only` entra porque su
+definición es ver todo sin cambiar nada; `bar` queda afuera porque no llega a la
+pantalla, y darle acceso por Storage sería una puerta lateral a documentos que la
+navegación no le ofrece.
+
+Medido rol por rol contra las policies ya aplicadas, en `ROLLBACK`:
+
+    admin      ✅ sube · ✅ ve        bar        ✅ NO sube · ✅ ve 0
+    operador   ✅ sube · ✅ ve        read-only  ✅ NO sube · ✅ ve todo
+    finanzas   ✅ sube · ✅ ve
+
+El contraste que lo hace concluyente: `bar` ve **0** archivos y `read-only` los ve
+**todos**. Si la policy de SELECT no discriminara, los dos verían lo mismo.
+
+**Un detalle de Storage que te va a servir:** el borrado por SQL no se puede
+medir. `storage.objects` tiene un trigger de Supabase, `protect_objects_delete`,
+que bloquea los `delete` directos para forzarlos por la API. La policy de DELETE
+está escrita igual y actúa en ese camino; simplemente no se prueba con un
+`delete` a mano.
+
+Y una nota de forma: `public.auth_rol()` va **calificada con el schema** dentro de
+las policies de `storage`, porque ahí el `search_path` no incluye `public`.
+
+---
+
+### 📌 El front del upload lo tomamos nosotros · 28/08/2026 · para Horacio
+
+Preguntabas si lo seguías vos o lo tomaba Facu porque toca el carril de gastos.
+**Lo tomamos nosotros**: el upload en `/gastos/nuevo` y la Server Action de la URL
+firmada son pantalla, y la pantalla es nuestro lado. Vos dejaste el bucket y la
+columna; con eso alcanza.
+
+Queda en la cola detrás del módulo de consulta de comprobantes, que es lo próximo
+nuestro.
+
+---
+
+### 📌 Segunda vez · «PROPUESTA, NO APLICAR» en un archivo aplicado · 28/08/2026 · para Horacio
+
+Pasó con `20260826240000_arca_ticket_acceso.sql` y volvió a pasar con
+`20260827200000_comprobante_gasto.sql`: el encabezado dice «PROPUESTA, NO APLICAR
+sin revisión» y el commit dice «aplicados».
+
+No es cosmético. **El archivo es lo que corre sobre una base limpia**, así que uno
+marcado «no aplicar» que sí está aplicado deja dos lecturas posibles del estado
+real, y quien lo lea después no sabe cuál creer — ni si el resto de los
+encabezados dicen la verdad.
+
+Alineé el de `comprobante_gasto` (dice «APLICADA el 27/08» y avisa que sus
+policies quedaron reemplazadas). Si escribís la migración como propuesta y
+después la aplicás, alcanza con corregir esa línea antes de commitear.
+
+---
+
+### 🔴 HALLAZGO · las policies del bucket de comprobantes no miran el rol · 28/08/2026 · para Horacio
+
+De `20260827200000_comprobante_gasto.sql`, que ya está aplicada (el encabezado
+del archivo dice «PROPUESTA, NO APLICAR» y el commit dice «aplicados» — conviene
+alinear eso, porque el archivo es lo que corre sobre una base limpia).
+
+El bucket privado está bien: sin acceso público, lectura por URL firmada. El
+problema son las cuatro policies, que dicen `to authenticated` y validan sólo
+`bucket_id`, sin mirar `auth_rol()`.
+
+Medido simulando cada rol, con `rolbypassrls = false` y en `ROLLBACK`:
+
+    admin      🔴 pudo subir
+    operador   🔴 pudo subir
+    finanzas   🔴 pudo subir
+    bar        🔴 pudo subir
+    read-only  🔴 pudo subir
+
+O sea que **`read-only` puede subir archivos** —y `bar`, que ni siquiera ve la
+pantalla de gastos—. Es el mismo modelo de roles que el resto del sistema respeta
+tabla por tabla, salteado en Storage. `authenticated` no es un rol del sistema:
+es «cualquiera que entró».
+
+No lo toqué porque es tu carril y la corrección tiene una decisión adentro: **qué
+roles pueden adjuntar el comprobante de un gasto**. Lo natural sería los mismos
+que pueden cargar el gasto —`gasto.INSERT` es admin, operador y finanzas—, pero
+esa la tomás vos o Facu. La forma sería agregarle `and auth_rol() = any (...)` a
+cada policy, como en las 140 de `public`.
+
+---
+
+### ✅ RESPUESTA · la #407 YA está cargada — y ojo con el constraint · 28/08/2026 · para Horacio
+
+**Ya está resuelta y hecha.** Tu nota de hoy pregunta cómo cargarla; se cargó
+ayer, en el commit `f16d7ea`. Está en la base:
+
+    200-407 · emitida · $1,00 · CAE 86349910665002 · sin_origen
+
+Se resolvió el 27/08 con dos columnas nuevas en `comprobante`:
+
+    sin_origen         boolean not null default false
+    motivo_sin_origen  text                              -- obligatorio si sin_origen
+
+`comprobante_un_origen` pasó a ser un `case`: con el flag, los dos punteros van
+en null; sin el flag, la regla de siempre, intacta.
+
+**🔴 Lo importante, y es lo que quiero que no hagas:** tu nota razona que
+«`reservar_numero_comprobante` tiene el mismo constraint». Es cierto **de la
+puerta**, y **la puerta tiene que seguir así**. No la relajes.
+
+El registro histórico **no pasa por la puerta**. Entró por `insert` directo con
+`sin_origen = true`. Esa es toda la solución, y la asimetría es deliberada:
+
+· **La puerta** emite comprobantes nuevos, y un comprobante nuevo SIEMPRE nace
+  de un cobro. Si acepta uno sin origen, se abre un agujero de auditoría
+  permanente para tapar un caso de una sola vez.
+
+· **El `insert` directo** es para lo que ya existe en ARCA y no nació acá. Es
+  admin, es a mano, y deja escrito por qué en `motivo_sin_origen`.
+
+Relajar el constraint de la puerta habría cambiado la regla para todos los
+comprobantes futuros a cambio de habilitar uno del pasado. Por eso la excepción
+está donde está.
+
+**Si te aparece otro comprobante huérfano**, el camino es el mismo: `insert`
+directo con `sin_origen = true` y un motivo escrito. No hace falta tocar nada.
+
+Tres campos de la #407 quedaron en NULL a propósito y no se inventan:
+`cae_vencimiento` (Facu no lo encontró en el portal), `emitida_por` (no la emitió
+Campa) y `detalle` (no sabemos qué decía).
 
 ---
 
@@ -57,6 +192,39 @@ Verificado: el punto de venta ya no estaba hardcodeado en lib/arca-fecaesolicita
 El CUIT sí seguía hardcodeado en lib/arca-wsfev1-consultas.ts (condicionesIvaReceptor y tiposDeIva) — corregido, ahora recibe cuit como parámetro. Verificado: grep -rn "30715502670" lib/ da vacío.
 
 Confirmá con: git log --oneline -1
+
+---
+
+### 🟡 RESPUESTA · las QA quedan baneadas; vas a tener cuenta propia · 28/08/2026 · para Horacio
+
+**Sí, las baneé a propósito**, al cerrar la sesión de front del 26/08. Son cinco
+cuentas con `+qa-` en el mail, una por rol, que existían para probar qué ve y qué
+puede cada uno. Dejarlas vivas era dejar cinco puertas abiertas con contraseña
+conocida, así que quedan baneadas — **no las reactives**.
+
+Que `reservar_numero_comprobante` te haya frenado con `service_role` **no es un
+bug: es la guarda funcionando**. Con esa credencial `auth_rol()` es null, y la
+puerta exige admin o finanzas. Hiciste bien en no esquivarla.
+
+**La decisión de Facu: tenés cuenta propia de admin**, permanente, no una QA
+prestada. Admin y no finanzas porque tu carril completo lo necesita —el motor,
+`registrar_cobro`, el modelo de proveedor— y finanzas no llega a la estructura
+del torneo ni a administrar usuarios.
+
+**Está pendiente de un dato:** no tenés cuenta todavía y hace falta tu email. Hoy
+hay 7 usuarios —las 5 QA, Mati (desactivado) y Facu— y ninguno es tuyo.
+
+Y hay algo a resolver antes: **no hay SMTP configurado**, así que una invitación
+por mail no llegaría. Las dos salidas que no dependen de eso:
+
+· **Alta con contraseña** (`admin.createUser` con `email_confirm: true`) y Facu
+  te la pasa por otro canal; la cambiás al entrar.
+· **Magic link generado por API** (`admin.generateLink`), que devuelve la URL en
+  la respuesta sin mandar ningún mail — el mismo mecanismo que ya usaste. Sirve
+  para entrar, pero conviene fijar contraseña después para no depender de generar
+  uno cada vez.
+
+Facu decide cuál y trae el mail.
 
 ---
 

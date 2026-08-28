@@ -164,6 +164,12 @@ export const GRUPOS: GrupoNav[] = [
       { href: '/proyeccion', label: 'Proyección', icon: 'proyeccion' },
       { href: '/calendario-pagos', label: 'Calendario de pagos', icon: 'reloj' },
       { href: '/resultados', label: 'Resultados', icon: 'resultados' },
+      // Entre Resultados y Movimientos porque es de la misma familia: lo que ya
+      // pasó en plata. Se llama «Comprobantes» y no «Facturación» porque tiene
+      // facturas Y recibos —«Facturación» prometería sólo lo primero— y porque
+      // ese nombre le va a quedar mejor a la pantalla de emisión cuando exista.
+      // Sin `roles`, o sea el default OFICINA: el bar no lo ve.
+      { href: '/comprobantes', label: 'Comprobantes', icon: 'comprobante' },
       { href: '/movimientos', label: 'Movimientos', icon: 'movimientos' },
     ],
   },

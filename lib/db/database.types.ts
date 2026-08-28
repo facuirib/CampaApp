@@ -2676,6 +2676,7 @@ export type Database = {
           asiento_pag_id: string | null
           cantidad: number
           cat_gasto_id: string
+          comprobante_path: string | null
           concepto_id: string | null
           concepto_libre: string | null
           devengado_at: string
@@ -2694,6 +2695,7 @@ export type Database = {
           asiento_pag_id?: string | null
           cantidad?: number
           cat_gasto_id: string
+          comprobante_path?: string | null
           concepto_id?: string | null
           concepto_libre?: string | null
           devengado_at: string
@@ -2712,6 +2714,7 @@ export type Database = {
           asiento_pag_id?: string | null
           cantidad?: number
           cat_gasto_id?: string
+          comprobante_path?: string | null
           concepto_id?: string | null
           concepto_libre?: string | null
           devengado_at?: string
@@ -5075,6 +5078,86 @@ export type Database = {
         }
         Relationships: []
       }
+      v_comprobante: {
+        Row: {
+          anio: number | null
+          cae: string | null
+          cae_vencimiento: string | null
+          condicion_iva: string | null
+          cotizacion: number | null
+          created_at: string | null
+          cuota_cobro_sponsor_id: string | null
+          detalle: string | null
+          emisor_domicilio: string | null
+          emitida_por: string | null
+          error_detalle: string | null
+          es_factura: boolean | null
+          estado: string | null
+          estado_label: string | null
+          fecha_emision: string | null
+          id: string | null
+          iva: number | null
+          letra: string | null
+          moneda: string | null
+          monto: number | null
+          motivo_sin_origen: string | null
+          neto: number | null
+          numero: number | null
+          numero_formateado: string | null
+          pago_id: string | null
+          periodo: string | null
+          punto_venta: number | null
+          receptor_doc: string | null
+          receptor_domicilio: string | null
+          receptor_nombre: string | null
+          sin_origen: boolean | null
+          tiene_pdf: boolean | null
+          tipo_cod_aut: string | null
+          tipo_comprobante: number | null
+          tipo_label: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factura_cuota_cobro_sponsor_id_fkey"
+            columns: ["cuota_cobro_sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "cuota_cobro_sponsor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factura_cuota_cobro_sponsor_id_fkey"
+            columns: ["cuota_cobro_sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuotas_sponsor"
+            referencedColumns: ["cuota_id"]
+          },
+          {
+            foreignKeyName: "factura_cuota_cobro_sponsor_id_fkey"
+            columns: ["cuota_cobro_sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuotas_sponsor_futuras"
+            referencedColumns: ["cuota_id"]
+          },
+          {
+            foreignKeyName: "factura_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_comprobante_kpi: {
+        Row: {
+          con_error: number | null
+          facturado_mes: number | null
+          facturas: number | null
+          pendientes: number | null
+          recibos: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
       v_cuenta_corriente_equipo: {
         Row: {
           categoria: string | null
@@ -5712,6 +5795,20 @@ export type Database = {
             referencedColumns: ["torneo_id"]
           },
         ]
+      }
+      v_facturado_por_direccion: {
+        Row: {
+          anio: number | null
+          cantidad: number | null
+          domicilio: string | null
+          iva: number | null
+          neto: number | null
+          periodo: string | null
+          punto_nombre: string | null
+          punto_venta: number | null
+          total: number | null
+        }
+        Relationships: []
       }
       v_ficha_torneo: {
         Row: {
