@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 
 import { createClient } from '@supabase/supabase-js'
 
+import { datosFacturaDesdeFila } from '../lib/pdf/desde-fila.ts'
 import { generarFacturaPDF, type DatosFactura } from '../lib/pdf/factura.ts'
 
 /**
@@ -37,49 +38,30 @@ const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE
 // puesta, el embed funciona.
 const { data: c, error } = await db
   .from('comprobante')
-  .select('*, condicion_iva_receptor(descripcion)')
+  .select('*')
   .eq('punto_venta', punto)
   .eq('numero', numero)
   .single()
 if (error || !c) throw new Error(`No encontré el comprobante ${punto}-${numero}: ${error?.message}`)
 
-const { data: e } = await db
-  .from('emisor')
-  .select('*, condicion_iva_receptor(descripcion)')
-  .eq('id', true)
-  .single()
+const { data: e } = await db.from('emisor').select('*').eq('id', true).single()
+
+const { data: condiciones } = await db.from('condicion_iva_receptor').select('id, descripcion')
+const descIva = (id: number | null) =>
+  condiciones?.find((x) => x.id === id)?.descripcion ?? ''
 if (!e) throw new Error('No hay emisor cargado.')
 
-const datos: DatosFactura = {
-  tipoComprobante: c.tipo_comprobante,
-  puntoVenta: c.punto_venta,
-  numero: c.numero,
-  fecha: c.fecha_emision,
-  receptorNombre: c.receptor_nombre ?? '',
-  receptorDocTipo: c.receptor_doc_tipo ?? 99,
-  receptorDocNro: c.receptor_doc_nro ?? '0',
-  receptorCondicionIva: c.condicion_iva_receptor?.descripcion ?? '',
-  receptorDomicilio: c.receptor_domicilio,
-  detalle: c.detalle ?? '',
-  monto: Number(c.monto),
-  neto: Number(c.neto),
-  iva: Number(c.iva),
-  cae: c.cae ?? '',
-  caeVencimiento: c.cae_vencimiento,
-  tipoCodAut: c.tipo_cod_aut as 'E' | 'A',
-  moneda: c.moneda,
-  cotizacion: Number(c.cotizacion),
-  emisor: {
+const datos: DatosFactura = datosFacturaDesdeFila(
+  c,
+  {
     razonSocial: e.razon_social,
     cuit: e.cuit,
-    // El domicilio sale de la FILA (congelado del punto elegido al emitir), no
-    // de la tabla punto_venta: es el que valía ese día.
-    domicilioComercial: c.emisor_domicilio,
-    condicionIva: e.condicion_iva_receptor?.descripcion ?? null,
+    condicionIva: descIva(e.condicion_iva_id),
     ingresosBrutos: e.ingresos_brutos,
     inicioActividades: e.inicio_actividades,
   },
-}
+  descIva(c.condicion_iva_receptor_id),
+)
 
 const nombre = `factura-${punto}-${String(numero).padStart(8, '0')}.pdf`
 const bytes = await generarFacturaPDF(datos)
