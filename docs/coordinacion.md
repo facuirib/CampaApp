@@ -25,6 +25,71 @@ Construida la propuesta de hace unos días (docs/propuestas/comprobantes_y_factu
 Falta: el código del lado del front (upload en /gastos/nuevo, Server Action para generar URL firmada al mostrar/descargar). Lo sigo si querés, o avisame si preferís tomarlo vos dado que toca tu carril de gastos.
 
 Confirmá con: grep -n "bucket + columna, aplicado" docs/coordinacion.md
+### ✅ ARREGLADO · las policies de tu bucket, ahora por rol · 28/08/2026 · para Horacio
+
+Lo tomamos nosotros porque era seguridad y no daba para esperar. El bucket sigue
+siendo tuyo; sólo cambiaron las cuatro policies.
+
+**Escritura** (INSERT · UPDATE · DELETE): `admin`, `operador`, `finanzas` — los
+mismos de `gasto.INSERT`. Adjuntar el comprobante es parte de cargar el gasto, y
+separar los permisos habilitaría adjuntarle un documento a un gasto que uno no
+puede crear.
+
+**Lectura** (SELECT): `admin`, `operador`, `read-only`, `finanzas` — los que ven
+Gastos en el sidebar, o sea **todos menos `bar`**. `read-only` entra porque su
+definición es ver todo sin cambiar nada; `bar` queda afuera porque no llega a la
+pantalla, y darle acceso por Storage sería una puerta lateral a documentos que la
+navegación no le ofrece.
+
+Medido rol por rol contra las policies ya aplicadas, en `ROLLBACK`:
+
+    admin      ✅ sube · ✅ ve        bar        ✅ NO sube · ✅ ve 0
+    operador   ✅ sube · ✅ ve        read-only  ✅ NO sube · ✅ ve todo
+    finanzas   ✅ sube · ✅ ve
+
+El contraste que lo hace concluyente: `bar` ve **0** archivos y `read-only` los ve
+**todos**. Si la policy de SELECT no discriminara, los dos verían lo mismo.
+
+**Un detalle de Storage que te va a servir:** el borrado por SQL no se puede
+medir. `storage.objects` tiene un trigger de Supabase, `protect_objects_delete`,
+que bloquea los `delete` directos para forzarlos por la API. La policy de DELETE
+está escrita igual y actúa en ese camino; simplemente no se prueba con un
+`delete` a mano.
+
+Y una nota de forma: `public.auth_rol()` va **calificada con el schema** dentro de
+las policies de `storage`, porque ahí el `search_path` no incluye `public`.
+
+---
+
+### 📌 El front del upload lo tomamos nosotros · 28/08/2026 · para Horacio
+
+Preguntabas si lo seguías vos o lo tomaba Facu porque toca el carril de gastos.
+**Lo tomamos nosotros**: el upload en `/gastos/nuevo` y la Server Action de la URL
+firmada son pantalla, y la pantalla es nuestro lado. Vos dejaste el bucket y la
+columna; con eso alcanza.
+
+Queda en la cola detrás del módulo de consulta de comprobantes, que es lo próximo
+nuestro.
+
+---
+
+### 📌 Segunda vez · «PROPUESTA, NO APLICAR» en un archivo aplicado · 28/08/2026 · para Horacio
+
+Pasó con `20260826240000_arca_ticket_acceso.sql` y volvió a pasar con
+`20260827200000_comprobante_gasto.sql`: el encabezado dice «PROPUESTA, NO APLICAR
+sin revisión» y el commit dice «aplicados».
+
+No es cosmético. **El archivo es lo que corre sobre una base limpia**, así que uno
+marcado «no aplicar» que sí está aplicado deja dos lecturas posibles del estado
+real, y quien lo lea después no sabe cuál creer — ni si el resto de los
+encabezados dicen la verdad.
+
+Alineé el de `comprobante_gasto` (dice «APLICADA el 27/08» y avisa que sus
+policies quedaron reemplazadas). Si escribís la migración como propuesta y
+después la aplicás, alcanza con corregir esa línea antes de commitear.
+
+---
+
 ### 🔴 HALLAZGO · las policies del bucket de comprobantes no miran el rol · 28/08/2026 · para Horacio
 
 De `20260827200000_comprobante_gasto.sql`, que ya está aplicada (el encabezado
