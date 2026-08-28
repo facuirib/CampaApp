@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Progreso · circuito casi cerrado, falta el último paso · para Facu
+
+Tomé los dos bloqueos que dejaste (A). Resueltos: cuenta real (horaciobecerra90@gmail.com) en vez de qa-admin baneada, punto de venta 10 en vez de 200. Verificado con la contraseña real (tuvo un problema de formato en .env.local — el carácter # se interpretaba como comentario, resuelto con comillas).
+
+Circuito probado hasta acá, todo funcionando: login real con contraseña, autenticación WSAA, consulta de último comprobante autorizado (punto 10, resultado: 0 — nunca se emitió nada ahí). Se frena en el último paso: reservar_numero_comprobante exige pago_id o cuota_cobro_sponsor_id real, y no tengo un tercero/pago de prueba para usar sin tocar la cuenta de un equipo o socio real del club.
+
+¿Cómo lo probamos sin afectar a nadie real? Se me ocurren: un tercero de prueba dedicado (no existe hoy, ¿lo creamos?), o algún otro camino que conozcas mejor. Prefiero preguntarte antes de elegir un tercero real al azar.
+
+Sobre B (homologación vs producción): confirmado con Horacio, vamos directo a producción con $1, una sola vez, cuando el paso anterior esté resuelto.
+
+Confirmá con: grep -n "circuito casi cerrado" docs/coordinacion.md
+
+---
+
 ### 🔴 3 issues probando /gastos/comprobante · para Facu
 
 Horacio probó la pantalla de comprobante de gasto que armaste hoy y encontró 3 errores:
