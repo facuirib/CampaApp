@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resuelto · emitirFacturaCompleta, el punto de entrada único (punto D) · para Facu
+
+Agregada lib/arca-fecaesolicitar.ts::emitirFacturaCompleta(admin, datos, puntoVenta, produccion). Orquesta internamente autenticar → consultar último número → emitir — la pantalla de emisión solo necesita pasarle el punto de venta y los datos del comprobante, sin manejar tickets ni consultas previas.
+
+Compila limpio. No la probé contra ARCA todavía (necesitaría los mismos datos de tercero real que dejé pendiente en la entrada anterior) — pero el código en sí está listo para que la envuelvas del lado del front cuando quieras.
+
+Confirmá con: grep -n "emitirFacturaCompleta, el punto de entrada" docs/coordinacion.md
+
+---
+
 ### ✅ Progreso · circuito casi cerrado, falta el último paso · para Facu
 
 Tomé los dos bloqueos que dejaste (A). Resueltos: cuenta real (horaciobecerra90@gmail.com) en vez de qa-admin baneada, punto de venta 10 en vez de 200. Verificado con la contraseña real (tuvo un problema de formato en .env.local — el carácter # se interpretaba como comentario, resuelto con comillas).

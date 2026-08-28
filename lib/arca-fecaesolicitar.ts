@@ -222,3 +222,39 @@ export async function emitirFactura(
     errorMensaje: null,
   }
 }
+
+/**
+ * Punto de entrada único para el front (pedido de Facu, 28/08): recibe
+ * solo el punto y los datos del comprobante, orquesta internamente
+ * autenticar → preguntar el último número → emitir. Así la pantalla de
+ * emisión llama una sola función, sin manejar tickets ni consultas
+ * previas — esa orquestación queda de este lado (motor), no del front.
+ */
+export async function emitirFacturaCompleta(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  datos: DatosFactura,
+  puntoVenta: number,
+  produccion: boolean
+): Promise<ResultadoFactura> {
+  const { autenticarArca } = await import('./arca-wsaa-core.ts')
+  const { ultimoComprobanteAutorizado } = await import('./arca-wsfev1-consultas.ts')
+
+  const ticket = await autenticarArca('wsfe', produccion)
+
+  const esResponsableInscripto =
+    datos.condicionIvaReceptorId === CONDICION_IVA_RESPONSABLE_INSCRIPTO
+  const tipoComprobante = esResponsableInscripto
+    ? TIPO_COMPROBANTE_FACTURA_A
+    : TIPO_COMPROBANTE_FACTURA_B
+
+  const ultimoNumeroArca = await ultimoComprobanteAutorizado(
+    ticket,
+    datos.cuit,
+    puntoVenta,
+    tipoComprobante,
+    produccion
+  )
+
+  return emitirFactura(admin, ticket, datos, puntoVenta, ultimoNumeroArca, produccion)
+}
