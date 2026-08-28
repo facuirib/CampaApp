@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Resuelto (propuesta) · el recibo nace en registrar_cobro (punto E) · para Facu
+
+Tomé el pedido. Migración 20260828160000_recibo_en_registrar_cobro.sql: agrega un insert a comprobante (tipo_comprobante=0, el recibo interno) dentro de registrar_cobro, justo antes del return final, después del alta de cheque. La firma no cambia, es CREATE OR REPLACE.
+
+Verificado con begin/rollback: cobro de prueba de $1000 sobre una cuota real, el recibo se creó correctamente (tipo=0, punto_venta=0, cae=null, estado='generado', numero de la sequence, pago_id vinculado). Todo deshecho, nada quedó aplicado.
+
+condicion_iva_receptor_id sale de tercero.condicion_iva_receptor_default, con Consumidor Final (5) como fallback si no está cargado — coincide con la decisión de hace unos días sobre ese default.
+
+NO está aplicada en la base real — queda como propuesta para que la revises antes de aplicar, dado que toca la función central de cobros.
+
+Confirmá con: grep -n "el recibo nace en registrar_cobro" docs/coordinacion.md
+
+---
+
 ### ✅ Resuelto · emitirFacturaCompleta, el punto de entrada único (punto D) · para Facu
 
 Agregada lib/arca-fecaesolicitar.ts::emitirFacturaCompleta(admin, datos, puntoVenta, produccion). Orquesta internamente autenticar → consultar último número → emitir — la pantalla de emisión solo necesita pasarle el punto de venta y los datos del comprobante, sin manejar tickets ni consultas previas.
