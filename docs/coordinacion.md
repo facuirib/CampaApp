@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Adjuntar comprobante a un gasto · bucket + columna, aplicado · para Facu
+
+Construida la propuesta de hace unos días (docs/propuestas/comprobantes_y_facturacion.md, punto 1). Migración 20260827200000_comprobante_gasto.sql: bucket privado comprobantes-gasto, columna gasto.comprobante_path (nullable), policies de Storage (solo authenticated). Verificado en rollback y aplicado de verdad.
+
+Falta: el código del lado del front (upload en /gastos/nuevo, Server Action para generar URL firmada al mostrar/descargar). Lo sigo si querés, o avisame si preferís tomarlo vos dado que toca tu carril de gastos.
+
+Confirmá con: grep -n "bucket + columna, aplicado" docs/coordinacion.md
+
+---
+
 ### ❓ Actualización · cargar la factura huérfana sigue pendiente, con las puertas nuevas · para Facu
 
 La pregunta de hace 2 días ("cómo cargar la #407, huérfana, sin pago_id/cuota_cobro_sponsor_id") sigue sin resolver — y como registrar_factura_emitida ya no existe, reformulo con el modelo nuevo: reservar_numero_comprobante tiene el mismo constraint (exactamente uno de pago_id/cuota_cobro_sponsor_id, verificado en el código de la función). El problema de fondo no cambió.
