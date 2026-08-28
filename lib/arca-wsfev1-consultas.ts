@@ -140,9 +140,10 @@ export interface CondicionIva {
 
 export async function condicionesIvaReceptor(
   ticket: TicketAcceso,
+  cuit: string,
   produccion: boolean
 ): Promise<CondicionIva[]> {
-  const cuerpo = bloqueAuth(ticket, '30715502670')
+  const cuerpo = bloqueAuth(ticket, cuit)
   const xml = await llamarWsfev1('FEParamGetCondicionIvaReceptor', cuerpo, produccion)
 
   const condiciones: CondicionIva[] = []
@@ -172,9 +173,10 @@ export interface TipoIva {
 
 export async function tiposDeIva(
   ticket: TicketAcceso,
+  cuit: string,
   produccion: boolean
 ): Promise<TipoIva[]> {
-  const cuerpo = bloqueAuth(ticket, '30715502670')
+  const cuerpo = bloqueAuth(ticket, cuit)
   const xml = await llamarWsfev1('FEParamGetTiposIva', cuerpo, produccion)
 
   const tipos: TipoIva[] = []

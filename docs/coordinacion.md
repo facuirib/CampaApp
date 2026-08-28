@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resuelto · punto de venta y CUIT ya no hardcodeados · para Facu
+
+Verificado: el punto de venta ya no estaba hardcodeado en lib/arca-fecaesolicitar.ts — quedó resuelto sin querer al reescribir emitirFactura con el modelo de 2 puertas, ya recibe puntoVenta como parámetro externo. Confirmado con Horacio: el usuario elige el punto de venta (10 AEP o 11 TIR) al momento de facturar.
+
+El CUIT sí seguía hardcodeado en lib/arca-wsfev1-consultas.ts (condicionesIvaReceptor y tiposDeIva) — corregido, ahora recibe cuit como parámetro. Verificado: grep -rn "30715502670" lib/ da vacío.
+
+Confirmá con: git log --oneline -1
+
+---
+
 ### ❓ Usuarios QA baneados · ¿cómo pruebo el flujo con sesión real? · para Facu
 
 Necesito probar el flujo completo de emitirFactura (código adaptado al modelo de 2 puertas, compilando, verificado hasta acá) con una sesión de usuario real, porque reservar_numero_comprobante exige auth_rol() = admin/finanzas, y con service_role auth.uid() es null.

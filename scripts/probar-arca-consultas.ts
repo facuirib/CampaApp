@@ -20,12 +20,12 @@ async function main() {
   console.log('')
 
   console.log('4. Condiciones de IVA receptor...')
-  const condiciones = await condicionesIvaReceptor(ticket, true)
+  const condiciones = await condicionesIvaReceptor(ticket, CUIT_CAMPA, true)
   condiciones.forEach((c) => console.log(`    Id ${c.id} — ${c.descripcion}`))
   console.log('')
 
   console.log('5. Tipos de IVA (alícuotas)...')
-  const tipos = await tiposDeIva(ticket, true)
+  const tipos = await tiposDeIva(ticket, CUIT_CAMPA, true)
   tipos.forEach((t) => console.log(`    Id ${t.id} — ${t.descripcion}`))
 }
 
