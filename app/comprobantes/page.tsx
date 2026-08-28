@@ -5,6 +5,8 @@ import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/component
 import { formatMoneyExacto } from '@/lib/format'
 import type { Database } from '@/lib/db/database.types'
 
+import AcumuladoPorDireccion from './AcumuladoPorDireccion'
+
 type FilaVista = Database['public']['Views']['v_comprobante']['Row']
 
 /**
@@ -22,7 +24,7 @@ type FilaVista = Database['public']['Views']['v_comprobante']['Row']
 const VE_LA_LISTA = ['admin', 'operador', 'read-only', 'finanzas']
 
 /**
- * Quiénes van a ver el acumulado por dirección, que llega en el paso siguiente.
+ * Quiénes ven el acumulado por dirección.
  *
  * **Esconderlo es claridad de navegación, NO seguridad.** La policy de SELECT de
  * `comprobante` es `using (true)` y tiene que seguir así (nota #1), o sea que el
@@ -32,7 +34,7 @@ const VE_LA_LISTA = ['admin', 'operador', 'read-only', 'finanzas']
  * recibo. Si algún día esto tuviera que ser una barrera, la barrera va en la
  * base, no acá.
  */
-export const VE_EL_ACUMULADO = ['admin', 'finanzas']
+const VE_EL_ACUMULADO = ['admin', 'finanzas']
 
 const BADGE_ESTADO: Record<string, CeldaBadge> = {
   emitida: { estado: 'ok', label: 'Emitida' },
@@ -248,6 +250,11 @@ export default async function ComprobantesPage({
           emptyMessage="Ningún comprobante coincide con los filtros."
         />
       )}
+
+      {/* El acumulado es la parte fiscal: la base imponible por municipio. No le
+          sirve a quien viene a buscar un recibo, y una pantalla que le muestra
+          todo a todos se vuelve ilegible para el caso más común. */}
+      {VE_EL_ACUMULADO.includes(rol) && <AcumuladoPorDireccion anio={params.anio} />}
     </main>
   )
 }
