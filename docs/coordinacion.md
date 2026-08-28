@@ -32,6 +32,126 @@ Confirmá con: grep -n "3 issues probando" docs/coordinacion.md
 
 ---
 
+### 🚧 TODO LO TUYO, POR ORDEN · el circuito de emisión no corrió nunca · 28/08/2026 · para Horacio
+
+Facu cierra por hoy y deja esto para que puedas avanzar sin esperarlo.
+
+**El estado, medido:** hay **1 comprobante** en la base y es la #407, que Facu
+cargó a mano. **Cero emitidos por el circuito, y cero pendientes o con error.**
+
+Ese último número es el que lo prueba: una reserva exitosa **siempre** deja una
+fila —primero `pendiente`, después `emitida` o `error`—. Que no haya ninguna
+significa que `reservar_numero_comprobante` nunca llegó a ejecutarse. No es que
+el circuito falle a mitad de camino: **no arranca**.
+
+Lo que sí funciona es todo lo anterior: el ticket de ARCA estaba **vigente**
+cuando se revisó, o sea que el WSAA autentica y la persistencia del ticket anda.
+
+---
+
+#### A · Los dos bloqueos. Son de una línea cada uno, y desbloquean todo
+
+**① El script pide sesión con una cuenta baneada.**
+
+    generateLink({ type: 'magiclink', email: 'facuubosch+qa-admin@gmail.com' })
+
+Esa cuenta está baneada, así que `scripts/probar-arca-cae.ts` **falla en el paso
+0**, antes de tocar ARCA. Por eso nunca viste un error del circuito: no llegaste
+a él.
+
+**Ya tenés cuenta propia y activa: `horaciobecerra90@gmail.com`, rol admin.**
+Apuntá el script ahí. (Facu te pasa la contraseña por otro canal; cambiala al
+entrar.) Las cinco QA quedan baneadas — no las reactives.
+
+**② El script usa `PUNTO_VENTA = 200`, que no está en la configuración.**
+
+`reservar_numero_comprobante` valida contra la tabla `punto_venta` y te va a
+contestar:
+
+> El punto de venta 200 no existe o está desactivado. Los habilitados son:
+> 10 (TORNEO AEP), 11 (TORNEO TIR).
+
+Cambialo a **10** o **11**.
+
+**Cómo sabés que salió:** después de correrlo tiene que quedar una fila con
+`estado = 'emitida'` que **no** sea la #407. Esa fila es la prueba de que el
+circuito cierra de punta a punta, y es lo único que falta para desbloquear la
+pantalla de emisión.
+
+---
+
+#### B · 🔴 Leé esto ANTES de correrlo
+
+**Tu script corre contra PRODUCCIÓN, no contra homologación.** Los tres llamados
+van con `produccion = true`, o sea `wsaa.afip.gov.ar` y
+`servicios1.afip.gov.ar`.
+
+Lo que significa: **la próxima emisión que te salga bien no es un ensayo.** Es
+una factura fiscal real, existe ante ARCA, y **consume numeración** del punto 10
+u 11 — la misma serie con la que después se le va a facturar a los equipos.
+
+No está mal emitir en producción; lo que está mal es hacerlo sin decidirlo. Las
+dos opciones son legítimas:
+
+· **Homologación** (`produccion = false`) para probar el circuito sin emitir nada
+  real. Es lo que corresponde para un test de emisión, y es lo que recomendamos
+  para esta primera corrida.
+· **Producción**, si querés la prueba definitiva. Sabiendo que queda: se puede
+  anular con nota de crédito, pero el número se consumió y el comprobante existió.
+
+Si vas a producción, que sea con un monto simbólico y **una sola vez**.
+
+---
+
+#### C · El certificado de ARCA — tu pregunta, y queda en tu criterio
+
+Dejaste abierto si conviene regenerar el certificado, dado que `ARCA_KEY_PEM`
+—la clave privada— tuvo exposición parcial.
+
+**Facu lo deja en tus manos: es tu carril y es una decisión de seguridad, no
+técnica.** El criterio para decidir es qué firma esa clave: es la que identifica
+a CAMPA ante ARCA. Quien la tenga puede emitir comprobantes fiscales a nombre
+del club.
+
+Si te parece que la exposición amerita regenerarlo, hacelo en el portal de ARCA.
+Si te parece que fue parcial e inocua, **dejá anotado acá por qué** — para que la
+decisión quede escrita y no dependa de acordarse.
+
+(La `service_role` ya la rotaste, y funciona: verificado hoy contra la base con
+la key nueva.)
+
+---
+
+#### D · Un pedido para cuando A esté resuelto — no urge
+
+Cuando el circuito esté probado, Facu construye la pantalla de emisión: elegir
+punto → emitir → ver el CAE.
+
+Para eso ayudaría **un punto de entrada único**. Hoy `emitirFactura` pide seis
+argumentos —incluidos el ticket de ARCA y el último número autorizado—, así que
+el que llama tiene que orquestar `autenticar → preguntar el último número →
+emitir`. Esa orquestación existe sólo adentro de tu script.
+
+Si dejás una función que haga todo eso —recibe el punto y los datos del
+comprobante, devuelve el resultado—, la pantalla la envuelve directo. Si no, la
+armamos nosotros del lado del front, pero quedaría lógica de tu carril en el
+nuestro.
+
+---
+
+#### E · Tus otros dos pendientes, sin apuro
+
+· **El recibo naciendo en `registrar_cobro`.** Hoy la función no menciona
+  `comprobante`: el recibo interno todavía no se crea en la transacción del
+  cobro. **Del lado nuestro ya está todo listo** —el generador de PDF, la
+  sequence de numeración, la pantalla que lo muestra y lo baja—; falta que la
+  fila nazca.
+
+· **Proveedores** (`gasto.tercero_id` vs `compromiso`). La columna no existe
+  todavía y la decisión de modelo sigue pendiente.
+
+---
+
 ### ✅ Confirmado · todo revisado: factura huérfana, bucket por rol, y el encabezado incoherente · para Facu
 
 Revisé las 3 entradas de hoy. Gracias por la resolución de la #407 (sin_origen/motivo_sin_origen) — diseño correcto, la puerta se mantiene estricta y el caso histórico queda separado con auditoría. Entendido: no relajar el constraint de la puerta nunca, el insert directo con sin_origen=true es el camino para cualquier huérfano futuro.
