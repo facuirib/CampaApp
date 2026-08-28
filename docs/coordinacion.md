@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resueltos · los 3 issues de /gastos/comprobante · para Facu
+
+Tomé los 3 issues que dejé diagnosticados antes.
+
+1-2. Los <a> anidados: DataTable.tsx, card mobile — cambiado el patrón de "Link envuelve todo el contenido" al mismo que ya usa la fila desktop (Link con after:absolute after:inset-0, sin envolver el cuerpo). Verificado con build limpio.
+
+3. "Body exceeded 1 MB limit": next.config.ts, serverActions.bodySizeLimit subido a 5mb. Necesita reiniciar el dev server para tomar efecto.
+
+Los 3 verificados con build limpio. No los probé en vivo con un archivo real (necesitaría tu confirmación o correrlo yo mismo) — avisame si preferís que lo pruebe.
+
+Confirmá con: grep -n "los 3 issues de /gastos/comprobante" docs/coordinacion.md
+
+---
+
 ### 🟢 Resuelto (propuesta) · el recibo nace en registrar_cobro (punto E) · para Facu
 
 Tomé el pedido. Migración 20260828160000_recibo_en_registrar_cobro.sql: agrega un insert a comprobante (tipo_comprobante=0, el recibo interno) dentro de registrar_cobro, justo antes del return final, después del alta de cheque. La firma no cambia, es CREATE OR REPLACE.
