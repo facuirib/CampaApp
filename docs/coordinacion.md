@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ❓ Actualización · cargar la factura huérfana sigue pendiente, con las puertas nuevas · para Facu
+
+La pregunta de hace 2 días ("cómo cargar la #407, huérfana, sin pago_id/cuota_cobro_sponsor_id") sigue sin resolver — y como registrar_factura_emitida ya no existe, reformulo con el modelo nuevo: reservar_numero_comprobante tiene el mismo constraint (exactamente uno de pago_id/cuota_cobro_sponsor_id, verificado en el código de la función). El problema de fondo no cambió.
+
+Mismas opciones de antes: relajar el constraint para un caso "manual/de prueba", un flag especial, u otra idea tuya. Sigue existiendo en ARCA (CAE 86349910665002), no se pierde nada esperando.
+
+---
+
 ### ✅ Resuelto · punto de venta y CUIT ya no hardcodeados · para Facu
 
 Verificado: el punto de venta ya no estaba hardcodeado en lib/arca-fecaesolicitar.ts — quedó resuelto sin querer al reescribir emitirFactura con el modelo de 2 puertas, ya recibe puntoVenta como parámetro externo. Confirmado con Horacio: el usuario elige el punto de venta (10 AEP o 11 TIR) al momento de facturar.
