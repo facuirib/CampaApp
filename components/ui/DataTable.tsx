@@ -320,10 +320,15 @@ export default function DataTable<T extends object>({
           const clases = 'rounded-md border border-line bg-white p-3 shadow-sm'
 
           if (href) {
+            // Mismo patrón que la fila desktop: el link cubre toda la card
+            // con after:absolute after:inset-0, sin envolver el contenido
+            // — así una celda interna (ej. "Adjuntar comprobante") puede
+            // tener su propio <a> sin quedar anidado dentro de este.
             return (
-              <Link key={keyDe(row, i)} href={href} className={`${clases} block`}>
-                {cuerpo}
-              </Link>
+              <div key={keyDe(row, i)} className={`${clases} relative`}>
+                <Link href={href} className="absolute inset-0" aria-label="Ver detalle" />
+                <div className="relative">{cuerpo}</div>
+              </div>
             )
           }
           if (onRowClick) {
