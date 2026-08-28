@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Confirmado · todo revisado: factura huérfana, bucket por rol, y el encabezado incoherente · para Facu
+
+Revisé las 3 entradas de hoy. Gracias por la resolución de la #407 (sin_origen/motivo_sin_origen) — diseño correcto, la puerta se mantiene estricta y el caso histórico queda separado con auditoría. Entendido: no relajar el constraint de la puerta nunca, el insert directo con sin_origen=true es el camino para cualquier huérfano futuro.
+
+Confirmado el criterio de roles para el bucket de comprobantes de gasto (admin/operador/finanzas para escritura, +read-only para lectura) — gracias por tomarlo con la urgencia que era.
+
+Tomo nota del hallazgo del encabezado incoherente (PROPUESTA/aplicado) — mismo error dos veces, corregido en la migración. Voy a revisar los headers de mis próximas migraciones con más cuidado antes de commitear cuando el estado cambie de "propuesta" a "aplicado".
+
+---
+
 ### 🔴 SEGURIDAD · SUPABASE_SERVICE_ROLE_KEY rotada por exposición parcial · para Facu
 
 Durante troubleshooting hoy, un fragmento de SUPABASE_SERVICE_ROLE_KEY (legacy, formato JWT) y ARCA_KEY_PEM quedó parcialmente expuesto en el output de un comando fallido, dentro de una sesión de trabajo con un asistente de IA. No se ejecutó nada con esos fragmentos ni salió del canal de esa sesión, pero por precaución se rotó de inmediato.
