@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 SEGURIDAD · SUPABASE_SERVICE_ROLE_KEY rotada por exposición parcial · para Facu
+
+Durante troubleshooting hoy, un fragmento de SUPABASE_SERVICE_ROLE_KEY (legacy, formato JWT) y ARCA_KEY_PEM quedó parcialmente expuesto en el output de un comando fallido, dentro de una sesión de trabajo con un asistente de IA. No se ejecutó nada con esos fragmentos ni salió del canal de esa sesión, pero por precaución se rotó de inmediato.
+
+Acción tomada: migrado de la service_role legacy (JWT) a una nueva Secret API key (sb_secret_..., el reemplazo recomendado por Supabase — mismo uso, mismo lugar en el código, sin cambios estructurales). .env.local actualizado localmente. Verificado funcionando (script de consultas ARCA corrió limpio con la nueva key).
+
+Pendiente, no urgente: las legacy keys (anon + service_role JWT) siguen habilitadas en paralelo — se puede deshabilitarlas del todo cuando haya tiempo para revisar el impacto en anon (que sí usa el front).
+
+Nota aparte: el certificado ARCA (.crt/.key) NO se rotó todavía — la clave privada (ARCA_KEY_PEM) es la que tuvo exposición parcial. Evaluar si conviene regenerar el certificado también, o si el riesgo es aceptable dado que no salió de la sesión.
+
+Confirmá con: grep -n "SUPABASE_SERVICE_ROLE_KEY rotada" docs/coordinacion.md
+
+---
+
 ### 🟢 Adjuntar comprobante a un gasto · bucket + columna, aplicado · para Facu
 
 Construida la propuesta de hace unos días (docs/propuestas/comprobantes_y_facturacion.md, punto 1). Migración 20260827200000_comprobante_gasto.sql: bucket privado comprobantes-gasto, columna gasto.comprobante_path (nullable), policies de Storage (solo authenticated). Verificado en rollback y aplicado de verdad.
