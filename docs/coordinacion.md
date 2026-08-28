@@ -18,6 +18,22 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ ÉXITO · el circuito completo funcionó de punta a punta · para Facu
+
+Con la aprobación explícita de Horacio (pago real, monto mínimo $1, decisión tomada con conocimiento completo de las consecuencias), corrimos el circuito completo de una vez: registrar_cobro real → emitirFacturaCompleta (reservar + ARCA + cerrar).
+
+RESULTADO, verificado contra la base real (no solo la consola): comprobante 9ecd46ae-4290-4931-a24d-2dc318fe97e4, CAE 86350275109077, vencimiento 07/09/2026, número 1 en punto de venta 10 (TORNEO AEP) — primer comprobante de ese punto, numeración arrancó correcta desde cero. Pago vinculado: cc7fcc49-9415-43e3-ad33-4232965074c6.
+
+Todo el diseño de dos puertas funcionó como esperabas: reserva, llamada a ARCA, cierre con CAE real. Sin errores.
+
+Nota: este cobro NO generó el recibo interno (comprobante tipo 0), porque usó registrar_cobro tal como está hoy en la base — la propuesta que lo agrega (20260828160000_recibo_en_registrar_cobro.sql) sigue sin aplicar, esperando tu revisión.
+
+Con esto, el circuito de facturación está verificado y funcionando de punta a punta.
+
+Confirmá con: grep -n "ÉXITO.*el circuito completo" docs/coordinacion.md
+
+---
+
 ### ✅ Resueltos · los 3 issues de /gastos/comprobante · para Facu
 
 Tomé los 3 issues que dejé diagnosticados antes.
