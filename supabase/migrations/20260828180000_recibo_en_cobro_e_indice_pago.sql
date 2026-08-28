@@ -1,50 +1,107 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- El recibo interno nace en registrar_cobro · sobre la versión del repo
+-- El recibo nace en el cobro · y el índice deja convivir recibo con factura
+-- ═══════════════════════════════════════════════════════════════════════════
 --
--- ⚠️ SUPERADA por 20260828180000_recibo_en_cobro_e_indice_pago.sql, que es la
--- que se aplicó. Esta versión NO llegó a la base.
+-- Dos cambios que van juntos porque **por separado rompen**: la propuesta del
+-- recibo (de Horacio, 20260828160000) no se puede aplicar con el índice actual,
+-- y el índice nuevo no tiene sentido sin el recibo.
 --
--- Se conserva porque su diseño es el que quedó —el recibo naciendo dentro de la
--- transacción del cobro— y la posterior es esta misma con dos correcciones: el
--- receptor se congela (acá quedaba en NULL y el PDF salía con «RECIBIMOS DE» en
--- blanco) y el `insert ... select` pasa a `into strict`, porque si el tercero no
--- aparecía no insertaba nada y no avisaba.
+-- ── ① Por qué el índice tiene que cambiar ─────────────────────────────────
 --
--- Y no podía aplicarse sola: `comprobante_pago_unico` admitía UN comprobante por
--- pago, así que el recibo le sacaba el lugar a la factura del mismo cobro. Esa es
--- la otra mitad de la migración que la superó.
+-- `comprobante_pago_unico` era `(pago_id) where pago_id is not null and estado
+-- <> 'error'`: **un comprobante vigente por pago**. Eso valía cuando el único
+-- comprobante posible sobre un cobro era la factura.
 --
--- ── Qué cierra ─────────────────────────────────────────────────────────────
+-- Con el recibo naciendo en `registrar_cobro`, un mismo pago pasa a tener dos
+-- documentos de clases distintas —el recibo interno y la factura fiscal— y el
+-- índice los pone a competir por el mismo lugar. Medido en ROLLBACK, en los dos
+-- sentidos:
 --
--- El pendiente E que dejó Facu (28/08): "el recibo interno todavía no se crea
--- en la transacción del cobro". Hasta acá, registrar_cobro devengaba el pago
--- y el asiento pero no dejaba ningún comprobante — existía el estado
--- "cobro sin recibo", sin nada que lo cerrara.
+--     el cobro crea su recibo        ✅
+--     factura para ese mismo cobro   🔴 «ya tiene un comprobante vigente»
 --
--- ── El cambio ────────────────────────────────────────────────────────────
+-- La factura 0010-00000001 que Horacio emitió existe **porque** la propuesta no
+-- estaba aplicada. Aplicarla sin tocar el índice habría roto el circuito el
+-- mismo día que se probó.
 --
--- Un solo insert a `comprobante`, agregado después del alta de cheque y antes
--- del `return` final: tipo_comprobante = 0 (recibo interno, no ARCA),
--- punto_venta = 0, numero de comprobante_recibo_numero_seq, estado
--- 'generado' — la combinación que exige el constraint comprobante_coherente
--- para tipo 0 (20260826120000_comprobante_seguro.sql). condicion_iva_receptor_id
--- sale del default del tercero, con Consumidor Final (id 5) como fallback si
--- no se cargó.
+-- ── Qué modelo se elige, y qué se descartó ───────────────────────────────
 --
--- ── Firma ────────────────────────────────────────────────────────────────
+-- Lo pedido: **a lo sumo un recibo y a lo sumo una factura por pago.** Ni dos
+-- recibos, ni dos facturas, ni recibo + Factura A + Factura B.
 --
--- No cambia: los mismos 10 parámetros que la versión del 16/08
--- (20260816200000_eslabon_cheque_pago_sobre_repo.sql), así que alcanza con
--- create or replace — no hace falta drop function.
+-- Se descartó `(pago_id, tipo_comprobante)`, que es la forma obvia: dejaría
+-- entrar un recibo (0) **más** una Factura A (1) **más** una Factura B (6) —y
+-- las notas de débito y crédito— porque cada tipo ocupa su propia ranura. Serían
+-- hasta siete comprobantes sobre un cobro.
 --
--- ── Verificado ───────────────────────────────────────────────────────────
+-- Se usan **dos índices parciales** que parten el espacio en dos mitades
+-- excluyentes: `tipo_comprobante = 0` (el recibo) y `tipo_comprobante <> 0`
+-- (cualquier comprobante fiscal). Un pago cae una sola vez en cada mitad.
 --
--- BEGIN...ROLLBACK contra la base real (28/08): cobro de prueba de $1000
--- sobre una cuota real. El recibo se creó correctamente —tipo_comprobante=0,
--- punto_venta=0, cae=null, estado='generado', numero de la sequence, pago_id
--- vinculado—. Todo deshecho con rollback: nada quedó aplicado.
+-- ── La exclusión de 'error' se mantiene, y no es un detalle ───────────────
+--
+-- Los dos índices siguen diciendo `estado <> 'error'`. Es lo que permite que,
+-- cuando ARCA rechaza, el reintento vuelva a pedir el mismo número y el mismo
+-- pago: la fila fallida queda como registro y deja de ocupar lugar. Perder esa
+-- cláusula al reescribir el índice dejaría cada rechazo bloqueando su propio
+-- reintento — un error que sólo aparecería el día de un rechazo real.
+--
+-- ── El de sponsors tiene el mismo problema, latente ──────────────────────
+--
+-- `comprobante_cuota_sponsor_unica` es idéntico en forma. Hoy no molesta porque
+-- `registrar_cobro_sponsor` no crea recibos, pero el día que lo haga choca con
+-- la misma pared. Se parte igual: es el mismo modelo y cuesta lo mismo ahora que
+-- una segunda investigación después.
+--
+-- ── Lo que este cambio NO habilita ───────────────────────────────────────
+--
+-- Una nota de crédito sobre un cobro que ya tiene factura seguiría bloqueada:
+-- ambas caen en la mitad `tipo_comprobante <> 0`. Está bien por ahora —no hay
+-- circuito de notas de crédito— y cuando lo haya, lo correcto es que la NC
+-- referencie al **comprobante** que corrige, no al pago. Queda anotado para que
+-- no se descubra como sorpresa.
+--
+-- ── ② Los dos ajustes a la propuesta de Horacio ──────────────────────────
+--
+-- · **El receptor se congela.** Su versión insertaba sólo la condición de IVA:
+--   `receptor_nombre`, documento y domicilio quedaban en NULL. Los constraints
+--   lo permiten —eximen al tipo 0— pero el PDF salía con «RECIBIMOS DE» en
+--   blanco, y el receptor congelado es justamente lo que hace que un recibo de
+--   hace tres años se reimprima igual.
+--
+-- · **Falla ruidoso.** Su `insert ... select ... from tercero where id = ...`
+--   no insertaba nada si el tercero no aparecía: sin error y sin recibo. Pasa a
+--   `select ... into strict`, que levanta NO_DATA_FOUND. En el corazón del
+--   circuito de cobros, un fallo mudo es peor que uno ruidoso.
+--
+-- Se agrega además el `detalle` con las cuotas imputadas, que es lo que el
+-- equipo busca leer en el papel y ya está escrito en la misma transacción.
 -- ═══════════════════════════════════════════════════════════════════════════
 
+drop index comprobante_pago_unico;
+
+create unique index comprobante_recibo_por_pago
+  on comprobante (pago_id)
+  where pago_id is not null and tipo_comprobante = 0 and estado <> 'error';
+
+create unique index comprobante_factura_por_pago
+  on comprobante (pago_id)
+  where pago_id is not null and tipo_comprobante <> 0 and estado <> 'error';
+
+comment on index comprobante_recibo_por_pago is
+  'Un recibo interno por cobro. Junto con comprobante_factura_por_pago define el modelo: un cobro puede tener a lo sumo un recibo y a lo sumo una factura, nunca dos del mismo lado.';
+comment on index comprobante_factura_por_pago is
+  'Una factura por cobro, sin importar la letra: A y B caen las dos acá, así que no se puede emitir las dos sobre el mismo pago. Excluye las filas en error para que un rechazo de ARCA no bloquee su propio reintento.';
+
+drop index comprobante_cuota_sponsor_unica;
+
+create unique index comprobante_recibo_por_cuota_sponsor
+  on comprobante (cuota_cobro_sponsor_id)
+  where cuota_cobro_sponsor_id is not null and tipo_comprobante = 0 and estado <> 'error';
+
+create unique index comprobante_factura_por_cuota_sponsor
+  on comprobante (cuota_cobro_sponsor_id)
+  where cuota_cobro_sponsor_id is not null and tipo_comprobante <> 0 and estado <> 'error';
 
 create or replace function registrar_cobro(
   p_tercero_id     uuid,
@@ -62,6 +119,14 @@ create or replace function registrar_cobro(
   p_cheque_fecha_cobro date default null
 ) returns uuid as $$
 declare
+  -- Congelados del tercero al emitir el recibo: el papel tiene que decir a quién
+  -- se le cobró, y seguir diciéndolo aunque el tercero cambie después.
+  v_recibo_nombre     text;
+  v_recibo_doc_tipo   smallint;
+  v_recibo_doc_nro    text;
+  v_recibo_domicilio  text;
+  v_recibo_cond_iva   smallint;
+  v_recibo_detalle    text;
   v_pago_id      uuid;
   v_asiento_id   uuid;
   v_user_id      uuid;
@@ -369,17 +434,45 @@ begin
   -- condicion_iva_receptor_id sale del default del tercero; si no se cargó,
   -- cae a Consumidor Final (id 5) — el mismo fallback que usa el resto del
   -- circuito de facturación.
+  -- ── El receptor se CONGELA, no se referencia ────────────────────────────
+  --
+  -- `into strict` es deliberado: si el tercero no aparece, levanta
+  -- NO_DATA_FOUND en vez de no hacer nada. La versión con `insert ... select`
+  -- simplemente no insertaba fila cuando el `where` no encontraba al tercero
+  -- —sin error y sin recibo— y éste es el corazón del circuito de cobros: acá
+  -- un fallo mudo es peor que uno ruidoso.
+  select
+    coalesce(t.razon_social, t.nombre),
+    t.doc_tipo_default,
+    t.doc_nro_default,
+    t.domicilio_fiscal,
+    coalesce(t.condicion_iva_receptor_default, 5)
+    into strict
+      v_recibo_nombre, v_recibo_doc_tipo, v_recibo_doc_nro,
+      v_recibo_domicilio, v_recibo_cond_iva
+    from tercero t
+   where t.id = p_tercero_id;
+
+  -- El concepto sale de lo que se acaba de imputar: es lo que el equipo busca en
+  -- el papel —«por qué me cobraron esto»— y ya está escrito en esta misma
+  -- transacción, unas líneas más arriba.
+  select string_agg('Cuota ' || c.numero, ', ' order by c.numero)
+    into v_recibo_detalle
+    from pago_imputacion pi
+    join cuota c on c.id = pi.cuota_id
+   where pi.pago_id = v_pago_id;
+
   insert into comprobante (
     pago_id, tipo_comprobante, punto_venta, numero,
-    condicion_iva_receptor_id, monto, estado, emitida_por,
-    fecha_emision
-  )
-  select
+    condicion_iva_receptor_id, monto, estado, emitida_por, fecha_emision,
+    receptor_nombre, receptor_doc_tipo, receptor_doc_nro, receptor_domicilio,
+    detalle
+  ) values (
     v_pago_id, 0, 0, nextval('comprobante_recibo_numero_seq'),
-    coalesce(t.condicion_iva_receptor_default, 5),
-    p_monto, 'generado', v_user_id, p_fecha
-  from tercero t
-  where t.id = p_tercero_id;
+    v_recibo_cond_iva, p_monto, 'generado', v_user_id, p_fecha,
+    v_recibo_nombre, v_recibo_doc_tipo, v_recibo_doc_nro, v_recibo_domicilio,
+    v_recibo_detalle
+  );
 
   return v_pago_id;
 end $$ language plpgsql;
