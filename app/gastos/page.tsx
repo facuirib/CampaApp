@@ -44,6 +44,46 @@ interface FilaGasto {
   total: number | null
   pago: string
   estado: CeldaBadge
+  comprobante: React.ReactNode
+}
+
+/** Quiénes pueden ver el comprobante adjunto: los que ven Gastos. */
+const VE_COMPROBANTE = ['admin', 'operador', 'read-only', 'finanzas']
+
+/**
+ * La celda de Comprobante.
+ *
+ * El `relative z-10` no es decorativo: el link de la fila cubre la fila entera
+ * con un `::after`, y sin esto el clic acá caería en el de la fila —que va a
+ * /pagar— en vez de abrir el comprobante.
+ */
+function celdaComprobante(
+  gastoId: string,
+  tiene: boolean,
+  puedeVer: boolean,
+  puedeAdjuntar: boolean,
+): React.ReactNode {
+  if (tiene && puedeVer) {
+    return (
+      <Link
+        href={`/gastos/${gastoId}/comprobante`}
+        className="relative z-10 text-[11px] font-semibold text-blue hover:underline"
+      >
+        Ver
+      </Link>
+    )
+  }
+  if (!tiene && puedeAdjuntar) {
+    return (
+      <Link
+        href={`/gastos/${gastoId}/comprobante`}
+        className="relative z-10 text-[11px] text-muted hover:text-ink hover:underline"
+      >
+        Adjuntar
+      </Link>
+    )
+  }
+  return <span className="text-[11px] text-muted">—</span>
 }
 
 const COLUMNAS: ColumnDef<FilaGasto>[] = [
@@ -58,6 +98,7 @@ const COLUMNAS: ColumnDef<FilaGasto>[] = [
   { key: 'total', label: 'Total', format: 'money', width: 128 },
   { key: 'pago', label: 'Pago', width: 190 },
   { key: 'estado', label: 'Estado', format: 'badge', width: 96 },
+  { key: 'comprobante', label: 'Comprobante', width: 118 },
 ]
 
 /** «Fecha 1 · 01/08/2026» para los por fecha; la de devengo para el resto. */
@@ -98,6 +139,8 @@ export default async function GastosPage({
   // El detalle del gasto ES la pantalla de pago, y esa ruta la corta el
   // middleware: para quien no puede pagar, la fila no es un link.
   const puedePagar = puede(rol, 'gasto.pagar')
+  const puedeAdjuntar = puede(rol, 'gasto.adjuntar')
+  const puedeVerComprobante = !!rol && VE_COMPROBANTE.includes(rol)
 
   // Los años primero: el resto de las consultas dependen de cuál.
   const aniosRes = await supabase
@@ -203,6 +246,15 @@ export default async function GastosPage({
   const gastosRaw = (gastosRes.data ?? []) as GastoRow[]
   const filtrados = naturaleza ? gastosRaw.filter((g) => g.naturaleza === naturaleza) : gastosRaw
 
+  // `v_gasto_detalle` no expone `comprobante_path`. Se lee aparte y se cruza por
+  // id: cruzar dos lecturas no es calcular en el front, y es preferible a tocar
+  // una vista que usan otras pantallas.
+  const { data: adjuntos } = await supabase
+    .from('gasto')
+    .select('id, comprobante_path')
+    .not('comprobante_path', 'is', null)
+  const conAdjunto = new Set((adjuntos ?? []).map((a) => a.id))
+
   const filas: FilaGasto[] = filtrados.map((g) => ({
     gasto_id: g.gasto_id!,
     concepto: g.concepto,
@@ -213,6 +265,12 @@ export default async function GastosPage({
     total: g.total,
     pago: pago(g),
     estado: estadoGasto(g.estado),
+    comprobante: celdaComprobante(
+      g.gasto_id!,
+      conAdjunto.has(g.gasto_id!),
+      puedeVerComprobante,
+      puedeAdjuntar,
+    ),
   }))
 
   const FILTROS: FiltroUrl[] = [

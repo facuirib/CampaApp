@@ -173,6 +173,18 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['pagar_gasto'] },
   },
+  'gasto.adjuntar': {
+    // Adjuntar el comprobante del proveedor. Es la única operación de `gasto`
+    // que escribe DIRECTO en la tabla —las otras tres van por función de
+    // Postgres— porque no hay invariante que proteger: se guarda un path.
+    //
+    // Mismos roles que cargar el gasto: adjuntar la factura del proveedor es
+    // parte del mismo acto, y separarlos habilitaría adjuntarle un documento a
+    // un gasto que uno no puede crear.
+    que: 'Adjuntar el comprobante del proveedor a un gasto',
+    roles: CON_FINANZAS,
+    donde: { tabla: 'gasto', cmd: 'UPDATE' },
+  },
   'gasto.anular': {
     // El bar NO puede, aunque anular sea «un circuito»: la función toca `gasto`
     // y esa tabla no lo tiene en su policy.
@@ -412,6 +424,7 @@ export const RUTAS_PROTEGIDAS: ReadonlyArray<{ patron: RegExp; op: Op; padre: st
   { patron: /^\/torneos\/[^/]+\/fichas/, op: 'torneo.fichas', padre: '/torneos' },
   { patron: /^\/gastos\/nuevo/, op: 'gasto.registrar', padre: '/gastos' },
   { patron: /^\/gastos\/[^/]+\/pagar/, op: 'gasto.pagar', padre: '/gastos' },
+  { patron: /^\/gastos\/[^/]+\/comprobante/, op: 'gasto.adjuntar', padre: '/gastos' },
   { patron: /^\/cobranza\/[^/]+\/cobrar/, op: 'cobro.registrar', padre: '/cobranza' },
   { patron: /^\/activos\/nuevo/, op: 'activo.alta', padre: '/activos' },
   { patron: /^\/activos\/amortizar/, op: 'activo.amortizar', padre: '/activos' },
