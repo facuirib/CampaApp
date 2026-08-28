@@ -18,6 +18,118 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 FRENÁ · la propuesta del recibo rompe el circuito que acabás de probar · 28/08/2026 · para Horacio
+
+**No la apliqué**, y no es por prudencia: la probé y no funciona junto con la
+emisión. Dos hallazgos, los dos medidos en `ROLLBACK` sobre la base real.
+
+#### ① Un cobro no puede tener recibo Y factura
+
+`comprobante_pago_unico` es un único parcial sobre `pago_id`: **un comprobante
+vigente por pago**. Tu recibo nace con el `pago_id` del cobro, así que ocupa ese
+lugar — y después la factura de ese mismo cobro no entra:
+
+    ① el cobro crea su recibo          ✅ creado
+    ② factura para ese mismo cobro     🔴 «Este pago/cuota ya tiene un
+                                           comprobante vigente»
+
+Y al revés también: intenté crear el recibo para el pago de tu
+`0010-00000001` y lo frenó el mismo índice.
+
+**Tu factura existe porque la propuesta NO estaba aplicada.** Si la aplicábamos
+ayer, el circuito que probaste no habría cerrado.
+
+No es un bug tuyo: es una decisión de modelo que quedó implícita. `pago_id` como
+único asume «un comprobante por cobro», y ahora hay dos clases de comprobante
+—recibo interno y factura fiscal— que pueden convivir sobre el mismo cobro. **El
+índice es el que hay que revisar**, y eso lo decide Facu porque es la tabla
+`comprobante`. Lo natural sería que el único pase a ser por `(pago_id,
+tipo_comprobante)` o que distinga recibo de factura, pero no lo toco sin su OK.
+
+#### ② El recibo nace sin receptor
+
+El `insert` setea `condicion_iva_receptor_id` pero no `receptor_nombre`,
+`receptor_doc_tipo`, `receptor_doc_nro` ni `detalle`. Medido:
+
+    campos del receptor en el recibo → nombre=∅ VACÍO · doc=∅ · detalle=∅
+
+Los constraints lo permiten —`comprobante_receptor_arca` exime al tipo 0— pero
+**el PDF sale con «RECIBIMOS DE» en blanco**. Y el receptor congelado es
+justamente lo que hace que un recibo de hace tres años se reimprima igual: si no
+se copia al emitir, no hay nada que congelar.
+
+El dato está a mano: el mismo `select ... from tercero` que ya hacés para la
+condición de IVA trae el nombre y el documento. Y el `detalle` puede armarse de
+las cuotas imputadas, que es lo que el equipo quiere leer en el papel.
+
+#### Una cosa menor, de forma
+
+El `insert ... select ... from tercero where t.id = p_tercero_id` **no crea nada
+si el tercero no aparece**, sin avisar. Hoy no puede pasar, pero un `insert
+... values` con el nombre resuelto antes falla ruidosamente si algo cambia, que
+es lo que conviene en la función central de cobros.
+
+---
+
+### ✅ Confirmado · tu fix del `<a>` anidado quedó bien · 28/08/2026 · para Horacio
+
+Era un bug nuestro, de ayer, y de los que no se ven: el `relative z-10` que puse
+en la celda cubría la tabla de escritorio, pero **la card mobile envolvía toda la
+fila en un `<Link>`**, así que mi link quedaba anidado adentro. No lo probé en
+móvil. Tu arreglo —link como capa absoluta y el cuerpo `relative`— es el
+correcto, y el `aria-label` que le pusiste hace falta.
+
+**Y el límite de tamaño lo alineamos, pero no como estaba.** Habías puesto
+`bodySizeLimit: 5mb` y nuestra validación decía 10 MB. Bajamos la nuestra a 5 MB
+— y ahí apareció algo: **con los dos números iguales, el mensaje bueno es
+inalcanzable**. Medido: un archivo de 6 MB se rechazaba **sin mostrar nada**,
+porque Next corta el request antes de que la acción corra y lo hace mudo.
+
+Subimos `bodySizeLimit` a **6mb**, un mega por encima de nuestro tope. Ahora un
+archivo de 5,5 MB llega a la acción y recibe «El archivo pesa 5.5 MB y el máximo
+son 5 MB». El de Next queda como red para lo absurdo, que es para lo que sirve un
+límite de framework.
+
+---
+
+### 🟡 RECORDATORIO · el certificado de ARCA sigue sin tu decisión · 28/08/2026 · para Horacio
+
+Es la tercera vez que aparece y sigue sin respuesta. `ARCA_KEY_PEM` —la clave
+privada que firma ante ARCA— tuvo exposición parcial. La `service_role` ya la
+rotaste y anda; el certificado no.
+
+**Es tu carril y es tuya la decisión.** Lo único que pide Facu es que quede
+escrita: si lo regenerás, avisá cuándo; si te parece que la exposición fue
+inocua, **dejá anotado por qué**. Una decisión de seguridad que no queda escrita
+se vuelve a discutir dentro de un mes, y para entonces nadie se acuerda de qué se
+sabía.
+
+---
+
+### 📌 PENDIENTE · dos cobros de prueba quedaron en los libros · 28/08/2026 · para Facu
+
+De la corrida del circuito. **No se tocaron** — Facu decide si se anulan con
+contraasiento.
+
+| pago | monto | equipo | cuota | comprobante | asiento |
+|---|---|---|---|---|---|
+| `f0e252bd` | $1.000,00 | 4K | #5 | ninguno | 1 |
+| `cc7fcc49` | $1,00 | 4K | #5 | factura `0010-00000001` | 1 |
+
+Los dos van contra la **cuota #5 de 4K** —$490.000, vencida el 22/08— que sigue
+**impaga**: los $1.001 imputados no la marcaron pagada, así que el estado de
+cobranza del equipo no quedó mal. Lo que sí queda alterado es su saldo por
+$1.001, y hay dos asientos `pago_equipo` de esas fechas.
+
+**El de $1 tiene una factura fiscal real colgada**, así que anularlo es más que
+un contraasiento: habría que emitir una nota de crédito. El de $1.000 no tiene
+comprobante y se anula solo con contraasiento.
+
+Descuadre en 0: nada se rompió.
+
+---
+
+
 ### ✅ ÉXITO · el circuito completo funcionó de punta a punta · para Facu
 
 Con la aprobación explícita de Horacio (pago real, monto mínimo $1, decisión tomada con conocimiento completo de las consecuencias), corrimos el circuito completo de una vez: registrar_cobro real → emitirFacturaCompleta (reservar + ARCA + cerrar).

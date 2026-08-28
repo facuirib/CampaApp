@@ -27,7 +27,22 @@ const PUEDE_ADJUNTAR = ['admin', 'operador', 'finanzas'] as const
 /** Quién lo ve: los que ven Gastos. */
 const PUEDE_VER = ['admin', 'operador', 'read-only', 'finanzas'] as const
 
-const MAX_BYTES = 10 * 1024 * 1024
+/**
+ * El tope, alineado con `serverActions.bodySizeLimit` de next.config.
+ *
+ * **El de Next tiene que ser MAYOR que éste, no igual.** Su límite corta el
+ * request antes de que la acción se ejecute y lo hace sin mensaje: la pantalla
+ * se queda muda. Medido — con los dos en 5, un archivo de 6 MB se rechazaba sin
+ * decir nada, y esta validación era inalcanzable.
+ *
+ * Con `bodySizeLimit` en 6mb, lo que pasa los 5 MB llega hasta acá y recibe un
+ * mensaje que dice cuánto pesa y cuál es el máximo. El de Next queda como red
+ * para lo absurdo.
+ *
+ * 5 MB alcanza de sobra para una foto de comprobante o un PDF escaneado.
+ */
+const MAX_MB = 5
+const MAX_BYTES = MAX_MB * 1024 * 1024
 
 interface Resultado {
   ok: boolean
@@ -84,7 +99,7 @@ export async function adjuntarComprobante(formData: FormData): Promise<Resultado
   if (archivo.size > MAX_BYTES) {
     return {
       ok: false,
-      error: `El archivo pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB y el máximo son 10 MB.`,
+      error: `El archivo pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB y el máximo son ${MAX_MB} MB.`,
     }
   }
 

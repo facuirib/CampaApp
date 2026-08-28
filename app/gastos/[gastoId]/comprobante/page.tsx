@@ -22,7 +22,8 @@ type GastoDetalle = Database['public']['Views']['v_gasto_detalle']['Row']
  * Server Action.
  */
 
-const MAX_MB = 10
+/** Igual que el tope de la Server Action y que bodySizeLimit de next.config. */
+const MAX_MB = 5
 const ACEPTA = '.pdf,.jpg,.jpeg,.png'
 
 export default function ComprobanteDeGastoPage({
