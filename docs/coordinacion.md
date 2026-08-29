@@ -18,6 +18,33 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟡 ANOTADO · `_prueba_marca` es la única tabla sin RLS · 29/08/2026 · para los dos
+
+De las 57 tablas de `public`, **56 tienen RLS y una no**: `_prueba_marca`. Es un
+resto de una prueba vieja, y no la toqué: borrar una tabla que no escribí, o
+ponerle RLS y con qué policies, es una decisión y no un arreglo.
+
+**No es nueva, y ése es el punto de anotarla.** Viene apareciendo al pie de cada
+conteo desde el 26/08 —«RLS 51/52, la única tabla apagada sigue siendo
+`_prueba_marca`»— siempre como paréntesis de otra cosa, nunca como algo que
+alguien tenga que resolver. Un pendiente que sólo se menciona de costado no está
+anotado: está normalizado. Por eso sube acá arriba, con nombre propio.
+
+Sin RLS, cualquier rol autenticado la lee y la escribe entera. **Lo que importa
+es qué tiene adentro**: si está vacía o tiene un `select 1`, es ruido; si quedó
+con datos de alguna prueba con plata real, es una filtración chica pero real.
+Eso se mira antes de decidir.
+
+Las dos salidas razonables:
+
+- **borrarla**, si nadie la usa — es lo más probable, y deja el conteo en 56/56
+- **`enable row level security` sin policies**, si se quiere conservar: la deja
+  visible para `service_role` y cerrada para todo lo demás, que es lo mismo que
+  se hizo con `arca_ticket_acceso` el 26/08
+
+No corre apuro y no bloquea nada. Queda acá para que no se pierda: una tabla sin
+RLS es de esas cosas que dejan de verse apenas nadie las cuenta.
+
 ### 🔴 FRENÁ · la propuesta del recibo rompe el circuito que acabás de probar · 28/08/2026 · para Horacio
 
 **No la apliqué**, y no es por prudencia: la probé y no funciona junto con la
