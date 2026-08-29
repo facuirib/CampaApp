@@ -4167,6 +4167,128 @@ export type Database = {
           },
         ]
       }
+      sueldo_socio_mes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          monto: number
+          motivo: string
+          periodo_id: string
+          socio_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto: number
+          motivo: string
+          periodo_id: string
+          socio_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto?: number
+          motivo?: string
+          periodo_id?: string
+          socio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sueldo_socio_mes_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "periodo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_detalle_mensual"
+            referencedColumns: ["periodo_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_detalle_mensual"
+            referencedColumns: ["periodo_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "tercero"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_detalle"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_equipo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_deuda_equipo_torneo"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_saldo_socio"
+            referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_detalle_mensual"
+            referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_socio_lista"
+            referencedColumns: ["socio_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_sponsor_lista"
+            referencedColumns: ["sponsor_id"]
+          },
+        ]
+      }
       tercero: {
         Row: {
           activo: boolean
@@ -7117,8 +7239,10 @@ export type Database = {
       }
       v_socio_detalle_mensual: {
         Row: {
+          acordado: number | null
           anio: number | null
           devengado: number | null
+          es_excepcion: boolean | null
           mes: number | null
           neto: number | null
           nombre: string | null
@@ -7147,6 +7271,7 @@ export type Database = {
         Row: {
           activo: boolean | null
           devengado: number | null
+          es_excepcion: boolean | null
           estado: string | null
           meses_con_movimiento: number | null
           retirado: number | null
@@ -7798,6 +7923,10 @@ export type Database = {
         Returns: undefined
       }
       email_usuario: { Args: { p_usuario_id: string }; Returns: string }
+      es_sueldo_excepcion: {
+        Args: { p_fecha: string; p_socio_id: string }
+        Returns: boolean
+      }
       generar_cuotas_instancia: {
         Args: { p_jornada_playoff_id: string }
         Returns: number
@@ -8020,6 +8149,10 @@ export type Database = {
       }
       saldo_efectivo_predio: {
         Args: { p_hasta: string; p_predio_id: string }
+        Returns: number
+      }
+      sueldo_acordado: {
+        Args: { p_fecha: string; p_socio_id: string }
         Returns: number
       }
       sueldo_vigente: {
