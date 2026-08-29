@@ -3,8 +3,11 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { formatDate, formatMoney } from '@/lib/format'
 import { estadoSocio } from '@/lib/domain/socio'
+import { rolActual } from '@/lib/rol-actual'
+import { puede } from '@/lib/permisos'
 import { Badge, Button, DataTable, KpiCard, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
+import AccionesSueldo, { type OpcionMes } from './AccionesSueldo'
 
 /**
  * El segmento acepta cualquier texto: se valida ANTES de consultar, así el
@@ -17,7 +20,8 @@ type FilaMensual = Database['public']['Views']['v_socio_detalle_mensual']['Row']
 
 interface FilaPeriodo {
   periodo_id: string
-  periodo: string
+  periodo: React.ReactNode
+  acordado: number | null
   devengado: number | null
   retirado: number | null
   neto: number | null
@@ -37,11 +41,20 @@ function formatPeriodo(anio: number | null, mes: number | null): string {
   return `${String(mes).padStart(2, '0')}/${anio}`
 }
 
+/**
+ * `Acordado` va PRIMERO, antes de devengado.
+ *
+ * Es lo que correspondía; devengado es lo que pasó. En ese orden, la fila se
+ * lee sola: los dos números iguales son un mes normal, y los distintos son el
+ * mes que hay que mirar. Al revés habría que retroceder para entender qué se
+ * está comparando.
+ */
 const COLUMNAS: ColumnDef<FilaPeriodo>[] = [
-  { key: 'periodo', label: 'Período', width: 96 },
-  { key: 'devengado', label: 'Devengado', format: 'money', width: 132 },
-  { key: 'retirado', label: 'Retirado', format: 'money', width: 132 },
-  { key: 'neto', label: 'Neto', format: 'money', width: 132 },
+  { key: 'periodo', label: 'Período', width: 150 },
+  { key: 'acordado', label: 'Acordado', format: 'money', width: 128 },
+  { key: 'devengado', label: 'Devengado', format: 'money', width: 128 },
+  { key: 'retirado', label: 'Retirado', format: 'money', width: 128 },
+  { key: 'neto', label: 'Neto', format: 'money', width: 128 },
   { key: 'saldo_acumulado', label: 'Saldo acumulado', format: 'money', width: 150 },
 ]
 
@@ -55,7 +68,7 @@ export default async function SocioDetallePage({
 
   const supabase = await createClient()
 
-  const [socioRes, mensualRes] = await Promise.all([
+  const [socioRes, mensualRes, periodosRes, devengosRes, excepcionesRes, rol] = await Promise.all([
     // El filtro `tipo = 'socio'` está DENTRO de la vista, así que el uuid de un
     // sponsor o de un equipo no devuelve fila y cae en notFound. No hace falta
     // comprobarlo acá — y comprobarlo acá sería una segunda definición de "qué
@@ -67,6 +80,15 @@ export default async function SocioDetallePage({
       .eq('socio_id', socioId)
       .order('anio')
       .order('mes'),
+    // Las tres consultas de abajo arman el desplegable del ajuste por mes. Se
+    // traen por separado y se cruzan en TS a propósito: no hay ningún número
+    // que calcular —son columnas tal cual, `devengo_socio.monto` y
+    // `sueldo_socio_mes.monto`—, así que la regla 1 no pide una vista. Lo que
+    // sí haría falta una vista es cualquier suma, y acá no hay ninguna.
+    supabase.from('periodo').select('id, anio, mes, estado').order('anio').order('mes'),
+    supabase.from('devengo_socio').select('periodo_id, monto').eq('socio_id', socioId),
+    supabase.from('sueldo_socio_mes').select('periodo_id, monto').eq('socio_id', socioId),
+    rolActual(),
   ])
 
   const error = socioRes.error ?? mensualRes.error
@@ -77,15 +99,37 @@ export default async function SocioDetallePage({
 
   const filas: FilaPeriodo[] = (mensualRes.data ?? []).map((f: FilaMensual) => ({
     periodo_id: f.periodo_id!,
-    periodo: formatPeriodo(f.anio, f.mes),
+    periodo: (
+      <span className="inline-flex items-center gap-1.5">
+        {formatPeriodo(f.anio, f.mes)}
+        {f.es_excepcion && <Badge estado="info">Excepción</Badge>}
+      </span>
+    ),
+    acordado: f.acordado,
     devengado: f.devengado,
     retirado: f.retirado,
     neto: f.neto,
     saldo_acumulado: f.saldo_acumulado,
   }))
 
+  const devengadoPorPeriodo = new Map(
+    (devengosRes.data ?? []).map((d) => [d.periodo_id, d.monto]),
+  )
+  const excepcionPorPeriodo = new Map(
+    (excepcionesRes.data ?? []).map((e) => [e.periodo_id, e.monto]),
+  )
+
+  const meses: OpcionMes[] = (periodosRes.data ?? []).map((p) => ({
+    periodo_id: p.id,
+    etiqueta: formatPeriodo(p.anio, p.mes),
+    devengado: devengadoPorPeriodo.get(p.id) ?? null,
+    excepcion: excepcionPorPeriodo.get(p.id) ?? null,
+    cerrado: p.estado === 'cerrado',
+  }))
+
   const saldo = socio?.saldo ?? 0
   const badge = estadoSocio(socio?.estado ?? null)
+  const puedeEditar = puede(rol, 'socio.sueldo') && puede(rol, 'socio.ajuste_mes')
 
   return (
     <div className="pb-10">
@@ -106,10 +150,16 @@ export default async function SocioDetallePage({
               {socio.activo === false && <Badge estado="neutro">Inactivo</Badge>}
             </div>
             <p className="mt-1 text-[12px] text-muted">
+              {/* Con una excepción cargada para este mes, «desde el 01/07»
+                  sería mentira: ese monto rige un mes y no desde ninguna fecha
+                  en adelante. Por eso el rótulo cambia entero, y no sólo el
+                  número. */}
               {socio.sueldo_vigente == null
                 ? 'Sin sueldo acordado'
-                : `${formatMoney(socio.sueldo_vigente)} por mes` +
-                  (socio.vigente_desde ? ` desde el ${formatDate(socio.vigente_desde)}` : '')}
+                : socio.es_excepcion
+                  ? `${formatMoney(socio.sueldo_vigente)} este mes, por excepción`
+                  : `${formatMoney(socio.sueldo_vigente)} por mes` +
+                    (socio.vigente_desde ? ` desde el ${formatDate(socio.vigente_desde)}` : '')}
               {' · '}
               {socio.meses_con_movimiento === 1
                 ? '1 mes con movimiento'
@@ -131,6 +181,14 @@ export default async function SocioDetallePage({
             />
           </div>
 
+          <AccionesSueldo
+            socioId={socioId}
+            socio={socio.socio ?? 'este socio'}
+            sueldoVigente={socio.sueldo_vigente}
+            meses={meses}
+            puedeEditar={puedeEditar}
+          />
+
           {/* ── El hueco de la escritura ──────────────────────────────────
               El botón está en su lugar y DESHABILITADO, no ausente. Que se vea
               dónde va a estar contesta la pregunta de Facu —"no se ve cómo
@@ -143,7 +201,11 @@ export default async function SocioDetallePage({
               for table users".
 
               La escritura es carril de Horacio: el formulario, la Server Action
-              y el parámetro de la función van juntos. Acá sólo queda el lugar. */}
+              y el parámetro de la función van juntos. Acá sólo queda el lugar.
+
+              Queda ACÁ y no arriba con las dos acciones de sueldo: aquéllas
+              andan, ésta todavía no, y mezclar un botón muerto entre dos vivos
+              haría dudar de los tres. */}
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Button
               icon="plus"
@@ -160,10 +222,16 @@ export default async function SocioDetallePage({
 
           {/* La fila de total se PASA desde v_socio_lista, no se suma acá.
 
-              `saldo_acumulado` queda EN BLANCO a propósito. Las otras tres
-              columnas son flujo —lo que pasó en cada mes— y sumarlas da algo
-              que significa: los netos suman exactamente el saldo. El acumulado
-              es STOCK: cada fila ya contiene a las anteriores, así que sumar la
+              `acordado` tampoco lleva total, por lo mismo que `saldo_acumulado`
+              pero al revés: no existe una vista que lo sume, y sumar la columna
+              acá sería el `.reduce()` que la regla 1 prohíbe. Además el total
+              de lo acordado no es un número que alguien pida — lo que se mira
+              es cada fila contra su devengado.
+
+              `saldo_acumulado` queda EN BLANCO a propósito. Las otras columnas
+              son flujo —lo que pasó en cada mes— y sumarlas da algo que
+              significa: los netos suman exactamente el saldo. El acumulado es
+              STOCK: cada fila ya contiene a las anteriores, así que sumar la
               columna cuenta los meses viejos una vez por cada mes siguiente. El
               único total sensato sería el último valor de la serie, y ése ya
               está arriba en el KpiCard de Saldo — bajo un rótulo que dice

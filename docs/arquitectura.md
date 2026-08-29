@@ -2481,6 +2481,38 @@ create table sueldo_socio (
 
 El sueldo vigente en un mes es **el de mayor `vigente_desde <= fin de ese mes`**. Cambiar el sueldo es **insertar una fila**, no editar la que hay. El historial es lo que permite recalcular un mes viejo con el sueldo que regía entonces — sin él, corregir un devengo de marzo usaría el sueldo de hoy.
 
+#### Patrón nuevo · la excepción de UN mes (`20260829182000`)
+
+El versionado alcanza para el acuerdo y para el aumento. No alcanza para el caso que aparece todos los meses en un club: **este mes, por algo puntual, se acordó otra cifra**. Expresarlo con vigencias obliga a dos filas —una por el monto del mes y otra para volver atrás—, y el historial deja de contar la historia del acuerdo para contar la de los meses raros.
+
+```sql
+create table sueldo_socio_mes (
+  id         uuid primary key default gen_random_uuid(),
+  socio_id   uuid not null references tercero(id),
+  periodo_id uuid not null references periodo(id),
+  monto      numeric(16,2) not null check (monto >= 0),   -- cero = no cobra
+  motivo     text not null check (btrim(motivo) <> ''),
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  constraint sueldo_socio_mes_unico unique (socio_id, periodo_id)
+);
+```
+
+**La precedencia es excepción > vigencia**, no "la más nueva gana": lo puntual, con nombre y motivo, le gana a la regla de fondo. Vive en **una sola función**:
+
+```sql
+sueldo_acordado(socio_id, fecha)      → numeric   -- la excepción del mes, si no la vigencia
+es_sueldo_excepcion(socio_id, fecha)  → boolean   -- de cuál de las dos vino
+```
+
+**Las tres bocas que necesitan saber cuánto cobra un socio la llaman a ella** —`devengar_sueldos_socios`, `v_socio_lista` y `v_cashflow_comprometido`— y ninguna queda afuera. Ese es el punto: si el cashflow proyectara la vigencia mientras el devengo asienta la excepción, los dos números son plausibles, nadie los compara y la diferencia no se ve por ningún lado.
+
+**El mes ya devengado se bloquea** (`trg_sueldo_mes_no_devengado`), y es la regla 4: encima de un asiento que ya movió el saldo, la excepción no corrige nada — cambiaría la pantalla y dejaría al asiento diciendo otra cosa. El mensaje dice qué hacer: *«El período ya se devengó por $X. Para corregirlo hay que anular ese devengo y volver a correrlo.»* El período cerrado se frena con su propio mensaje.
+
+**El motivo es obligatorio** porque es lo único que distingue una excepción legítima de un número escrito de más: la excepción rompe la regla a propósito, y sin el porqué, dentro de seis meses es indistinguible de un error de tipeo.
+
+Escritura `admin`/`finanzas` (`socio.ajuste_mes`), la misma allowlist que `socio.sueldo` — es la misma decisión, tomada sobre un mes en vez de sobre el acuerdo. **SELECT `using (true)`** por la nota #1 y por un corolario propio: lo lee `v_cashflow_comprometido`, que mira `/proyeccion`, visible para toda la oficina. Restringirlo no daría error — le mostraría al operador la cifra vieja, en silencio.
+
 #### Patrón nuevo · el devengo escribe solo
 
 ```sql
@@ -2489,7 +2521,7 @@ devengar_sueldos_socios(periodo_id) → int   -- cuántos devengó
 
 **Rompe con el único precedente, y es deliberado.** `proponer_amortizaciones` **propone** y el operador confirma (decisión 23), porque una amortización es una **estimación**. El sueldo del socio es un **monto acordado y conocido**: no hay nada que revisar, y devengarlo directo es defendible.
 
-- Por cada socio con sueldo vigente en el período, genera el asiento `GAS_SOCIOS` / `SOCIOS_A_PAGAR` por el monto vigente.
+- Por cada socio con sueldo acordado en el período, genera el asiento `GAS_SOCIOS` / `SOCIOS_A_PAGAR` por lo que devuelve `sueldo_acordado()` a fin de mes: la excepción de ese mes si la hay, si no la vigencia.
 - **Idempotente**: `unique (socio_id, periodo_id)`, mismo patrón que `amortizacion`. Correrlo dos veces no duplica.
 - **Se dispara por período, explícitamente.** No es un cron invisible: alguien lo corre al procesar el mes.
 - **Aborta si el período está cerrado** — `periodo_de_fecha` ya lo garantiza.
@@ -2510,13 +2542,13 @@ No es una restricción del módulo sino de `crear_asiento`, que exige `predio_id
 | Vista | Para qué |
 |---|---|
 | `v_saldo_socio` | saldo actual por socio: a favor o en contra |
-| `v_socio_detalle_mensual` | por socio y período: devengado, retirado, saldo acumulado |
-| `v_socio_lista` | una fila por socio, con el **sueldo vigente** y el estado derivado |
+| `v_socio_detalle_mensual` | por socio y período: lo **acordado**, devengado, retirado, saldo acumulado, y si ese mes fue una excepción |
+| `v_socio_lista` | una fila por socio, con lo **acordado para el mes en curso** y el estado derivado |
 | `v_socio_kpi` | los totales de todos, en una fila |
 
 Las dos primeras son las que hay que poder mirar de un socio: el número de hoy y cómo se llegó. Las dos últimas sostienen la **lista** de `/socios`, que se separó del detalle porque la tabla mensual **no tiene techo** —12 filas por socio por año, para siempre— y con dos socios ya no entraba en una pantalla.
 
-`v_socio_lista` trae el sueldo vigente, que ninguna de las dos primeras tenía: derivan de `SOCIOS_A_PAGAR` y ahí el acuerdo no está. Su `estado` va de lo que más pide atención a lo que menos: `en_contra` (retiró de más) → `sin_sueldo` → `al_dia` → `a_favor`. `v_socio_kpi` **suma `v_socio_lista`** y no `v_saldo_socio`, para que el encabezado y la tabla de la pantalla no puedan discrepar.
+`v_socio_lista` trae lo acordado, que ninguna de las dos primeras tenía: derivan de `SOCIOS_A_PAGAR` y ahí el acuerdo no está. `v_socio_detalle_mensual` lo trae desde `20260829183000`, resuelto **a fin de mes** —la misma fecha con la que devenga la función—, al lado de lo devengado: van a coincidir casi siempre, y esa es la idea. **La fila que importa es la que no coincide.** Su `estado` va de lo que más pide atención a lo que menos: `en_contra` (retiró de más) → `sin_sueldo` → `al_dia` → `a_favor`. `v_socio_kpi` **suma `v_socio_lista`** y no `v_saldo_socio`, para que el encabezado y la tabla de la pantalla no puedan discrepar.
 
 **Alcance:** backend y **lectura**. `/socios` es la lista y `/socios/[socioId]` el detalle mes a mes. Falta la **escritura** —cargar sueldo pactado y registrar retiro—: `crear_retiro_socio` existe pero es una de las seis funciones sin `p_created_by`, así que todavía no puede escribir desde una pantalla. El lugar del botón está marcado y deshabilitado en el detalle.
 
@@ -3338,7 +3370,7 @@ Primer módulo posterior al rediseño calendario-por-serie. Introduce **dos patr
 
 **Es costo de la empresa, no del torneo** (§3.19). El asiento va con `torneo_id = NULL`, a nivel estructura permanente: el sueldo existe todos los meses haya torneo o no, e imputarlo a uno exigiría el prorrateo que la **decisión 5** prohíbe. La contribución de cada torneo queda intacta; lo que baja es el resultado de la empresa.
 
-**El sueldo acordado se versiona con historial** (§3.19). **Primer parámetro versionado de verdad**: `config_contable` tiene `vigente_desde` pero es una fila única sin historial —y no la lee nadie—, así que no servía de molde. Cambiar el sueldo es insertar una fila, no editar: es lo que permite recalcular un mes viejo con el sueldo que regía entonces.
+**El sueldo acordado se versiona con historial** (§3.19). **Primer parámetro versionado de verdad**: `config_contable` tiene `vigente_desde` pero es una fila única sin historial —y no la lee nadie—, así que no servía de molde. Cambiar el sueldo es insertar una fila, no editar: es lo que permite recalcular un mes viejo con el sueldo que regía entonces. **Y encima del historial, la excepción de un mes** (`sueldo_socio_mes`, §3.19): lo puntual le gana a la vigencia, se resuelve en `sueldo_acordado()` y la llaman las tres bocas —devengo, pantalla y proyección—.
 
 **El devengo mensual escribe solo** (§3.19). **Rompe con el único precedente** de proceso mensual: `proponer_amortizaciones` propone y el operador confirma (decisión 23), porque una amortización es una estimación. El sueldo es un monto acordado y conocido — no hay nada que revisar. Idempotente por `(socio, período)` y disparado explícitamente, no por cron.
 

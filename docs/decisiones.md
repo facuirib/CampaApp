@@ -1751,13 +1751,19 @@ Se resolvió **antes** de lo que esta entrada preveía —decía "cuando se
 construya la escritura"— porque la lista lo necesitaba primero: una fila por
 socio sin el sueldo al lado no dice si el saldo es mucho o poco.
 
-> **El precio, anotado donde se paga.** `v_socio_lista` resuelve el vigente con
-> un `left join lateral` que **repite la regla** de `sueldo_vigente()` —la
-> misma que usa `devengar_sueldos_socios` para decidir cuánto asentar—. Se
-> eligió así para que el monto y la fecha salgan del MISMO renglón: llamando a
-> la función para el monto y buscando la fecha aparte, podrían venir de filas
-> distintas. **Si la regla cambia, se cambian las dos.** Verificado al aplicar
-> que hoy coinciden en los dos socios.
+> **~~El precio, anotado donde se paga~~ — PAGADO** (`20260829181000`).
+> `v_socio_lista` resolvía el vigente con un `left join lateral` que **repetía
+> la regla** de `sueldo_vigente()`. Se había elegido así para que el monto y la
+> fecha salieran del MISMO renglón, y el argumento era bueno mientras hubiera
+> dos copias. Dejó de serlo cuando apareció la tercera: la excepción por mes
+> (§3.19) obligaba a tocar el mismo criterio en tres lugares, y la copia que se
+> olvidara no avisa — muestra otro número.
+>
+> Ahora el monto sale de la función y la fecha de un
+> `max(vigente_desde <= hoy)`, que es **el mismo selector escrito como
+> agregado**: la fila que elige la función es, por definición, la de ese `max`.
+> No son dos criterios que puedan divergir en el monto. Probado en rollback con
+> una vigencia vieja y una futura de por medio: las dos filas salen idénticas.
 
 ---
 
