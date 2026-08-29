@@ -301,6 +301,31 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['registrar_movimiento_fondo'] },
   },
+  // ── Societario ───────────────────────────────────────────────────────────
+  //
+  // Los tres van a SENSIBLE —admin y finanzas— porque son la plata de los
+  // dueños. Antes de esto, `operador` podía cambiarles el sueldo y `bar` podía
+  // retirarles plata: el sidebar escondía Societario, pero la base no.
+  'socio.sueldo': {
+    que: 'Fijar el sueldo acordado de un socio',
+    roles: SENSIBLE,
+    donde: { tabla: 'sueldo_socio', cmd: 'INSERT' },
+  },
+  'socio.devengar': {
+    // Proceso mensual idempotente: correrlo dos veces no duplica.
+    que: 'Devengar los sueldos del mes a los socios',
+    roles: SENSIBLE,
+    donde: { fns: ['devengar_sueldos_socios'] },
+  },
+  'socio.retirar': {
+    // Por guarda y no por policy: la función no escribe ninguna tabla del
+    // circuito societario —arma el movimiento con crear_asiento— así que
+    // restringir sueldo_socio y devengo_socio no la alcanza.
+    que: 'Retirar plata a cuenta del sueldo de un socio',
+    roles: SENSIBLE,
+    donde: { guarda: 'crear_retiro_socio' },
+  },
+
   'usd.operar': {
     // La única sensible que SÍ se separa por policy limpia: sus dos escritores
     // son la misma operación, no hay una tercera función que escriba la tabla.
