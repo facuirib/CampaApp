@@ -311,6 +311,14 @@ export const PERMISOS = {
     roles: SENSIBLE,
     donde: { tabla: 'sueldo_socio', cmd: 'INSERT' },
   },
+  'socio.ajuste_mes': {
+    // La excepción de UN mes, que le gana a la vigencia. Va a SENSIBLE por lo
+    // mismo que `socio.sueldo`: decide cuánto cobra un dueño. Que sea por un
+    // mes y no permanente no la hace más chica — es la misma plata.
+    que: 'Ajustar el sueldo de un socio en un mes puntual',
+    roles: SENSIBLE,
+    donde: { tabla: 'sueldo_socio_mes', cmd: 'INSERT' },
+  },
   'socio.devengar': {
     // Proceso mensual idempotente: correrlo dos veces no duplica.
     que: 'Devengar los sueldos del mes a los socios',
