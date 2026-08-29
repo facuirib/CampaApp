@@ -106,6 +106,31 @@ sabía.
 
 ---
 
+### 📌 PENDIENTE · TRES cobros de prueba en los libros · 29/08/2026 · para Facu
+
+Se suma uno más, y este es mío. Para probar el modal de emisión hacía falta un
+recibo, y hoy no había ninguno —los recibos empezaron a nacer recién con la
+migración de ayer—. Cobré **$1** por `registrar_cobro`, que generó el recibo
+nº 18, y con eso se probaron los cuatro pasos.
+
+**No lo borré, y la razón es la regla 4:** el asiento no se edita ni se borra, se
+anula con contraasiento. Borrar la fila habría sido más prolijo pero es
+exactamente lo que la regla existe para impedir, y no me pareció que la
+excepción la justificara un cobro de prueba.
+
+Queda entonces con los otros dos, para la misma pasada de limpieza:
+
+| pago | monto | equipo | comprobantes | de quién |
+|---|---|---|---|---|
+| `f0e252bd` | $1.000,00 | 4K | ninguno | Horacio |
+| `cc7fcc49` | $1,00 | 4K | factura `0010-00000001` | Horacio |
+| (el de hoy) | $1,00 | Acme | recibo nº 18 | Facu — scaffolding del modal |
+
+El de Horacio de $1 tiene factura fiscal real: **anularlo pide nota de crédito**,
+no contraasiento. Los otros dos se anulan con contraasiento nomás.
+
+---
+
 ### 📌 PENDIENTE · dos cobros de prueba quedaron en los libros · 28/08/2026 · para Facu
 
 De la corrida del circuito. **No se tocaron** — Facu decide si se anulan con

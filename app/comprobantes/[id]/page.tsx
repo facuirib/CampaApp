@@ -6,9 +6,13 @@ import { rolActual } from '@/lib/rol-actual'
 import { Badge, Card } from '@/components/ui'
 import { formatDate, formatMoneyExacto } from '@/lib/format'
 
+import BotonEmitir from './BotonEmitir'
 import BotonPdf from './BotonPdf'
 
 const VE_LA_LISTA = ['admin', 'operador', 'read-only', 'finanzas']
+
+/** Emitir es de las puertas: admin y finanzas, igual que reservar y cerrar. */
+const PUEDE_EMITIR = ['admin', 'finanzas']
 
 /** Un par etiqueta/valor, que es casi todo lo que esta pantalla muestra. */
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
@@ -157,6 +161,37 @@ export default async function ComprobantePage({ params }: { params: Promise<{ id
       )}
 
       {/* ── Qué se puede hacer, según el estado ───────────────────────────── */}
+      {/* ── Facturar este cobro ────────────────────────────────────────────
+          Sólo desde el detalle y nunca desde la fila de la lista: emitir es
+          irreversible, y una acción irreversible a un clic de distancia dentro
+          de una tabla es un accidente esperando. */}
+      {esRecibo && !c.ya_facturado && rol && PUEDE_EMITIR.includes(rol) && (
+        <Card>
+          <h2 className="mb-1 text-[13px] font-extrabold text-ink">Facturar este cobro</h2>
+          <p className="mb-4 max-w-[70ch] text-[11px] leading-snug text-muted">
+            Cobrar y facturar son dos actos distintos: el recibo nace con el cobro, la factura se
+            emite después y sólo si el equipo la pide. Se abre un paso a paso — elegir el punto de
+            venta, ver a quién se le factura y qué va a decir, y recién ahí confirmar.
+          </p>
+          <BotonEmitir
+            comprobanteId={c.id!}
+            monto={Number(c.monto)}
+            detalle={c.detalle}
+            fecha={formatDate(c.fecha_emision!)}
+          />
+        </Card>
+      )}
+
+      {esRecibo && c.ya_facturado && (
+        <Card>
+          <h2 className="mb-1 text-[13px] font-extrabold text-ink">Ya facturado</h2>
+          <p className="text-[11.5px] leading-snug text-muted">
+            Este cobro ya tiene su factura fiscal. Un cobro admite un recibo y una factura, no dos
+            de lo mismo.
+          </p>
+        </Card>
+      )}
+
       {c.tiene_pdf ? (
         <Card>
           <h2 className="mb-3 text-[13px] font-extrabold text-ink">Documento</h2>
