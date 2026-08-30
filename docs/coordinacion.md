@@ -27,6 +27,136 @@ Decisión de Horacio (confirmada tres veces, 27/08, 28/08 y hoy): el certificado
 Si en el futuro aparece evidencia de que la clave se usó de forma no autorizada (facturas que no reconocemos, actividad rara en el CUIT ante ARCA), se regenera de inmediato. Hasta entonces, este es el estado final de la decisión — no hace falta volver a preguntar.
 
 Confirmá con: grep -n "certificado ARCA, no se regenera" docs/coordinacion.md
+### 📋 TU TABLERO · todo lo que está esperándote, en un solo lugar · 30/08/2026 · para Horacio
+
+Tenías cuatro pendientes abiertos en cuatro entradas distintas, escritas en
+cuatro días distintos, cada una pidiendo la suya. Así compiten entre sí y el
+resultado es predecible: ninguna gana. Van todas acá, **en orden de qué destraba
+qué**, y las entradas viejas quedan abajo con el detalle.
+
+**Quedaron tres**: mientras escribía esto cerraste el certificado (④). Lo dejo
+igual, tachado, porque el tablero sirve si dice también qué se terminó.
+
+**Si hoy hacés una sola cosa, que sea la ①.** Es la única que desbloquea un
+módulo entero; las otras dos son deuda, no bloqueo.
+
+---
+
+#### ① 🎯 El recibo en `registrar_cobro_sponsor` — DESTRABA SPONSORS
+
+Es lo único que separa a sponsors de poder facturarse. Hoy la función cobra y
+asienta, pero **no crea comprobante**: verificado, su cuerpo no menciona
+`comprobante` por ningún lado. Sin recibo no hay de dónde colgar la factura, y
+el módulo entero queda esperando.
+
+Lo bueno es que **el camino ya está hecho y probado en `registrar_cobro`** — es
+copiar el patrón, no diseñarlo:
+
+- `tipo_comprobante = 0`, `punto_venta = 0`, `estado = 'generado'`, `cae` nulo
+  — es lo que exige `comprobante_coherente` para el recibo interno
+- el número sale de `nextval('comprobante_recibo_numero_seq')`
+- **el receptor se CONGELA, no se referencia**: `receptor_nombre`, `doc_tipo`,
+  `doc_nro`, `domicilio` y `condicion_iva_receptor_id` se copian del sponsor
+  dentro de la misma transacción. Un recibo de hace tres años se tiene que
+  reimprimir igual aunque el sponsor haya cambiado de razón social
+- el `select ... into strict` del original es deliberado: si el tercero no
+  aparece, que levante `NO_DATA_FOUND` en vez de no hacer nada. Éste es el
+  corazón de un circuito de cobros — un fallo mudo es peor que uno ruidoso
+- `detalle`: la cuota que se está cobrando, que es lo que el sponsor busca en el
+  papel
+
+**Y el lado sponsor de la tabla ya está entero.** Lo revisé hoy antes de
+escribir esto, porque iba a decirte que faltaba decidir de qué se cuelga el
+comprobante — y no falta nada:
+
+- `comprobante.cuota_cobro_sponsor_id` **existe**, nullable, con su FK a
+  `cuota_cobro_sponsor`
+- el check `comprobante_un_origen` ya obliga a que sea **uno u otro**: o
+  `pago_id`, o `cuota_cobro_sponsor_id`, nunca los dos ni ninguno (salvo
+  `sin_origen`, que tiene su propio motivo obligatorio)
+- los **cuatro** índices parciales están: recibo y factura, por pago y por cuota
+  de sponsor. O sea que un cobro de sponsor admite **un recibo Y una factura**,
+  pero no dos de ninguno — y una factura rechazada (`estado = 'error'`) no
+  bloquea su propio reintento
+
+**No hay decisión de modelo pendiente.** El cobro de sponsor no pasa por `pago`
+—verificado, la función no lo toca—, así que el recibo se cuelga de
+`cuota_cobro_sponsor_id` y `pago_id` va en `NULL`. Es la única diferencia real
+contra el patrón de `registrar_cobro`. Todo lo demás es el mismo código.
+
+Cuando esté, **el resto lo ponemos nosotros el mismo día**: el modal de 4 pasos,
+el PDF y las dos puertas de emisión ya existen y se reusan sin cambios.
+
+---
+
+#### ② La emisión real por la pantalla — nunca se corrió
+
+El modal de 4 pasos está construido y en `main` desde el 28. **Nadie lo usó
+todavía**: los tres comprobantes de la tabla siguen siendo la #407 (cargada a
+mano), la `0010-00000001` (emitida por consola) y un recibo de prueba. Cero
+facturas nacidas de la pantalla.
+
+Es tu certificado el que está configurado, así que la prueba es tuya. Un cobro
+chico en homologación alcanza. Hasta que alguien lo corra, **no sabemos si el
+circuito cierra por la interfaz** — sabemos que cierra por consola, que es otra
+cosa.
+
+---
+
+#### ③ Proveedores — `gasto.tercero_id` no existe
+
+Verificado: la columna no está. El modelo de proveedores sigue sin arrancar, y
+mientras tanto los gastos no se pueden agrupar por a quién se le paga. No
+bloquea nada hoy; es la clase de deuda que se paga barata ahora y cara cuando
+haya seiscientos gastos cargados.
+
+---
+
+#### ④ ~~El certificado de ARCA~~ — **CONTESTADO, mientras escribía esto**
+
+Lo cerraste vos a las 13:16 de hoy, unos minutos después de que yo empezara este
+tablero: no se regenera, con el fundamento escrito —la exposición no salió del
+canal de trabajo, la credencial de riesgo real (`service_role`) ya está rotada,
+y el certificado firma documentos fiscales pero no abre la base—, más el gatillo
+que lo reabre: evidencia de uso no autorizado, facturas que no reconozcamos,
+actividad rara en el CUIT.
+
+**Eso era exactamente lo que se venía pidiendo.** No la regeneración: el
+fundamento por escrito. Queda cerrado y no se vuelve a preguntar.
+
+Van tres, entonces, no cuatro.
+
+---
+
+#### Lo que NO tenés que hacer — cerrado, no lo rehagas
+
+- **los dos hallazgos del recibo**: resueltos, y tu acuse de hoy lo confirma. El
+  índice único se rediseñó en dos parciales y `registrar_cobro` ya congela el
+  receptor. La entrada 🔴 de abajo quedó marcada como resuelta
+- **el `<a>` anidado**: tu fix quedó bien, verificado el 28
+
+---
+
+#### Lo que cambió de nuestro lado y te toca — societario, 29/08
+
+Cinco commits, todos aplicados. Uno te toca directo:
+
+**`devengar_sueldos_socios` cambió por dentro.** Ya no resuelve el monto con
+`sueldo_vigente()` sino con **`sueldo_acordado(socio, fecha)`**, que es la nueva
+y única boca: devuelve la excepción de ese mes si la hay, y si no la vigencia de
+siempre. La firma y el comportamiento para los meses normales son idénticos —
+sólo cambia de dónde saca el número. Si tenías algo apoyado en `sueldo_vigente`,
+ahora esa función la llama **sólo** `sueldo_acordado`.
+
+Lo demás, para que no te sorprenda: tabla nueva `sueldo_socio_mes` (la excepción
+de un mes, que le gana a la vigencia, con motivo obligatorio y bloqueo sobre mes
+ya devengado), columnas `acordado` y `es_excepcion` en `v_socio_detalle_mensual`,
+y un bug vivo arreglado en `v_cashflow_comprometido` —leía los sueldos desde
+`sueldo_socio`, una fila por vigencia, y duplicaba apenas hubiera dos—.
+
+También quedó coherente `sueldo_socio_update_autenticado`, que tenía `operador`
+en el `with check` y no en el `using`. No abría nada, pero era un molde con un
+bug adentro esperando a que alguien lo copiara.
 
 ---
 
@@ -71,7 +201,12 @@ Las dos salidas razonables:
 No corre apuro y no bloquea nada. Queda acá para que no se pierda: una tabla sin
 RLS es de esas cosas que dejan de verse apenas nadie las cuenta.
 
-### 🔴 FRENÁ · la propuesta del recibo rompe el circuito que acabás de probar · 28/08/2026 · para Horacio
+### ✅ ~~FRENÁ~~ RESUELTA · la propuesta del recibo rompía el circuito · 28/08/2026 · para Horacio
+
+> **Cerrada el 30/08.** Los dos hallazgos están corregidos y Horacio lo
+> confirmó contra la base. Se deja el cuerpo entero porque explica *por qué* los
+> índices quedaron como quedaron — pero ya no pide nada. Un 🔴 que sigue rojo
+> después de resuelto le come la atención al que sí está esperando.
 
 **No la apliqué**, y no es por prudencia: la probé y no funciona junto con la
 emisión. Dos hallazgos, los dos medidos en `ROLLBACK` sobre la base real.
