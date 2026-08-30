@@ -625,6 +625,13 @@ export type Database = {
             foreignKeyName: "asiento_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "asiento_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -634,6 +641,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "asiento_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "asiento_torneo_id_fkey"
@@ -983,6 +997,13 @@ export type Database = {
             foreignKeyName: "categoria_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -992,6 +1013,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "categoria_torneo_id_fkey"
@@ -1533,6 +1561,13 @@ export type Database = {
             foreignKeyName: "compromiso_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "compromiso_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -1542,6 +1577,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "compromiso_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "compromiso_torneo_id_fkey"
@@ -2719,6 +2761,13 @@ export type Database = {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -2728,6 +2777,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
@@ -2974,6 +3030,13 @@ export type Database = {
             foreignKeyName: "gasto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -2983,6 +3046,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "gasto_torneo_id_fkey"
@@ -3077,6 +3147,13 @@ export type Database = {
             foreignKeyName: "gasto_planificado_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -3086,6 +3163,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "gasto_planificado_torneo_id_fkey"
@@ -3269,6 +3353,13 @@ export type Database = {
             foreignKeyName: "movimiento_fondo_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "movimiento_fondo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -3278,6 +3369,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "movimiento_fondo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "movimiento_fondo_torneo_id_fkey"
@@ -3652,6 +3750,13 @@ export type Database = {
             foreignKeyName: "plan_tarifa_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -3661,6 +3766,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "plan_tarifa_torneo_id_fkey"
@@ -3857,6 +3969,13 @@ export type Database = {
             foreignKeyName: "presupuesto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -3866,6 +3985,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "presupuesto_torneo_id_fkey"
@@ -4156,6 +4282,13 @@ export type Database = {
             foreignKeyName: "reclamo_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "reclamo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -4165,6 +4298,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "reclamo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "reclamo_torneo_id_fkey"
@@ -5602,6 +5742,7 @@ export type Database = {
           serie: string | null
           tercero_id: string | null
           torneo: string | null
+          torneo_id: string | null
           total_pagado: number | null
           total_plan: number | null
         }
@@ -5898,6 +6039,13 @@ export type Database = {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -5907,6 +6055,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
@@ -5970,6 +6125,13 @@ export type Database = {
             foreignKeyName: "categoria_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -5979,6 +6141,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "categoria_torneo_id_fkey"
@@ -6082,6 +6251,13 @@ export type Database = {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -6091,6 +6267,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
@@ -6243,6 +6426,13 @@ export type Database = {
             foreignKeyName: "categoria_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -6252,6 +6442,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "categoria_torneo_id_fkey"
@@ -6428,6 +6625,13 @@ export type Database = {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -6437,6 +6641,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
@@ -6494,6 +6705,13 @@ export type Database = {
             foreignKeyName: "gasto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -6503,6 +6721,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "gasto_torneo_id_fkey"
@@ -6640,6 +6865,13 @@ export type Database = {
             foreignKeyName: "gasto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -6649,6 +6881,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "gasto_torneo_id_fkey"
@@ -6836,6 +7075,13 @@ export type Database = {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -6845,6 +7091,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "equipo_torneo_torneo_id_fkey"
@@ -6991,6 +7244,13 @@ export type Database = {
             foreignKeyName: "plan_tarifa_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -7000,6 +7260,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "plan_tarifa_torneo_id_fkey"
@@ -7056,6 +7323,13 @@ export type Database = {
             foreignKeyName: "presupuesto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -7065,6 +7339,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "presupuesto_torneo_id_fkey"
@@ -7152,6 +7433,13 @@ export type Database = {
             foreignKeyName: "presupuesto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -7161,6 +7449,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "presupuesto_torneo_id_fkey"
@@ -7247,6 +7542,13 @@ export type Database = {
             foreignKeyName: "presupuesto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
+            referencedRelation: "v_cuenta_corriente_equipo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
             referencedRelation: "v_dashboard"
             referencedColumns: ["torneo_id"]
           },
@@ -7256,6 +7558,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_deuda_detalle"
             referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_actual"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "presupuesto_torneo_id_fkey"
@@ -7746,6 +8055,47 @@ export type Database = {
         }
         Relationships: []
       }
+      v_torneo_actual: {
+        Row: {
+          anio: number | null
+          ejercicio_id: string | null
+          estado: string | null
+          fecha_desde: string | null
+          fecha_hasta: string | null
+          id: string | null
+          nombre: string | null
+          temporada: Database["public"]["Enums"]["temporada"] | null
+        }
+        Insert: {
+          anio?: number | null
+          ejercicio_id?: string | null
+          estado?: string | null
+          fecha_desde?: string | null
+          fecha_hasta?: string | null
+          id?: string | null
+          nombre?: string | null
+          temporada?: Database["public"]["Enums"]["temporada"] | null
+        }
+        Update: {
+          anio?: number | null
+          ejercicio_id?: string | null
+          estado?: string | null
+          fecha_desde?: string | null
+          fecha_hasta?: string | null
+          id?: string | null
+          nombre?: string | null
+          temporada?: Database["public"]["Enums"]["temporada"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "torneo_ejercicio_id_fkey"
+            columns: ["ejercicio_id"]
+            isOneToOne: false
+            referencedRelation: "ejercicio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_torneo_escala: {
         Row: {
           dias_cancha: number | null
@@ -8026,6 +8376,10 @@ export type Database = {
         Args: { p_periodo_id: string; p_responsable_id?: string }
         Returns: undefined
       }
+      cerrar_torneo: {
+        Args: { p_motivo?: string; p_torneo_id: string }
+        Returns: undefined
+      }
       clonar_estructura_torneo: {
         Args: { p_destino_id: string; p_origen_id: string }
         Returns: Json
@@ -8297,6 +8651,7 @@ export type Database = {
         Returns: number
       }
       imputar_pago_automatico: { Args: { p_pago_id: string }; Returns: number }
+      iniciar_torneo: { Args: { p_torneo_id: string }; Returns: undefined }
       liquidar_efectivo_transito: {
         Args: {
           p_fecha?: string
@@ -8367,6 +8722,10 @@ export type Database = {
           monto: number
           nombre: string
         }[]
+      }
+      reabrir_torneo: {
+        Args: { p_motivo: string; p_torneo_id: string }
+        Returns: undefined
       }
       recibir_efectivo_en_transito: {
         Args: {

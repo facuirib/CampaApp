@@ -100,14 +100,21 @@ export default async function TarifarioPage({
   // Los torneos primero: el elegido sale de la URL, y si no hay nada en la URL
   // se usa el activo. La consulta de planes depende de cuál sea, así que esta
   // va sola y no en el Promise.all de abajo.
-  const torneosRes = await supabase
-    .from('torneo')
-    .select('id, nombre, activo')
-    .order('anio', { ascending: false })
-    .order('nombre')
+  const [torneosRes, actualRes] = await Promise.all([
+    supabase
+      .from('torneo')
+      .select('id, nombre, estado, activo')
+      .order('anio', { ascending: false })
+      .order('nombre'),
+    supabase.from('v_torneo_actual').select('id').maybeSingle(),
+  ])
 
   const torneos = torneosRes.data ?? []
-  const torneoElegido = torneoParam ?? torneos.find((t) => t.activo)?.id ?? torneos[0]?.id ?? null
+  const actual = actualRes.data
+  // El actual sale de `v_torneo_actual`, la única definición. Si no hay ninguno
+  // en curso cae al primero de la lista, que acá es aceptable: el tarifario se
+  // edita sobre un torneo cualquiera y no afirma que ése sea «el actual».
+  const torneoElegido = torneoParam ?? actual?.id ?? torneos[0]?.id ?? null
 
   const [planesRes, lineasRes, usoRes] = await Promise.all([
     supabase
@@ -155,7 +162,7 @@ export default async function TarifarioPage({
       valorPorDefecto: torneoElegido ?? undefined,
       opciones: torneos.map((t) => ({
         valor: t.id,
-        label: t.activo ? `${t.nombre} (en curso)` : t.nombre,
+        label: t.estado === 'en_curso' ? `${t.nombre} (en curso)` : t.nombre,
       })),
     },
   ]

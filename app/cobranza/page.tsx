@@ -157,13 +157,17 @@ export default async function CobranzaPage({
   }
 
   const [torneosRes, kpis] = await Promise.all([
-    supabase.from('torneo').select('id, nombre, activo').order('anio', { ascending: false }),
+    supabase.from('torneo').select('id, nombre, estado, activo').order('anio', { ascending: false }),
     // La misma vista que alimentaba /cobranza/kpis, ahora acá.
     supabase.from('v_cobranza_kpi').select('*').order('nombre'),
   ])
 
   const torneos = torneosRes.data ?? []
-  const activo = torneos.find((t) => t.activo) ?? null
+  // `v_torneo_actual` y no `find(t => t.activo)`: «cuál es el actual» tiene UNA
+  // definición, en la base. La regla estaba copiada acá y en el tarifario, y las
+  // dos copias envejecían por separado.
+  const { data: actual } = await supabase.from('v_torneo_actual').select('id, nombre').maybeSingle()
+  const activo = actual ?? null
 
   // ── De qué vista se lee ──────────────────────────────────────────────────
   //
@@ -219,7 +223,7 @@ export default async function CobranzaPage({
       todos: 'Todos los torneos',
       opciones: torneos.map((t) => ({
         valor: t.id,
-        label: t.activo ? `${t.nombre} (en curso)` : t.nombre,
+        label: t.estado === 'en_curso' ? `${t.nombre} (en curso)` : t.nombre,
       })),
     },
   ]

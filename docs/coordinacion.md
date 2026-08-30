@@ -18,6 +18,7 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+<<<<<<< HEAD
 ### 🟢 Hallazgo y fix · unico/anual no aparecían en el cashflow · para Facu
 
 Investigando una pregunta de Horacio sobre presupuesto, encontramos que 'unico' y 'anual' son valores válidos en presupuesto_linea.unidad (según el check constraint), pero v_cashflow_estimado nunca los maneja — solo por_partido, por_dia_cancha, por_mes. Un gasto marcado así no aparecía en ninguna proyección.
@@ -29,6 +30,123 @@ Límite conocido y aceptado: la línea de $10 existente queda sin fecha (y sin c
 Ya aplicado. Verificado con begin/rollback (dos veces — la primera versión tenía el bug de unidad cruda vs efectiva, detectado antes de aplicar) y confirmado que el count(*) de la vista no cambia para las filas existentes (524 en ambos casos).
 
 Confirmá con: grep -n "unico/anual no aparecían" docs/coordinacion.md
+=======
+### 🎯 ETAPA FINAL — PLAN DE PULIDO · carriles independientes · 30/08/2026
+
+Facu y Horacio hicieron un **barrido completo de la app**: más de 30
+observaciones de uso real, de punta a punta. De ahí salió el **PLAN DE PULIDO**,
+en Notion, página **«🎯 PLAN DE PULIDO»** — cuatro olas priorizadas por valor
+para el cliente. **Es la guía hasta la entrega.** Cuando termine viene el
+**diagnóstico end-to-end**: testear todo y verificar que los números cuadren con
+la historia de los datos.
+
+Enfoque: **diseñar cómo DEBE ser, no parchear la data de prueba.** La data
+cargada es descartable —los torneos, los equipos, los cobros de prueba— y no
+sirve como criterio. Si algo se ve raro por culpa de los datos, se arregla el
+modelo, no la fila.
+
+---
+
+#### 🔴 Cómo trabajamos de acá en adelante: sin confirmaciones
+
+**Cada uno avanza al máximo por su cuenta. No se piden opiniones ni ok mutuos.**
+
+Esto reemplaza lo que decía la versión anterior de este aviso, que pedía alinear
+los cambios de modelo antes de tocarlos. Se cambió a propósito: **el objetivo
+ahora es velocidad**, y esperar la aprobación del otro para empezar cuesta más
+de lo que ahorra.
+
+**Se coordina en un solo caso: cuando hay una dependencia de código real** — uno
+necesita que el otro construya algo primero para poder seguir. Ahí se avisa acá
+**qué se necesita**, y listo. No es una consulta ni pide respuesta: es un pedido
+concreto.
+
+Si dos tareas tocan la misma zona, **se parten para no pisarse** — pero nadie
+frena a esperar la opinión del otro.
+
+---
+
+#### El reparto por carriles
+
+La idea es que cada uno agarre lo suyo de Notion y avance sin cruzarse. El
+criterio es **quién es dueño natural de la zona**, no quién tiene tiempo.
+
+**Carril [H] · Horacio — motor, backend, y lo que ya viene manejando**
+
+- **B1 · crear torneo clonando el anterior** — equipos, series y modalidad se
+  copian, se edita, se confirma, y recién ahí se proyectan las cuotas. Se apoya
+  en el ciclo de vida ya construido (`iniciar_torneo` / `cerrar_torneo` /
+  `reabrir_torneo`, `v_torneo_actual`)
+- **B2 · estructura de torneo** — su zona desde siempre
+- **G3 · sponsors**, la parte del motor: crear sponsor + contrato + ficha, si
+  toca funciones
+- **conectar proveedores** — `gasto.tercero_id`
+- **emisión ARCA real por la pantalla** — tiene el certificado
+
+**Carril [F] · Facu + Claude — front, vistas y reorganizaciones**
+
+- Todo lo de las **olas 1, 3 y 4**: cheque, USD, caja, socios, cobranza,
+  resultados, dashboard, gráficos, reorganizaciones, fecha + predio
+- **A1 · la ficha del equipo como entidad central** — el equipo reúne contacto,
+  datos fiscales, cobranza e historial de torneos. «El equipo es más grande que
+  un torneo»
+- **D1 · inversión ≠ gasto** — revisar el concepto del módulo Gastos, quizás
+  «Salidas», con la inversión separada
+- **F2 · mudar los costos de bar a Bar**
+
+---
+
+#### Las dependencias reales — lo único que se coordina
+
+Son dos. Todo lo demás avanza en paralelo sin esperar nada.
+
+**① G4 (gráficos de margen del bar) ← F2 (costos de bar mudados a Bar)**
+El margen no se puede calcular hasta que los costos estén en Bar. **F2 es
+nuestro y G4 es de Horacio**, así que: cuando F2 esté, se avisa acá en una
+línea. Hasta entonces G4 no arranca — y no hay nada que preguntar, sólo que
+esperar ese aviso.
+
+**② G3 (ficha de sponsor) ← el motor de sponsor, si hace falta exponer algo**
+Si al construir la ficha aparece que falta una función o una columna del lado del
+motor, **se pide acá con nombre y forma** —«necesito que `x` devuelva `y`»— y se
+sigue con otra cosa mientras tanto.
+
+**Lo que NO es dependencia y no bloquea a nadie:** A1, B1, D1 y B2 tocan
+estructura, sí, pero cada uno en su zona. Se avanzan en paralelo. Si al terminar
+hay que ajustar un empalme, se ajusta — cuesta menos que la espera.
+
+---
+
+#### Pendientes de Horacio, para cuando quiera
+
+Van en su carril y no bloquean nada nuestro:
+
+1. **Conectar proveedores** — la tabla `proveedor` quedó como isla:
+   `gasto.tercero_id` sigue sin existir, así que los gastos no se pueden agrupar
+   por a quién se le paga
+2. **Sus dos commits de UI sin verificar a fondo** — el modal de edición de
+   cliente en emisión y el sacar «Vs Real» de presupuesto. Se integraron y
+   compilan, pero no se revisaron como se revisaron `anular_pago` o
+   `registrar_cobro_sponsor`
+3. **Emisión ARCA real desde la pantalla** — el certificado es de producción y
+   homologación lo rechaza, así que **no hay ambiente de ensayo**. Hay que
+   decidir cómo se prueba: un monto simbólico en producción, o darlo por probado
+   con lo que ya está
+
+---
+
+#### Una nota de proceso, para antes del diagnóstico
+
+**El verificador de permisos se endureció tres veces** en las últimas sesiones, y
+las tres por lo mismo: la matriz declaraba algo que no coincidía con la base y el
+chequeo no lo veía. La última fue mía —declaré que las funciones del ciclo del
+torneo eran de admin cuando la policy de la tabla también deja a operador, y dio
+verde igual—.
+
+El patrón se repite, así que antes del diagnóstico end-to-end conviene **una
+pasada que compruebe toda la matriz contra la base de una sola vez**, en lugar de
+seguir endureciendo el chequeo cada vez que algo se escapa.
+>>>>>>> c75fad85c2e289192004d11c53b972d9982b8fae
 
 ---
 

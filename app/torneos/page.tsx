@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import AccionesCiclo from './AccionesCiclo'
 import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
@@ -15,6 +16,7 @@ interface Fila {
   equipos: React.ReactNode
   molde: React.ReactNode
   estructura: CeldaBadge
+  ciclo: React.ReactNode
 }
 
 const TEMPORADA: Record<string, CeldaBadge> = {
@@ -28,6 +30,17 @@ const TEMPORADA: Record<string, CeldaBadge> = {
  * `planificado` va en ámbar y no en gris porque no es un estado de reposo: es
  * un torneo que todavía no arrancó y que alguien tiene que poner en curso. El
  * gris diría "así está bien".
+ */
+/**
+ * El badge lee el ESTADO, no `activo`.
+ *
+ * Hasta acá `activo === false` dibujaba «Dado de baja» sobre cualquier torneo
+ * que no fuera el actual —porque `activo` se usaba como «el en curso»—, y eso
+ * mostraba como dado de baja a un torneo futuro perfectamente vigente.
+ *
+ * Ahora son dos cosas separadas: el estado dice dónde está en el ciclo y
+ * `activo` dice sólo si está dado de baja. La baja sigue primero porque un
+ * torneo dado de baja es eso antes que nada.
  */
 function estadoABadge(estado: string | null, activo: boolean | null): CeldaBadge {
   if (activo === false) return { estado: 'vencido', label: 'Dado de baja' }
@@ -68,6 +81,7 @@ const COLUMNAS: ColumnDef<Fila>[] = [
   { key: 'equipos', label: 'Equipos', width: 96 },
   { key: 'molde', label: 'Estructura' },
   { key: 'estructura', label: '', format: 'badge', width: 116 },
+  { key: 'ciclo', label: '', width: 168 },
 ]
 
 export default async function TorneosPage() {
@@ -78,12 +92,33 @@ export default async function TorneosPage() {
   // se muestra igual —es dato—; lo que se cae es el link.
   const puedeFichas = puede(rol, 'torneo.fichas')
   const puedeEstructura = puede(rol, 'torneo.estructura')
+  const puedeCiclo = puede(rol, 'torneo.ciclo')
+
+  // La deuda impaga por torneo, para el aviso al cerrar. Sale de la vista, no
+  // se calcula acá.
+  const { data: deudas } = await supabase
+    .from('v_deuda_detalle')
+    .select('torneo_id, saldo, tercero_id')
+    .gt('saldo', 0)
+
+  const deudaPorTorneo = new Map<string, { saldo: number; cuotas: number; equipos: Set<string> }>()
+  for (const d of deudas ?? []) {
+    if (!d.torneo_id) continue
+    const acc = deudaPorTorneo.get(d.torneo_id) ?? { saldo: 0, cuotas: 0, equipos: new Set<string>() }
+    acc.saldo += d.saldo ?? 0
+    acc.cuotas += 1
+    if (d.tercero_id) acc.equipos.add(d.tercero_id)
+    deudaPorTorneo.set(d.torneo_id, acc)
+  }
 
   const { data, error } = await supabase
     .from('v_torneo_lista')
     .select('*')
     .order('anio', { ascending: false })
     .order('temporada', { ascending: true })
+
+  // El que está en curso, si hay: es lo que deshabilita «Iniciar» en los demás.
+  const enCurso = (data ?? []).find((t) => t.estado === 'en_curso' && t.activo !== false)
 
   const filas: Fila[] = (data ?? []).map((t) => ({
     torneo_id: t.torneo_id,
@@ -93,6 +128,21 @@ export default async function TorneosPage() {
     anio: t.anio,
     periodo: periodoDeTorneo(t.fecha_desde, t.fecha_hasta),
     estado: estadoABadge(t.estado, t.activo),
+    ciclo:
+      puedeCiclo && t.activo !== false && t.torneo_id ? (
+        <AccionesCiclo
+          torneoId={t.torneo_id}
+          nombre={t.nombre ?? 'el torneo'}
+          estado={t.estado ?? 'planificado'}
+          otroEnCurso={enCurso && enCurso.torneo_id !== t.torneo_id ? (enCurso.nombre ?? '') : null}
+          fichas={t.equipos ?? 0}
+          deuda={{
+            saldo: deudaPorTorneo.get(t.torneo_id)?.saldo ?? 0,
+            cuotas: deudaPorTorneo.get(t.torneo_id)?.cuotas ?? 0,
+            equipos: deudaPorTorneo.get(t.torneo_id)?.equipos.size ?? 0,
+          }}
+        />
+      ) : null,
     // Link a los inscriptos: el número es lo que uno mira antes de querer
     // tocarlos, igual que el molde.
     equipos: puedeFichas ? (
