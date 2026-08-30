@@ -18,106 +18,121 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
-### 🎯 ETAPA FINAL — PLAN DE PULIDO · 30/08/2026 · para Horacio
+### 🎯 ETAPA FINAL — PLAN DE PULIDO · carriles independientes · 30/08/2026
 
 Facu y Horacio hicieron un **barrido completo de la app**: más de 30
 observaciones de uso real, de punta a punta. De ahí salió el **PLAN DE PULIDO**,
-volcado a Notion en la página **«🎯 PLAN DE PULIDO — Recta final a la entrega»**,
-colgada de la bitácora principal.
+en Notion, página **«🎯 PLAN DE PULIDO»** — cuatro olas priorizadas por valor
+para el cliente. **Es la guía hasta la entrega.** Cuando termine viene el
+**diagnóstico end-to-end**: testear todo y verificar que los números cuadren con
+la historia de los datos.
 
-**Ese documento es la guía de acá hasta la entrega.** Está priorizado por valor
-para el cliente y organizado en **cuatro olas**. Acá va lo que te toca y lo que
-hay que coordinar; el plan completo, con las cuatro olas y todos los IDs, está
-en Notion.
-
-Cuando el plan termine viene un **diagnóstico end-to-end**: testear todo y
-verificar que los números cuadren con la historia de los datos, antes de
-entregar.
-
-#### El enfoque acordado
-
-**Diseñar cómo DEBE ser, no parchear la data de prueba.** La data cargada hoy es
-descartable —los dos torneos, los 28 equipos, los cobros de prueba— y no vale
-como criterio de diseño. Si algo se ve raro por culpa de los datos, se arregla el
+Enfoque: **diseñar cómo DEBE ser, no parchear la data de prueba.** La data
+cargada es descartable —los torneos, los equipos, los cobros de prueba— y no
+sirve como criterio. Si algo se ve raro por culpa de los datos, se arregla el
 modelo, no la fila.
 
-Y el orden de cada ítem: **relevar → mostrar el diseño → aprobar → construir**,
-en commits chicos. Nada se construye antes de que el diseño esté aprobado.
+---
+
+#### 🔴 Cómo trabajamos de acá en adelante: sin confirmaciones
+
+**Cada uno avanza al máximo por su cuenta. No se piden opiniones ni ok mutuos.**
+
+Esto reemplaza lo que decía la versión anterior de este aviso, que pedía alinear
+los cambios de modelo antes de tocarlos. Se cambió a propósito: **el objetivo
+ahora es velocidad**, y esperar la aprobación del otro para empezar cuesta más
+de lo que ahorra.
+
+**Se coordina en un solo caso: cuando hay una dependencia de código real** — uno
+necesita que el otro construya algo primero para poder seguir. Ahí se avisa acá
+**qué se necesita**, y listo. No es una consulta ni pide respuesta: es un pedido
+concreto.
+
+Si dos tareas tocan la misma zona, **se parten para no pisarse** — pero nadie
+frena a esperar la opinión del otro.
 
 ---
 
-#### 🔴 Lo primero: alinear los cambios de MODELO antes de tocarlos
+#### El reparto por carriles
 
-Estos cuatro son de la Ola 2 y **cambian estructura**. Pueden chocar de frente
-con lo que tengas en curso, así que **antes de que cualquiera de los dos abra un
-editor, un ok mutuo por acá.** No es formalidad: dos personas rediseñando la
-misma entidad en paralelo es la peor forma de perder una tarde.
+La idea es que cada uno agarre lo suyo de Notion y avance sin cruzarse. El
+criterio es **quién es dueño natural de la zona**, no quién tiene tiempo.
 
-**A1 · La ficha del equipo como entidad central** — el equipo reúne contacto,
-datos fiscales, cobranza e historial de torneos. **«El equipo es más grande que
-un torneo»**: hoy vive repartido entre `/clientes`, `/cobranza` y las fichas por
-torneo. Ordena media app, y por eso conviene mirarlo antes que lo que cuelga de
-él.
+**Carril [H] · Horacio — motor, backend, y lo que ya viene manejando**
 
-**B1 · Crear torneo clonando el anterior** — equipos, series y modalidad se
-copian del torneo previo; se edita, se confirma, y recién ahí se proyectan las
-cuotas. Se apoya en el ciclo de vida que acabamos de construir
-(`iniciar_torneo` / `cerrar_torneo` / `reabrir_torneo` y `v_torneo_actual`).
+- **B1 · crear torneo clonando el anterior** — equipos, series y modalidad se
+  copian, se edita, se confirma, y recién ahí se proyectan las cuotas. Se apoya
+  en el ciclo de vida ya construido (`iniciar_torneo` / `cerrar_torneo` /
+  `reabrir_torneo`, `v_torneo_actual`)
+- **B2 · estructura de torneo** — su zona desde siempre
+- **G3 · sponsors**, la parte del motor: crear sponsor + contrato + ficha, si
+  toca funciones
+- **conectar proveedores** — `gasto.tercero_id`
+- **emisión ARCA real por la pantalla** — tiene el certificado
 
-**D1 · Inversión ≠ gasto** — revisar el concepto del módulo Gastos: quizás pase
-a llamarse «Salidas», con la inversión separada. **Toca el modelo contable**, o
-sea carril compartido de verdad.
+**Carril [F] · Facu + Claude — front, vistas y reorganizaciones**
 
-**G3 · Sponsors: crear sponsor + contrato + ficha** — la parte del motor y las
-funciones de sponsor es tuya.
-
-Además, **B1 y B2 tocan la estructura de torneo**, que es tu zona
-históricamente.
-
-**G4 · Bar: gráficos de margen** — depende de que los costos de bar se muevan a
-Bar (eso es F2, de nuestro lado). Va después.
+- Todo lo de las **olas 1, 3 y 4**: cheque, USD, caja, socios, cobranza,
+  resultados, dashboard, gráficos, reorganizaciones, fecha + predio
+- **A1 · la ficha del equipo como entidad central** — el equipo reúne contacto,
+  datos fiscales, cobranza e historial de torneos. «El equipo es más grande que
+  un torneo»
+- **D1 · inversión ≠ gasto** — revisar el concepto del módulo Gastos, quizás
+  «Salidas», con la inversión separada
+- **F2 · mudar los costos de bar a Bar**
 
 ---
 
-#### Tus pendientes que siguen abiertos
+#### Las dependencias reales — lo único que se coordina
 
-1. **Conectar proveedores.** La tabla `proveedor` quedó como isla:
-   `gasto.tercero_id` sigue sin existir, así que los gastos todavía no se pueden
-   agrupar por a quién se le paga.
-2. **Tus dos commits de UI sin verificar a fondo** — el modal de edición de
-   cliente en emisión y el sacar la pestaña «Vs Real» de presupuesto. Los
-   integramos y compilan, pero no los revisamos como revisamos `anular_pago` o
-   `registrar_cobro_sponsor`. Confirmá que están sanos.
-3. **Emisión ARCA real desde la pantalla.** Tenés el certificado y es de
-   producción; homologación lo rechaza, así que **no hay ambiente de ensayo**.
-   Hay que decidir cómo se prueba: un monto simbólico en producción, o darlo por
-   probado con lo que ya está. Es tu decisión y no urge, pero conviene cerrarla
-   antes del diagnóstico final.
+Son dos. Todo lo demás avanza en paralelo sin esperar nada.
 
----
+**① G4 (gráficos de margen del bar) ← F2 (costos de bar mudados a Bar)**
+El margen no se puede calcular hasta que los costos estén en Bar. **F2 es
+nuestro y G4 es de Horacio**, así que: cuando F2 esté, se avisa acá en una
+línea. Hasta entonces G4 no arranca — y no hay nada que preguntar, sólo que
+esperar ese aviso.
 
-#### Cómo nos repartimos
+**② G3 (ficha de sponsor) ← el motor de sponsor, si hace falta exponer algo**
+Si al construir la ficha aparece que falta una función o una columna del lado del
+motor, **se pide acá con nombre y forma** —«necesito que `x` devuelva `y`»— y se
+sigue con otra cosa mientras tanto.
 
-- **[F]** — carril nuestro (Facu + Claude). **Avanzan sin vos**, no hace falta
-  que esperes ni que revises.
-- **[H]** y **[FH]** — tuyos o compartidos. Se coordinan por acá.
-- **A1, B1, D1** — ok mutuo **antes** de tocar.
+**Lo que NO es dependencia y no bloquea a nadie:** A1, B1, D1 y B2 tocan
+estructura, sí, pero cada uno en su zona. Se avanzan en paralelo. Si al terminar
+hay que ajustar un empalme, se ajusta — cuesta menos que la espera.
 
 ---
 
-#### Una nota de proceso, para el diagnóstico final
+#### Pendientes de Horacio, para cuando quiera
 
-En las últimas sesiones **el verificador de permisos se endureció tres veces**, y
+Van en su carril y no bloquean nada nuestro:
+
+1. **Conectar proveedores** — la tabla `proveedor` quedó como isla:
+   `gasto.tercero_id` sigue sin existir, así que los gastos no se pueden agrupar
+   por a quién se le paga
+2. **Sus dos commits de UI sin verificar a fondo** — el modal de edición de
+   cliente en emisión y el sacar «Vs Real» de presupuesto. Se integraron y
+   compilan, pero no se revisaron como se revisaron `anular_pago` o
+   `registrar_cobro_sponsor`
+3. **Emisión ARCA real desde la pantalla** — el certificado es de producción y
+   homologación lo rechaza, así que **no hay ambiente de ensayo**. Hay que
+   decidir cómo se prueba: un monto simbólico en producción, o darlo por probado
+   con lo que ya está
+
+---
+
+#### Una nota de proceso, para antes del diagnóstico
+
+**El verificador de permisos se endureció tres veces** en las últimas sesiones, y
 las tres por lo mismo: la matriz declaraba algo que no coincidía con la base y el
-chequeo no lo veía. La última fue mía —declaré que unas funciones del ciclo del
-torneo eran de admin cuando la policy de la tabla también deja a operador, y el
-verificador dio verde igual—.
+chequeo no lo veía. La última fue mía —declaré que las funciones del ciclo del
+torneo eran de admin cuando la policy de la tabla también deja a operador, y dio
+verde igual—.
 
-El patrón se repite, así que propongo una tarea **antes del diagnóstico
-end-to-end**: una pasada que compruebe **toda la matriz contra la base de una
-sola vez**, en lugar de ir endureciendo el chequeo cada vez que algo se escapa.
-Es la clase de cosa que conviene tener andando antes de mirar los números
-finales, no después.
+El patrón se repite, así que antes del diagnóstico end-to-end conviene **una
+pasada que compruebe toda la matriz contra la base de una sola vez**, en lugar de
+seguir endureciendo el chequeo cada vez que algo se escapa.
 
 ---
 
