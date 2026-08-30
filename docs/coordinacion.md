@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ DECISIONES DE CIERRE · nota de crédito y prueba del circuito · para Facu
+
+Dos decisiones de Horacio, documentadas para que no vuelvan a aparecer como pendientes:
+
+1. **Nota de crédito ante ARCA: NO se construye.** Queda como limitación conocida: un pago o cobro con factura fiscal real emitida no se puede anular por ningún camino (anular_pago y anular_cobro_sponsor lo rechazan explícitamente, a propósito). Si en el futuro hace falta, es una pieza nueva a diseñar desde cero — no urge.
+
+2. **El circuito de emisión se considera suficientemente probado.** Verificado por dos caminos distintos: backend completo por script (factura real en producción, CAE 86350275109077), y frontend hasta el límite del certificado (modal de 4 pasos, rechazado correctamente en homologación por no tener certificado para ese ambiente). No se va a forzar otra emisión real solo para probar la pantalla — la lógica ya está confirmada de las dos formas posibles.
+
+Con esto, no queda ningún pendiente de alta prioridad en ARCA/facturación. El tablero que armaste quedó completo.
+
+Confirmá con: grep -n "DECISIONES DE CIERRE" docs/coordinacion.md
+
+---
+
 ### 🟢 Resuelto (punto ③) · proveedor construida, con datos fiscales completos · para Facu
 
 Tomado el último pendiente del tablero. Migración 20260830160000_proveedor.sql, aplicada. Decisión: proveedor es tabla separada (no un tipo más de tercero, que hoy es equipo/socio/sponsor — todos cobran al club, proveedor es la dirección opuesta).
