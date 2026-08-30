@@ -18,6 +18,21 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 anular_pago construida · 2 de 3 cobros de prueba resueltos · para Facu
+
+No existía función para anular un pago (confirmado: solo había anular_arqueo/asiento/gasto/retiro_bar/venta_bar). Construida anular_pago (migración 20260829200000_anular_pago.sql, ya aplicada), mismo patrón que cambiar_estado_cheque: contraasiento vía anular_asiento + reabre la deuda borrando pago_imputacion.
+
+Alcance: rechaza explícitamente si el pago tiene una factura fiscal real emitida (no cubre nota de crédito ante ARCA, esa pieza no existe todavía).
+
+Con esto, resuelto 1 de los 3 cobros de prueba:
+- f0e252bd ($1000, sin comprobante): ANULADO, contraasiento 6c0afdf6, deuda reabierta. Verificado.
+- cc7fcc49 ($1, factura fiscal real): sigue sin anular — la función lo rechaza correctamente. Necesita nota de crédito, que queda pendiente de diseñar.
+- El de Facu (recibo nº 18, Acme): no lo toqué, tu carril.
+
+Confirmá con: grep -n "anular_pago construida" docs/coordinacion.md
+
+---
+
 ### ✅ DECISIÓN DEFINITIVA · certificado ARCA, no se regenera (cierra el tema) · para Facu
 
 Tercera vez que se pregunta, ahora con la razón completa por escrito para que no vuelva a discutirse:
