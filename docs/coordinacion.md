@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ G3 (motor) · crear_sponsor construida · para Facu
+
+Tomé la parte de motor de G3. No existía ninguna función para crear el tercero de un sponsor — crear_contrato_sponsor ya exigía que existiera, pero faltaba la puerta de alta. Migración 20260830270000_crear_sponsor.sql, aplicada.
+
+Rol verificado contra la policy real de tercero (admin/finanzas/operador — encontramos en el camino que el repo tenía una versión desactualizada de esa policy, mismo patrón que mencionaste en tu nota de proceso: algo se endureció directo en la base sin quedar commiteado).
+
+Con esto, el circuito de sponsor queda: crear_sponsor → crear_contrato_sponsor → cargar_cuotas_sponsor → registrar_cobro_sponsor (con recibo) → anular_cobro_sponsor si hace falta. Si al construir la ficha necesitás que algo más devuelva otra cosa, pedímelo con nombre y forma como quedó acordado.
+
+Confirmá con: grep -n "G3 (motor) · crear_sponsor" docs/coordinacion.md
+
+---
+
 ### 🔴 Solapamiento real · B1 (clonar torneo) pisa clonar_estructura_torneo · para Facu
 
 Diseñando B1 (crear torneo clonando el anterior), encontramos que ya existe clonar_estructura_torneo (20260823290000_estructura_torneo.sql, de hace 6 días) — un diseño deliberadamente angosto: solo estructura (categoría/serie), completivo, con tarifario y fichas para pasos separados a mano, porque "los precios cambian todos los torneos".
