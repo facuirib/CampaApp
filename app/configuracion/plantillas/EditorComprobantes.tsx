@@ -104,7 +104,7 @@ export default function EditorComprobantes({ puedeEditar }: { puedeEditar: boole
     { asunto, cuerpo, cuerpo_texto: cuerpoTexto || null },
     EJEMPLO,
   )
-  const previewHtml = envolver({
+  const { html: previewHtml } = envolver({
     cuerpoHtml: mensaje,
     destacados: [
       { rotulo: actual.esRecibo ? 'Recibo N°' : 'Factura N°', valor: EJEMPLO.numero },
@@ -112,6 +112,10 @@ export default function EditorComprobantes({ puedeEditar }: { puedeEditar: boole
       { rotulo: 'Total', valor: EJEMPLO.monto },
     ],
     emisor: { razonSocial: 'CAMPA SRL', cuit: '30-71550267-0' },
+    // En el iframe no hay adjuntos que referenciar, así que el isologo va como
+    // data URI. En el envío real va por CID, que es lo que los clientes no
+    // bloquean.
+    isologo: 'data',
   })
 
   // Un placeholder que el envío no sabe resolver sale LITERAL en el mail del

@@ -14,7 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { enviarMail } from '../lib/mail/send.ts'
-import { envolver } from '../lib/mail/sobre.ts'
+import { envolver, type DatosSobre } from '../lib/mail/sobre.ts'
 import { aplicar } from '../lib/reclamo/plantilla.ts'
 import { generarReciboPDF } from '../lib/pdf/recibo.ts'
 import { generarFacturaPDF } from '../lib/pdf/factura.ts'
@@ -79,7 +79,7 @@ async function main() {
     detalle: c.detalle ?? '', fecha,
   })
 
-  const html = envolver({
+  const datosSobre: DatosSobre = {
     cuerpoHtml: mensaje,
     destacados: [
       { rotulo: esRecibo ? 'Recibo N°' : 'Factura N°', valor: numeroFormateado },
@@ -87,7 +87,8 @@ async function main() {
       { rotulo: 'Total', valor: new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(Number(c.monto)) },
     ],
     emisor: { razonSocial: emisorMail!.razon_social, cuit: emisorMail!.cuit },
-  })
+  }
+  const sobre = envolver(datosSobre)
 
   console.log(`  comprobante : nº${c.numero} · ${esRecibo ? 'Recibo' : 'Factura'} · «${c.receptor_nombre}» · $${c.monto}`)
   console.log(`  saludo      : «${saludo}»${nombreReal ? '' : '   ← sin nombre real'}`)
@@ -97,15 +98,21 @@ async function main() {
 
   if (process.argv.includes('--solo-preview')) {
     const { writeFileSync } = await import('node:fs')
-    writeFileSync(process.env.PREVIEW_OUT ?? 'preview.html', html)
+    // El preview se escribe con el logo embebido para poder abrirlo en el
+    // navegador; el envío usa el CID.
+    writeFileSync(process.env.PREVIEW_OUT ?? 'preview.html',
+      envolver({ ...datosSobre, isologo: 'data' }).html)
     console.log('  ✅ preview escrito, SIN enviar')
     return
   }
 
-  const r = await enviarMail({
-    to: destino, subject: asunto, html,
-    adjuntos: [{ nombre, contenido: Buffer.from(bytes).toString('base64') }],
-  })
+  const adjuntos: { nombre: string; contenido: string; cid?: string }[] = [
+    { nombre, contenido: Buffer.from(bytes).toString('base64') },
+    ...sobre.inline,
+  ]
+  console.log(`  adjuntos    : ${adjuntos.map((a) => a.cid ? `${a.nombre} (inline, cid:${a.cid})` : `${a.nombre} (descargable)`).join(' · ')}`)
+
+  const r = await enviarMail({ to: destino, subject: asunto, html: sobre.html, adjuntos })
   console.log('  resultado   :', r.ok ? (r.dryRun ? 'DRY-RUN' : `✅ ENVIADO · id ${r.id}`) : '🔴 ' + r.error)
 }
 

@@ -32,6 +32,8 @@
  *     los clientes muestran sin recortar, y en el teléfono baja solo
  */
 
+import { ISOLOGO_CID, ISOLOGO_PNG_BASE64 } from './isologo'
+
 /** La paleta, la misma de `app/globals.css` y del PDF. */
 const NIGHT = '#061221'
 const INK = '#0b1524'
@@ -50,6 +52,26 @@ const BLANCO = '#ffffff'
 const FUENTE =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 
+/**
+ * Cómo viaja el isologo en el `<img>`.
+ *
+ *   `cid`  — referencia al adjunto inline. Es lo que va en el mail de verdad:
+ *            la imagen viaja ADENTRO del mensaje, así que Gmail y Outlook no
+ *            la bloquean como bloquean cualquier `src="https://…"`.
+ *   `data` — un data URI. Sirve para el preview del editor, que se dibuja en un
+ *            iframe donde no hay adjuntos que referenciar. **No se usa para
+ *            enviar**: varios clientes ignoran los data URI en mail, que es
+ *            justamente el problema que el CID resuelve.
+ */
+export type ModoIsologo = 'cid' | 'data'
+
+/** Un adjunto inline que el sobre necesita para dibujarse. */
+export interface AdjuntoInline {
+  nombre: string
+  contenido: string
+  cid: string
+}
+
 /** Una fila de la tarjeta de detalle: el rótulo y el valor. */
 export interface DatoDestacado {
   rotulo: string
@@ -67,6 +89,22 @@ export interface DatosSobre {
   destacados: DatoDestacado[]
   /** El pie: de quién viene el mail. */
   emisor: { razonSocial: string; cuit: string }
+  /** Default `cid`, que es el modo del envío real. */
+  isologo?: ModoIsologo
+}
+
+/**
+ * Lo que devuelve el sobre: el HTML **y los adjuntos que ese HTML necesita**.
+ *
+ * Los dos juntos y no sólo el HTML a propósito. El `<img src="cid:…">` y el
+ * adjunto que lo resuelve son dos mitades de la misma cosa: si quien envía
+ * tuviera que acordarse de adjuntar el logo por su cuenta, el día que alguien
+ * escriba un envío nuevo se olvidaría y el encabezado saldría con el alt. Así
+ * el diseño se lleva sus propios assets y no hay nada que recordar.
+ */
+export interface SobreArmado {
+  html: string
+  inline: AdjuntoInline[]
 }
 
 /** Escapa lo que va a viajar dentro del HTML. */
@@ -78,7 +116,12 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-export function envolver({ cuerpoHtml, destacados, emisor }: DatosSobre): string {
+export function envolver({
+  cuerpoHtml,
+  destacados,
+  emisor,
+  isologo = 'cid',
+}: DatosSobre): SobreArmado {
   const filasDestacados = destacados
     .map(
       (d, i) => `
@@ -89,10 +132,15 @@ export function envolver({ cuerpoHtml, destacados, emisor }: DatosSobre): string
     )
     .join('')
 
+  const srcIsologo =
+    isologo === 'cid'
+      ? `cid:${ISOLOGO_CID}`
+      : `data:image/png;base64,${ISOLOGO_PNG_BASE64}`
+
   // `role="presentation"` en cada tabla de layout: le dice al lector de pantalla
   // que son andamios y no datos, así no lee "tabla de 1 por 1" antes de cada
   // párrafo.
-  return `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -107,8 +155,25 @@ export function envolver({ cuerpoHtml, destacados, emisor }: DatosSobre): string
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:${BLANCO};border-radius:8px;overflow:hidden;">
 
           <tr>
-            <td style="background-color:${NIGHT};padding:20px 28px;">
-              <span style="font-family:${FUENTE};font-size:19px;font-weight:bold;color:${BLANCO};letter-spacing:-0.3px;">Campa Fútbol</span>
+            <td style="background-color:${NIGHT};padding:18px 28px;">
+              <!-- Tabla y no un div con gap: es la única forma de poner dos
+                   cosas una al lado de la otra que Outlook respeta.
+                   El valign=middle de las dos celdas las alinea sin flex. -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right:12px;line-height:0;">
+                    <!-- El alt no es decorativo: si el cliente igual no muestra
+                         la imagen, ahí queda el nombre y no un hueco mudo.
+                         El alto va como atributo Y como estilo: Outlook lee el
+                         atributo y el resto lee el estilo. -->
+                    <img src="${srcIsologo}" width="44" height="44" alt="Campa Fútbol"
+                         style="display:block;width:44px;height:44px;border:0;outline:none;text-decoration:none;">
+                  </td>
+                  <td valign="middle">
+                    <span style="font-family:${FUENTE};font-size:19px;font-weight:bold;color:${BLANCO};letter-spacing:-0.3px;">Campa Fútbol</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -155,4 +220,14 @@ ${
   </table>
 </body>
 </html>`
+
+  return {
+    html,
+    // Sólo cuando el HTML lo referencia por CID: en modo `data` la imagen ya va
+    // adentro del markup y adjuntarla sería mandarla dos veces.
+    inline:
+      isologo === 'cid'
+        ? [{ nombre: 'isologo.png', contenido: ISOLOGO_PNG_BASE64, cid: ISOLOGO_CID }]
+        : [],
+  }
 }

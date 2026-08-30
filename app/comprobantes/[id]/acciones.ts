@@ -237,7 +237,7 @@ export async function enviarComprobanteMail(
     .eq('id', true)
     .single()
 
-  const html = envolver({
+  const sobre = envolver({
     cuerpoHtml: mensaje,
     destacados: [
       { rotulo: esRecibo ? 'Recibo N°' : 'Factura N°', valor: numeroFormateado },
@@ -253,8 +253,13 @@ export async function enviarComprobanteMail(
   const envio = await enviarMail({
     to: destino,
     subject: asunto,
-    html,
-    adjuntos: [{ nombre: pdf.nombre, contenido: Buffer.from(pdf.bytes).toString('base64') }],
+    html: sobre.html,
+    // El PDF primero —es el adjunto que la gente ve y baja— y después los
+    // inline que pide el diseño, que no aparecen en la lista de adjuntos.
+    adjuntos: [
+      { nombre: pdf.nombre, contenido: Buffer.from(pdf.bytes).toString('base64') },
+      ...sobre.inline,
+    ],
   })
 
   if (!envio.ok) return { ok: false, error: envio.error ?? 'No se pudo enviar el mail.' }

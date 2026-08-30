@@ -17,6 +17,16 @@ const REMITENTE = 'Campa Fútbol <info@campafutbol.com.ar>'
 export interface Adjunto {
   nombre: string
   contenido: string
+  /**
+   * Si viene, el adjunto va **inline** y no en la lista de adjuntos.
+   *
+   * Es lo que documenta el SDK: «If set, this attachment will be sent as an
+   * inline attachment and you can reference it in the HTML content using the
+   * cid: prefix». O sea que el isologo viaja adentro del mensaje —por eso
+   * ningún cliente lo bloquea— sin aparecer como un archivo más para bajar al
+   * lado del PDF del comprobante.
+   */
+  cid?: string
 }
 
 export async function enviarMail(opts: {
@@ -49,6 +59,7 @@ export async function enviarMail(opts: {
             attachments: opts.adjuntos.map((a) => ({
               filename: a.nombre,
               content: a.contenido,
+              ...(a.cid ? { contentId: a.cid } : {}),
             })),
           }
         : {}),
