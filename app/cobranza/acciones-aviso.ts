@@ -92,9 +92,11 @@ async function registrar(
   if (error) return { ok: false, error: error.message }
 
   // Las tres pantallas muestran el conteo o el último reclamo.
-  revalidatePath('/reclamos')
-  revalidatePath(`/reclamos/${datos.tercero_id}`)
-  revalidatePath('/reclamos/historial')
+  // Las rutas nuevas. Revalidar `/reclamos*` no haría nada: ahora son
+  // redirects sin datos propios.
+  revalidatePath('/cobranza')
+  revalidatePath(`/cobranza/${datos.tercero_id}`)
+  revalidatePath('/cobranza/avisos/historial')
 
   return { ok: true }
 }

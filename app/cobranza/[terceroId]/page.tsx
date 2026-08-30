@@ -4,6 +4,7 @@ import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import ArmarReclamo from './ArmarReclamo'
 import type { Database } from '@/lib/db/database.types'
 
 type Ficha = Database['public']['Views']['v_cuenta_corriente_equipo']['Row']
@@ -78,20 +79,46 @@ export default async function CuentaCorrientePage({
   if (!UUID.test(terceroId)) notFound()
 
   const supabase = await createClient()
-  const puedeCobrar = puede(await rolActual(), 'cobro.registrar')
-  const [fichasRes, cuotasRes] = await Promise.all([
-    supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
-    supabase
-      .from('v_deuda_detalle')
-      .select('*')
-      .eq('tercero_id', terceroId)
-      .order('torneo')
-      .order('cuota_numero'),
-  ])
+  const rol = await rolActual()
+  const puedeCobrar = puede(rol, 'cobro.registrar')
+  const puedeRegistrarAviso = puede(rol, 'reclamo.registrar')
+  const puedeMail = puede(rol, 'reclamo.mail')
+
+  // Todo lo de este equipo en una sola tanda. `v_deuda_detalle` se pedía TRES
+  // veces para la misma pantalla —acá, en el formulario de cobro y otra vez
+  // desde el cliente al armar el aviso—; ahora sale una sola vez y baja por
+  // props a lo que la necesite.
+  const [fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, plantillaRes] =
+    await Promise.all([
+      supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
+      supabase
+        .from('v_deuda_detalle')
+        .select('*')
+        .eq('tercero_id', terceroId)
+        .order('torneo')
+        .order('cuota_numero'),
+      supabase.from('v_deuda_equipo').select('*').eq('tercero_id', terceroId).maybeSingle(),
+      // `v_deuda_equipo` trae el email pero no el contacto: el teléfono del que
+      // sale el WhatsApp vive en `tercero`.
+      supabase.from('tercero').select('contacto').eq('id', terceroId).maybeSingle(),
+      supabase
+        .from('reclamo')
+        .select('*')
+        .eq('tercero_id', terceroId)
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('plantilla_mail')
+        .select('asunto, cuerpo, cuerpo_texto')
+        .eq('clave', 'reclamo_vencida')
+        .maybeSingle(),
+    ])
 
   const error = fichasRes.error ?? cuotasRes.error
   const fichas = fichasRes.data ?? []
   const cuotas = cuotasRes.data ?? []
+  const resumen = resumenRes.data
+  const historial = historialRes.data ?? []
 
   // Uuid válido pero sin ficha ni cuota: tampoco existe como recurso.
   if (!error && fichas.length === 0 && cuotas.length === 0) notFound()
@@ -104,7 +131,7 @@ export default async function CuentaCorrientePage({
         <div className="min-w-0">
           <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">{equipo}</h1>
           <p className="mt-1 text-[12px] text-muted">
-            Cuenta corriente — una sección por ficha, con sus cuotas.
+            La ficha del equipo: lo que debe, cómo se le cobra y qué se le avisó.
           </p>
         </div>
         {puedeCobrar && (
@@ -178,6 +205,42 @@ export default async function CuentaCorrientePage({
           </section>
         )
       })}
+
+      {/* ── Comunicar, DEBAJO y separado del cobro ──────────────────────────
+          Arriba está lo que mueve plata: el botón «Registrar cobro» y las
+          cuotas. Acá abajo, lo que le habla al equipo.
+
+          La línea de por medio no es decorativa. Cobrar es irreversible —crea
+          asiento y recibo— y avisar no; dos acciones pegadas se aprietan por
+          reflejo, y una de las dos no tiene vuelta atrás. Es el mismo criterio
+          que separó la descarga del envío en /comprobantes.
+
+          Y era, hasta hoy, OTRA PANTALLA: /reclamos/[id] mostraba el mismo
+          equipo con su propia tabla de las mismas cuotas, sin un solo link
+          entre las dos. El operador que veía a un deudor acá tenía que volver
+          al menú y buscarlo de nuevo allá. */}
+      {resumen && (
+        <section className="mt-8 border-t border-line pt-6">
+          <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+            Avisos y reclamos
+          </h2>
+          <p className="mb-4 text-[11px] leading-snug text-muted">
+            El mensaje sale de la plantilla y queda registrado en el historial del equipo.
+            {' '}El mail lo manda el sistema; el WhatsApp lo abre y lo mandás vos.
+          </p>
+
+          <ArmarReclamo
+            terceroId={terceroId}
+            resumen={resumen}
+            cuotas={cuotas}
+            contacto={terceroRes.data?.contacto ?? null}
+            historial={historial}
+            plantilla={plantillaRes.data ?? null}
+            puedeRegistrar={puedeRegistrarAviso}
+            puedeMail={puedeMail}
+          />
+        </section>
+      )}
     </div>
   )
 }

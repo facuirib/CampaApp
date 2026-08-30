@@ -1,15 +1,13 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/db/client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { formatMoney, formatDate } from '@/lib/format'
 import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import { linkWhatsApp, parsearTelefono } from '@/lib/reclamo/contacto'
 import { aplicar } from '@/lib/reclamo/plantilla'
 import { armarValores } from '@/lib/reclamo/valores'
-import { enviarReclamoMail, registrarReclamo, type DatosReclamo } from '../acciones'
+import { enviarReclamoMail, registrarReclamo, type DatosReclamo } from '../acciones-aviso'
 import type { Database } from '@/lib/db/database.types'
 
 type ResumenDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
@@ -24,22 +22,6 @@ interface FilaCuota {
   diasAtrasoLabel: string
 }
 
-const COLUMNAS: ColumnDef<FilaCuota>[] = [
-  { key: 'cuotaLabel', label: 'Cuota' },
-  { key: 'torneo', label: 'Torneo' },
-  { key: 'vence_at', label: 'Venció', format: 'date', width: 108 },
-  { key: 'saldo', label: 'Saldo', format: 'money', width: 118 },
-  { key: 'diasAtrasoLabel', label: 'Atraso', width: 90 },
-]
-
-/** Solo cuotas vencidas, impagas y de jornada NO suspendida: eso es lo reclamable. */
-function esReclamable(c: CuotaDeuda): boolean {
-  if (c.jornada_suspendida) return false
-  if ((c.saldo ?? 0) <= 0) return false
-  return c.estado === 'vencida' || c.estado === 'parcial_vencida'
-}
-
-type ReclamoRow = Database['public']['Tables']['reclamo']['Row']
 
 const CANALES: Record<string, CeldaBadge> = {
   mail: { estado: 'info', label: 'Mail' },
@@ -68,8 +50,31 @@ const COL_HISTORIAL: ColumnDef<FilaHistorial>[] = [
   { key: 'destino', label: 'Destino' },
 ]
 
+/** Solo cuotas vencidas, impagas y de jornada NO suspendida: eso es lo reclamable. */
+function esReclamable(c: CuotaDeuda): boolean {
+  if (c.jornada_suspendida) return false
+  if ((c.saldo ?? 0) <= 0) return false
+  return c.estado === 'vencida' || c.estado === 'parcial_vencida'
+}
+
+type ReclamoRow = Database['public']['Tables']['reclamo']['Row']
+
 export interface ArmarReclamoProps {
   terceroId: string
+  /**
+   * Los datos, ya resueltos por la ficha.
+   *
+   * Antes este componente los pedía por su cuenta en un `useEffect`. Al entrar
+   * dentro de `/cobranza/[terceroId]` eso pasaba a ser la TERCERA consulta de
+   * `v_deuda_detalle` del mismo equipo en la misma pantalla —la ficha ya la
+   * hace—, y encima en cascada: primero el server, después el cliente. Ahora
+   * bajan por props, resueltas una sola vez del lado del servidor.
+   */
+  resumen: ResumenDeuda
+  cuotas: CuotaDeuda[]
+  contacto: string | null
+  historial: ReclamoRow[]
+  plantilla: { asunto: string; cuerpo: string; cuerpo_texto: string | null } | null
   /** Dejar registrado el reclamo (WhatsApp o a mano). Escribe en `reclamo`. */
   puedeRegistrar: boolean
   /**
@@ -91,83 +96,24 @@ export interface ArmarReclamoProps {
  * —cuánto debe, qué cuotas, el historial de reclamos— es exactamente lo que un
  * perfil de control tiene que poder mirar. Lo que se esconde es mandar.
  */
-export default function ArmarReclamo({ terceroId, puedeRegistrar, puedeMail }: ArmarReclamoProps) {
+export default function ArmarReclamo({
+  terceroId,
+  resumen,
+  cuotas,
+  contacto,
+  historial,
+  plantilla,
+  puedeRegistrar,
+  puedeMail,
+}: ArmarReclamoProps) {
 
-  const [cargando, setCargando] = useState(true)
-  const [errorCarga, setErrorCarga] = useState<string | null>(null)
-  const [resumen, setResumen] = useState<ResumenDeuda | null>(null)
-  const [cuotas, setCuotas] = useState<CuotaDeuda[]>([])
-  const [contacto, setContacto] = useState<string | null>(null)
-  const [plantilla, setPlantilla] = useState<{
-    asunto: string
-    cuerpo: string
-    cuerpo_texto: string | null
-  } | null>(null)
+  const router = useRouter()
+
   const [copiado, setCopiado] = useState(false)
-  const [historial, setHistorial] = useState<ReclamoRow[]>([])
   const [enviando, setEnviando] = useState(false)
   const [marcando, setMarcando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelado = false
-    const supabase = createClient()
-
-    async function cargar() {
-      setCargando(true)
-      setErrorCarga(null)
-
-      const [
-        { data: resumenData, error: errorResumen },
-        { data: cuotasData, error: errorCuotas },
-        { data: contactoData },
-        { data: historialData, error: errorHistorial },
-        { data: plantillaData },
-      ] = await Promise.all([
-        supabase.from('v_deuda_equipo').select('*').eq('tercero_id', terceroId).maybeSingle(),
-        supabase.from('v_deuda_detalle').select('*').eq('tercero_id', terceroId),
-        // v_deuda_equipo trae el email pero no el contacto: el teléfono sale
-        // de `tercero`, y de ahí lo parsea el módulo de reclamo.
-        supabase.from('tercero').select('contacto').eq('id', terceroId).maybeSingle(),
-        supabase
-          .from('reclamo')
-          .select('*')
-          .eq('tercero_id', terceroId)
-          .order('fecha', { ascending: false })
-          .order('created_at', { ascending: false }),
-        // La plantilla es la fuente de los DOS canales: lo que se ve en la
-        // previsualización es exactamente lo que se manda.
-        supabase
-          .from('plantilla_mail')
-          .select('asunto, cuerpo, cuerpo_texto')
-          .eq('clave', 'reclamo_vencida')
-          .maybeSingle(),
-      ])
-
-      if (cancelado) return
-
-      const error = errorResumen ?? errorCuotas ?? errorHistorial
-      if (error) {
-        setErrorCarga(error.message)
-        setCargando(false)
-        return
-      }
-
-      setResumen(resumenData)
-      setCuotas(cuotasData ?? [])
-      setContacto(contactoData?.contacto ?? null)
-      setHistorial(historialData ?? [])
-      setPlantilla(plantillaData)
-      setCargando(false)
-    }
-
-    cargar()
-
-    return () => {
-      cancelado = true
-    }
-  }, [terceroId])
 
   const filas: FilaCuota[] = cuotas
     .filter(esReclamable)
@@ -205,7 +151,7 @@ export default function ArmarReclamo({ terceroId, puedeRegistrar, puedeMail }: A
       const torneos = [...new Set(cuotas.filter(esReclamable).map((c) => c.torneo_id))]
       return torneos.length === 1 ? (torneos[0] ?? null) : null
     })(),
-    monto_reclamado: resumen?.deuda_vencida ?? 0,
+    monto_reclamado: resumen.deuda_vencida ?? 0,
     cuotas: filas.length,
     cuota_ids: filas.map((f) => f.cuota_id),
     valores,
@@ -229,14 +175,10 @@ export default function ArmarReclamo({ terceroId, puedeRegistrar, puedeMail }: A
     await recargarHistorial()
   }
 
+  // El historial lo trae la ficha desde el servidor, así que refrescarlo es
+  // pedirle a Next que la vuelva a renderizar — no una consulta nuestra.
   async function recargarHistorial() {
-    const { data } = await createClient()
-      .from('reclamo')
-      .select('*')
-      .eq('tercero_id', terceroId)
-      .order('fecha', { ascending: false })
-      .order('created_at', { ascending: false })
-    setHistorial(data ?? [])
+    router.refresh()
   }
 
   async function copiarTexto() {
@@ -245,73 +187,34 @@ export default function ArmarReclamo({ terceroId, puedeRegistrar, puedeMail }: A
     setTimeout(() => setCopiado(false), 2000)
   }
 
-  // El 404 es del recurso, no un estado más de la pantalla: se resuelve acá,
-  // durante el render, para que lo capture el not-found más cercano.
-  if (!cargando && !errorCarga && !resumen) {
-    notFound()
-  }
-
+  // Sin estados de carga ni 404: los datos llegan resueltos y el recurso ya lo
+  // validó la ficha antes de renderizar esto.
   return (
-    <div className="pb-10">
-      <Link href="/reclamos" className="text-[11px] font-semibold text-blue-d hover:underline">
-        ← Volver a reclamos
-      </Link>
-
-      <header className="mb-6 mt-2">
-        <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Armar reclamo</h1>
-        <p className="mt-1 text-[12px] text-muted">
-          Revisá el texto, elegí el canal y queda registrado en el historial del equipo.
+    <div>
+      {filas.length === 0 ? (
+        <p className="text-[11px] text-muted">
+          Este equipo no tiene cuotas vencidas para reclamar.
         </p>
-      </header>
-
-      {errorCarga && (
-        <p className="mb-4 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{errorCarga}</p>
-      )}
-
-      {cargando && <p className="text-[11px] text-muted">Cargando…</p>}
-
-      {!cargando && !errorCarga && resumen && (
+      ) : (
         <>
-          <Card title="Equipo" icon="alerta" className="mb-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-[.06em] text-muted">
-                  Equipo
-                </div>
-                <div className="text-[11.5px] text-ink">{resumen.equipo ?? '—'}</div>
-              </div>
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-[.06em] text-muted">
-                  Email
-                </div>
-                <div className="text-[11.5px] text-ink">{resumen.email ?? '—'}</div>
-              </div>
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-[.06em] text-muted">
-                  Deuda vencida
-                </div>
-                <div className="text-[11.5px] font-bold text-ink">
-                  {formatMoney(resumen.deuda_vencida ?? 0)}
-                </div>
-              </div>
-            </div>
-            <p className="mt-3 text-[11px] text-muted">
-              Vence desde: {formatDate(resumen.vencimiento_mas_antiguo)}
-            </p>
-          </Card>
+          {/* Una línea, no otra tabla: la ficha ya lista TODAS las cuotas
+              arriba. Repetir acá sólo las vencidas daría dos tablas de lo mismo
+              en la misma pantalla, y quien las mire va a intentar cuadrar una
+              contra la otra. Lo que hace falta acá es al saber qué se va a
+              reclamar, no volver a mostrarlo. */}
+          <p className="mb-3 text-[11.5px] text-ink">
+            Se va a reclamar{' '}
+            <strong className="font-bold">
+              {filas.length === 1 ? '1 cuota vencida' : `${filas.length} cuotas vencidas`}
+            </strong>{' '}
+            por <strong className="font-bold">{formatMoney(resumen.deuda_vencida ?? 0)}</strong>
+            {resumen.vencimiento_mas_antiguo
+              ? ` · la más antigua venció el ${formatDate(resumen.vencimiento_mas_antiguo)}`
+              : ''}
+            .
+          </p>
 
-          <div className="mb-4">
-            <DataTable
-              columns={COLUMNAS}
-              rows={filas}
-              rowKey="cuota_id"
-              maxHeight={320}
-              emptyMessage="No hay cuotas vencidas para reclamar."
-            />
-          </div>
-
-          {filas.length > 0 && (
-            <>
+          <>
               <Card title="Texto del reclamo" icon="comprobante" className="mb-3">
                 <textarea
                   readOnly
@@ -425,8 +328,7 @@ export default function ArmarReclamo({ terceroId, puedeRegistrar, puedeMail }: A
                 maxHeight={300}
                 emptyMessage="A este equipo no se le reclamó todavía."
               />
-            </>
-          )}
+          </>
         </>
       )}
     </div>

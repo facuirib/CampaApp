@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
@@ -139,7 +140,8 @@ export default async function CobranzaPage({
 
   return (
     <div className="pb-10">
-      <header className="mb-6">
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Deudores</h1>
         {/* Sin filtro, la TABLA trae la deuda de todos los torneos que cada
             equipo arrastre, pero los KpiCards son de UNO —`v_cobranza_kpi` es
@@ -153,6 +155,15 @@ export default async function CobranzaPage({
             : 'Todos los torneos que cada equipo arrastre, ordenados por urgencia de reclamo.'}
           {!torneoElegido && kpi?.nombre && <> Los indicadores de abajo son de {kpi.nombre}.</>}
         </p>
+        </div>
+        {/* El historial de avisos vivía colgado de /reclamos, que ya no existe.
+            Va acá arriba y no como sección: es consulta, no la tarea del día. */}
+        <Link
+          href="/cobranza/avisos/historial"
+          className="shrink-0 text-[11px] font-semibold text-blue-d hover:underline"
+        >
+          Historial de avisos →
+        </Link>
       </header>
 
       {error && (

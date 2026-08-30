@@ -371,11 +371,43 @@ async function main() {
     }
 
     // `accion`: no hay base del otro lado. Se chequea que el código tenga el if.
-    const conExigirRol = ['app/configuracion/usuarios/acciones.ts', 'app/reclamos/acciones.ts']
-      .map((f) => readFileSync(f, 'utf8'))
-      .join('\n')
-    const ok = conExigirRol.includes('exigirRol')
-    if (!ok) problemas.push(`🔴 ${op}: la Server Action no llama a exigirRol — nada la protege`)
+    //
+    // Se busca el ARCHIVO que declara esa acción y se exige que ÉL llame a
+    // `exigirRol`. Antes era una lista de rutas escrita a mano, unidas y
+    // buscando `exigirRol` una sola vez en el texto concatenado: con eso, un
+    // archivo que sí la tenía hacía pasar a todas las operaciones, incluida una
+    // acción nueva sin ninguna guarda. Y la lista se quedó vieja apenas un
+    // archivo cambió de nombre.
+    // Una operación puede cubrir MÁS DE UNA acción —`usuario.gestionar` son
+    // `cambiarRol` e `invitar`—, y en el mapa se escriben separadas por «·».
+    // Se exige que TODAS existan y que TODAS tengan guarda: alcanza con que una
+    // no la tenga para que la operación esté abierta por ahí.
+    const nombresAccion = (donde.accion as string).split('·').map((n) => n.trim())
+    const archivos: string[] = []
+    const buscar = (d: string) => {
+      for (const entrada of readdirSync(d)) {
+        const ruta = join(d, entrada)
+        if (statSync(ruta).isDirectory()) buscar(ruta)
+        else if (/\.tsx?$/.test(ruta)) archivos.push(ruta)
+      }
+    }
+    buscar('app')
+
+    let ok = true
+    for (const nombre of nombresAccion) {
+      const declaran = archivos.filter((f) => {
+        const t = readFileSync(f, 'utf8')
+        return t.includes("'use server'") && new RegExp(`function ${nombre}\\b`).test(t)
+      })
+
+      if (declaran.length === 0) {
+        problemas.push(`🔴 ${op}: no encontré la Server Action «${nombre}» en app/`)
+        ok = false
+      } else if (!declaran.every((f) => readFileSync(f, 'utf8').includes('exigirRol'))) {
+        problemas.push(`🔴 ${op}: «${nombre}» no llama a exigirRol — nada la protege`)
+        ok = false
+      }
+    }
     lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${esperado.join(' · ')}]   ← exigirRol en la acción`)
   }
 

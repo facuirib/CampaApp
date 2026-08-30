@@ -103,8 +103,9 @@ export async function guardarPlantilla(
   }
 
   revalidatePath('/configuracion/plantillas')
-  // Las pantallas de reclamo leen la plantilla al renderizar.
-  revalidatePath('/reclamos', 'layout')
+  // Las pantallas que leen la plantilla al renderizar: la ficha del equipo
+  // —donde vive el bloque de avisos desde la unificación— y la lista.
+  revalidatePath('/cobranza', 'layout')
 
   return { ok: true }
 }

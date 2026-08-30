@@ -124,7 +124,6 @@ export const GRUPOS: GrupoNav[] = [
       // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
       // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
       { href: '/clientes', label: 'Clientes', icon: 'equipos' },
-      { href: '/reclamos', label: 'Reclamos', icon: 'reclamos' },
       { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario', roles: SIN_FINANZAS },
       { href: '/torneos', label: 'Torneos', icon: 'equipos', roles: SIN_FINANZAS },
     ],
