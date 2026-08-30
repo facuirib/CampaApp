@@ -18,6 +18,109 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🎯 ETAPA FINAL — PLAN DE PULIDO · 30/08/2026 · para Horacio
+
+Facu y Horacio hicieron un **barrido completo de la app**: más de 30
+observaciones de uso real, de punta a punta. De ahí salió el **PLAN DE PULIDO**,
+volcado a Notion en la página **«🎯 PLAN DE PULIDO — Recta final a la entrega»**,
+colgada de la bitácora principal.
+
+**Ese documento es la guía de acá hasta la entrega.** Está priorizado por valor
+para el cliente y organizado en **cuatro olas**. Acá va lo que te toca y lo que
+hay que coordinar; el plan completo, con las cuatro olas y todos los IDs, está
+en Notion.
+
+Cuando el plan termine viene un **diagnóstico end-to-end**: testear todo y
+verificar que los números cuadren con la historia de los datos, antes de
+entregar.
+
+#### El enfoque acordado
+
+**Diseñar cómo DEBE ser, no parchear la data de prueba.** La data cargada hoy es
+descartable —los dos torneos, los 28 equipos, los cobros de prueba— y no vale
+como criterio de diseño. Si algo se ve raro por culpa de los datos, se arregla el
+modelo, no la fila.
+
+Y el orden de cada ítem: **relevar → mostrar el diseño → aprobar → construir**,
+en commits chicos. Nada se construye antes de que el diseño esté aprobado.
+
+---
+
+#### 🔴 Lo primero: alinear los cambios de MODELO antes de tocarlos
+
+Estos cuatro son de la Ola 2 y **cambian estructura**. Pueden chocar de frente
+con lo que tengas en curso, así que **antes de que cualquiera de los dos abra un
+editor, un ok mutuo por acá.** No es formalidad: dos personas rediseñando la
+misma entidad en paralelo es la peor forma de perder una tarde.
+
+**A1 · La ficha del equipo como entidad central** — el equipo reúne contacto,
+datos fiscales, cobranza e historial de torneos. **«El equipo es más grande que
+un torneo»**: hoy vive repartido entre `/clientes`, `/cobranza` y las fichas por
+torneo. Ordena media app, y por eso conviene mirarlo antes que lo que cuelga de
+él.
+
+**B1 · Crear torneo clonando el anterior** — equipos, series y modalidad se
+copian del torneo previo; se edita, se confirma, y recién ahí se proyectan las
+cuotas. Se apoya en el ciclo de vida que acabamos de construir
+(`iniciar_torneo` / `cerrar_torneo` / `reabrir_torneo` y `v_torneo_actual`).
+
+**D1 · Inversión ≠ gasto** — revisar el concepto del módulo Gastos: quizás pase
+a llamarse «Salidas», con la inversión separada. **Toca el modelo contable**, o
+sea carril compartido de verdad.
+
+**G3 · Sponsors: crear sponsor + contrato + ficha** — la parte del motor y las
+funciones de sponsor es tuya.
+
+Además, **B1 y B2 tocan la estructura de torneo**, que es tu zona
+históricamente.
+
+**G4 · Bar: gráficos de margen** — depende de que los costos de bar se muevan a
+Bar (eso es F2, de nuestro lado). Va después.
+
+---
+
+#### Tus pendientes que siguen abiertos
+
+1. **Conectar proveedores.** La tabla `proveedor` quedó como isla:
+   `gasto.tercero_id` sigue sin existir, así que los gastos todavía no se pueden
+   agrupar por a quién se le paga.
+2. **Tus dos commits de UI sin verificar a fondo** — el modal de edición de
+   cliente en emisión y el sacar la pestaña «Vs Real» de presupuesto. Los
+   integramos y compilan, pero no los revisamos como revisamos `anular_pago` o
+   `registrar_cobro_sponsor`. Confirmá que están sanos.
+3. **Emisión ARCA real desde la pantalla.** Tenés el certificado y es de
+   producción; homologación lo rechaza, así que **no hay ambiente de ensayo**.
+   Hay que decidir cómo se prueba: un monto simbólico en producción, o darlo por
+   probado con lo que ya está. Es tu decisión y no urge, pero conviene cerrarla
+   antes del diagnóstico final.
+
+---
+
+#### Cómo nos repartimos
+
+- **[F]** — carril nuestro (Facu + Claude). **Avanzan sin vos**, no hace falta
+  que esperes ni que revises.
+- **[H]** y **[FH]** — tuyos o compartidos. Se coordinan por acá.
+- **A1, B1, D1** — ok mutuo **antes** de tocar.
+
+---
+
+#### Una nota de proceso, para el diagnóstico final
+
+En las últimas sesiones **el verificador de permisos se endureció tres veces**, y
+las tres por lo mismo: la matriz declaraba algo que no coincidía con la base y el
+chequeo no lo veía. La última fue mía —declaré que unas funciones del ciclo del
+torneo eran de admin cuando la policy de la tabla también deja a operador, y el
+verificador dio verde igual—.
+
+El patrón se repite, así que propongo una tarea **antes del diagnóstico
+end-to-end**: una pasada que compruebe **toda la matriz contra la base de una
+sola vez**, en lugar de ir endureciendo el chequeo cada vez que algo se escapa.
+Es la clase de cosa que conviene tener andando antes de mirar los números
+finales, no después.
+
+---
+
 ### 🟢 Dos cambios de UI · modal de edición de cliente + presupuesto sin pestaña Vs Real · para Facu
 
 Dos pedidos de Horacio, resueltos hoy:
