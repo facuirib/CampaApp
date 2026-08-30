@@ -227,6 +227,20 @@ export type Database = {
             foreignKeyName: "anticipo_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "anticipo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "anticipo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -354,6 +368,7 @@ export type Database = {
       arca_ticket_acceso: {
         Row: {
           expira_at: string
+          produccion: boolean
           servicio: string
           sign: string
           token: string
@@ -361,6 +376,7 @@ export type Database = {
         }
         Insert: {
           expira_at: string
+          produccion: boolean
           servicio: string
           sign: string
           token: string
@@ -368,6 +384,7 @@ export type Database = {
         }
         Update: {
           expira_at?: string
+          produccion?: boolean
           servicio?: string
           sign?: string
           token?: string
@@ -707,6 +724,20 @@ export type Database = {
             columns: ["tercero_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -1101,6 +1132,20 @@ export type Database = {
             foreignKeyName: "cheque_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "cheque_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "cheque_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -1404,6 +1449,20 @@ export type Database = {
             foreignKeyName: "compromiso_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "compromiso_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "compromiso_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -1553,6 +1612,33 @@ export type Database = {
         }
         Relationships: []
       }
+      config_cobranza: {
+        Row: {
+          dias_firme: number
+          dias_por_vencer: number
+          dias_recordatorio: number
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          dias_firme?: number
+          dias_por_vencer?: number
+          dias_recordatorio?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          dias_firme?: number
+          dias_por_vencer?: number
+          dias_recordatorio?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       config_contable: {
         Row: {
           id: string
@@ -1635,6 +1721,20 @@ export type Database = {
             columns: ["sponsor_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -1993,6 +2093,20 @@ export type Database = {
             foreignKeyName: "devengo_socio_socio_id_fkey"
             columns: ["socio_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "devengo_socio_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "devengo_socio_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -2280,6 +2394,20 @@ export type Database = {
             foreignKeyName: "envio_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "envio_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "envio_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -2507,6 +2635,20 @@ export type Database = {
             foreignKeyName: "equipo_torneo_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -2685,6 +2827,7 @@ export type Database = {
           medio_pago: string | null
           pagado_at: string | null
           predio_id: string | null
+          proveedor_id: string | null
           torneo_id: string | null
           total: number | null
         }
@@ -2704,6 +2847,7 @@ export type Database = {
           medio_pago?: string | null
           pagado_at?: string | null
           predio_id?: string | null
+          proveedor_id?: string | null
           torneo_id?: string | null
           total?: number | null
         }
@@ -2723,6 +2867,7 @@ export type Database = {
           medio_pago?: string | null
           pagado_at?: string | null
           predio_id?: string | null
+          proveedor_id?: string | null
           torneo_id?: string | null
           total?: number | null
         }
@@ -2802,6 +2947,13 @@ export type Database = {
             columns: ["predio_id"]
             isOneToOne: false
             referencedRelation: "predio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gasto_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedor"
             referencedColumns: ["id"]
           },
           {
@@ -3252,6 +3404,20 @@ export type Database = {
             columns: ["tercero_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "pago_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "pago_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -3776,6 +3942,50 @@ export type Database = {
           },
         ]
       }
+      proveedor: {
+        Row: {
+          activo: boolean
+          condicion_iva_id: number | null
+          contacto: string | null
+          cuit: string | null
+          domicilio: string | null
+          email: string | null
+          id: string
+          nombre: string
+          razon_social: string | null
+        }
+        Insert: {
+          activo?: boolean
+          condicion_iva_id?: number | null
+          contacto?: string | null
+          cuit?: string | null
+          domicilio?: string | null
+          email?: string | null
+          id?: string
+          nombre: string
+          razon_social?: string | null
+        }
+        Update: {
+          activo?: boolean
+          condicion_iva_id?: number | null
+          contacto?: string | null
+          cuit?: string | null
+          domicilio?: string | null
+          email?: string | null
+          id?: string
+          nombre?: string
+          razon_social?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proveedor_condicion_iva_id_fkey"
+            columns: ["condicion_iva_id"]
+            isOneToOne: false
+            referencedRelation: "condicion_iva_receptor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       punto_venta: {
         Row: {
           activo: boolean
@@ -3805,6 +4015,7 @@ export type Database = {
           cuota_ids: string[]
           cuotas: number
           destino: string | null
+          etapa: string | null
           fecha: string
           id: string
           monto_reclamado: number
@@ -3819,6 +4030,7 @@ export type Database = {
           cuota_ids: string[]
           cuotas: number
           destino?: string | null
+          etapa?: string | null
           fecha?: string
           id?: string
           monto_reclamado: number
@@ -3833,6 +4045,7 @@ export type Database = {
           cuota_ids?: string[]
           cuotas?: number
           destino?: string | null
+          etapa?: string | null
           fecha?: string
           id?: string
           monto_reclamado?: number
@@ -3853,6 +4066,20 @@ export type Database = {
             columns: ["tercero_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "reclamo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "reclamo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -4113,6 +4340,20 @@ export type Database = {
             foreignKeyName: "sueldo_socio_socio_id_fkey"
             columns: ["socio_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -4229,6 +4470,20 @@ export type Database = {
             columns: ["socio_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "sueldo_socio_mes_socio_id_fkey"
+            columns: ["socio_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -4664,6 +4919,20 @@ export type Database = {
             columns: ["tercero_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "anticipo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "anticipo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -5189,6 +5458,24 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cobranza_cola: {
+        Row: {
+          cuota_ids: string[] | null
+          cuotas: number | null
+          cuotas_vencidas: number | null
+          dias_atraso_maximo: number | null
+          equipo: string | null
+          etapa: string | null
+          proximo_vencimiento: string | null
+          tercero_id: string | null
+          torneo_id: string | null
+          total_adeudado: number | null
+          total_por_vencer: number | null
+          total_vencido: number | null
+          vencimiento_mas_antiguo: string | null
+        }
+        Relationships: []
+      }
       v_cobranza_kpi: {
         Row: {
           cobrado: number | null
@@ -5199,6 +5486,24 @@ export type Database = {
           tasa_cobranza: number | null
           torneo_id: string | null
           vencido: number | null
+        }
+        Relationships: []
+      }
+      v_cobranza_momento: {
+        Row: {
+          cuota_ids: string[] | null
+          cuotas: number | null
+          cuotas_vencidas: number | null
+          dias_atraso_maximo: number | null
+          equipo: string | null
+          etapa: string | null
+          proximo_vencimiento: string | null
+          tercero_id: string | null
+          torneo_id: string | null
+          total_adeudado: number | null
+          total_por_vencer: number | null
+          total_vencido: number | null
+          vencimiento_mas_antiguo: string | null
         }
         Relationships: []
       }
@@ -5271,76 +5576,6 @@ export type Database = {
             referencedRelation: "pago"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "tercero"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_cliente"
-            referencedColumns: ["tercero_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_cuenta_corriente_equipo"
-            referencedColumns: ["tercero_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_deuda_detalle"
-            referencedColumns: ["tercero_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_deuda_equipo"
-            referencedColumns: ["tercero_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_deuda_equipo_torneo"
-            referencedColumns: ["tercero_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_saldo_socio"
-            referencedColumns: ["socio_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_socio_detalle_mensual"
-            referencedColumns: ["socio_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_socio_lista"
-            referencedColumns: ["socio_id"]
-          },
-          {
-            foreignKeyName: "pago_tercero_id_fkey"
-            columns: ["tercero_id"]
-            isOneToOne: false
-            referencedRelation: "v_sponsor_lista"
-            referencedColumns: ["sponsor_id"]
-          },
         ]
       }
       v_comprobante_kpi: {
@@ -5397,6 +5632,20 @@ export type Database = {
             columns: ["sponsor_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -5479,6 +5728,20 @@ export type Database = {
             columns: ["sponsor_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -5880,6 +6143,20 @@ export type Database = {
             foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
             columns: ["sponsor_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -6061,6 +6338,20 @@ export type Database = {
             columns: ["tercero_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -6455,6 +6746,20 @@ export type Database = {
             columns: ["tercero_id"]
             isOneToOne: false
             referencedRelation: "v_cliente"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
             referencedColumns: ["tercero_id"]
           },
           {
@@ -7045,6 +7350,20 @@ export type Database = {
             foreignKeyName: "reclamo_tercero_id_fkey"
             columns: ["tercero_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "reclamo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "reclamo_tercero_id_fkey"
+            columns: ["tercero_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -7316,6 +7635,20 @@ export type Database = {
             foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
             columns: ["sponsor_id"]
             isOneToOne: false
+            referencedRelation: "v_cobranza_cola"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "v_cobranza_momento"
+            referencedColumns: ["tercero_id"]
+          },
+          {
+            foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
             referencedRelation: "v_cuenta_corriente_equipo"
             referencedColumns: ["tercero_id"]
           },
@@ -7581,6 +7914,10 @@ export type Database = {
         }
         Returns: string
       }
+      anular_cobro_sponsor: {
+        Args: { p_created_by?: string; p_cuota_id: string; p_motivo: string }
+        Returns: string
+      }
       anular_gasto: {
         Args: {
           p_created_by?: string
@@ -7623,6 +7960,7 @@ export type Database = {
       arca_guardar_ticket: {
         Args: {
           p_expira_at: string
+          p_produccion: boolean
           p_servicio: string
           p_sign: string
           p_token: string
@@ -7630,7 +7968,7 @@ export type Database = {
         Returns: undefined
       }
       arca_ticket_vigente: {
-        Args: { p_servicio: string }
+        Args: { p_produccion: boolean; p_servicio: string }
         Returns: {
           expira_at: string
           sign: string
@@ -7826,6 +8164,18 @@ export type Database = {
       }
       crear_presupuesto: {
         Args: { p_ejercicio_id: string; p_torneo_id?: string }
+        Returns: string
+      }
+      crear_proveedor: {
+        Args: {
+          p_condicion_iva_id?: number
+          p_contacto?: string
+          p_cuit?: string
+          p_domicilio?: string
+          p_email?: string
+          p_nombre: string
+          p_razon_social?: string
+        }
         Returns: string
       }
       crear_retiro_socio: {

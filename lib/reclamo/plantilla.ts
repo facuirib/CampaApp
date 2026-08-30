@@ -23,6 +23,9 @@ export type ClavePlantilla =
   | 'reclamo_2'
   | 'recibo_pago'
   | 'factura_emitida'
+  | 'cobranza_por_vencer'
+  | 'cobranza_recordatorio'
+  | 'cobranza_firme'
 
 /**
  * Los placeholders que el sistema sabe resolver. **Esta es la lista.**
@@ -65,6 +68,34 @@ export const PLACEHOLDERS_COMPROBANTE = {
 
 export type PlaceholderComprobante = keyof typeof PLACEHOLDERS_COMPROBANTE
 
+/**
+ * Los del aviso de cobranza.
+ *
+ * Son los de reclamo más `{{saludo}}` y `{{vencimiento}}`. `{{equipo}}` se va
+ * por lo mismo que en los comprobantes: con el nombre vacío salía «Hola ,», y
+ * el saludo con la coma adentro no se puede escribir mal.
+ */
+export const PLACEHOLDERS_COBRANZA = {
+  saludo: 'El saludo ya armado: «Hola Acme,» — o «Hola,» si no hay nombre.',
+  cantidad: 'Las cuotas del aviso, en plural: «3 cuotas vencidas».',
+  monto: 'El total del aviso, formateado: «$1.240.000».',
+  detalle: 'La lista de cuotas, una por línea, con torneo, fecha y saldo.',
+  vencimiento:
+    'La fecha que importa según la etapa: el próximo vencimiento en el aviso ' +
+    'preventivo, el más antiguo impago en los otros dos.',
+} as const
+
+export type PlaceholderCobranza = keyof typeof PLACEHOLDERS_COBRANZA
+
+/** Las tres etapas de la cobranza y la plantilla de cada una. */
+export const PLANTILLA_POR_ETAPA = {
+  por_vencer: 'cobranza_por_vencer',
+  recordatorio: 'cobranza_recordatorio',
+  firme: 'cobranza_firme',
+} as const
+
+export type EtapaCobranza = keyof typeof PLANTILLA_POR_ETAPA
+
 /** Qué placeholders ofrece cada plantilla. El editor lee de acá. */
 export const PLACEHOLDERS_POR_CLAVE: Record<ClavePlantilla, Record<string, string>> = {
   aviso_7dias: PLACEHOLDERS,
@@ -72,6 +103,9 @@ export const PLACEHOLDERS_POR_CLAVE: Record<ClavePlantilla, Record<string, strin
   reclamo_2: PLACEHOLDERS,
   recibo_pago: PLACEHOLDERS_COMPROBANTE,
   factura_emitida: PLACEHOLDERS_COMPROBANTE,
+  cobranza_por_vencer: PLACEHOLDERS_COBRANZA,
+  cobranza_recordatorio: PLACEHOLDERS_COBRANZA,
+  cobranza_firme: PLACEHOLDERS_COBRANZA,
 }
 
 /**

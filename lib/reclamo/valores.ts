@@ -1,5 +1,5 @@
-import { formatDate, formatMoney } from '@/lib/format'
-import type { Placeholder } from './plantilla'
+import { formatDate, formatMoney, formatMoneyExacto } from '@/lib/format'
+import type { Placeholder, PlaceholderCobranza } from './plantilla'
 
 /**
  * Los datos que la plantilla necesita, armados una sola vez.
@@ -52,6 +52,40 @@ export function armarValores(
     cantidad: armarCantidad(cuotas.length),
     monto: formatMoney(montoTotal),
     detalle: armarDetalle(cuotas),
+  }
+}
+
+/**
+ * Los valores del aviso de cobranza por etapa.
+ *
+ * Dos diferencias con los de arriba, y las dos por la misma razón —que el
+ * mensaje no pueda decir algo que el dato no dice—:
+ *
+ *   · `{{saludo}}` en vez de `{{equipo}}`: con el nombre vacío salía «Hola ,».
+ *     La coma va adentro del valor y quien edita el texto no puede
+ *     equivocarse.
+ *   · `{{monto}}` usa `formatMoneyExacto`: el aviso menciona un importe que la
+ *     persona va a comparar contra su cuota, y el redondeo a peso entero de
+ *     `formatMoney` lo haría discrepar del papel.
+ *
+ * `{{vencimiento}}` es la fecha que importa SEGÚN LA ETAPA: en el aviso
+ * preventivo, cuándo vence lo que está por vencer; en los otros dos, desde
+ * cuándo está impago lo más viejo. Es la misma palabra para dos hechos
+ * distintos, y en cada etapa el texto la usa en la frase que corresponde.
+ */
+export function armarValoresCobranza(
+  nombre: string | null,
+  montoTotal: number,
+  cuotas: CuotaReclamada[],
+  vencimiento: string | null,
+): Record<PlaceholderCobranza, string> {
+  const real = nombre && nombre.trim() !== '' ? nombre.trim() : null
+  return {
+    saludo: real ? `Hola ${real},` : 'Hola,',
+    cantidad: armarCantidad(cuotas.length),
+    monto: formatMoneyExacto(montoTotal),
+    detalle: armarDetalle(cuotas),
+    vencimiento: vencimiento ? formatDate(vencimiento) : '—',
   }
 }
 

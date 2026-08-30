@@ -5,6 +5,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import ArmarReclamo from './ArmarReclamo'
+import { PLANTILLA_POR_ETAPA, type EtapaCobranza } from '@/lib/reclamo/plantilla'
 import type { Database } from '@/lib/db/database.types'
 
 type Ficha = Database['public']['Views']['v_cuenta_corriente_equipo']['Row']
@@ -88,7 +89,7 @@ export default async function CuentaCorrientePage({
   // veces para la misma pantalla —acá, en el formulario de cobro y otra vez
   // desde el cliente al armar el aviso—; ahora sale una sola vez y baja por
   // props a lo que la necesite.
-  const [fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, plantillaRes] =
+  const [fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, momentoRes] =
     await Promise.all([
       supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
       supabase
@@ -107,10 +108,15 @@ export default async function CuentaCorrientePage({
         .eq('tercero_id', terceroId)
         .order('fecha', { ascending: false })
         .order('created_at', { ascending: false }),
+      // La etapa que le toca hoy. Sale de `v_cobranza_momento` y NO de
+      // `v_cobranza_cola`: la cola esconde a los que ya recibieron su aviso, y
+      // acá se está mirando la ficha del equipo — si entró desde el buscador o
+      // desde la cuenta corriente, tiene que poder avisarle igual. El candado
+      // decide qué aparece en la cola, no qué se puede hacer desde la ficha.
       supabase
-        .from('plantilla_mail')
-        .select('asunto, cuerpo, cuerpo_texto')
-        .eq('clave', 'reclamo_vencida')
+        .from('v_cobranza_momento')
+        .select('etapa, cuota_ids')
+        .eq('tercero_id', terceroId)
         .maybeSingle(),
     ])
 
@@ -119,6 +125,15 @@ export default async function CuentaCorrientePage({
   const cuotas = cuotasRes.data ?? []
   const resumen = resumenRes.data
   const historial = historialRes.data ?? []
+  const etapa = (momentoRes.data?.etapa ?? null) as EtapaCobranza | null
+
+  // La plantilla se elige por etapa, igual que en la Server Action: la de la
+  // etapa si está en alguna cola, la de siempre si no.
+  const { data: plantilla } = await supabase
+    .from('plantilla_mail')
+    .select('asunto, cuerpo, cuerpo_texto')
+    .eq('clave', etapa ? PLANTILLA_POR_ETAPA[etapa] : 'reclamo_vencida')
+    .maybeSingle()
 
   // Uuid válido pero sin ficha ni cuota: tampoco existe como recurso.
   if (!error && fichas.length === 0 && cuotas.length === 0) notFound()
@@ -235,7 +250,9 @@ export default async function CuentaCorrientePage({
             cuotas={cuotas}
             contacto={terceroRes.data?.contacto ?? null}
             historial={historial}
-            plantilla={plantillaRes.data ?? null}
+            plantilla={plantilla ?? null}
+            etapa={etapa}
+            cuotaIdsAviso={momentoRes.data?.cuota_ids ?? null}
             puedeRegistrar={puedeRegistrarAviso}
             puedeMail={puedeMail}
           />

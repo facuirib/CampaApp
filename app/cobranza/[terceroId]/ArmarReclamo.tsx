@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { formatMoney, formatDate } from '@/lib/format'
 import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import { linkWhatsApp, parsearTelefono } from '@/lib/reclamo/contacto'
-import { aplicar } from '@/lib/reclamo/plantilla'
-import { armarValores } from '@/lib/reclamo/valores'
+import { aplicar, type EtapaCobranza } from '@/lib/reclamo/plantilla'
+import { armarValores, armarValoresCobranza } from '@/lib/reclamo/valores'
 import { enviarReclamoMail, registrarReclamo, type DatosReclamo } from '../acciones-aviso'
 import type { Database } from '@/lib/db/database.types'
 
@@ -75,6 +75,27 @@ export interface ArmarReclamoProps {
   contacto: string | null
   historial: ReclamoRow[]
   plantilla: { asunto: string; cuerpo: string; cuerpo_texto: string | null } | null
+  /**
+   * La etapa que le toca a este equipo hoy, o `null` si no está en ninguna cola.
+   *
+   * Viene de `v_cobranza_momento` y decide la plantilla Y lo que se guarda en
+   * `reclamo.etapa`. Las dos de la misma fuente: si el texto saliera de una
+   * etapa y el registro de otra, el candado taparía un aviso que nunca se
+   * mandó.
+   */
+  etapa: EtapaCobranza | null
+  /**
+   * Las cuotas que cubre el aviso de hoy, tal como las calculó
+   * `v_cobranza_momento`.
+   *
+   * 🔴 Tienen que ser EXACTAMENTE las mismas que se guardan en
+   * `reclamo.cuota_ids`, porque el candado compara ese array contra el de la
+   * vista con `@>`. Si la pantalla filtrara por su cuenta —«sólo las
+   * vencidas»— y la vista incluyera además las que están por vencer, los dos
+   * conjuntos nunca coincidirían y el equipo no saldría NUNCA de la cola: se le
+   * avisaría todos los días.
+   */
+  cuotaIdsAviso: string[] | null
   /** Dejar registrado el reclamo (WhatsApp o a mano). Escribe en `reclamo`. */
   puedeRegistrar: boolean
   /**
@@ -96,6 +117,16 @@ export interface ArmarReclamoProps {
  * —cuánto debe, qué cuotas, el historial de reclamos— es exactamente lo que un
  * perfil de control tiene que poder mirar. Lo que se esconde es mandar.
  */
+/** Hoy en Córdoba, en ISO: para comparar contra `vence_at`, que es una fecha. */
+function hoyISO(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Cordoba',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
 export default function ArmarReclamo({
   terceroId,
   resumen,
@@ -103,6 +134,8 @@ export default function ArmarReclamo({
   contacto,
   historial,
   plantilla,
+  etapa,
+  cuotaIdsAviso,
   puedeRegistrar,
   puedeMail,
 }: ArmarReclamoProps) {
@@ -115,8 +148,13 @@ export default function ArmarReclamo({
   const [aviso, setAviso] = useState<string | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
+  // Con etapa, las cuotas del aviso las decide la VISTA —incluye las que están
+  // por vencer, que `esReclamable` deja afuera—. Sin etapa, el reclamo suelto
+  // sigue siendo sólo lo vencido.
   const filas: FilaCuota[] = cuotas
-    .filter(esReclamable)
+    .filter((c) =>
+      cuotaIdsAviso ? cuotaIdsAviso.includes(c.cuota_id ?? '') : esReclamable(c),
+    )
     .map((c) => ({
       // La vista tipa todas las columnas como nullable; cuota_id viene de
       // cuota.id, que es PK.
@@ -129,9 +167,34 @@ export default function ArmarReclamo({
     }))
     .sort((a, b) => (a.vence_at ?? '').localeCompare(b.vence_at ?? ''))
 
-  // Los cuatro valores que la plantilla necesita. La pantalla aporta los DATOS;
-  // el saludo, el cuerpo y el cierre los pone la fila de plantilla_mail.
-  const valores = armarValores(resumen?.equipo ?? 'el equipo', resumen?.deuda_vencida ?? 0, filas)
+  // Se suma acá y no en la vista sólo porque ya está filtrado por `cuotaIdsAviso`,
+  // que ES lo que la vista decidió: es la misma cifra, contada sobre las mismas
+  // filas. El número que se muestra en pantalla sigue saliendo de `resumen`.
+  const totalAviso = etapa
+    ? filas.reduce((t, f) => t + (f.saldo ?? 0), 0)
+    : (resumen?.deuda_vencida ?? 0)
+
+  // Los valores que la plantilla necesita. La pantalla aporta los DATOS; el
+  // saludo, el cuerpo y el cierre los pone la fila de plantilla_mail.
+  //
+  // Con etapa van los de cobranza —que traen `{{saludo}}` y `{{vencimiento}}`—
+  // y sin etapa los de siempre, porque la plantilla vieja usa `{{equipo}}`. Los
+  // dos juegos y no uno solo: un placeholder que la plantilla no espera sale
+  // LITERAL en el mail del equipo.
+  const valores = etapa
+    ? armarValoresCobranza(
+        resumen?.equipo ?? null,
+        // El total del AVISO, no la deuda vencida: con etapa `por_vencer` no
+        // hay nada vencido y el mensaje diría $0.
+        totalAviso,
+        filas,
+        // En el preventivo importa cuándo vence; en los otros dos, desde cuándo
+        // está impago lo más viejo.
+        etapa === 'por_vencer'
+          ? (filas.find((f) => (f.vence_at ?? '') >= hoyISO())?.vence_at ?? null)
+          : (resumen?.vencimiento_mas_antiguo ?? null),
+      )
+    : armarValores(resumen?.equipo ?? 'el equipo', resumen?.deuda_vencida ?? 0, filas)
 
   const resuelto = plantilla ? aplicar(plantilla, valores) : null
 
@@ -151,10 +214,11 @@ export default function ArmarReclamo({
       const torneos = [...new Set(cuotas.filter(esReclamable).map((c) => c.torneo_id))]
       return torneos.length === 1 ? (torneos[0] ?? null) : null
     })(),
-    monto_reclamado: resumen.deuda_vencida ?? 0,
+    monto_reclamado: totalAviso,
     cuotas: filas.length,
     cuota_ids: filas.map((f) => f.cuota_id),
     valores,
+    etapa,
   }
 
   async function conAccion(
