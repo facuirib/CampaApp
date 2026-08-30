@@ -77,7 +77,18 @@ export async function emitirFacturaDeCobro(
 
   if (!recibo) return { ok: false, error: 'No encontré ese comprobante.' }
   if (recibo.es_factura) return { ok: false, error: 'Esto ya es una factura, no un cobro.' }
-  if (!recibo.pago_id) return { ok: false, error: 'Este comprobante no cuelga de un cobro.' }
+
+  // Un recibo cuelga de UN cobro, y hay dos clases: el pago de un equipo y la
+  // cuota de un sponsor. `comprobante_un_origen` garantiza en la base que sea
+  // uno u otro y nunca los dos, así que acá alcanza con exigir que haya alguno.
+  //
+  // Antes esto pedía `pago_id` a secas, y con eso el recibo de sponsor —que
+  // tiene `pago_id` en NULL porque el cobro de sponsor no pasa por `pago`—
+  // rebotaba con «no cuelga de un cobro», que además de falso era desorientador:
+  // el recibo colgaba perfectamente, sólo que del otro lado.
+  if (!recibo.pago_id && !recibo.cuota_cobro_sponsor_id) {
+    return { ok: false, error: 'Este comprobante no cuelga de un cobro.' }
+  }
   if (recibo.ya_facturado) return { ok: false, error: 'Este cobro ya tiene su factura.' }
 
   const { data: emisor } = await supabase.from('emisor').select('cuit').eq('id', true).single()
@@ -113,7 +124,11 @@ export async function emitirFacturaDeCobro(
     receptorNombre: cliente?.razon_social ?? cliente?.nombre ?? 'Consumidor Final',
     receptorDocTipo: cliente?.doc_tipo ?? DOC_SIN_IDENTIFICAR.tipo,
     receptorDocNro: cliente?.doc_nro ?? DOC_SIN_IDENTIFICAR.nro,
-    pagoId: recibo.pago_id,
+    // El motor ya aceptaba los dos —`DatosFactura` tiene los dos campos y
+    // `reservar_numero_comprobante` los dos parámetros—; el que mandaba uno
+    // solo era este archivo.
+    pagoId: recibo.pago_id ?? undefined,
+    cuotaCobroSponsorId: recibo.cuota_cobro_sponsor_id ?? undefined,
   }
 
   try {
@@ -159,13 +174,21 @@ export async function emitirFacturaDeCobro(
     // decía «se reservó el número» cuando no se había creado ninguna fila —
     // mandaba a reconciliar algo que no existía. La diferencia la sabe la
     // base, así que se le pregunta.
-    const { data: reserva } = await supabase
+    //
+    // Se busca por el MISMO origen del que cuelga este recibo. Con el `.eq`
+    // fijo en `pago_id`, un fallo emitiendo a un sponsor buscaba la reserva
+    // por una columna nula: no la encontraba nunca y el mensaje volvía a ser
+    // el genérico, escondiendo justo la fila que hay que reconciliar.
+    const consulta = supabase
       .from('comprobante')
       .select('id, punto_venta, numero')
-      .eq('pago_id', recibo.pago_id)
       .neq('tipo_comprobante', 0)
       .eq('estado', 'pendiente')
-      .maybeSingle()
+
+    const { data: reserva } = await (recibo.pago_id
+      ? consulta.eq('pago_id', recibo.pago_id)
+      : consulta.eq('cuota_cobro_sponsor_id', recibo.cuota_cobro_sponsor_id!)
+    ).maybeSingle()
 
     const mensaje = e instanceof Error ? e.message : 'Se cortó la comunicación con ARCA.'
 

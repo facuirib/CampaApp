@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { formatDate, formatMoney } from '@/lib/format'
 import { estadoSponsor } from '@/lib/domain/sponsor'
-import { Badge, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { rolActual } from '@/lib/rol-actual'
+import { puede } from '@/lib/permisos'
+import { Badge, Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 /**
@@ -109,6 +111,13 @@ export default async function SponsorPage({ params }: { params: Promise<{ sponso
       .order('mes'),
   ])
 
+  // El rol decide si el botón se dibuja; quién puede cobrar de verdad lo
+  // deciden las policies y la función. Esconderlo mejora la pantalla, no
+  // protege la tabla — pero además la ruta está en RUTAS_PROTEGIDAS, así que
+  // entrar a mano tampoco alcanza.
+  const rol = await rolActual()
+  const puedeCobrar = puede(rol, 'sponsor.cobrar')
+
   const error = sponsorRes.error ?? contratosRes.error ?? cuotasRes.error ?? mensualRes.error
   const sponsor = sponsorRes.data
 
@@ -171,6 +180,24 @@ export default async function SponsorPage({ params }: { params: Promise<{ sponso
               }
             />
           </div>
+
+          {/* El botón que faltaba.
+              Hasta acá esta pantalla mostraba «Pendiente de cobrar» con el
+              número correcto y ninguna manera de cobrarlo: la plata se veía y
+              no se tocaba, y un cobro de sponsor había que registrarlo llamando
+              a la función a mano.
+
+              Va acá abajo del KpiCard que muestra el número, y no en el
+              encabezado, porque es la acción DE ese número. Y aparece sólo si
+              hay algo pendiente: un botón de cobrar sobre un sponsor al día
+              invita a un formulario que no tiene ninguna cuota para ofrecer. */}
+          {puedeCobrar && pendienteCobrar > 0 && (
+            <div className="mb-6">
+              <Link href={`/sponsors/${sponsorId}/cobrar`}>
+                <Button icon="cobranza">Cobrar una cuota</Button>
+              </Link>
+            </div>
+          )}
 
           {contratos.length === 0 && (
             <div className="rounded-md border border-line bg-white px-4 py-10 text-center text-[11px] text-muted">

@@ -288,6 +288,17 @@ export const PERMISOS = {
       ],
     },
   },
+  'sponsor.cobrar': {
+    // Cobrar es del día a día, así que va con `operador` — la misma lista que
+    // `cobro.registrar`. Nada que ver con anular o retirar, que son SENSIBLE.
+    //
+    // Medido rol por rol contra la función: admin, finanzas y operador cobran;
+    // `bar` lo frena la policy de `comprobante` (el recibo) y `lectura` la de
+    // `asiento`. O sea que la lista de acá es la que la base ya aplicaba.
+    que: 'Cobrar una cuota de patrocinio',
+    roles: CON_FINANZAS,
+    donde: { fns: ['registrar_cobro_sponsor'] },
+  },
   'periodo.cerrar': {
     // El bar abre períodos sin querer —`crear_asiento` los crea— pero no los
     // cierra: `periodo` tiene roles distintos por comando, INSERT con bar y
@@ -473,6 +484,7 @@ export const RUTAS_PROTEGIDAS: ReadonlyArray<{ patron: RegExp; op: Op; padre: st
   { patron: /^\/gastos\/[^/]+\/pagar/, op: 'gasto.pagar', padre: '/gastos' },
   { patron: /^\/gastos\/[^/]+\/comprobante/, op: 'gasto.adjuntar', padre: '/gastos' },
   { patron: /^\/cobranza\/[^/]+\/cobrar/, op: 'cobro.registrar', padre: '/cobranza' },
+  { patron: /^\/sponsors\/[^/]+\/cobrar/, op: 'sponsor.cobrar', padre: '/sponsors' },
   { patron: /^\/activos\/nuevo/, op: 'activo.alta', padre: '/activos' },
   { patron: /^\/activos\/amortizar/, op: 'activo.amortizar', padre: '/activos' },
   { patron: /^\/calendario\/nueva/, op: 'calendario.editar', padre: '/calendario' },
