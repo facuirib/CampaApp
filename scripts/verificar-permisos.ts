@@ -339,9 +339,18 @@ async function main() {
     }
 
     if ('guarda' in donde) {
-      const fn = donde.guarda as string
-      declaradas.add(fn)
-      const src = fuentes.get(fn)
+      // Una operación puede cubrir VARIAS funciones con la misma guarda —el
+      // ciclo del torneo son iniciar, cerrar y reabrir—, separadas por «·».
+      // Se exige que TODAS tengan guarda y que TODAS nombren los mismos roles:
+      // alcanza con que una sea más ancha para que la operación lo sea.
+      const fns_ = (donde.guarda as string).split('·').map((f) => f.trim())
+      const fn = fns_.join(' · ')
+      fns_.forEach((f) => declaradas.add(f))
+      const src = fns_.map((f) => fuentes.get(f) ?? '').join('\n')
+      const sinGuarda = fns_.filter((f) => {
+        const t = fuentes.get(f)
+        return !t || [...t.matchAll(RE_ROL)].length === 0
+      })
 
       // Ya no alcanza con «¿está la guarda?»: desde que hay más de un rol
       // habilitado, hay que leer CUÁLES nombra y compararlos con el mapa. Si
@@ -353,12 +362,14 @@ async function main() {
         ),
       ].sort()
 
-      const tiene = !!src && enLaGuarda.length > 0
+      const tiene = sinGuarda.length === 0 && enLaGuarda.length > 0
       const coinciden = tiene && igual(esperado, enLaGuarda)
       const ok = tiene && coinciden
 
       if (!tiene) {
-        problemas.push(`🔴 ${op}: «${fn}» no tiene ninguna guarda de rol en su cuerpo`)
+        problemas.push(
+          `🔴 ${op}: ${sinGuarda.length ? `«${sinGuarda.join('», «')}» no tiene` : 'no hay'} guarda de rol en su cuerpo`,
+        )
       } else if (!coinciden) {
         problemas.push(
           `🔴 ${op}: el mapa dice [${esperado.join(', ')}] y la guarda de «${fn}» nombra [${enLaGuarda.join(', ')}]`,

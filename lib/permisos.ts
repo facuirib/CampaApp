@@ -96,6 +96,22 @@ export const PERMISOS = {
     roles: TODOS_MENOS_LECTURA,
     donde: { fns: ['crear_torneo'] },
   },
+  'torneo.ciclo': {
+    // Iniciar, cerrar y reabrir un torneo.
+    //
+    // SOLO_ADMIN, a diferencia de `torneo.crear`, que es TODOS_MENOS_LECTURA.
+    // La diferencia no es de tamaño: crear un torneo `planificado` no le cambia
+    // nada a nadie, y en cambio iniciar uno lo convierte en EL ACTUAL, que es
+    // el default de media app —la ficha de cobranza, el tarifario— y cerrarlo
+    // deja al sistema sin torneo actual.
+    que: 'Iniciar, cerrar o reabrir un torneo',
+    roles: SOLO_ADMIN,
+    // `guarda` y NO `fns`: las tres escriben en `torneo`, cuya policy de UPDATE
+    // permite **admin y operador**. Declararlas por sus escrituras diría que un
+    // operador puede iniciar un torneo, que es falso — lo que las restringe es
+    // el `if` de adentro. Mismo caso que `pago.anular` y `sponsor.anular`.
+    donde: { guarda: 'iniciar_torneo · cerrar_torneo · reabrir_torneo' },
+  },
   'torneo.estructura': {
     que: 'Clonar, crear, editar o borrar categorías y series',
     roles: TODOS_MENOS_LECTURA,
