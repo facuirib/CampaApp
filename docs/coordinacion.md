@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Hallazgo y fix · unico/anual no aparecían en el cashflow · para Facu
+
+Investigando una pregunta de Horacio sobre presupuesto, encontramos que 'unico' y 'anual' son valores válidos en presupuesto_linea.unidad (según el check constraint), pero v_cashflow_estimado nunca los maneja — solo por_partido, por_dia_cancha, por_mes. Un gasto marcado así no aparecía en ninguna proyección.
+
+Resuelto: columna presupuesto_linea.fecha (nullable, para cuando corresponda), trigger check_presupuesto_linea_coherente() que valida contra la unidad EFECTIVA (no la cruda — Claude Code encontró que mi primer diseño validaba la columna cruda, y ya había una línea real de $10 cuya unidad efectiva es 'unico' por herencia del catálogo, que mi primer intento habría dejado sin resolver igual). Nuevo bloque en v_cashflow_estimado, mismo patrón que los otros tres.
+
+Límite conocido y aceptado: la línea de $10 existente queda sin fecha (y sin cashflow) hasta que alguien la edite — no se fuerza la corrección ahora.
+
+Ya aplicado. Verificado con begin/rollback (dos veces — la primera versión tenía el bug de unidad cruda vs efectiva, detectado antes de aplicar) y confirmado que el count(*) de la vista no cambia para las filas existentes (524 en ambos casos).
+
+Confirmá con: grep -n "unico/anual no aparecían" docs/coordinacion.md
+
+---
+
 ### 🟢 Dos cambios de UI · modal de edición de cliente + presupuesto sin pestaña Vs Real · para Facu
 
 Dos pedidos de Horacio, resueltos hoy:
