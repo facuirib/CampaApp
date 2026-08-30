@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation'
 
 import { createClient } from '@/lib/db/server'
 import { rolActual } from '@/lib/rol-actual'
+import { puede } from '@/lib/permisos'
 import { Badge, Card } from '@/components/ui'
 import { formatDate, formatMoneyExacto } from '@/lib/format'
 
 import BotonEmitir from './BotonEmitir'
 import BotonPdf from './BotonPdf'
+import BotonMail from './BotonMail'
 
 const VE_LA_LISTA = ['admin', 'operador', 'read-only', 'finanzas']
 
@@ -41,6 +43,21 @@ export default async function ComprobantePage({ params }: { params: Promise<{ id
 
   const { data: c } = await supabase.from('v_comprobante').select('*').eq('id', id).single()
   if (!c) notFound()
+
+  // El mail del tercero precarga el campo; el historial de envíos lo saca del
+  // payload, que es donde queda el comprobante. Las dos consultas van juntas y
+  // sólo si hay PDF que mandar.
+  const puedeEnviar = puede(rol, 'comprobante.enviar')
+  const [{ data: tercero }, { data: envios }] = await Promise.all([
+    c.tercero_id
+      ? supabase.from('tercero').select('email').eq('id', c.tercero_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('envio')
+      .select('destinatario, enviado_at')
+      .contains('payload', { comprobante_id: id })
+      .order('enviado_at', { ascending: false }),
+  ])
 
   const esRecibo = !c.es_factura
 
@@ -195,11 +212,29 @@ export default async function ComprobantePage({ params }: { params: Promise<{ id
       {c.tiene_pdf ? (
         <Card>
           <h2 className="mb-3 text-[13px] font-extrabold text-ink">Documento</h2>
-          <BotonPdf comprobanteId={c.id!} />
+          <div className="flex flex-wrap items-start gap-3">
+            <BotonPdf comprobanteId={c.id!} />
+          </div>
           <p className="mt-3 text-[11px] leading-snug text-muted">
             El PDF se genera en el momento a partir de esta fila. No se guarda en ningún lado: como
             la fila no cambia, bajarlo de nuevo da siempre el mismo documento.
           </p>
+
+          {/* El envío va DEBAJO de la descarga y separado por una línea, no al
+              lado: bajar un PDF es para uno y no sale de la máquina; mandarlo
+              le llega a un tercero desde la casilla del club. Dos acciones
+              pegadas se aprietan por reflejo, y una de las dos no tiene
+              vuelta atrás. */}
+          {puedeEnviar && (
+            <div className="mt-4 border-t border-line pt-4">
+              <BotonMail
+                comprobanteId={c.id!}
+                emailTercero={tercero?.email ?? null}
+                tieneTercero={!!c.tercero_id}
+                envios={envios ?? []}
+              />
+            </div>
+          )}
         </Card>
       ) : c.estado === 'pendiente' ? (
         <Card>

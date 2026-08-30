@@ -426,6 +426,20 @@ export const PERMISOS = {
   },
 
   // ── Sistema ──────────────────────────────────────────────────────────────
+  'comprobante.enviar': {
+    // Mandar el comprobante por mail, con el PDF adjunto.
+    //
+    // Va con `operador` —es operación diaria, como cobrar— pero NO con
+    // `lectura`, que sí puede bajar el PDF: mirar un comprobante y escribirle a
+    // un tercero desde la casilla del club son cosas distintas.
+    //
+    // Es la única operación del catálogo cuya guarda no tiene NADA detrás:
+    // Resend no pasa por RLS, así que el `exigirRol` de la acción no refuerza a
+    // una policy, ES la autorización. Si se saca, no queda nada.
+    que: 'Enviar un recibo o factura por mail',
+    roles: CON_FINANZAS,
+    donde: { accion: 'enviarComprobanteMail' },
+  },
   'plantilla.editar': {
     que: 'Editar la plantilla de reclamos',
     roles: CON_FINANZAS,
