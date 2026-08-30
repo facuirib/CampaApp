@@ -18,7 +18,6 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
-<<<<<<< HEAD
 ### 🟢 Hallazgo y fix · unico/anual no aparecían en el cashflow · para Facu
 
 Investigando una pregunta de Horacio sobre presupuesto, encontramos que 'unico' y 'anual' son valores válidos en presupuesto_linea.unidad (según el check constraint), pero v_cashflow_estimado nunca los maneja — solo por_partido, por_dia_cancha, por_mes. Un gasto marcado así no aparecía en ninguna proyección.
@@ -30,7 +29,9 @@ Límite conocido y aceptado: la línea de $10 existente queda sin fecha (y sin c
 Ya aplicado. Verificado con begin/rollback (dos veces — la primera versión tenía el bug de unidad cruda vs efectiva, detectado antes de aplicar) y confirmado que el count(*) de la vista no cambia para las filas existentes (524 en ambos casos).
 
 Confirmá con: grep -n "unico/anual no aparecían" docs/coordinacion.md
-=======
+
+---
+
 ### 🎯 ETAPA FINAL — PLAN DE PULIDO · carriles independientes · 30/08/2026
 
 Facu y Horacio hicieron un **barrido completo de la app**: más de 30
@@ -146,7 +147,6 @@ verde igual—.
 El patrón se repite, así que antes del diagnóstico end-to-end conviene **una
 pasada que compruebe toda la matriz contra la base de una sola vez**, en lugar de
 seguir endureciendo el chequeo cada vez que algo se escapa.
->>>>>>> c75fad85c2e289192004d11c53b972d9982b8fae
 
 ---
 
