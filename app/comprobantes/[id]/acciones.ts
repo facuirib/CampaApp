@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
 import { enviarMail } from '@/lib/mail/send'
 import { aplicar } from '@/lib/reclamo/plantilla'
-import { formatMoney } from '@/lib/format'
+import { formatDate, formatMoney } from '@/lib/format'
+import { envolver } from '@/lib/mail/sobre'
 import { exigirRol } from '@/lib/rol-actual'
 import { generarFacturaPDF } from '@/lib/pdf/factura'
 import { generarReciboPDF } from '@/lib/pdf/recibo'
@@ -175,8 +176,31 @@ export async function enviarComprobanteMail(
     monto: number
     punto_venta: number
     numero: number
+    fecha_emision: string
+    detalle: string | null
   }
   const esRecibo = fila.tipo_comprobante === 0
+
+  const numeroFormateado = `${String(fila.punto_venta).padStart(4, '0')}-${String(
+    fila.numero,
+  ).padStart(8, '0')}`
+
+  // ── El saludo se arma acá, no en la plantilla ───────────────────────────
+  //
+  // Con `<p>Hola {{equipo}},</p>` y un receptor vacío sale «Hola ,», y con el
+  // receptor que pone el circuito cuando el cliente no tiene datos sale «Hola
+  // Consumidor Final,», que es peor: le habla a una categoría fiscal como si
+  // fuera el nombre de alguien. Hoy es el caso de casi todos —304 de 307
+  // clientes están sin datos—, así que no es un borde.
+  //
+  // Por eso el placeholder es `{{saludo}}` y no `{{equipo}}`: la coma va
+  // adentro del valor, y quien edita el texto no puede equivocarse con esto.
+  const nombreReal =
+    fila.receptor_nombre && fila.receptor_nombre.trim() !== '' &&
+    fila.receptor_nombre.trim().toLowerCase() !== 'consumidor final'
+      ? fila.receptor_nombre.trim()
+      : null
+  const saludo = nombreReal ? `Hola ${nombreReal},` : 'Hola,'
 
   const { data: plantilla } = await supabase
     .from('plantilla_mail')
@@ -191,16 +215,40 @@ export async function enviarComprobanteMail(
     }
   }
 
-  // Los mismos placeholders que usa el reclamo, resueltos con `aplicar` para
-  // que haya UN solo motor de plantillas en la app.
-  const { asunto, html } = aplicar(plantilla, {
-    equipo: fila.receptor_nombre ?? '',
+  // El mismo motor de plantillas que el reclamo, con los placeholders del
+  // comprobante (`PLACEHOLDERS_COMPROBANTE`).
+  const { asunto, html: mensaje } = aplicar(plantilla, {
+    saludo,
+    numero: numeroFormateado,
     monto: formatMoney(Number(fila.monto)),
-    cantidad: '',
-    detalle: `${esRecibo ? 'Recibo' : 'Factura'} ${String(fila.punto_venta).padStart(4, '0')}-${String(
-      fila.numero,
-    ).padStart(8, '0')}`,
-  } as Parameters<typeof aplicar>[1])
+    detalle: fila.detalle ?? '',
+    fecha: formatDate(fila.fecha_emision),
+  })
+
+  // ── El sobre ────────────────────────────────────────────────────────────
+  //
+  // El mensaje que salió de la plantilla se envuelve en el diseño, que vive en
+  // código. Los DESTACADOS no salen de la plantilla a propósito: son números, y
+  // un número en un texto editable se puede desincronizar del comprobante sin
+  // que nadie lo note. Salen de la fila, igual que el PDF.
+  const { data: emisorMail } = await supabase
+    .from('emisor')
+    .select('razon_social, cuit')
+    .eq('id', true)
+    .single()
+
+  const html = envolver({
+    cuerpoHtml: mensaje,
+    destacados: [
+      { rotulo: esRecibo ? 'Recibo N°' : 'Factura N°', valor: numeroFormateado },
+      { rotulo: 'Fecha', valor: formatDate(fila.fecha_emision) },
+      { rotulo: 'Total', valor: formatMoney(Number(fila.monto)) },
+    ],
+    emisor: {
+      razonSocial: emisorMail?.razon_social ?? 'Campa Fútbol',
+      cuit: emisorMail?.cuit ?? '',
+    },
+  })
 
   const envio = await enviarMail({
     to: destino,

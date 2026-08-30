@@ -11,7 +11,7 @@ import { mailHabilitado, resend } from '@/lib/mail/client'
  * sandbox: los mails salían, pero desde una dirección que no es nuestra y que
  * ningún equipo reconocería.
  */
-const REMITENTE = 'CAMPA <info@campafutbol.com.ar>'
+const REMITENTE = 'Campa Fútbol <info@campafutbol.com.ar>'
 
 /** Un adjunto. `contenido` es el archivo en base64, que es lo que pide Resend. */
 export interface Adjunto {

@@ -17,7 +17,12 @@ type PlantillaRow = Database['public']['Tables']['plantilla_mail']['Row']
  */
 
 /** Las claves sembradas. Un typo no compila. */
-export type ClavePlantilla = 'aviso_7dias' | 'reclamo_vencida' | 'reclamo_2' | 'recibo_pago'
+export type ClavePlantilla =
+  | 'aviso_7dias'
+  | 'reclamo_vencida'
+  | 'reclamo_2'
+  | 'recibo_pago'
+  | 'factura_emitida'
 
 /**
  * Los placeholders que el sistema sabe resolver. **Esta es la lista.**
@@ -38,6 +43,36 @@ export const PLACEHOLDERS = {
 } as const
 
 export type Placeholder = keyof typeof PLACEHOLDERS
+
+/**
+ * Los del mail de un comprobante, que son otros.
+ *
+ * No se mezclan con los de arriba en una lista sola: un `{{numero}}` ofrecido
+ * en un reclamo saldría **literal** en el mail —`resolver()` deja intacto lo
+ * que no sabe resolver— y un `{{cantidad}}` en un recibo tampoco significa
+ * nada. Cada plantilla ofrece los suyos, y el editor muestra los que
+ * correspondan.
+ */
+export const PLACEHOLDERS_COMPROBANTE = {
+  saludo:
+    'El saludo completo, ya armado: «Hola Acme,» — o «Hola,» a secas cuando el ' +
+    'comprobante no tiene un nombre real (los que van a Consumidor Final).',
+  numero: 'El número del comprobante, formateado: «0010-00000018».',
+  monto: 'El total del comprobante, formateado: «$525.000».',
+  detalle: 'El concepto: «Cuota 3, Cuota 4».',
+  fecha: 'La fecha de emisión: «18/08/2026».',
+} as const
+
+export type PlaceholderComprobante = keyof typeof PLACEHOLDERS_COMPROBANTE
+
+/** Qué placeholders ofrece cada plantilla. El editor lee de acá. */
+export const PLACEHOLDERS_POR_CLAVE: Record<ClavePlantilla, Record<string, string>> = {
+  aviso_7dias: PLACEHOLDERS,
+  reclamo_vencida: PLACEHOLDERS,
+  reclamo_2: PLACEHOLDERS,
+  recibo_pago: PLACEHOLDERS_COMPROBANTE,
+  factura_emitida: PLACEHOLDERS_COMPROBANTE,
+}
 
 /**
  * Sin esto la plantilla queda rota, no pobre.
@@ -127,7 +162,11 @@ export function placeholdersFaltantes(texto: string): string[] {
  */
 export function aplicar(
   plantilla: Pick<PlantillaRow, 'asunto' | 'cuerpo' | 'cuerpo_texto'>,
-  valores: Record<Placeholder, string>,
+  // `Record<string, string>` y no `Record<Placeholder, string>`: ahora hay dos
+  // familias de placeholders —reclamo y comprobante— y esta función resuelve
+  // las dos. Quién puede usar cuál lo dice `PLACEHOLDERS_POR_CLAVE`, que es
+  // donde esa regla se puede leer; acá sólo se sustituye.
+  valores: Record<string, string>,
 ): PlantillaResuelta {
   return {
     asunto: resolver(plantilla.asunto, valores),
