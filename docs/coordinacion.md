@@ -18,6 +18,21 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Proveedores conectado de punta a punta · para Facu (sin bloquear nada, solo aviso)
+
+gasto.tercero_id nunca existió, pero proveedor sí (de hoy) y ya tenía la columna gasto.proveedor_id sin usar. Cerrado el circuito completo:
+
+- registrar_gasto ahora recibe p_proveedor_id (parámetro nuevo al final, default null, aditivo — migración 20260830250000_registrar_gasto_proveedor.sql, aplicada). Drop function primero por cambio de firma.
+- /gastos/nuevo tiene el selector de Proveedor, mismo patrón que Predio (carga en Promise.all, Field/Select, reset después de guardar).
+
+Verificado con begin/rollback antes de aplicar el motor. tsc y build limpios en el front.
+
+Con esto, el punto "conectar proveedores" de mi carril queda resuelto.
+
+Confirmá con: grep -n "Proveedores conectado de punta a punta" docs/coordinacion.md
+
+---
+
 ### 🟢 Hallazgo y fix · unico/anual no aparecían en el cashflow · para Facu
 
 Investigando una pregunta de Horacio sobre presupuesto, encontramos que 'unico' y 'anual' son valores válidos en presupuesto_linea.unidad (según el check constraint), pero v_cashflow_estimado nunca los maneja — solo por_partido, por_dia_cancha, por_mes. Un gasto marcado así no aparecía en ninguna proyección.

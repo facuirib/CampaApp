@@ -17,6 +17,7 @@ type ConceptoGasto = Pick<
   'id' | 'nombre' | 'cat_gasto_id' | 'arancel_ref'
 >
 type Predio = Pick<Database['public']['Tables']['predio']['Row'], 'id' | 'nombre'>
+type Proveedor = Pick<Database['public']['Tables']['proveedor']['Row'], 'id' | 'nombre'>
 type Torneo = Pick<Database['public']['Tables']['torneo']['Row'], 'id' | 'nombre'>
 type Activo = Pick<Database['public']['Tables']['activo']['Row'], 'id' | 'nombre' | 'categoria'>
 
@@ -57,6 +58,7 @@ export default function CargarGastoPage() {
   const [categorias, setCategorias] = useState<CatGasto[]>([])
   const [conceptos, setConceptos] = useState<ConceptoGasto[]>([])
   const [predios, setPredios] = useState<Predio[]>([])
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [torneos, setTorneos] = useState<Torneo[]>([])
   const [activos, setActivos] = useState<Activo[]>([])
 
@@ -69,6 +71,7 @@ export default function CargarGastoPage() {
   const [devengadoAt, setDevengadoAt] = useState(hoyEnCordoba())
   const [torneoId, setTorneoId] = useState<string | null>(null)
   const [predioId, setPredioId] = useState<string | null>(null)
+  const [proveedorId, setProveedorId] = useState<string | null>(null)
   const [activoId, setActivoId] = useState<string | null>(null)
 
   const [previewCargando, setPreviewCargando] = useState(false)
@@ -93,6 +96,7 @@ export default function CargarGastoPage() {
         { data: prediosData, error: errorPredios },
         { data: torneosData, error: errorTorneos },
         { data: activosData, error: errorActivos },
+        { data: proveedoresData, error: errorProveedores },
       ] = await Promise.all([
         supabase
           .from('cat_gasto')
@@ -111,6 +115,7 @@ export default function CargarGastoPage() {
           .select('id, nombre, categoria')
           .eq('estado', 'activo')
           .order('nombre'),
+        supabase.from('proveedor').select('id, nombre').eq('activo', true).order('nombre'),
       ])
 
       if (cancelado) return
@@ -120,7 +125,8 @@ export default function CargarGastoPage() {
         errorConceptos ??
         errorPredios ??
         errorTorneos ??
-        errorActivos
+        errorActivos ??
+        errorProveedores
       if (error) {
         setErrorCarga(error.message)
         setCargando(false)
@@ -132,6 +138,7 @@ export default function CargarGastoPage() {
       setPredios(prediosData ?? [])
       setTorneos(torneosData ?? [])
       setActivos(activosData ?? [])
+      setProveedores(proveedoresData ?? [])
       setCargando(false)
     }
 
@@ -339,6 +346,7 @@ export default function CargarGastoPage() {
       p_predio_id: predioId ?? undefined,
       p_activo_id: activoId ?? undefined,
       p_created_by: user.id,
+      p_proveedor_id: proveedorId ?? undefined,
     })
 
     setRegistrando(false)
@@ -359,6 +367,7 @@ export default function CargarGastoPage() {
     setTorneoId(null)
     setPredioId(null)
     setActivoId(null)
+    setProveedorId(null)
   }
 
   return (
@@ -478,6 +487,20 @@ export default function CargarGastoPage() {
                   onChange={(e) => setPredioId(e.target.value || null)}
                 >
                   {predios.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field label="Proveedor">
+                <Select
+                  placeholder="Sin proveedor…"
+                  value={proveedorId ?? ''}
+                  onChange={(e) => setProveedorId(e.target.value || null)}
+                >
+                  {proveedores.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nombre}
                     </option>
