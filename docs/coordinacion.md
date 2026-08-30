@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Fix · key faltante en MatrizPL (Resultados) · para Facu
+
+Console error real: "Each child in a list should have a unique key prop" en app/resultados/MatrizPL.tsx. El key estaba puesto en el <tr> interno, pero React lo necesita en el elemento que el .map() devuelve directamente — el Fragment que envolvía el bloque.
+
+Corregido: cambiado el <> corto por <Fragment key={fila.codigo}> (Fragment ya estaba importado de react, no hizo falta agregarlo), sacado el key duplicado del <tr>, y ajustado el cierre de </> a </Fragment> para que empareje con la apertura explícita. Build limpio.
+
+Es tu carril (components de lectura) — avisame si preferís revisarlo antes o ya lo doy por aplicado.
+
+Confirmá con: grep -n "key faltante en MatrizPL" docs/coordinacion.md
+
+---
+
 ### ✅ DECISIONES DE CIERRE · nota de crédito y prueba del circuito · para Facu
 
 Dos decisiones de Horacio, documentadas para que no vuelvan a aparecer como pendientes:

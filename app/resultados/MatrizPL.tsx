@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { formatMoney } from '@/lib/format'
 import { MESES } from '@/lib/domain/pl'
 import { Icon } from '@/components/ui'
@@ -123,8 +123,8 @@ function Bloque({
         const abierta = abiertas.has(fila.codigo)
 
         return (
-          <>
-            <tr key={fila.codigo} className="border-b border-line2 hover:bg-row-hover">
+          <Fragment key={fila.codigo}>
+            <tr className="border-b border-line2 hover:bg-row-hover">
               <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left font-semibold text-ink hover:bg-row-hover">
                 {abre ? (
                   <button
@@ -182,7 +182,7 @@ function Bloque({
                   </td>
                 </tr>
               ))}
-          </>
+          </Fragment>
         )
       })}
 
