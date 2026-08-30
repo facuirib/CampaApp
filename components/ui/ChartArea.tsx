@@ -5,6 +5,18 @@ export interface PuntoSerie {
   valor: number
   /** Marca el tramo proyectado. Sin esto, el punto es real. */
   proyectado?: boolean
+  /**
+   * Marca el tramo **incompleto**: proyectado, pero sabiendo que le faltan
+   * datos —el caso de `/proyeccion`, donde la cola tiene los ingresos
+   * comprometidos y ningún gasto presupuestado, así que el saldo sube por no
+   * tener con qué bajar—.
+   *
+   * Es un tercer estado y no un reemplazo: un punto incompleto **también** es
+   * proyectado, y quien no lo mande sigue viendo los dos estados de siempre.
+   * Por eso la prop es opcional y el default deja el gráfico exactamente como
+   * estaba — `/` y `/design` no se enteran.
+   */
+  incompleto?: boolean
 }
 
 export interface ChartAreaProps {
@@ -177,6 +189,7 @@ export default function ChartArea({
     y: escalaY(p.valor),
     valor: p.valor,
     proyectado: !!p.proyectado,
+    incompleto: !!p.incompleto,
   }))
 
   // El corte real → proyectado. El primer punto proyectado se incluye en los
@@ -184,7 +197,19 @@ export default function ChartArea({
   const primerProyectado = puntos.findIndex((p) => p.proyectado)
   const hayProyectado = primerProyectado !== -1
   const reales = hayProyectado ? puntos.slice(0, primerProyectado + 1) : puntos
-  const proyectados = hayProyectado ? puntos.slice(Math.max(primerProyectado - 1, 0)) : []
+
+  // El segundo corte, proyectado → incompleto. Mismo criterio de solape: el
+  // primer punto incompleto cierra el tramo proyectado y abre el suyo, así la
+  // línea no se parte. Sin puntos incompletos, `primerIncompleto` es -1 y todo
+  // esto queda en cero trabajo: `proyectados` es el slice de siempre y
+  // `incompletos` está vacío, o sea el gráfico de dos estados intacto.
+  const primerIncompleto = puntos.findIndex((p) => p.incompleto)
+  const hayIncompleto = primerIncompleto !== -1
+  const finProyectados = hayIncompleto ? primerIncompleto + 1 : puntos.length
+  const proyectados = hayProyectado
+    ? puntos.slice(Math.max(primerProyectado - 1, 0), finProyectados)
+    : []
+  const incompletos = hayIncompleto ? puntos.slice(Math.max(primerIncompleto - 1, 0)) : []
 
   const y0 = escalaY(0)
   const baseArea = Math.min(Math.max(y0, MARGEN.arr), MARGEN.arr + altoPlot)
@@ -324,6 +349,35 @@ export default function ChartArea({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+        )}
+
+        {/* Tramo incompleto: mismo punteado que el proyectado pero apagado, y
+            con una divisoria vertical en el corte. El punteado solo no
+            alcanzaba —ya lo usa el proyectado—, y el color solo tampoco: en
+            una impresión blanco y negro desaparece. La divisoria es lo que se
+            ve en las dos. */}
+        {incompletos.length > 1 && (
+          <>
+            <line
+              x1={incompletos[0].x}
+              y1={MARGEN.arr}
+              x2={incompletos[0].x}
+              y2={MARGEN.arr + altoPlot}
+              stroke="var(--warn)"
+              strokeWidth={1}
+              strokeDasharray="3 3"
+            />
+            <polyline
+              points={aPuntos(incompletos)}
+              fill="none"
+              stroke="var(--warn)"
+              strokeWidth={L.trazo}
+              strokeDasharray="2 5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.85}
+            />
+          </>
         )}
 
         {/* Bajo cero: el tramo se repinta en rojo y se marcan los puntos */}

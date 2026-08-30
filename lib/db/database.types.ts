@@ -4958,6 +4958,7 @@ export type Database = {
       }
       v_cashflow: {
         Row: {
+          cola_incompleta: boolean | null
           entradas: number | null
           flujo_neto: number | null
           futura: boolean | null
@@ -5021,6 +5022,7 @@ export type Database = {
       }
       v_cashflow_mensual: {
         Row: {
+          cola_incompleta: boolean | null
           entradas: number | null
           flujo_neto: number | null
           futura: boolean | null
@@ -7587,6 +7589,10 @@ export type Database = {
           p_motivo: string
         }
         Returns: undefined
+      }
+      anular_pago: {
+        Args: { p_created_by?: string; p_motivo: string; p_pago_id: string }
+        Returns: string
       }
       anular_retiro_bar: {
         Args: {
