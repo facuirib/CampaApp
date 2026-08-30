@@ -1,6 +1,7 @@
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import EditorPlantillas from './EditorPlantillas'
+import EditorComprobantes from './EditorComprobantes'
 
 /**
  * Server Component delgado: lee el rol y pasa el permiso resuelto.
@@ -15,5 +16,15 @@ import EditorPlantillas from './EditorPlantillas'
  * `read-only` conserva.
  */
 export default async function PlantillasPage() {
-  return <EditorPlantillas puedeEditar={puede(await rolActual(), 'plantilla.editar')} />
+  const puedeEditar = puede(await rolActual(), 'plantilla.editar')
+
+  return (
+    <>
+      <EditorPlantillas puedeEditar={puedeEditar} />
+      {/* Aparte y no adentro del editor de reclamos: son otro mensaje, con otros
+          placeholders y sin canal de WhatsApp. Meterlos en el mismo formulario
+          obligaría a que cada campo pregunte de qué plantilla está hablando. */}
+      <EditorComprobantes puedeEditar={puedeEditar} />
+    </>
+  )
 }
