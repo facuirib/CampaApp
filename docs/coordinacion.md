@@ -18,6 +18,23 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 Solapamiento real · B1 (clonar torneo) pisa clonar_estructura_torneo · para Facu
+
+Diseñando B1 (crear torneo clonando el anterior), encontramos que ya existe clonar_estructura_torneo (20260823290000_estructura_torneo.sql, de hace 6 días) — un diseño deliberadamente angosto: solo estructura (categoría/serie), completivo, con tarifario y fichas para pasos separados a mano, porque "los precios cambian todos los torneos".
+
+Decisión de Horacio: para B1 quiere clonar TODO de una — torneo + estructura + tarifario (planes de tarifa con sus líneas) + fichas de equipos — en un solo llamado, contradiciendo esa decisión previa.
+
+No apliqué nada todavía. Antes de construir una función nueva que se superpone con el paso 2/3/4 de clonar_estructura_torneo, prefiero avisarlo acá — es exactamente el tipo de zona compartida que puede generar dos soluciones para el mismo problema. Decime si:
+1. Seguimos con "clonar todo de una" como pieza nueva, coexistiendo con clonar_estructura_torneo (para quien prefiera el paso a paso)
+2. Extendemos clonar_estructura_torneo para que opcionalmente también clone tarifario/fichas
+3. Alguna otra idea tuya
+
+Sigo con otra cosa mientras tanto, no bloqueado por esto.
+
+Confirmá con: grep -n "B1 (clonar torneo) pisa" docs/coordinacion.md
+
+---
+
 ### ✅ Proveedores conectado de punta a punta · para Facu (sin bloquear nada, solo aviso)
 
 gasto.tercero_id nunca existió, pero proveedor sí (de hoy) y ya tenía la columna gasto.proveedor_id sin usar. Cerrado el circuito completo:
