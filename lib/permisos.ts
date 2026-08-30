@@ -325,6 +325,20 @@ export const PERMISOS = {
     roles: SENSIBLE,
     donde: { fns: ['devengar_sueldos_socios'] },
   },
+  'pago.anular': {
+    // Mueve los libros: contraasiento del cobro y la deuda que se reabre. Va a
+    // SENSIBLE por lo mismo que `anular_asiento` y `crear_retiro_socio` — y por
+    // una razón propia: anular un cobro le vuelve a facturar la deuda a un
+    // equipo que ya pagó. Es la clase de error que se descubre por el reclamo.
+    //
+    // La protege una guarda dentro de la función, no una policy: las tablas que
+    // toca —`asiento`, `pago_imputacion`— las escribe medio sistema, así que
+    // por RLS entrarían bar y operador. Medido: admin y finanzas pueden;
+    // operador, bar y lectura los frena la guarda con su mensaje.
+    que: 'Anular un pago con contraasiento y reabrir la deuda',
+    roles: SENSIBLE,
+    donde: { guarda: 'anular_pago' },
+  },
   'socio.retirar': {
     // Por guarda y no por policy: la función no escribe ninguna tabla del
     // circuito societario —arma el movimiento con crear_asiento— así que

@@ -1,7 +1,14 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
-import { formatDate } from '@/lib/format'
-import { ChartArea, DataTable, KpiCard, type ColumnDef, type PuntoSerie } from '@/components/ui'
+import { formatDate, formatMoney } from '@/lib/format'
+import {
+  ChartArea,
+  DataTable,
+  KpiCard,
+  type ColumnDef,
+  type PuntoSerie,
+  type ValorCelda,
+} from '@/components/ui'
 
 type Vista = 'semanal' | 'mensual'
 
@@ -23,6 +30,12 @@ interface Periodo {
   /** El inicio del período en ISO: el lunes de la semana o el 1º del mes. */
   inicio: string
   futura: boolean
+  /**
+   * El período cae después del último con gasto estimado: tiene los ingresos
+   * comprometidos y ninguno de los egresos que los acompañan. Sale de la vista
+   * —es un agregado sobre toda la serie— y no se recalcula acá.
+   */
+  cola_incompleta: boolean
   entradas: number | null
   salidas: number | null
   flujo_neto: number | null
@@ -32,7 +45,7 @@ interface Periodo {
 interface FilaPeriodo {
   clave: string
   periodo: string
-  tramo: string
+  tramo: ValorCelda
   entradas: number | null
   salidas: number | null
   flujo_neto: number | null
@@ -42,7 +55,7 @@ interface FilaPeriodo {
 function columnas(rotuloPeriodo: string): ColumnDef<FilaPeriodo>[] {
   return [
     { key: 'periodo', label: rotuloPeriodo, width: 112 },
-    { key: 'tramo', label: 'Tramo', width: 104 },
+    { key: 'tramo', label: 'Tramo', format: 'badge', width: 118 },
     { key: 'entradas', label: 'Entradas', format: 'money', width: 140 },
     { key: 'salidas', label: 'Salidas', format: 'money', width: 140 },
     { key: 'flujo_neto', label: 'Flujo neto', format: 'money', width: 140 },
@@ -127,6 +140,7 @@ export default async function ProyeccionPage({
         const norm: Periodo[] = (f.data ?? []).map((r) => ({
           inicio: r.mes ?? '',
           futura: !!r.futura,
+          cola_incompleta: !!r.cola_incompleta,
           entradas: r.entradas,
           salidas: r.salidas,
           flujo_neto: r.flujo_neto,
@@ -151,6 +165,7 @@ export default async function ProyeccionPage({
         const norm: Periodo[] = (f.data ?? []).map((r) => ({
           inicio: r.semana ?? '',
           futura: !!r.futura,
+          cola_incompleta: !!r.cola_incompleta,
           entradas: r.entradas,
           salidas: r.salidas,
           flujo_neto: r.flujo_neto,
@@ -168,18 +183,40 @@ export default async function ProyeccionPage({
   const filaFinal = filas[filas.length - 1]
   const filaQuiebre = filas.find((f) => (f.saldo_proyectado ?? 0) < 0)
 
+  // Dónde arranca la cola incompleta. Es un `find` sobre la columna que ya
+  // trae la vista, no una regla escrita de nuevo: el día que se cargue el
+  // presupuesto del Apertura, la marca retrocede sola y esto la sigue.
+  const filaCorte = filas.find((f) => f.cola_incompleta)
+
+  // Lo único que se suma en toda la pantalla, y es deliberado: es el tamaño
+  // del agujero —cuántos ingresos hay sin ningún gasto al lado—, un número que
+  // NO existe en ninguna vista porque no es flujo ni saldo, es la medida de lo
+  // que falta. Si algún día hace falta en otra pantalla, se muda a SQL.
+  const ingresosSinGasto = filas
+    .filter((f) => f.cola_incompleta)
+    .reduce((t, f) => t + (f.entradas ?? 0), 0)
+
   const rotular = (inicio: string) => (esMensual ? formatMes(inicio) : formatDate(inicio))
 
   const serie: PuntoSerie[] = filas.map((f) => ({
     fecha: f.inicio,
     valor: f.saldo_proyectado ?? 0,
     proyectado: f.futura,
+    incompleto: f.cola_incompleta,
   }))
 
   const periodos: FilaPeriodo[] = filas.map((f, i) => ({
     clave: f.inicio || String(i),
     periodo: rotular(f.inicio),
-    tramo: f.futura ? 'Proyectado' : 'Real',
+    // El tercer valor de la columna que ya existía. Va como badge y no como
+    // texto: en una tabla de seis columnas de números, una palabra más se lee
+    // como una etiqueta cualquiera. El badge es lo que hace que la fila de
+    // mayo 2027 no se pueda mirar sin verlo.
+    tramo: f.cola_incompleta
+      ? { estado: 'porVencer' as const, label: 'Incompleto' }
+      : f.futura
+        ? 'Proyectado'
+        : 'Real',
     entradas: f.entradas,
     salidas: f.salidas,
     flujo_neto: f.flujo_neto,
@@ -220,6 +257,27 @@ export default async function ProyeccionPage({
               Sin ella, una curva que sólo sube se lee como una proyección
               optimista y en realidad es una proyección INCOMPLETA: le faltan
               todos los egresos. */}
+          {/* La versión PARCIAL de la advertencia de abajo, y por eso van las
+              dos y no una sola con un `else`: dicen cosas distintas.
+
+              La vieja avisa que NO HAY presupuesto en ningún lado. Ésta avisa
+              que sí hay, pero que **se termina antes que los ingresos** — que
+              es el caso más difícil de ver, porque la pantalla se ve normal
+              hasta que uno mira el último renglón. Se excluyen entre sí solas:
+              si no hay ningún gasto estimado, `cola_incompleta` queda en false
+              para todos (el `coalesce` de la vista) y ésta no aparece. */}
+          {filaCorte && (
+            <p className="mb-6 rounded-md bg-warnbg px-4 py-3 text-[11px] leading-relaxed text-warntx">
+              <strong className="font-bold">
+                Desde {rotular(filaCorte.inicio)} la proyección tiene ingresos pero no gastos.
+              </strong>{' '}
+              Son {formatMoney(ingresosSinGasto)} de cuotas ya comprometidas sin nada de lo que
+              cuesta correr el torneo: el saldo de esa cola es optimista. No está mal calculado —
+              está calculado sobre datos que faltan. Se corrige cargando el presupuesto del torneo
+              que las genera.
+            </p>
+          )}
+
           {periodosConEgresos === 0 && (
             <p className="mb-6 rounded-md bg-warnbg px-4 py-3 text-[11px] text-warntx">
               <strong className="font-bold">Proyección sin egresos presupuestados.</strong> Ningún{' '}
@@ -237,14 +295,29 @@ export default async function ProyeccionPage({
               icon="banco"
               subtitulo="Caja real, hoy"
             />
+            {/* Es el número más leído de la pantalla y el más engañoso cuando
+                la cola está incompleta: nadie va a bajar hasta la última fila
+                de la tabla para descubrirlo. El VALOR no cambia —sigue siendo
+                el de la vista, al peso—; lo que cambia es que deja de
+                presentarse como una cifra tranquila.
+
+                El rojo se lo queda el quiebre de caja, que es un problema real
+                y peor. Esto es `advertencia`: no está mal, está incompleto. */}
             <KpiCard
-              tono={(filaFinal?.saldo_proyectado ?? 0) < 0 ? 'alerta' : 'info'}
+              tono={
+                (filaFinal?.saldo_proyectado ?? 0) < 0
+                  ? 'alerta'
+                  : filaFinal?.cola_incompleta
+                    ? 'advertencia'
+                    : 'info'
+              }
               titulo="Saldo proyectado"
               valor={filaFinal?.saldo_proyectado ?? 0}
               icon="proyeccion"
               subtitulo={
                 filaFinal
-                  ? `Al cierre de ${periodos[periodos.length - 1]?.periodo}`
+                  ? `Al cierre de ${periodos[periodos.length - 1]?.periodo}` +
+                    (filaCorte ? ` · sin gastos desde ${rotular(filaCorte.inicio)}` : '')
                   : 'A fin del rango'
               }
             />

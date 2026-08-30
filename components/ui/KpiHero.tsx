@@ -27,6 +27,9 @@ export interface KpiHeroProps {
 const NUMERO: Record<TonoKpi, string> = {
   positivo: 'text-ok',
   alerta: 'text-err',
+  // Sobre el navy del hero el `--warn` pelado queda oscuro: va el `warnbg`,
+  // que es el mismo amarillo aclarado y el que ya se usa contra fondo oscuro.
+  advertencia: 'text-warnbg',
   info: 'text-flyway',
   neutro: 'text-white',
 }

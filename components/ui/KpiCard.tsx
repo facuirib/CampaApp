@@ -10,7 +10,14 @@ import { formatEntero, formatPorcentaje, formatUSD } from '@/lib/format'
  * roja, cambia acá y no en las pantallas que la muestran. Es el mismo
  * criterio que el `estado` del Badge.
  */
-export type TonoKpi = 'positivo' | 'alerta' | 'info' | 'neutro'
+/**
+ * `advertencia` no es una `alerta` más suave: dice otra cosa. `alerta` es "este
+ * número está mal" —la caja se va abajo de cero—; `advertencia` es "este número
+ * puede estar bien y aun así no ser de fiar", que es el caso del saldo
+ * proyectado cuando la cola de la proyección no tiene gastos cargados. Si los
+ * dos fueran rojos, el rojo dejaría de significar problema.
+ */
+export type TonoKpi = 'positivo' | 'alerta' | 'advertencia' | 'info' | 'neutro'
 
 /**
  * `money` lleva `$`; `entero` es un conteo y no lleva; `usd` es la otra moneda.
@@ -73,6 +80,7 @@ export interface KpiCardProps extends ValorKpi {
 const BARRA: Record<TonoKpi, string> = {
   positivo: 'border-l-ok',
   alerta: 'border-l-err',
+  advertencia: 'border-l-warn',
   info: 'border-l-blue',
   neutro: 'border-l-line',
 }
@@ -81,6 +89,7 @@ const BARRA: Record<TonoKpi, string> = {
 const TRAZO: Record<TonoKpi, string> = {
   positivo: 'text-ok',
   alerta: 'text-err',
+  advertencia: 'text-warn',
   info: 'text-blue',
   neutro: 'text-muted',
 }

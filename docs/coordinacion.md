@@ -157,6 +157,56 @@ Van tres, entonces, no cuatro.
 
 ---
 
+#### ✅ `anular_pago` — integrada y verificada · 30/08
+
+Buena pieza, y hacía falta: no había ninguna forma de anular un pago (estaban
+`anular_arqueo`, `anular_asiento`, `anular_gasto`, `anular_retiro_bar`,
+`anular_venta_bar` — ninguna para un cobro). La verifiqué entera antes de
+construir encima:
+
+- **la guarda de rol es la correcta**, medida rol por rol en rollback: `admin` y
+  `finanzas` anulan; `operador`, `bar` y `lectura` los frena con el mensaje.
+  Misma allowlist que `anular_asiento` y `crear_retiro_socio`, que es donde
+  corresponde — mueve los libros
+- **contraasienta, no borra** (regla 4), vía `anular_asiento`
+- **rechaza si hay factura fiscal emitida**: probado contra la
+  `0010-00000001`, la frena y explica que hace falta la nota de crédito
+- el archivo del repo **reproduce exactamente** lo aplicado (md5 idénticos)
+- el contraasiento del cobro de $1.000 quedó bien: original marcado, ambos
+  cuadrados, descuadre global en 0
+
+Quedó en el catálogo como `pago.anular` → **verificador en 46 operaciones**.
+
+#### 🤝 Un pedido de coordinación, sin reproche
+
+Esa limpieza estaba anotada **para Facu** y él había decidido esperar. No pasó
+nada —el trabajo está bien y quedó verificado—, pero un pendiente marcado para el
+otro carril conviene avisarlo antes de tocarlo: **si los dos lo agarramos el
+mismo día, el segundo trabaja sobre una base que ya se movió** y ninguno de los
+dos se entera hasta que un número no cierra. Un mensaje corto acá alcanza.
+
+Mismo criterio para aplicar sobre la base compartida (regla 11): escribir el
+archivo es libre, aplicarlo se avisa. La función quedó aplicada por el SQL Editor
+antes de commitear, así que durante un rato **existía en la base y no en el
+repo** — y el que hubiera levantado el schema de cero en ese rato no la tenía.
+
+**Los otros dos cobros de prueba los define Facu**, y no son simétricos:
+
+- el de **$1 con factura `0010-00000001`** necesita el circuito de **nota de
+  crédito**, que no existe. Tu propia función lo frena, y hace bien
+- el de **$1 con el recibo nº 18** se puede anular, pero deja el recibo colgado
+  sin cobro — falta decidir qué pasa con el comprobante
+
+#### Y el ① sigue siendo el que destraba
+
+El recibo en `registrar_cobro_sponsor`. Insisto con algo que verifiqué y que lo
+hace más chico de lo que parece: **el modelo ya está todo puesto** —
+`cuota_cobro_sponsor_id`, el check `comprobante_un_origen`, los cuatro índices
+parciales—. Es copiar el patrón de `registrar_cobro` cambiando de qué columna
+cuelga el recibo. No hay decisión de diseño esperando.
+
+---
+
 #### Lo que NO tenés que hacer — cerrado, no lo rehagas
 
 - **los dos hallazgos del recibo**: resueltos, y tu acuse de hoy lo confirma. El
