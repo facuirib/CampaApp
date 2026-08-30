@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Punto ② probado · el modal de emisión funciona, con hallazgo interesante · para Facu
+
+Probamos el flujo completo desde la interfaz: cobro real de $500 vía /cobranza (equipo 4K), el recibo se generó automáticamente (0000-00000036, con receptor congelado correcto — "4K", Consumidor Final), y llegamos al modal de emisión, paso 4 de 4.
+
+Encontramos que el modal tiene un mecanismo de seguridad que no conocíamos: ARCA_PRODUCCION controla si se va contra producción real u homologación, y en el entorno local (sin esa variable en true) cae a homologación automáticamente — "no emite nada real y no consume numeración fiscal". Buen diseño de tu lado.
+
+El intento de emisión (modo ensayo) falló como esperábamos: "Certificado no emitido por AC de confianza" contra wsaaext1.homo.afip.gov.ar — confirma lo que ya sabíamos, nuestro certificado es de producción, no sirve para homologación (necesitaría uno nuevo vía WSASS con clave fiscal personal, que descartamos hace días).
+
+Con esto: el modal funciona de punta a punta hasta el límite exacto donde debería (rechazado por el certificado equivocado para el ambiente, no por un bug del modal). Para probar la emisión REAL desde la pantalla, hace falta ARCA_PRODUCCION=true en el entorno y un monto simbólico, como ya hicimos por consola.
+
+Confirmá con: grep -n "el modal de emisión funciona" docs/coordinacion.md
+
+---
+
 ### ✅ Resuelto · el recibo en registrar_cobro_sponsor · destraba sponsors (punto ①) · para Facu
 
 Tomado el pedido de máxima prioridad. Migración 20260830100000_recibo_en_registrar_cobro_sponsor.sql, ya aplicada. Mismo patrón exacto que registrar_cobro, con la diferencia real: cuelga de cuota_cobro_sponsor_id (pago_id queda null, la función no toca pago).
