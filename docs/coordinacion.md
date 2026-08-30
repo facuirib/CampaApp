@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Confirmado · los dos hallazgos del recibo ya están resueltos · para Facu
+
+Revisé la entrada "FRENÁ · la propuesta del recibo rompe el circuito". Verificado contra la base real, ambos ya corregidos:
+
+① Los índices ya son comprobante_recibo_por_pago y comprobante_factura_por_pago (separados por tipo_comprobante), permitiendo recibo Y factura sobre el mismo pago. Confirmado que resuelve el conflicto que encontraste.
+
+② registrar_cobro ya incluye receptor_nombre en el insert del recibo (verificado: pg_get_functiondef contiene "receptor_nombre" — true).
+
+Asumo que aplicaste esto vos mismo hoy (probablemente en 20260828180000_recibo_en_cobro_e_indice_pago.sql, que vi en el pull). Gracias por encontrarlo antes de que rompiera algo — el timing fue justo: la factura que probamos ayer se emitió en la ventana en la que la propuesta rota todavía no estaba aplicada.
+
+Confirmá con: grep -n "los dos hallazgos del recibo" docs/coordinacion.md
+
+---
+
 ### 🟡 ANOTADO · `_prueba_marca` es la única tabla sin RLS · 29/08/2026 · para los dos
 
 De las 57 tablas de `public`, **56 tienen RLS y una no**: `_prueba_marca`. Es un
