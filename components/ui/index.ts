@@ -61,6 +61,7 @@ export {
   type VariacionKpi,
 } from './KpiCard'
 export { default as KpiHero, type KpiHeroProps } from './KpiHero'
+export { default as Marco, type MarcoProps } from './Marco'
 export { default as Money, type MoneyProps } from './Money'
 export { default as Select, type SelectProps } from './Select'
 export {

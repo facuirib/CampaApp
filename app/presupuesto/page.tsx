@@ -4,7 +4,6 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { KpiCard } from '@/components/ui'
 import EditorPresupuesto, { type AmbitoPresupuesto, type LineaPresupuesto } from './EditorPresupuesto'
-import VsReal, { type FilaAnual, type FilaKpi, type FilaMes } from './VsReal'
 import type { Database } from '@/lib/db/database.types'
 
 /**
@@ -22,42 +21,10 @@ import type { Database } from '@/lib/db/database.types'
  * se compara un presupuesto sin fecha contra un gasto que sí la tiene.
  */
 
-/** El primer día del mes corriente en Córdoba, para el corte del vs-real. */
-function hoyCordoba(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Cordoba',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
-
 type FilaAmbito = Database['public']['Views']['v_presupuesto_ambito']['Row']
 type FilaLinea = Database['public']['Views']['v_presupuesto_linea']['Row']
 
-export default async function PresupuestoPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ vista?: string; corte?: string; tabla?: string }>
-}) {
-  const params = await searchParams
-  const vista = params.vista === 'vs-real' ? 'vs-real' : 'carga'
-  const corte = params.corte === 'todo' ? 'todo' : 'hasta_hoy'
-  const tabla = params.tabla === 'anual' ? 'anual' : 'mensual'
-
-  const hrefCon = (extra: Record<string, string | null>) => {
-    const p = new URLSearchParams()
-    const base: Record<string, string | null> = {
-      vista: vista === 'carga' ? null : vista,
-      corte: corte === 'hasta_hoy' ? null : corte,
-      tabla: tabla === 'mensual' ? null : tabla,
-      ...extra,
-    }
-    for (const [k, v] of Object.entries(base)) if (v) p.set(k, v)
-    const q = p.toString()
-    return q ? `/presupuesto?${q}` : '/presupuesto'
-  }
-
+export default async function PresupuestoPage() {
   const supabase = await createClient()
 
   const [ambitosRes, lineasRes, catsRes, torneosRes, ejerciciosRes, sinPresupuestarRes] =
@@ -75,15 +42,6 @@ export default async function PresupuestoPage({
       // El conteo lo hace la base, no el front: `head` no trae filas.
       supabase.from('cat_gasto').select('id', { count: 'exact', head: true }).eq('activo', true),
     ])
-
-  const [kpiRes, mesRes, anualRes] =
-    vista === 'vs-real'
-      ? await Promise.all([
-          supabase.from('v_presupuesto_vs_real_kpi').select('*'),
-          supabase.from('v_presupuesto_vs_real').select('*').order('mes').order('categoria'),
-          supabase.from('v_presupuesto_vs_real_anual').select('*').order('estado').order('categoria'),
-        ])
-      : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }]
 
   const error =
     ambitosRes.error ?? lineasRes.error ?? catsRes.error ?? torneosRes.error ?? ejerciciosRes.error
@@ -181,41 +139,6 @@ export default async function PresupuestoPage({
           Un aviso, no un error: presupuestar todo no es obligatorio. Pero lo
           que no está presupuestado NO se proyecta, y sin decirlo la curva de
           /proyeccion se lee como completa cuando no lo está. */}
-      {/* ── Las dos pestañas ────────────────────────────────────────────────
-          Cargar y controlar son dos tareas con ritmos distintos: una se hace
-          una vez por torneo, la otra se mira seguido. El estado va en la URL. */}
-      <div className="mb-4 inline-flex rounded-md border border-line bg-white p-0.5">
-        {(
-          [
-            ['carga', 'Carga'],
-            ['vs-real', 'Vs real'],
-          ] as const
-        ).map(([v, label]) => (
-          <Link
-            key={v}
-            href={hrefCon({ vista: v === 'carga' ? null : v, corte: null, tabla: null })}
-            scroll={false}
-            className={`rounded-[5px] px-4 py-1.5 text-[11px] font-bold transition ${
-              vista === v ? 'bg-blue-d text-white' : 'text-muted hover:text-ink'
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
-
-      {vista === 'vs-real' ? (
-        <VsReal
-          kpis={(kpiRes.data ?? []) as FilaKpi[]}
-          meses={(mesRes.data ?? []) as unknown as FilaMes[]}
-          anual={(anualRes.data ?? []) as unknown as FilaAnual[]}
-          corte={corte}
-          tabla={tabla}
-          mesActual={`${hoyCordoba().slice(0, 7)}-01`}
-          hrefCon={hrefCon}
-        />
-      ) : (
-      <>
       {sinPresupuestar > 0 && (
         <p className="mb-4 rounded-md bg-warnbg px-4 py-3 text-[11px] text-warntx">
           <strong className="font-bold">
@@ -241,16 +164,11 @@ export default async function PresupuestoPage({
         ejercicios={(ejerciciosRes.data ?? []).map((e) => ({ id: e.id, anio: e.anio }))}
       />
 
-      </>
-      )}
-
-      {vista === 'carga' && (
       <p className="mt-5 text-[11px] text-muted">
         El <strong className="font-semibold">factor</strong> —partidos, días de cancha o meses— no
         se edita: sale del calendario del torneo y del ejercicio. Se muestra para que se vea de
         dónde sale cada total, no sólo el resultado.
       </p>
-      )}
     </div>
   )
 }

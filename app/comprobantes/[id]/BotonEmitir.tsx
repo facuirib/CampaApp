@@ -32,6 +32,16 @@ export default function BotonEmitir(props: {
     setContexto(c)
   }
 
+  // Se pide de nuevo después de editar el cliente desde adentro del modal de
+  // emisión, para que el paso 2 refleje los datos nuevos sin cerrar y reabrir
+  // todo el flujo. Si el refetch falla, se queda con el contexto que ya tenía
+  // — no tiene sentido tirar abajo un modal que el usuario recién usó con
+  // éxito por un error de red al refrescar.
+  async function refrescarContexto() {
+    const c = await contextoEmision(props.comprobanteId)
+    if (c) setContexto(c)
+  }
+
   return (
     <>
       <Button icon="comprobante" loading={abriendo} disabled={abriendo} onClick={abrir}>
@@ -39,7 +49,12 @@ export default function BotonEmitir(props: {
       </Button>
       {error && <p className="mt-2 text-[11px] text-errtx">{error}</p>}
       {contexto && (
-        <ModalEmitir {...props} contexto={contexto} onCerrar={() => setContexto(null)} />
+        <ModalEmitir
+          {...props}
+          contexto={contexto}
+          onCerrar={() => setContexto(null)}
+          onContextoActualizado={refrescarContexto}
+        />
       )}
     </>
   )

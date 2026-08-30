@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { Badge, Button, Card } from '@/components/ui'
+import { Badge, Button, Marco } from '@/components/ui'
 import { formatMoneyExacto } from '@/lib/format'
 
 import { emitirFacturaDeCobro, type ContextoEmision, type ResultadoEmision } from './emitir'
+import ModalEditarCliente from './ModalEditarCliente'
 
 /**
  * El modal de emisión: cuatro pasos, y el último es una reconfirmación.
@@ -30,6 +30,7 @@ export default function ModalEmitir({
   detalle,
   fecha,
   onCerrar,
+  onContextoActualizado,
 }: {
   comprobanteId: string
   contexto: ContextoEmision
@@ -37,11 +38,13 @@ export default function ModalEmitir({
   detalle: string | null
   fecha: string
   onCerrar: () => void
+  onContextoActualizado: () => void
 }) {
   const [paso, setPaso] = useState<Paso>(1)
   const [punto, setPunto] = useState<number | null>(null)
   const [emitiendo, setEmitiendo] = useState(false)
   const [resultado, setResultado] = useState<ResultadoEmision | null>(null)
+  const [editando, setEditando] = useState(false)
 
   const puntoElegido = contexto.puntos.find((p) => p.numero === punto)
   const esA = contexto.letra === 'A'
@@ -184,12 +187,12 @@ export default function ModalEmitir({
                 Faltan datos para emitir una Factura A
               </p>
               <p className="mt-1 text-[11.5px] text-errtx">Falta: {contexto.falta}.</p>
-              <Link
-                href={`/clientes/${contexto.terceroId}`}
+              <button
+                onClick={() => setEditando(true)}
                 className="mt-2 inline-block text-[11.5px] font-semibold text-errtx underline"
               >
                 Completar la ficha del cliente →
-              </Link>
+              </button>
             </div>
           )}
 
@@ -200,12 +203,12 @@ export default function ModalEmitir({
                 <strong className="font-semibold">Factura B a Consumidor Final sin identificar</strong>.
                 Es válido, pero si el equipo la necesita a su nombre hay que cargarle los datos.
               </p>
-              <Link
-                href={`/clientes/${contexto.terceroId}`}
+              <button
+                onClick={() => setEditando(true)}
                 className="mt-2 inline-block text-[11.5px] font-semibold text-warntx underline"
               >
                 Cargar los datos del cliente →
-              </Link>
+              </button>
             </div>
           )}
 
@@ -302,44 +305,22 @@ export default function ModalEmitir({
           </Pie>
         </>
       )}
+
+      {editando && (
+        <ModalEditarCliente
+          contexto={contexto}
+          onCerrar={() => setEditando(false)}
+          onGuardado={() => {
+            setEditando(false)
+            onContextoActualizado()
+          }}
+        />
+      )}
     </Marco>
   )
 }
 
 // ── Piezas del modal ───────────────────────────────────────────────────────
-
-function Marco({
-  titulo,
-  paso,
-  children,
-  onCerrar,
-}: {
-  titulo: string
-  paso?: Paso
-  children: React.ReactNode
-  onCerrar: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-      <div className="w-full max-w-[520px]">
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[15px] font-extrabold text-ink">{titulo}</h2>
-            {paso && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                Paso {paso} de 4
-              </span>
-            )}
-          </div>
-          {children}
-        </Card>
-      </div>
-      <button className="sr-only" onClick={onCerrar}>
-        Cerrar
-      </button>
-    </div>
-  )
-}
 
 const Pie = ({ children }: { children: React.ReactNode }) => (
   <div className="mt-6 flex justify-between gap-3">{children}</div>

@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Dos cambios de UI · modal de edición de cliente + presupuesto sin pestaña Vs Real · para Facu
+
+Dos pedidos de Horacio, resueltos hoy:
+
+1. En el paso 2 del modal de emisión de factura (/comprobantes), completar/cargar datos del cliente ahora abre un modal encima, sin salir de la pantalla — antes navegaba a /clientes/[terceroId]. Extraído FormularioFiscal.tsx (el formulario de FichaCliente.tsx, sin el Card envolvente) para reusarlo en los dos lugares. Marco (el shell de modal) movido de ModalEmitir.tsx a components/ui/, ahora reusable. ContextoEmision ampliado con los campos que el formulario necesita (condicionIvaId, docTipo, docNro, condiciones, tipo, y los 4 campos que faltaban para no perder datos al guardar — razon_social, domicilio_fiscal, email, contacto, encontrado como bug real antes de aplicar).
+
+2. /presupuesto: sacada la pestaña "Vs. real" (VsReal.tsx borrado), queda solo la vista de Carga. Sin sistema de tabs, page.tsx simplificado.
+
+Los dos verificados con tsc y build limpios. El punto 1 no lo probé en vivo en el navegador — avisame si preferís que lo pruebe, o lo revisás vos.
+
+Confirmá con: grep -n "modal de edición de cliente" docs/coordinacion.md
+
+---
+
 ### 🟢 Fix · key faltante en MatrizPL (Resultados) · para Facu
 
 Console error real: "Each child in a list should have a unique key prop" en app/resultados/MatrizPL.tsx. El key estaba puesto en el <tr> interno, pero React lo necesita en el elemento que el .map() devuelve directamente — el Fragment que envolvía el bloque.

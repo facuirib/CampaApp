@@ -216,6 +216,19 @@ export interface ContextoEmision {
   terceroId: string
   produccion: boolean
   puntos: { numero: number; nombre: string; domicilio: string }[]
+  condicionIvaId: number | null
+  docTipo: number | null
+  docNro: string | null
+  condiciones: { id: number; descripcion: string }[]
+  // Los cuatro que le faltan a DatosFiscales para no pisar con NULL lo que el
+  // cliente ya tenía cargado: guardarDatosFiscales manda los 7 campos
+  // siempre, así que si estos vinieran vacíos, "editar cliente" desde acá
+  // borraría razón social, domicilio, email y contacto reales al guardar.
+  tipo: string
+  razonSocial: string | null
+  domicilioFiscal: string | null
+  email: string | null
+  contacto: string | null
 }
 
 export async function contextoEmision(comprobanteId: string): Promise<ContextoEmision | null> {
@@ -230,9 +243,10 @@ export async function contextoEmision(comprobanteId: string): Promise<ContextoEm
     .single()
   if (!recibo?.tercero_id) return null
 
-  const [{ data: cliente }, { data: puntos }] = await Promise.all([
+  const [{ data: cliente }, { data: puntos }, { data: condiciones }] = await Promise.all([
     supabase.from('v_cliente').select('*').eq('tercero_id', recibo.tercero_id).single(),
     supabase.from('punto_venta').select('numero, nombre, domicilio').eq('activo', true).order('numero'),
+    supabase.from('condicion_iva_receptor').select('id, descripcion').eq('activa', true).order('id'),
   ])
 
   const esRI = cliente?.condicion_iva_id === CONDICION_RI
@@ -250,5 +264,14 @@ export async function contextoEmision(comprobanteId: string): Promise<ContextoEm
     terceroId: recibo.tercero_id,
     produccion: esProduccion(),
     puntos: puntos ?? [],
+    condicionIvaId: cliente?.condicion_iva_id ?? null,
+    docTipo: cliente?.doc_tipo ?? null,
+    docNro: cliente?.doc_nro ?? null,
+    condiciones: (condiciones ?? []).map((c) => ({ id: c.id, descripcion: c.descripcion })),
+    tipo: cliente?.tipo ?? 'equipo',
+    razonSocial: cliente?.razon_social ?? null,
+    domicilioFiscal: cliente?.domicilio_fiscal ?? null,
+    email: cliente?.email ?? null,
+    contacto: cliente?.contacto ?? null,
   }
 }
