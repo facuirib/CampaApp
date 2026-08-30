@@ -323,19 +323,31 @@ construir encima:
 
 Quedó en el catálogo como `pago.anular` → **verificador en 46 operaciones**.
 
-#### 📌 Falta la pantalla para cobrar un sponsor — y es lo último de sponsors
+#### ✅ ~~Falta la pantalla para cobrar un sponsor~~ — HECHA · 30/08
 
-Relevado hoy: **`registrar_cobro_sponsor` no se llama desde ninguna pantalla.**
-Un `grep` sobre `app/` no la encuentra en ningún lado — sólo existe como función.
+`/sponsors/[sponsorId]/cobrar`, calcada de `/cobranza/[terceroId]/cobrar`, y el
+botón «Cobrar una cuota» en el detalle, debajo del KpiCard que muestra el
+número. La plata ya se toca.
 
-`/sponsors/[sponsorId]` muestra «Pendiente de cobrar» en un KpiCard, con el
-número correcto, y **no hay manera de cobrarlo**. La plata se ve y no se toca:
-hoy un cobro de sponsor se registra llamando a la función a mano.
+Calcada con tres cosas **de menos**, cada una por su razón:
 
-Con el recibo ya resuelto y la facturación reusando el modal, **esto es lo único
-que le falta al módulo para estar cerrado de punta a punta desde la pantalla**.
-Es un botón en el detalle del sponsor, sobre la cuota pendiente, con los mismos
-campos que ya pide la función: medio, fecha y predio si es efectivo.
+- **sin monto**: la cuota de sponsor se cobra entera, el monto lo pone el
+  contrato y la función lo lee de la cuota. Un campo editable sería un campo que
+  la función ignora — peor que no tenerlo, porque miente sobre lo que se decide
+- **sin imputación**: una cuota, un cobro
+- **sin cheque**: `registrar_cobro_sponsor` acepta `transferencia`, `central` y
+  `efectivo`. Ofrecer cheque sería ofrecer un botón que la base rechaza
+
+Es Client Component + `rpc`, no Server Action, siguiendo la convención: **la
+puerta es la función, no el transporte**. Probado en rollback: efectivo sin
+predio frenado, con predio cobra y el predio queda en el asiento, «cheque»
+rechazado, doble cobro rechazado, y el recibo nace con el tercero resuelto y
+`letra=B` — o sea que sigue el circuito hasta la factura.
+
+Roles medidos contra la función: **admin, finanzas y operador cobran**; `bar` lo
+frena la policy de `comprobante` y `lectura` la de `asiento`. Quedó como
+`sponsor.cobrar` en el catálogo (verificador en 47) y la ruta entró en
+`RUTAS_PROTEGIDAS`.
 
 #### 🤝 Un pedido de coordinación, sin reproche
 
