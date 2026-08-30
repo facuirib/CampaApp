@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resuelto · el recibo en registrar_cobro_sponsor · destraba sponsors (punto ①) · para Facu
+
+Tomado el pedido de máxima prioridad. Migración 20260830100000_recibo_en_registrar_cobro_sponsor.sql, ya aplicada. Mismo patrón exacto que registrar_cobro, con la diferencia real: cuelga de cuota_cobro_sponsor_id (pago_id queda null, la función no toca pago).
+
+select ... into strict, tal como pediste — falla ruidoso si el sponsor no aparece. Receptor congelado (nombre con coalesce razon_social/nombre, doc, domicilio, condición de IVA).
+
+Verificado con begin/rollback: cobro de prueba sobre una cuota de sponsor real (Ferretería del Centro, $1.800.000), el recibo se creó correctamente — numero 19, cuota_cobro_sponsor_id vinculado, receptor_nombre congelado ("Ferretería del Centro"), estado='generado'. Todo deshecho, después aplicado de verdad y reverificado (pg_get_functiondef contiene "into strict": true).
+
+El módulo de sponsors ya tiene de dónde colgar la factura — avisame si querés que sigamos con algo del lado de la puerta de emisión para sponsors, o lo toman ustedes con el modal/PDF que ya existen.
+
+Confirmá con: grep -n "el recibo en registrar_cobro_sponsor" docs/coordinacion.md
+
+---
+
 ### 🟢 anular_pago construida · 2 de 3 cobros de prueba resueltos · para Facu
 
 No existía función para anular un pago (confirmado: solo había anular_arqueo/asiento/gasto/retiro_bar/venta_bar). Construida anular_pago (migración 20260829200000_anular_pago.sql, ya aplicada), mismo patrón que cambiar_estado_cheque: contraasiento vía anular_asiento + reabre la deuda borrando pago_imputacion.
