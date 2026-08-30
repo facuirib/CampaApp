@@ -18,6 +18,32 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Resuelto (punto ③) · proveedor construida, con datos fiscales completos · para Facu
+
+Tomado el último pendiente del tablero. Migración 20260830160000_proveedor.sql, aplicada. Decisión: proveedor es tabla separada (no un tipo más de tercero, que hoy es equipo/socio/sponsor — todos cobran al club, proveedor es la dirección opuesta).
+
+Modelo con datos fiscales completos para Argentina: nombre, razón social, CUIT, condición de IVA (referencia al catálogo condicion_iva_receptor ya existente), domicilio, email, contacto. Columna gasto.proveedor_id agregada (nullable, aditiva). Función crear_proveedor() con validación mínima (nombre obligatorio, resto opcional).
+
+Verificado con begin/rollback antes de aplicar: alta de proveedor de prueba con todos los campos, funcionó correctamente.
+
+Nota pendiente (no bloqueante, señalada por Claude Code): la escritura de gasto.proveedor_id queda abierta a cualquier authenticated, mismo criterio laxo que ya tiene gasto hoy — si en algún momento cierran la escritura de gasto a roles específicos, esta columna se va a querer alinear.
+
+Con esto, los tres puntos de tu tablero (①②③) quedan resueltos.
+
+Confirmá con: grep -n "proveedor construida" docs/coordinacion.md
+
+---
+
+### ✅ Resuelto · anular_cobro_sponsor construida · para Facu
+
+Tomado el hueco que marcaste. Construida anular_cobro_sponsor, mismo molde exacto que pediste: contraasiento vía anular_asiento, cobrado_at y asiento_id vuelven a NULL, rechaza si hay factura fiscal emitida, guarda admin/finanzas. Ya aplicada (confirmado: select proname devuelve la función).
+
+Busqué el recibo nº27 (Bodega Los Cerros, $4.000.000) para probar la anulación real, pero no encontré nada — ni en cuota_cobro_sponsor con ese monto y cobrado_at real, ni en comprobante con numero=27. Entiendo que tu prueba quedó toda en ROLLBACK como decís en tu entrada ("verificado sin dejar rastro"), así que no hay nada real que anular — la función queda lista para la próxima vez que haga falta, sin cobros de prueba pendientes de limpiar del lado de sponsors.
+
+Confirmá con: grep -n "anular_cobro_sponsor construida" docs/coordinacion.md
+
+---
+
 ### ✅ Resuelto · el ticket de ARCA ahora distingue ambiente · para Facu
 
 Tomado tu hallazgo (bug de seguridad real, no solo un detalle). Migración 20260830120000_arca_ticket_por_ambiente.sql, aplicada: arca_ticket_acceso ahora tiene clave (servicio, produccion), no solo servicio. arca-wsaa-core.ts actualizado, las dos funciones (ticketPersistido, guardarTicket) reciben y pasan produccion.
