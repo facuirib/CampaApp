@@ -7,6 +7,7 @@ import { aplicar } from '@/lib/reclamo/plantilla'
 import { formatDate, formatMoney } from '@/lib/format'
 import { envolver } from '@/lib/mail/sobre'
 import { exigirRol } from '@/lib/rol-actual'
+import { PERMISOS } from '@/lib/permisos'
 import { generarFacturaPDF } from '@/lib/pdf/factura'
 import { generarReciboPDF } from '@/lib/pdf/recibo'
 import { datosFacturaDesdeFila, datosReciboDesdeFila } from '@/lib/pdf/desde-fila'
@@ -310,4 +311,49 @@ export async function enviarComprobanteMail(
 
   revalidatePath(`/comprobantes/${comprobanteId}`)
   return { ok: true, dryRun: envio.dryRun, avisoGuardado }
+}
+
+/**
+ * Guarda el teléfono en la ficha del tercero.
+ *
+ * Existe suelta —y no adentro de un «avisar por WhatsApp»— porque **avisar por
+ * WhatsApp no es una acción del servidor**: es abrir un link. El sistema no
+ * manda nada y no puede saber si el operador apretó enviar, así que no hay nada
+ * que registrar y no hay Server Action que envuelva el aviso.
+ *
+ * Lo único que sí toca la base es esto: dejar cargado el número para la próxima
+ * vez, que es la misma casilla que ya tiene el envío por mail. Con 1 contacto
+ * cargado de 307 terceros, es lo que hace que el dato se junte solo en vez de
+ * esperar una carga masiva.
+ *
+ * Mismo rol que el envío: es el mismo acto —comunicarle el comprobante a un
+ * tercero— por otro medio.
+ */
+export async function guardarContactoTercero(
+  terceroId: string,
+  contacto: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const permiso = await exigirRol(PERMISOS['comprobante.enviar'].roles)
+  if (!permiso.ok) return { ok: false, error: permiso.error }
+
+  const valor = contacto.trim()
+  if (!valor) return { ok: false, error: 'El teléfono está vacío.' }
+
+  const supabase = await createClient()
+
+  // Allowlist de UNA columna, igual que al guardar el mail: RLS decide qué
+  // FILAS se tocan, no qué campos.
+  const { data, error } = await supabase
+    .from('tercero')
+    .update({ contacto: valor })
+    .eq('id', terceroId)
+    .select('id')
+
+  if (error) return { ok: false, error: error.message }
+  // RLS deniega el UPDATE en silencio: sin mirar las filas, esto diría que
+  // guardó cuando no guardó nada.
+  if (!data?.length) return { ok: false, error: 'No se guardó: no tenés permiso sobre esa ficha.' }
+
+  revalidatePath(`/comprobantes`)
+  return { ok: true }
 }

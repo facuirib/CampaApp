@@ -10,6 +10,7 @@ import { formatDate, formatMoneyExacto } from '@/lib/format'
 import BotonEmitir from './BotonEmitir'
 import BotonPdf from './BotonPdf'
 import BotonMail from './BotonMail'
+import BotonWhatsApp from './BotonWhatsApp'
 
 const VE_LA_LISTA = ['admin', 'operador', 'read-only', 'finanzas']
 
@@ -50,7 +51,7 @@ export default async function ComprobantePage({ params }: { params: Promise<{ id
   const puedeEnviar = puede(rol, 'comprobante.enviar')
   const [{ data: tercero }, { data: envios }] = await Promise.all([
     c.tercero_id
-      ? supabase.from('tercero').select('email').eq('id', c.tercero_id).maybeSingle()
+      ? supabase.from('tercero').select('email, contacto').eq('id', c.tercero_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from('envio')
@@ -233,6 +234,30 @@ export default async function ComprobantePage({ params }: { params: Promise<{ id
                 tieneTercero={!!c.tercero_id}
                 envios={envios ?? []}
               />
+
+              {/* El aviso por WhatsApp aparece SÓLO si el mail ya salió.
+                  El texto dice «ya te mandamos por mail»: ofrecerlo antes sería
+                  avisar sobre algo que no pasó. `envios` es el mismo historial
+                  que muestra el botón de arriba, así que el dato ya está acá y
+                  no hay una segunda fuente que pueda discrepar. */}
+              {(envios?.length ?? 0) > 0 && (
+                <div className="mt-4 border-t border-line pt-4">
+                  <BotonWhatsApp
+                    contactoTercero={tercero?.contacto ?? null}
+                    terceroId={c.tercero_id ?? null}
+                    esRecibo={esRecibo}
+                    numeroFormateado={c.numero_formateado ?? ''}
+                    monto={formatMoneyExacto(Number(c.monto ?? 0))}
+                    nombre={
+                      c.receptor_nombre &&
+                      c.receptor_nombre.trim() !== '' &&
+                      c.receptor_nombre.trim().toLowerCase() !== 'consumidor final'
+                        ? c.receptor_nombre.trim()
+                        : null
+                    }
+                  />
+                </div>
+              )}
             </div>
           )}
         </Card>
