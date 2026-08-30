@@ -157,6 +157,67 @@ Van tres, entonces, no cuatro.
 
 ---
 
+#### ✅ `registrar_cobro_sponsor` — verificada, sana · 30/08
+
+Gracias: era el ① y destrabó sponsors. Verificada como corresponde antes de
+construir encima, y **pasó todo**:
+
+- la lógica de cobro anterior quedó **intacta línea por línea** — comparé contra
+  `20260823350000`. Sólo agregaste el receptor y el comprobante, que es
+  exactamente lo que había que hacer
+- el recibo nace bien: `tipo=0`, `punto=0`, `estado='generado'`, `cae=null`,
+  número de la sequence
+- **el receptor queda congelado con el nombre del sponsor**, no vacío — el bug
+  que habíamos arreglado en `registrar_cobro` no se repitió
+- cuelga de `cuota_cobro_sponsor_id` con `pago_id` en NULL, como manda
+  `comprobante_un_origen`
+- los cuatro índices funcionan: segundo recibo **frenado**, factura sobre la
+  misma cuota **convive**, segunda factura **frenada**
+- `into strict` puesto
+- el asiento del cobro cuadra
+- md5 del archivo == lo aplicado
+
+Sobre roles: no le pusiste guarda de `auth_rol`, y **está bien** — es el mismo
+criterio que `registrar_cobro`, que tampoco tiene. Cobrar es del día a día y lo
+gobiernan las policies de las tablas que toca. Distinto de anular o retirar, que
+sí llevan guarda.
+
+#### 🔧 Lo que faltaba del lado nuestro, y ya está
+
+Tu función dejó el recibo perfecto, pero la **emisión** todavía no sabía llegar
+hasta él. Dos cosas, las dos nuestras:
+
+1. **`v_comprobante.tercero_id` salía NULL** para un recibo de sponsor: resolvía
+   el tercero sólo por `pago → tercero_id`, y un cobro de sponsor no pasa por
+   `pago`. Sin tercero, el modal no puede preguntarle a `v_cliente` la condición
+   de IVA, que es lo que decide la letra — o sea que no abría. Ahora mira los
+   dos orígenes. (`ya_facturado` ya los miraba desde que partimos los índices;
+   era `tercero_id` el que se había quedado con uno.)
+2. **`emitirFacturaDeCobro` exigía `pago_id`** y rebotaba con «no cuelga de un
+   cobro», que además de falso desorientaba. El motor ya estaba general
+   —`DatosFactura` tiene los dos campos y `reservar_numero_comprobante` los dos
+   parámetros—; el que mandaba uno solo era el front.
+
+#### ⏸️ Lo que NO hice, y por qué te lo consulto
+
+Facu pidió probar el circuito de punta a punta en homologación: cobrar un
+sponsor de verdad → recibo → factura. **Paré antes de eso**, por una razón
+concreta: **no existe forma de deshacer el cobro de un sponsor.** `anular_pago`
+sólo cubre `pago`, y el cobro de sponsor no pasa por ahí — no hay
+`anular_cobro_sponsor` ni equivalente.
+
+O sea que la prueba dejaría en los libros, **para siempre**, una cuota marcada
+cobrada, su asiento, su recibo y una factura. Y justo estamos limpiando los
+cobros de prueba viejos, de los que uno ya quedó trabado esperando la nota de
+crédito.
+
+Dos salidas, las dos razonables, y la decide Facu:
+
+- **`anular_cobro_sponsor` primero** —el hermano de `anular_pago`: contraasiento,
+  `cobrado_at` a NULL, y rechazo si hay factura fiscal— y después la prueba, que
+  ya se puede deshacer. Es tu carril y es un rato
+- **probar igual y aceptar el rastro**, sabiendo que queda
+
 #### ✅ `anular_pago` — integrada y verificada · 30/08
 
 Buena pieza, y hacía falta: no había ninguna forma de anular un pago (estaban
