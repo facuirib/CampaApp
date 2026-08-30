@@ -18,6 +18,91 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ⏸️ FRENADO · la prueba de sponsor en homologación no se pudo correr · 30/08/2026 · para los dos
+
+Facu aprobó correr el circuito de sponsor de punta a punta en homologación,
+aceptando que quedara rastro contable. **No se corrió, y no por prudencia: falta
+el certificado.**
+
+    ARCA_PRODUCCION   no está definida  →  esProduccion() = false  →  homologación ✅
+    ARCA_CERT_PEM     AUSENTE del entorno de Facu
+    ARCA_KEY_PEM      AUSENTE
+    ticket en caché   venció el 28/08 22:11
+
+`autenticarArca` levanta «Faltan ARCA_CERT_PEM o ARCA_KEY_PEM» antes de hablar
+con ARCA, así que la emisión **no es posible desde la máquina de Facu, en ningún
+ambiente**. Es lo esperable: el certificado quedó sólo en la de Horacio (26/08) y
+nunca se compartió, que es como tiene que ser.
+
+**Y por eso tampoco se hizo el cobro de prueba.** El rastro se había aceptado a
+cambio de cerrar el circuito entero; si la factura no se puede emitir, el trato
+no se sostiene: quedaría un cobro de sponsor en los libros, **sin factura y sin
+forma de deshacerlo** (ver el hueco de abajo), a cambio de nada que no esté ya
+probado en `ROLLBACK`.
+
+**Lo único que falta probar es el viaje a ARCA.** Todo lo demás está verificado
+sin dejar rastro:
+
+    recibo del cobro          nº27 · Recibo · «Bodega Los Cerros» · $4.000.000
+    el modal ABRE             tercero_id resuelto (antes NULL: no abría)
+    cliente y letra           «Bodega Los Cerros» · sin declarar → B, puedeEmitir
+    lo que recibiría ARCA     neto 3.305.785,12 + iva 694.214,88 = 4.000.000
+    el PDF de la factura      13.615 bytes, letra B, neto+iva cierra al centavo
+    índices                   2º recibo frenado · factura convive · 2ª frenada
+    asiento                   cuadrado
+
+**La corrida es de Horacio**, que tiene el certificado. Con `ARCA_PRODUCCION` sin
+definir alcanza — va a homologación sola.
+
+---
+
+### 🕳️ HUECO · no hay forma de deshacer un cobro de sponsor · 30/08/2026 · para Horacio
+
+`anular_pago` cubre `pago`. **El cobro de sponsor no pasa por `pago`**: marca
+`cuota_cobro_sponsor.cobrado_at`, crea su asiento y ahora también su recibo. No
+hay `anular_cobro_sponsor` ni equivalente, así que **un cobro de sponsor mal
+cargado no se puede revertir por ningún camino**.
+
+No es un problema de esta prueba: es un hueco del módulo. Un cobro que se
+carga con el monto equivocado, o sobre la cuota equivocada, hoy queda.
+
+El hermano de `anular_pago`, mismo molde:
+
+- contraasiento con `anular_asiento` (regla 4, no se borra)
+- `cobrado_at` y `asiento_id` de vuelta a NULL — así la cuota reaparece en el
+  cashflow, que es lo que hace `pago_imputacion` del otro lado
+- **rechazar si hay factura fiscal emitida**, igual que hiciste allá: eso pide
+  nota de crédito, que no existe todavía
+- guarda `admin`/`finanzas`, como `anular_pago`
+
+Cuando exista, además, la prueba de arriba se puede correr y limpiar.
+
+---
+
+### 🐞 A REVISAR · el ticket de ARCA se cachea sin distinguir el ambiente · 30/08/2026 · para Horacio
+
+Encontrado mirando por qué no podía emitir. `autenticarArca(servicio, produccion)`
+busca el ticket persistido así:
+
+```ts
+const persistido = await ticketPersistido(servicio)   // ← sólo el servicio
+if (persistido) return persistido                     // ← el flag ni se mira
+```
+
+Y `arca_ticket_acceso` tiene `servicio` como única clave. O sea que **un ticket
+sacado en producción se le entrega a una llamada de homologación, y al revés**.
+El `produccion` decide a qué URL se postea, pero no con qué credencial se firmó.
+
+Hoy no rompió nada porque el ticket vigente era de producción y venció. El
+resultado sería un rechazo de ARCA, no un cobro mal hecho — pero deja el flag de
+ambiente sin ser autoritativo en la mitad que más importa, que es la
+autenticación. En un circuito fiscal eso no conviene dejarlo.
+
+El arreglo natural es que la clave sea `(servicio, produccion)`. Toca la tabla y
+el motor: es tu carril, y va con migración avisada.
+
+---
+
 ### ✅ Resuelto · el recibo en registrar_cobro_sponsor · destraba sponsors (punto ①) · para Facu
 
 Tomado el pedido de máxima prioridad. Migración 20260830100000_recibo_en_registrar_cobro_sponsor.sql, ya aplicada. Mismo patrón exacto que registrar_cobro, con la diferencia real: cuelga de cuota_cobro_sponsor_id (pago_id queda null, la función no toca pago).
@@ -237,6 +322,20 @@ construir encima:
   cuadrados, descuadre global en 0
 
 Quedó en el catálogo como `pago.anular` → **verificador en 46 operaciones**.
+
+#### 📌 Falta la pantalla para cobrar un sponsor — y es lo último de sponsors
+
+Relevado hoy: **`registrar_cobro_sponsor` no se llama desde ninguna pantalla.**
+Un `grep` sobre `app/` no la encuentra en ningún lado — sólo existe como función.
+
+`/sponsors/[sponsorId]` muestra «Pendiente de cobrar» en un KpiCard, con el
+número correcto, y **no hay manera de cobrarlo**. La plata se ve y no se toca:
+hoy un cobro de sponsor se registra llamando a la función a mano.
+
+Con el recibo ya resuelto y la facturación reusando el modal, **esto es lo único
+que le falta al módulo para estar cerrado de punta a punta desde la pantalla**.
+Es un botón en el detalle del sponsor, sobre la cuota pendiente, con los mismos
+campos que ya pide la función: medio, fecha y predio si es efectivo.
 
 #### 🤝 Un pedido de coordinación, sin reproche
 
