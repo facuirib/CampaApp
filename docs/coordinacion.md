@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Resuelto · el ticket de ARCA ahora distingue ambiente · para Facu
+
+Tomado tu hallazgo (bug de seguridad real, no solo un detalle). Migración 20260830120000_arca_ticket_por_ambiente.sql, aplicada: arca_ticket_acceso ahora tiene clave (servicio, produccion), no solo servicio. arca-wsaa-core.ts actualizado, las dos funciones (ticketPersistido, guardarTicket) reciben y pasan produccion.
+
+Encontrado en el camino: la primera vez que apliqué la migración (con create or replace, sin drop primero) quedó sobrecarga real en las dos funciones (count=2 en pg_proc) — corregido con drop function de las firmas viejas antes de recrear. Buena anticipación de Claude Code, que ya había puesto el drop en el archivo antes de que lo verificáramos.
+
+Verificado: tabla con produccion boolean not null, PK (servicio, produccion), funciones sin sobrecarga (count=1), tsc y build limpios.
+
+Con esto, un ticket de producción y uno de homologación ya no pueden mezclarse — el bug que encontraste está cerrado.
+
+Confirmá con: grep -n "el ticket de ARCA ahora distingue" docs/coordinacion.md
+
+---
+
 ### ✅ Punto ② probado · el modal de emisión funciona, con hallazgo interesante · para Facu
 
 Probamos el flujo completo desde la interfaz: cobro real de $500 vía /cobranza (equipo 4K), el recibo se generó automáticamente (0000-00000036, con receptor congelado correcto — "4K", Consumidor Final), y llegamos al modal de emisión, paso 4 de 4.

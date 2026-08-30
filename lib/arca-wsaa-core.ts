@@ -142,10 +142,11 @@ export function crearClienteAdmin() {
   })
 }
 
-async function ticketPersistido(servicio: string): Promise<TicketAcceso | null> {
+async function ticketPersistido(servicio: string, produccion: boolean): Promise<TicketAcceso | null> {
   const admin = crearClienteAdmin()
   const { data, error } = await admin.rpc("arca_ticket_vigente", {
     p_servicio: servicio,
+    p_produccion: produccion,
   })
   if (error) return null
   if (!data || data.length === 0) return null
@@ -157,10 +158,11 @@ async function ticketPersistido(servicio: string): Promise<TicketAcceso | null> 
   }
 }
 
-async function guardarTicket(servicio: string, ticket: TicketAcceso): Promise<void> {
+async function guardarTicket(servicio: string, produccion: boolean, ticket: TicketAcceso): Promise<void> {
   const admin = crearClienteAdmin()
   const { error } = await admin.rpc("arca_guardar_ticket", {
     p_servicio: servicio,
+    p_produccion: produccion,
     p_token: ticket.token,
     p_sign: ticket.sign,
     p_expira_at: ticket.expirationTime.toISOString(),
@@ -171,7 +173,7 @@ export async function autenticarArca(
   servicio: string,
   produccion: boolean
 ): Promise<TicketAcceso> {
-  const persistido = await ticketPersistido(servicio)
+  const persistido = await ticketPersistido(servicio, produccion)
   if (persistido) {
     return persistido
   }
@@ -208,7 +210,7 @@ export async function autenticarArca(
     expirationTime: new Date(expirationTimeStr),
   }
 
-  await guardarTicket(servicio, ticket)
+  await guardarTicket(servicio, produccion, ticket)
 
   return ticket
 }
