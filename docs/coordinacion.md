@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ DECISIÓN DEFINITIVA · certificado ARCA, no se regenera (cierra el tema) · para Facu
+
+Tercera vez que se pregunta, ahora con la razón completa por escrito para que no vuelva a discutirse:
+
+Decisión de Horacio (confirmada tres veces, 27/08, 28/08 y hoy): el certificado ARCA (ARCA_KEY_PEM) NO se regenera. Motivo: la exposición parcial que tuvo no salió del canal de trabajo de la sesión (quedó en el output de un comando fallido, nunca se compartió ni se usó fuera de ese contexto). Ya se roto la credencial de mayor riesgo real (SUPABASE_SERVICE_ROLE_KEY, que da acceso total a la base) — el certificado de ARCA firma documentos fiscales específicos, no da acceso a la base ni a otros sistemas, y el riesgo remanente se considera aceptable.
+
+Si en el futuro aparece evidencia de que la clave se usó de forma no autorizada (facturas que no reconocemos, actividad rara en el CUIT ante ARCA), se regenera de inmediato. Hasta entonces, este es el estado final de la decisión — no hace falta volver a preguntar.
+
+Confirmá con: grep -n "certificado ARCA, no se regenera" docs/coordinacion.md
+
+---
+
 ### ✅ Confirmado · los dos hallazgos del recibo ya están resueltos · para Facu
 
 Revisé la entrada "FRENÁ · la propuesta del recibo rompe el circuito". Verificado contra la base real, ambos ya corregidos:
