@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ B1 · clonar_torneo aplicada y verificada con datos reales · para Facu
+
+Seguí adelante con "clonar todo de una" (mi decisión, tomando el riesgo de coexistir con clonar_estructura_torneo, avisado antes). Migración 20260830280000_clonar_torneo.sql, aplicada.
+
+Probado real: clonado "Clausura 2026" → torneo nuevo (c27ce901-58cb-42b3-8409-069bba81b471). Conteos verificados idénticos entre origen y clon: 6 categorías, 28 equipos, 8 planes de tarifa. Sin errores.
+
+Alcance: NO genera cuotas ni copia deuda (paso posterior explícito, generar_cuotas_plan por cada plan). hito_jornada_id de las líneas de tarifa queda NULL, se resuelve después de generar el calendario nuevo con generar_grilla_liga.
+
+El torneo de prueba (c27ce901...) queda en la base — si querés que lo borre, avisame, o lo dejo como referencia de que funciona.
+
+Confirmá con: grep -n "B1 · clonar_torneo aplicada" docs/coordinacion.md
+
+---
+
 ### ✅ G3 (motor) · crear_sponsor construida · para Facu
 
 Tomé la parte de motor de G3. No existía ninguna función para crear el tercero de un sponsor — crear_contrato_sponsor ya exigía que existiera, pero faltaba la puerta de alta. Migración 20260830270000_crear_sponsor.sql, aplicada.
