@@ -109,3 +109,51 @@ export async function guardarPlantilla(
 
   return { ok: true }
 }
+
+/**
+ * Las ventanas de la gestión de cobranza.
+ *
+ * Sólo admin, y no `CON_FINANZAS` como las plantillas: mover estos tres números
+ * cambia a quién se le manda qué mensaje, para todos los equipos a la vez. Un
+ * `dias_firme` de 1 pone a la cartera entera en la cola del reclamo firme.
+ *
+ * El check de la base garantiza el orden —firme después de recordatorio—; acá
+ * se traduce, porque el mensaje de Postgres habla de un constraint.
+ */
+export async function guardarConfigCobranza(campos: {
+  dias_por_vencer: number
+  dias_recordatorio: number
+  dias_firme: number
+}): Promise<Resultado> {
+  const permiso = await exigirRol(['admin'])
+  if (!permiso.ok) return { ok: false, error: `Cambiar las ventanas es de administrador. ${permiso.error}` }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Sesión vencida. Volvé a entrar.' }
+
+  if (campos.dias_firme <= campos.dias_recordatorio) {
+    return {
+      ok: false,
+      error:
+        'El reclamo firme tiene que empezar después del recordatorio. Al revés, la etapa del ' +
+        'medio no se alcanza nunca y esa cola queda vacía para siempre.',
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('config_cobranza')
+    .update({ ...campos, updated_by: user.id, updated_at: new Date().toISOString() })
+    .eq('id', true)
+    .select('id')
+
+  if (error) return { ok: false, error: error.message }
+  // RLS deniega el UPDATE en silencio.
+  if (!data?.length) return { ok: false, error: 'No se guardó: cambiar las ventanas es de administrador.' }
+
+  revalidatePath('/cobranza')
+  revalidatePath('/configuracion')
+  return { ok: true }
+}

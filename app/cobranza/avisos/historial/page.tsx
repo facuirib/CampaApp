@@ -21,15 +21,33 @@ interface FilaHistorial {
   fecha: string | null
   equipo: string
   canal: CeldaBadge
+  etapa: CeldaBadge
   monto_reclamado: number | null
   cuotas: number | null
   responsable: string
   destino: string | null
 }
 
+/**
+ * La etapa del aviso.
+ *
+ * `null` en los reclamos anteriores a las etapas: no se puede saber cuál les
+ * correspondía, así que se muestran como «—» en vez de inventarles una.
+ */
+const ETAPAS: Record<string, CeldaBadge> = {
+  por_vencer: { estado: 'info', label: 'Por vencer' },
+  recordatorio: { estado: 'porVencer', label: 'Recordatorio' },
+  firme: { estado: 'mora', label: 'Firme' },
+}
+
+function badgeEtapa(etapa: string | null): CeldaBadge {
+  return ETAPAS[etapa ?? ''] ?? { estado: 'neutro', label: '—' }
+}
+
 const COLUMNAS: ColumnDef<FilaHistorial>[] = [
   { key: 'fecha', label: 'Fecha', format: 'date', width: 106 },
   { key: 'equipo', label: 'Equipo' },
+  { key: 'etapa', label: 'Etapa', format: 'badge', width: 122 },
   { key: 'canal', label: 'Canal', format: 'badge', width: 106 },
   { key: 'monto_reclamado', label: 'Monto', format: 'money', width: 138 },
   { key: 'cuotas', label: 'Cuotas', align: 'right', width: 74 },
@@ -88,6 +106,7 @@ export default async function HistorialReclamosPage({
       fecha: fila.fecha,
       equipo: fila.tercero?.nombre ?? '—',
       canal: badgeCanal(fila.canal),
+      etapa: badgeEtapa(fila.etapa),
       monto_reclamado: fila.monto_reclamado,
       cuotas: fila.cuotas,
       responsable: fila.created_by.slice(0, 8),

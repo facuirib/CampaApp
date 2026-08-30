@@ -440,6 +440,17 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { accion: 'enviarComprobanteMail' },
   },
+  'cobranza.ventanas': {
+    // Los tres números que definen las etapas de la cobranza.
+    //
+    // Sólo admin, y NO `CON_FINANZAS` como las plantillas: cambiar una plantilla
+    // cambia CÓMO se dice algo; mover estas ventanas cambia A QUIÉN se le manda
+    // qué, para toda la cartera de una vez. Un `dias_firme` de 1 pone a los 28
+    // equipos en la cola del reclamo firme.
+    que: 'Cambiar las ventanas de la gestión de cobranza',
+    roles: SOLO_ADMIN,
+    donde: { tabla: 'config_cobranza', cmd: 'UPDATE' },
+  },
   'plantilla.editar': {
     que: 'Editar la plantilla de reclamos',
     roles: CON_FINANZAS,

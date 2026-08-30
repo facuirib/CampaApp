@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import ColasAviso from './ColasAviso'
 import { createClient } from '@/lib/db/server'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
@@ -60,13 +61,100 @@ function columnas(filtrado: boolean): ColumnDef<Deudor>[] {
   ]
 }
 
+/**
+ * Las dos vistas de la cobranza, en la URL como en /proyeccion.
+ *
+ * «Cuenta corriente» es el panorama: cuánto se debe y quién. «Avisos» es el
+ * trabajo del día: a quién le toca qué mensaje. Los mismos equipos mirados con
+ * dos preguntas distintas — cuánto debe cada uno, y a quién hay que hablarle
+ * hoy.
+ */
+const VISTAS = [
+  { vista: 'cuenta', label: 'Cuenta corriente' },
+  { vista: 'avisos', label: 'Avisos' },
+] as const
+
+type Vista = (typeof VISTAS)[number]['vista']
+
+function Pestanas({ activa, torneo }: { activa: Vista; torneo?: string }) {
+  return (
+    <div className="mb-5 inline-flex gap-1 rounded-md bg-line2 p-1" role="tablist">
+      {VISTAS.map((v) => {
+        const esActiva = v.vista === activa
+        // El filtro de torneo se arrastra: es del panorama, y perderlo al
+        // volver de Avisos obligaría a elegirlo de nuevo.
+        const qs = new URLSearchParams()
+        if (v.vista !== 'cuenta') qs.set('vista', v.vista)
+        if (torneo) qs.set('torneo', torneo)
+        const q = qs.toString()
+        return (
+          <Link
+            key={v.vista}
+            href={q ? `/cobranza?${q}` : '/cobranza'}
+            role="tab"
+            aria-selected={esActiva}
+            className={[
+              'rounded-sm px-3 py-1 text-[11px] font-bold transition-colors',
+              esActiva ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink',
+            ].join(' ')}
+          >
+            {v.label}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
 export default async function CobranzaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ torneo?: string }>
+  searchParams: Promise<{ torneo?: string; vista?: string }>
 }) {
-  const { torneo: torneoElegido } = await searchParams
+  const { torneo: torneoElegido, vista } = await searchParams
+  const activa: Vista = vista === 'avisos' ? 'avisos' : 'cuenta'
   const supabase = await createClient()
+
+  // ── La pestaña Avisos ──────────────────────────────────────────────────
+  //
+  // Sale temprano y con su propia consulta: no comparte NADA con el panorama.
+  // El filtro por torneo, por ejemplo, no aplica acá — el aviso se le manda al
+  // equipo con todo lo que arrastre, que es el concepto 5.
+  if (activa === 'avisos') {
+    const [colaRes, cfgRes] = await Promise.all([
+      supabase.from('v_cobranza_cola').select('*').order('total_adeudado', { ascending: false }),
+      supabase.from('config_cobranza').select('*').eq('id', true).maybeSingle(),
+    ])
+
+    return (
+      <div className="pb-10">
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Cobranza</h1>
+            <p className="mt-1 text-[12px] text-muted">
+              A quién le toca un aviso hoy, y de qué tono.
+            </p>
+          </div>
+          <Link
+            href="/cobranza/avisos/historial"
+            className="shrink-0 text-[11px] font-semibold text-blue-d hover:underline"
+          >
+            Historial de avisos →
+          </Link>
+        </header>
+
+        <Pestanas activa={activa} torneo={torneoElegido} />
+
+        {colaRes.error && (
+          <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
+            {colaRes.error.message}
+          </p>
+        )}
+
+        <ColasAviso filas={colaRes.data ?? []} ventanas={cfgRes.data ?? null} />
+      </div>
+    )
+  }
 
   const [torneosRes, kpis] = await Promise.all([
     supabase.from('torneo').select('id, nombre, activo').order('anio', { ascending: false }),
@@ -165,6 +253,8 @@ export default async function CobranzaPage({
           Historial de avisos →
         </Link>
       </header>
+
+      <Pestanas activa={activa} torneo={torneoElegido} />
 
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
