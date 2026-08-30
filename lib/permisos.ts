@@ -350,6 +350,18 @@ export const PERMISOS = {
     roles: SENSIBLE,
     donde: { guarda: 'anular_pago' },
   },
+  'sponsor.anular': {
+    // El hermano de `pago.anular`, del lado sponsor: contraasiento y la cuota
+    // vuelve a estar impaga. Misma allowlist y por la misma razón — anular un
+    // cobro le vuelve a facturar la deuda a alguien que ya pagó.
+    //
+    // También la protege una guarda dentro de la función y no una policy: toca
+    // `asiento` y `cuota_cobro_sponsor`, que por RLS alcanzan a operador.
+    // Medido: admin y finanzas anulan; operador, bar y lectura frenados.
+    que: 'Anular un cobro de patrocinio con contraasiento',
+    roles: SENSIBLE,
+    donde: { guarda: 'anular_cobro_sponsor' },
+  },
   'socio.retirar': {
     // Por guarda y no por policy: la función no escribe ninguna tabla del
     // circuito societario —arma el movimiento con crear_asiento— así que
