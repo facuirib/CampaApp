@@ -5462,6 +5462,20 @@ export type Database = {
         }
         Relationships: []
       }
+      v_bar_mes: {
+        Row: {
+          anio: number | null
+          costos: number | null
+          efectivo: number | null
+          facturado: number | null
+          margen: number | null
+          mercado_pago: number | null
+          mes: number | null
+          tarjeta: number | null
+          ventas: number | null
+        }
+        Relationships: []
+      }
       v_calendario_dia: {
         Row: {
           acumulado: number | null
@@ -5855,6 +5869,16 @@ export type Database = {
           total_por_vencer: number | null
           total_vencido: number | null
           vencimiento_mas_antiguo: string | null
+        }
+        Relationships: []
+      }
+      v_cobro_medio_mes: {
+        Row: {
+          anio: number | null
+          cobros: number | null
+          medio_pago: string | null
+          mes: number | null
+          total: number | null
         }
         Relationships: []
       }
@@ -6679,6 +6703,19 @@ export type Database = {
             referencedColumns: ["torneo_id"]
           },
         ]
+      }
+      v_facturado_direccion: {
+        Row: {
+          anio: number | null
+          comprobantes: number | null
+          direccion: string | null
+          mes: number | null
+          punto: string | null
+          punto_desconocido: boolean | null
+          punto_venta: number | null
+          total: number | null
+        }
+        Relationships: []
       }
       v_facturado_por_direccion: {
         Row: {
@@ -8631,7 +8668,11 @@ export type Database = {
         Returns: undefined
       }
       cerrar_periodo: {
-        Args: { p_periodo_id: string; p_responsable_id?: string }
+        Args: {
+          p_amortizacion_vista?: boolean
+          p_periodo_id: string
+          p_responsable_id?: string
+        }
         Returns: undefined
       }
       cerrar_torneo: {
