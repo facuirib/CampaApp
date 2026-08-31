@@ -5944,6 +5944,9 @@ export type Database = {
           equipo: string | null
           equipo_torneo_id: string | null
           genero: Database["public"]["Enums"]["genero"] | null
+          medio_previsto: Database["public"]["Enums"]["medio_pago"] | null
+          plan_inscripcion: string | null
+          plan_partidos: string | null
           proximo_vencimiento: string | null
           saldo: number | null
           serie: string | null

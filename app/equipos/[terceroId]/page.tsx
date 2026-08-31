@@ -125,6 +125,36 @@ function Pestanas({
   )
 }
 
+/** Cómo se le dice al medio previsto. Regla 5: Efectivo y Transferencia. */
+const MEDIO: Record<string, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  cheque: 'Cheque',
+}
+
+interface FilaHistorial {
+  torneo_id: string | null
+  torneo: string | null
+  serie: string
+  plan_inscripcion: string | null
+  plan_partidos: string | null
+  medio: string
+  total_plan: number | null
+  saldo: number | null
+  estado: CeldaBadge
+}
+
+const COLUMNAS_HISTORIAL: ColumnDef<FilaHistorial>[] = [
+  { key: 'torneo', label: 'Torneo' },
+  { key: 'serie', label: 'Categoría y serie', width: 150 },
+  { key: 'plan_inscripcion', label: 'Inscripción', width: 130 },
+  { key: 'plan_partidos', label: 'Partidos', width: 150 },
+  { key: 'medio', label: 'Medio', width: 120 },
+  { key: 'total_plan', label: 'Plan', format: 'money', width: 128 },
+  { key: 'saldo', label: 'Saldo', format: 'money', width: 128 },
+  { key: 'estado', label: '', format: 'badge', width: 92 },
+]
+
 export default async function CuentaCorrientePage({
   params,
   searchParams,
@@ -271,6 +301,27 @@ export default async function CuentaCorrientePage({
   const deudaEnOtros = torneosDelEquipo
     .filter((t) => t.id !== torneoMostrado && t.saldo > 0)
     .sort((a, b) => b.saldo - a.saldo)
+
+  // El historial: una fila por ficha, del más nuevo al más viejo. Todo sale de
+  // `v_cuenta_corriente_equipo` —la MISMA vista que alimenta la cuenta
+  // corriente— así que el plan y el saldo no pueden discrepar entre pestañas.
+  // Acá sólo se ordena y se rotula.
+  const historialTorneos: FilaHistorial[] = [...fichas]
+    .sort((a, b) => (b.torneo ?? '').localeCompare(a.torneo ?? ''))
+    .map((f) => ({
+      torneo_id: f.torneo_id,
+      torneo: f.torneo,
+      serie: [f.categoria, f.serie].filter(Boolean).join(' · ') || '—',
+      plan_inscripcion: f.plan_inscripcion,
+      plan_partidos: f.plan_partidos,
+      medio: MEDIO[f.medio_previsto ?? ''] ?? '—',
+      total_plan: f.total_plan,
+      saldo: f.saldo,
+      estado:
+        (f.saldo ?? 0) > 0
+          ? { estado: 'vencido', label: 'Debe' }
+          : { estado: 'ok', label: 'Al día' },
+    }))
 
   return (
     <div className="pb-10">
@@ -471,6 +522,25 @@ export default async function CuentaCorrientePage({
         </p>
       )}
       </>
+      )}
+
+      {pestana === 'historial' && (
+        <section>
+          <p className="mb-4 text-[11.5px] leading-snug text-muted">
+            Cada torneo en el que jugó, con la serie y la modalidad que se pactó. Es donde se ve
+            que <strong className="font-semibold text-ink">el equipo es más grande que un
+            torneo</strong>: la serie sube o baja, la forma de pago cambia, y la deuda vieja
+            sigue siendo suya.
+          </p>
+
+          <DataTable
+            columns={COLUMNAS_HISTORIAL}
+            rows={historialTorneos}
+            rowKey={(f, i) => f.torneo_id ?? i}
+            rowHref={(f) => (f.torneo_id ? `/torneos/${f.torneo_id}` : undefined)}
+            emptyMessage="Este equipo todavía no jugó ningún torneo."
+          />
+        </section>
       )}
 
       {pestana === 'datos' && (
