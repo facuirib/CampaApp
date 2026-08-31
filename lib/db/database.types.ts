@@ -9148,6 +9148,17 @@ export type Database = {
       }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
+      trasladar_entre_cajas: {
+        Args: {
+          p_created_by?: string
+          p_destino_id: string
+          p_fecha?: string
+          p_monto: number
+          p_motivo?: string
+          p_origen_id: string
+        }
+        Returns: string
+      }
       usd_costo_esperado: { Args: never; Returns: number }
       validar_linea_tarifa: {
         Args: {

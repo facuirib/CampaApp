@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
+import Trasladar from './Trasladar'
 import { DataTable, KpiCard, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
@@ -21,6 +24,7 @@ export default async function CajaPage() {
     ])
 
   const error = errorCajas ?? errorTotal
+  const puedeTrasladar = puede(await rolActual(), 'caja.trasladar')
 
   return (
     <div className="pb-10">
@@ -33,6 +37,18 @@ export default async function CajaPage() {
 
       {error && (
         <pre className="mb-4 rounded-md bg-errbg p-3 text-[11px] text-errtx">{error.message}</pre>
+      )}
+
+      {!error && puedeTrasladar && (
+        <Trasladar
+          cajas={(cajas ?? []).map((c) => ({
+            caja_id: c.caja_id!,
+            nombre: c.nombre ?? 'Caja',
+            saldo: c.saldo ?? 0,
+            predio_id: c.predio_id,
+            predio: c.predio,
+          }))}
+        />
       )}
 
       {!error && (

@@ -315,6 +315,19 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['registrar_cobro_sponsor'] },
   },
+  'caja.trasladar': {
+    // Mover plata entre cajas propias del club.
+    //
+    // CON_FINANZAS —con operador— porque es tesorería del día a día y no plata
+    // de los dueños: llevar el efectivo del predio a la central es parte de
+    // cerrar la semana.
+    //
+    // `guarda` y no `fns`: la función escribe en `asiento`, cuya policy alcanza
+    // también a `bar`. Lo que restringe es el `if` de adentro.
+    que: 'Trasladar plata entre cajas',
+    roles: CON_FINANZAS,
+    donde: { guarda: 'trasladar_entre_cajas' },
+  },
   'periodo.cerrar': {
     // El bar abre períodos sin querer —`crear_asiento` los crea— pero no los
     // cierra: `periodo` tiene roles distintos por comando, INSERT con bar y
