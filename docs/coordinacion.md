@@ -18,6 +18,95 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 BLOQUEANTE · `confirmar_torneo_clonado` está en la base sin migración ni commit · 01/09/2026 · para Horacio
+
+**El verificador está en rojo por esto, y el repo no queda limpio hasta que lo
+resuelvas.** Es lo primero de la lista porque bloquea: paramos el grupo 4 de
+nuestra ola hasta que se cierre.
+
+#### Qué encontramos
+
+El **cierre inverso** del verificador —el que recorre la base en vez del
+catálogo— disparó dos desacuerdos:
+
+```
+🔴 «confirmar_torneo_clonado» tiene guarda de rol [admin] en la base
+   y NINGUNA operación la declara
+🔴 «confirmar_torneo_clonado» escribe [cuota.INSERT] y no está ni
+   declarada ni clasificada
+```
+
+```sql
+confirmar_torneo_clonado(p_torneo_id uuid)
+  if not (coalesce(auth_rol(), '') = 'admin') then
+    raise exception 'Confirmar un torneo es de administrador. Tu rol es «%».'
+```
+
+Los hechos, medidos:
+
+- **No está en ningún archivo del repo.** Ni migración, ni código, ni doc.
+- **No dejó migración registrada**: la última en `schema_migrations` es la
+  nuestra (`20260901270000_pl_desglosa_ingresos`).
+- **`origin/main` no tiene ningún commit tuyo nuevo.**
+- Las funciones con guarda pasaron de **15 a 16**.
+
+O sea que se aplicó **directo sobre la base compartida**. Es la regla 11 del
+CLAUDE.md, que existe justamente porque la base la compartimos los dos.
+
+#### Qué necesitamos de vos — dos cosas
+
+**1. La migración registrada.** Es el problema de fondo, más que el catálogo:
+**hoy, si alguien levanta la base desde `supabase/migrations`, esa función no
+existe.** El repo dejó de describir la base. Cualquier entorno nuevo —o una
+restauración— arranca sin ella, y lo que la llame va a fallar sin explicación.
+
+**2. Catalogarla en `lib/permisos.ts`.** Por la guarda parece
+`donde: { guarda: 'confirmar_torneo_clonado' }` con `roles: SOLO_ADMIN`, pero
+**no la catalogamos nosotros a propósito**: catalogar es **declarar quién
+puede** ejecutar algo, y eso no se afirma sin entender qué hace la función.
+Escribe `cuota.INSERT` y se llama «confirmar torneo clonado» —suponemos que
+materializa las cuotas de un torneo clonado— pero suponer no alcanza para
+firmar un permiso.
+
+Es tu carril de punta a punta: torneo clonado + cuotas es escritura.
+
+#### El lado bueno
+
+**El cierre inverso hizo exactamente aquello para lo que se construyó.** Una
+función con guarda apareció en la base sin pasar por el catálogo y el script la
+frenó — y la frenó **antes de que el front la llamara**, que es cuando el
+chequeo viejo se habría enterado. Ésa era la promesa que le pusimos: *«nunca más
+una función con guarda sin verificar por no estar en un archivo a mano»*.
+
+No es un reproche al hallazgo: es la red funcionando. Lo que falta es cerrar el
+circuito con la migración.
+
+#### Nota nuestra, no tuya
+
+El commit **`377f58f`** (grupo 3, el desglose del P&L) **se pusheó con el
+verificador en rojo, y fue error nuestro**: corrimos `verificar:permisos`, vimos
+los 2 desacuerdos y commiteamos igual porque estábamos mirando `tsc` y el lint.
+El contenido del commit está bien —los 7 contrastes del P&L cuadran al peso— pero
+el repo quedó en un estado que el verificador rechaza, y se destraba cuando
+catalogues la función.
+
+Aprendizaje que nos anotamos: **`tsc` + `build` + VERIFICADOR verdes antes de
+cada commit.** El verificador merece el mismo trato que el build.
+
+#### Y tus otros pendientes, que siguen abiertos
+
+- **Emisión ARCA real.** Sigue sin cerrarse; tu certificado es de producción y
+  no hay entorno de homologación.
+- **Conectar proveedores.** `proveedor.INSERT` y `proveedor.UPDATE` tienen
+  policy pero **no nombran ningún rol**, así que `crear_proveedor` deriva a
+  *nadie*: hoy no la puede ejecutar ni admin. Lo detectamos al catalogar las
+  puertas sin UI.
+- **El solapamiento `clonar_torneo` / `clonar_estructura_torneo`.** Dos
+  funciones que se pisan, y ahora aparece una tercera pieza del mismo circuito
+  (`confirmar_torneo_clonado`). Vale mirarlas juntas.
+
+---
+
 ### ✅ F2 LISTA · los costos de bar ya están en Bar — G4 desbloqueado · 31/08/2026 · para Horacio
 
 **Ya podés arrancar G4 (gráficos de margen del bar).** Era la única dependencia
