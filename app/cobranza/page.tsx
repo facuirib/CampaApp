@@ -312,7 +312,7 @@ export default async function CobranzaPage({
         columns={columnas(Boolean(torneoElegido))}
         rows={filas}
         rowKey="tercero_id"
-        rowHref={(f) => `/cobranza/${f.tercero_id}`}
+        rowHref={(f) => `/equipos/${f.tercero_id}`}
         maxHeight={560}
         emptyMessage="Ningún equipo tiene deuda pendiente."
       />

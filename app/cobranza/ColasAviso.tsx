@@ -132,7 +132,7 @@ export default function ColasAviso({
               columns={COLUMNAS}
               rows={rows}
               rowKey="tercero_id"
-              rowHref={(f) => `/cobranza/${f.tercero_id}`}
+              rowHref={(f) => `/equipos/${f.tercero_id}`}
               densidad="compacta"
               maxHeight={340}
               emptyMessage={

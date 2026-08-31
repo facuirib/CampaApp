@@ -154,7 +154,7 @@ export default async function InscripcionesPage({
             columns={COL_INSCRIPCIONES}
             rows={filas}
             rowKey="equipo_torneo_id"
-            rowHref={(f) => `/cobranza/${f.tercero_id}`}
+            rowHref={(f) => `/equipos/${f.tercero_id}`}
             maxHeight={600}
             emptyMessage="No hay equipos inscriptos."
           />

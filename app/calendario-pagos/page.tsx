@@ -60,7 +60,7 @@ function rotulo(origen: string | null): string {
  */
 function hrefOrigen(v: Vencimiento): string | null {
   const o = v.origen ?? ''
-  if (o === 'cuota_equipo') return v.tercero_id ? `/cobranza/${v.tercero_id}` : '/cobranza'
+  if (o === 'cuota_equipo') return v.tercero_id ? `/equipos/${v.tercero_id}` : '/equipos'
   if (o === 'cuota_sponsor') return v.tercero_id ? `/sponsors/${v.tercero_id}` : '/sponsors'
   if (o.startsWith('cheque_')) return v.origen_id ? `/cheques/${v.origen_id}` : '/cheques'
   if (o === 'gasto_impago') return '/gastos'

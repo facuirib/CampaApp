@@ -27,7 +27,7 @@ export default function EquipoNoEncontrado() {
           Puede que la dirección esté mal escrita o que el equipo ya no tenga ficha.
         </p>
         <Link
-          href="/cobranza"
+          href="/equipos"
           className="mt-3 inline-block text-[11px] font-bold text-blue-d hover:underline"
         >
           Volver a Deudores

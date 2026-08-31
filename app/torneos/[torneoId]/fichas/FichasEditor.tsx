@@ -1,5 +1,6 @@
 "use client"
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
@@ -254,7 +255,18 @@ export default function FichasEditor({
                 const atada = (f.cuotas_con_jornada ?? 0) > 0
                 return (
                   <tr key={f.ficha_id} className="border-b border-line last:border-0">
-                    <td className="py-2 pr-3 font-medium text-ink">{f.equipo}</td>
+                    {/* El nombre linkea a la ficha del equipo. Era el tercer
+                        silo: acá se veía en qué serie y con qué modalidad juega
+                        un equipo, y no había forma de saltar a lo que debe. */}
+                    <td className="py-2 pr-3 font-medium text-ink">
+                      {f.tercero_id ? (
+                        <Link href={`/equipos/${f.tercero_id}`} className="hover:underline">
+                          {f.equipo}
+                        </Link>
+                      ) : (
+                        f.equipo
+                      )}
+                    </td>
                     <td className="py-2 pr-3">
                       {f.categoria} {f.serie}
                     </td>

@@ -7,5 +7,5 @@ export default async function ReclamoEquipoRedirect({
   params: Promise<{ terceroId: string }>
 }) {
   const { terceroId } = await params
-  redirect(`/cobranza/${terceroId}`)
+  redirect(`/equipos/${terceroId}`)
 }

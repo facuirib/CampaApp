@@ -578,7 +578,7 @@ export const RUTAS_PROTEGIDAS: ReadonlyArray<{ patron: RegExp; op: Op; padre: st
   { patron: /^\/gastos\/nuevo/, op: 'gasto.registrar', padre: '/gastos' },
   { patron: /^\/gastos\/[^/]+\/pagar/, op: 'gasto.pagar', padre: '/gastos' },
   { patron: /^\/gastos\/[^/]+\/comprobante/, op: 'gasto.adjuntar', padre: '/gastos' },
-  { patron: /^\/cobranza\/[^/]+\/cobrar/, op: 'cobro.registrar', padre: '/cobranza' },
+  { patron: /^\/equipos\/[^/]+\/cobrar/, op: 'cobro.registrar', padre: '/equipos' },
   { patron: /^\/sponsors\/[^/]+\/cobrar/, op: 'sponsor.cobrar', padre: '/sponsors' },
   { patron: /^\/activos\/nuevo/, op: 'activo.alta', padre: '/activos' },
   { patron: /^\/activos\/amortizar/, op: 'activo.amortizar', padre: '/activos' },

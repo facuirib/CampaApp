@@ -121,7 +121,7 @@ async function registrar(
   // Las rutas nuevas. Revalidar `/reclamos*` no haría nada: ahora son
   // redirects sin datos propios.
   revalidatePath('/cobranza')
-  revalidatePath(`/cobranza/${datos.tercero_id}`)
+  revalidatePath(`/equipos/${datos.tercero_id}`)
   revalidatePath('/cobranza/avisos/historial')
 
   return { ok: true }
