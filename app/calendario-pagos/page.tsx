@@ -37,6 +37,10 @@ const ROTULO_ORIGEN: Record<string, string> = {
   compromiso_cheque_emitido: 'Cheque emitido',
   compromiso_cheque_recibido: 'Cheque recibido',
   compromiso_otro: 'Compromiso',
+  // Los sueldos de socios entraron al comprometido el 29/08 y esta pantalla no
+  // se enteró: sin rótulo salían con la clave cruda («sueldo_socio») en la
+  // columna Tipo, y sin href rompían la lista entera. Ver `hrefOrigen`.
+  sueldo_socio: 'Sueldo de socio',
 }
 
 function rotulo(origen: string | null): string {
@@ -60,6 +64,14 @@ function hrefOrigen(v: Vencimiento): string | null {
   if (o === 'cuota_sponsor') return v.tercero_id ? `/sponsors/${v.tercero_id}` : '/sponsors'
   if (o.startsWith('cheque_')) return v.origen_id ? `/cheques/${v.origen_id}` : '/cheques'
   if (o === 'gasto_impago') return '/gastos'
+  // El origen que rompía la lista. `v_cashflow_comprometido` empezó a devolver
+  // `sueldo_socio` el 29/08 —dos fuentes: el sueldo proyectado de cada mes y el
+  // saldo a favor arrastrado— y acá caía en el `return null` de abajo.
+  //
+  // El calendario nunca lo notó porque no usa esta función; la LISTA sí, y con
+  // `href` en null la fila terminaba en un `<Link href="">`, que Next rechaza.
+  // Nueve filas alcanzaban para tumbar las 285.
+  if (o === 'sueldo_socio') return v.tercero_id ? `/socios/${v.tercero_id}` : '/socios'
   return null
 }
 
@@ -142,7 +154,13 @@ function columnasDe(conAcumulado: boolean): ColumnDef<FilaLista>[] {
 export default async function CalendarioPagosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; mes?: string; dia?: string; origen?: string }>
+  searchParams: Promise<{
+    vista?: string
+    mes?: string
+    dia?: string
+    origen?: string
+    flujo?: string
+  }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -162,6 +180,12 @@ export default async function CalendarioPagosPage({
     .order('monto', { ascending: false })
 
   if (params.origen) listaQuery = listaQuery.eq('origen', params.origen)
+
+  // Entra o sale, por el signo del monto. Es lo que se pregunta primero —«¿qué
+  // tengo que pagar este mes?»— y antes había que deducirlo del tipo, sabiendo
+  // de memoria cuáles de los diez orígenes son salida.
+  if (params.flujo === 'entra') listaQuery = listaQuery.gt('monto', 0)
+  if (params.flujo === 'sale') listaQuery = listaQuery.lt('monto', 0)
 
   const [kpiRes, mesesRes, diasRes, detalleRes, listaRes] = await Promise.all([
     supabase.from('v_calendario_kpi').select('*').maybeSingle(),
@@ -246,6 +270,7 @@ export default async function CalendarioPagosPage({
       vista: vista === 'calendario' ? null : vista,
       mes: mes === hoy.slice(0, 7) ? null : mes,
       origen: params.origen ?? null,
+      flujo: params.flujo ?? null,
       ...extra,
     }
     for (const [k, val] of Object.entries(base)) if (val) p.set(k, val)
@@ -257,6 +282,15 @@ export default async function CalendarioPagosPage({
   const hrefMatriz = `/calendario-pagos?vista=calendario&mes=${mes}`
 
   const filtros: FiltroUrl[] = [
+    {
+      parametro: 'flujo',
+      label: 'Flujo',
+      todos: 'Todo',
+      opciones: [
+        { valor: 'entra', label: 'Entra' },
+        { valor: 'sale', label: 'Sale' },
+      ],
+    },
     {
       parametro: 'origen',
       label: 'Tipo',
@@ -511,26 +545,34 @@ export default async function CalendarioPagosPage({
             <div className="rounded-md border border-line bg-white px-4 py-12 text-center">
               <p className="text-[12px] font-semibold text-ink">Sin vencimientos</p>
               <p className="mx-auto mt-2 max-w-[52ch] text-[11px] text-muted">
-                {params.origen
-                  ? 'Ningún vencimiento de ese tipo. Probá con otro filtro.'
+                {params.origen || params.flujo
+                  ? 'Ningún vencimiento con esos filtros. Probá con otros.'
                   : 'No hay nada comprometido.'}
               </p>
             </div>
           ) : (
             <>
               <DataTable
-                columns={columnasDe(!params.origen)}
+                columns={columnasDe(!params.origen && !params.flujo)}
                 rows={filas}
                 rowKey="clave"
                 maxHeight={620}
                 emptyMessage="Sin vencimientos."
-                rowHref={(f) => f.href ?? ''}
+                // `undefined` y NO `''`: es la diferencia entre «esta fila no
+                // navega» y «esta fila navega a ninguna parte». DataTable
+                // contempla el primero —«devolver undefined deja esa fila SIN
+                // navegación»—; el segundo produce un <Link href=""> que Next
+                // rechaza y se lleva puesta la pantalla entera.
+                //
+                // Con esto, el día que aparezca otro origen sin destino la
+                // lista sigue andando: esa fila queda sin link y nada más.
+                rowHref={(f) => f.href ?? undefined}
               />
               <p className="mt-3 text-[11px] text-muted">
                 {filas.length} {filas.length === 1 ? 'vencimiento' : 'vencimientos'}, del más
                 próximo al más lejano. Cada fila abre su origen: la cuenta corriente del equipo, el
                 sponsor, el cheque o los gastos.{' '}
-                {params.origen ? (
+                {params.origen || params.flujo ? (
                   <>
                     El acumulado no se muestra al filtrar: corre sobre{' '}
                     <strong className="font-semibold">todos</strong> los vencimientos, no sólo sobre
