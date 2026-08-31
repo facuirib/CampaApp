@@ -268,6 +268,7 @@ export default function NuevoCierreBarPage() {
                   que no se jugó, usá <strong>El día no está en la lista</strong>.
                 </p>
               ) : (
+                <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Predio" required>
                     <Select
@@ -342,6 +343,7 @@ export default function NuevoCierreBarPage() {
                     )}
                   </p>
                 )}
+                </>
               )
             ) : (
               <>
