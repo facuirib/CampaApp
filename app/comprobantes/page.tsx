@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/db/server'
 import { rolActual } from '@/lib/rol-actual'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, ChartTorta, type GajoTorta } from '@/components/ui'
 import { formatMoneyExacto } from '@/lib/format'
 import type { Database } from '@/lib/db/database.types'
 
@@ -110,10 +110,32 @@ export default async function ComprobantesPage({
     )
   }
 
-  const [{ data: filas, error }, { data: kpi }, { data: opciones }] = await Promise.all([
+  const mesEnCurso = new Date().toISOString().slice(0, 7)
+
+  const [
+    { data: filas, error },
+    { data: kpi },
+    { data: opciones },
+    { data: dirDelMes },
+    { data: dirAcumulado },
+  ] = await Promise.all([
     query,
     supabase.from('v_comprobante_kpi').select('*').single(),
     supabase.from('v_comprobante').select('punto_venta, periodo'),
+    // Facturado por dirección. El domicilio sale CONGELADO del comprobante, no
+    // del punto de venta de hoy: una factura vieja pertenece a la dirección que
+    // el punto tenía al emitirla, y el domicilio es lo que determina Comercio e
+    // Industria. Buscar el actual movería facturación de una jurisdicción a
+    // otra.
+    // Dos granos, dos vistas: el mes en curso y el acumulado. Juntar los meses
+    // acá sería sumar en la pantalla (regla 1) — el primer borrador lo hacía
+    // con un reduce, y una vista de dos líneas sale más barata que la excepción.
+    supabase
+      .from('v_facturado_direccion')
+      .select('*')
+      .eq('anio', Number(mesEnCurso.slice(0, 4)))
+      .eq('mes', Number(mesEnCurso.slice(5, 7))),
+    supabase.from('v_facturado_direccion_total').select('*'),
   ])
 
   const hayComprobantes = (kpi?.total ?? 0) > 0
@@ -122,6 +144,14 @@ export default async function ComprobantesPage({
   // que no existe da un filtro que devuelve vacío y parece un error.
   const puntos = [...new Set((opciones ?? []).map((o) => o.punto_venta))].sort((a, b) => a! - b!)
   const periodos = [...new Set((opciones ?? []).map((o) => o.periodo))].sort().reverse()
+
+  // Mapeo, no cálculo: cada `total` viene sumado de su vista.
+  const aGajos = (filas: { direccion: string | null; total: number | null }[] | null): GajoTorta[] =>
+    (filas ?? []).map((f) => ({ label: f.direccion ?? '—', valor: Number(f.total ?? 0) }))
+
+  const gajosAcumulado = aGajos(dirAcumulado)
+  const gajosDelMes = aGajos(dirDelMes)
+  const hayFacturasPorDireccion = gajosAcumulado.some((g) => g.valor > 0)
 
   const filtros: FiltroUrl[] = [
     {
@@ -226,6 +256,35 @@ export default async function ComprobantesPage({
               placeholder: 'Receptor, número o CAE',
             }}
           />
+
+          {/* ── Facturado por dirección ──────────────────────────────────────
+              El domicilio determina Comercio e Industria, así que «por
+              dirección» es la apertura que sirve para ese impuesto — y no una
+              curiosidad geográfica.
+
+              Sólo facturas: un recibo interno usa punto de venta 0 y no tiene
+              domicilio, porque no afirma nada sobre C&I. Meterlos armaría una
+              categoría «sin dirección» que hoy se llevaría 4 de 6 comprobantes
+              y taparía las dos que importan. */}
+          {hayFacturasPorDireccion && (
+            <section>
+              <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                Facturado por dirección
+              </h2>
+              <p className="mb-3 text-[11px] leading-snug text-muted">
+                El domicilio que <strong className="font-semibold text-ink">tenía el punto de
+                venta al emitir</strong>, no el de hoy: es lo que determina Comercio e Industria, y
+                una factura vieja sigue perteneciendo a la dirección con la que salió.
+              </p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {/* El centro lo pone el propio componente con la suma de los
+                    gajos: es el total del gráfico —geometría—, no un número de
+                    negocio que deba venir de una vista. */}
+                <ChartTorta gajos={gajosAcumulado} titulo="Facturado por dirección, acumulado" />
+                <ChartTorta gajos={gajosDelMes} titulo="Facturado por dirección, mes en curso" />
+              </div>
+            </section>
+          )}
         </>
       )}
 

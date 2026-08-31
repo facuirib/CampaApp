@@ -6717,6 +6717,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_facturado_direccion_total: {
+        Row: {
+          comprobantes: number | null
+          direccion: string | null
+          punto: string | null
+          punto_desconocido: boolean | null
+          punto_venta: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
       v_facturado_por_direccion: {
         Row: {
           anio: number | null
