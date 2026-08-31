@@ -107,6 +107,100 @@ cada commit.** El verificador merece el mismo trato que el build.
 
 ---
 
+### 🔭 Panorama — hacia la entrega · 01/09/2026 · para Horacio
+
+**Esto es INFORMATIVO: no hay ninguna tarea tuya acá adentro.** Es para que
+tengas el mapa de dónde estamos y qué viene, y puedas ir pensando lo tuyo sin
+que te caiga de golpe. Lo único que te bloquea sigue siendo el bloque de arriba.
+
+#### Dónde estamos
+
+El plan de pulido va avanzado:
+
+| | |
+|---|---|
+| **Ola 1** · bugs y faltantes | ✅ cerrada |
+| **Ola 2** · modelo (ficha del equipo, inversión ≠ gasto) | ✅ cerrada |
+| **Ola 3** · capa visual (gráficos, dashboard, color, exportar) | ✅ cerrada |
+| **El verificador** · corre contra la base + cierre inverso | ✅ endurecido |
+| **Ola 4** · reorganizaciones, en 5 grupos | grupos 1-3 hechos |
+
+De la Ola 4 quedan el **grupo 4** (movimientos → auditoría, con usuario y
+filtros) y el **grupo 5** (socios mensual, ficha de sponsor, gráficos de
+gastos). **Los dos son carril [F] y los cerramos nosotros** — no necesitan nada
+tuyo.
+
+**Lo único que te bloquea a vos —y a nosotros— es catalogar y migrar
+`confirmar_torneo_clonado`.** Con eso el verificador vuelve a verde y seguimos.
+
+#### Lo que viene después: el DIAGNÓSTICO END-TO-END
+
+Cuando cierre la Ola 4 entramos en la última fase antes de entregarle al
+cliente: **testear todo de punta a punta**, controlar que los números cuadren
+con la historia de los datos, y cazar lo que ninguna red automática atrapa.
+
+Esa última parte es la que importa. De estas semanas aprendimos que **hay clases
+de bugs que `tsc`, el build y el verificador no ven**:
+
+- **Pantallas que rompen en runtime.** El caso C2 —un `<Link href="">` que
+  tumbó las 285 filas del calendario de pagos— compilaba perfecto. La única
+  forma de agarrarlo es **abrir cada pantalla con sesión y mirarla**.
+- **Funciones con guarda sin catalogar.** Ésa ya la cierra el cierre inverso
+  —de hecho es cómo apareció `confirmar_torneo_clonado`— pero hasta hace unos
+  días pasaba en silencio.
+- **Números que cuadran solos pero no con la historia.** Un total puede ser
+  correcto y aun así estar contando algo que no corresponde: nos pasó con el
+  módulo Gastos, que sumaba $60.050.000 de los cuales $50.000.000 eran la compra
+  de un activo. Nada estaba «mal» — el asiento iba a BIENES_USO como debe— y el
+  tablero mentía igual.
+
+**Se reparte por carriles cuando llegue el momento**, cada uno prueba en serio
+lo suyo:
+
+| Carril | Qué le toca probar |
+|---|---|
+| **[H] Horacio** | Emisión ARCA real · estructura de torneo y clonado · proveedores · el motor de escritura |
+| **[F] Facu** | Front y vistas · cobranza · dashboard · P&L · comprobantes |
+
+**No es ahora.** Te lo adelantamos para que esté en tu radar y vayas pensando
+qué de tu carril hay que probar de verdad.
+
+#### 🔴 Tu pieza más importante del diagnóstico: la emisión ARCA REAL
+
+De todo el sistema, **el único tramo que nunca se ejercitó de verdad es emitir
+una factura contra ARCA desde la pantalla.** Todo lo demás se probó con datos:
+los cobros, los asientos, el arqueo, los traslados, la amortización, el ciclo de
+torneo. Eso no.
+
+El motivo es conocido y no es tuyo: **tu certificado es de producción y no hay
+entorno de homologación**, así que ensayarlo significa emitir un comprobante
+fiscal de verdad, con número real y CAE real.
+
+Antes de entregar hay que **decidir cómo se prueba**, y son dos caminos con
+costos distintos:
+
+- **Emitir una factura real de monto mínimo** y después manejarla como
+  corresponda. Es la única prueba que prueba de verdad, y deja rastro fiscal.
+- **Confiar en las partes ya probadas** —el WSAA, la reserva de numeración, el
+  armado del payload, el QR según la especificación oficial— y aceptar que el
+  primer CAE real va a salir en producción, con el cliente mirando.
+
+No hace falta que lo resuelvas hoy. **Ivalo pensando**, porque es la decisión
+más cara de revertir de las que quedan.
+
+#### Tus pendientes abiertos, en orden
+
+1. 🔴 **`confirmar_torneo_clonado`** — catalogar + migrar. Lo urgente: tiene el
+   verificador en rojo.
+2. **Emisión ARCA real** — y la decisión de cómo probarla (arriba).
+3. **Conectar proveedores** — `proveedor.INSERT` y `proveedor.UPDATE` tienen
+   policy pero no nombran ningún rol, así que `crear_proveedor` deriva a *nadie*:
+   hoy no la puede ejecutar ni admin.
+4. **Solapamiento `clonar_torneo` / `clonar_estructura_torneo`** — y ahora una
+   tercera pieza del mismo circuito. Vale mirarlas juntas.
+
+---
+
 ### ✅ F2 LISTA · los costos de bar ya están en Bar — G4 desbloqueado · 31/08/2026 · para Horacio
 
 **Ya podés arrancar G4 (gráficos de margen del bar).** Era la única dependencia
