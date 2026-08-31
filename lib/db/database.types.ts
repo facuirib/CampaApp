@@ -5476,6 +5476,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_bar_total: {
+        Row: {
+          costos: number | null
+          efectivo: number | null
+          facturado: number | null
+          margen: number | null
+          mercado_pago: number | null
+          tarjeta: number | null
+          ventas: number | null
+        }
+        Relationships: []
+      }
       v_calendario_dia: {
         Row: {
           acumulado: number | null

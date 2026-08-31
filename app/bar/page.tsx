@@ -3,7 +3,17 @@ import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { Button, DataTable, Money, type ColumnDef } from '@/components/ui'
+import {
+  Button,
+  ChartBarras,
+  ChartTorta,
+  DataTable,
+  KpiCard,
+  Money,
+  type ColumnDef,
+  type GajoTorta,
+  type SerieBarras,
+} from '@/components/ui'
 import AnularCierre from './AnularCierre'
 
 export const dynamic = 'force-dynamic'
@@ -57,6 +67,9 @@ interface FilaCierre {
 const VISTAS = [
   { vista: 'cierres', label: 'Cierres' },
   { vista: 'costos', label: 'Costos' },
+  // La tercera junta las dos anteriores: entró tanto, costó tanto, queda tanto.
+  // Es la pregunta que ninguna de las dos contesta sola.
+  { vista: 'numeros', label: 'Números' },
 ] as const
 
 type Vista = (typeof VISTAS)[number]['vista']
@@ -91,7 +104,8 @@ export default async function BarPage({
   searchParams: Promise<{ vista?: string }>
 }) {
   const { vista } = await searchParams
-  const activa: Vista = vista === 'costos' ? 'costos' : 'cierres'
+  const activa: Vista =
+    vista === 'costos' ? 'costos' : vista === 'numeros' ? 'numeros' : 'cierres'
   const supabase = await createClient()
   const rol = await rolActual()
 
@@ -100,6 +114,125 @@ export default async function BarPage({
   const puedeAnular = puede(rol, 'bar.cierre.anular')
   // Cargar un costo del bar es cargar un gasto: mismo permiso, misma función.
   const puedeCargarCosto = puede(rol, 'gasto.registrar')
+
+  // ── La vista de números ────────────────────────────────────────────────
+  //
+  // Cierres dice lo que entró; Costos, lo que costó. Ninguna contesta si el bar
+  // gana plata — eso exigía sumar de memoria entre dos pantallas. Acá está.
+  if (activa === 'numeros') {
+    const [{ data: porMes, error: errorMes }, { data: total, error: errorTotal }] =
+      await Promise.all([
+        supabase.from('v_bar_mes').select('*').order('anio').order('mes'),
+        supabase.from('v_bar_total').select('*').maybeSingle(),
+      ])
+
+    const errorNum = errorMes ?? errorTotal
+    const meses = porMes ?? []
+
+    // Mapeo, no cálculo: cada importe viene sumado de su vista.
+    const ejeX = meses.map((m) => `${String(m.mes).padStart(2, '0')}/${String(m.anio).slice(2)}`)
+    const seriesMes: SerieBarras[] = [
+      { label: 'Facturado', color: 'var(--ok)', valores: meses.map((m) => Number(m.facturado ?? 0)) },
+      { label: 'Costos', color: 'var(--err)', valores: meses.map((m) => -Number(m.costos ?? 0)) },
+    ]
+    const seriesMargen: SerieBarras[] = [
+      { label: 'Margen', color: 'var(--blue)', valores: meses.map((m) => Number(m.margen ?? 0)) },
+    ]
+    const gajosMedio: GajoTorta[] = [
+      { label: 'Efectivo', valor: Number(total?.efectivo ?? 0) },
+      { label: 'Tarjeta', valor: Number(total?.tarjeta ?? 0) },
+      { label: 'Mercado Pago', valor: Number(total?.mercado_pago ?? 0) },
+    ]
+
+    return (
+      <div className="pb-10">
+        <header className="mb-6">
+          <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Bar</h1>
+          <p className="mt-1 text-[12px] text-muted">
+            Lo que entró, lo que costó y lo que queda.
+          </p>
+        </header>
+
+        <Pestanas activa={activa} />
+
+        {errorNum && (
+          <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
+            {errorNum.message}
+          </p>
+        )}
+
+        <div className="mb-5 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+          <KpiCard tono="positivo" titulo="Facturado" valor={Number(total?.facturado ?? 0)} />
+          <KpiCard tono="alerta" titulo="Costos" valor={Number(total?.costos ?? 0)} />
+          <KpiCard
+            tono={Number(total?.margen ?? 0) >= 0 ? 'positivo' : 'alerta'}
+            titulo="Margen"
+            valor={Number(total?.margen ?? 0)}
+          />
+          <KpiCard
+            tono="neutro"
+            titulo="Cierres"
+            valor={Number(total?.ventas ?? 0)}
+            formato="entero"
+          />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section>
+            <h2 className="mb-2 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+              Con qué pagan
+            </h2>
+            {/* Paleta por posición, no semántica: efectivo, tarjeta y Mercado
+                Pago son medios, no estados — ninguno es «bueno» ni «malo», y
+                pintar uno de rojo le inventaría una alarma. */}
+            <ChartTorta gajos={gajosMedio} titulo="Mix de cobro del bar, acumulado" />
+          </section>
+
+          <div className="space-y-4">
+            <section>
+              <h2 className="mb-2 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                Facturación y costos por mes
+              </h2>
+              {/* Agrupadas: facturado y costos NO se suman entre sí, se
+                  comparan. Los costos van en negativo para que la distancia
+                  entre las dos barras sea el margen, leído sin hacer cuentas. */}
+              <ChartBarras
+                ejeX={ejeX}
+                series={seriesMes}
+                modo="agrupadas"
+                alto={200}
+                titulo="Facturado contra costos del bar, por mes"
+              />
+            </section>
+
+            <section>
+              <h2 className="mb-2 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                Margen por mes
+              </h2>
+              <ChartBarras
+                ejeX={ejeX}
+                series={seriesMargen}
+                alto={160}
+                titulo="Margen del bar por mes"
+              />
+            </section>
+          </div>
+        </div>
+
+        {Number(total?.costos ?? 0) === 0 && Number(total?.facturado ?? 0) > 0 && (
+          <p className="mt-4 rounded-md bg-warnbg px-4 py-3 text-[11px] leading-relaxed text-warntx">
+            <strong className="font-bold">Todavía no hay costos cargados.</strong> El margen que se
+            ve es igual al facturado, así que no es el margen real: falta lo que costó producirlo.
+            Los costos se cargan en la pestaña{' '}
+            <Link href="/bar?vista=costos" className="underline">
+              Costos
+            </Link>
+            .
+          </p>
+        )}
+      </div>
+    )
+  }
 
   // ── La vista de costos ─────────────────────────────────────────────────
   //
