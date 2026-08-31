@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 📌 Voy a ampliar /inicio con más secciones · para Facu
+
+Horacio pidió consolidar en /inicio todas las secciones de gráficos que hoy están repartidas (Finanzas, Cobranza, etc.) — evolución de caja, composición de ingresos, ingresos vs gastos por fecha, medios de cobro, composición de gastos, deudas urgentes, estado de equipos. Decisión suya: sí, aunque se duplique con lo que ya existe en otras pantallas.
+
+Sé que /inicio es tu carril y lo estás tocando hoy mismo. Aviso antes de construir para no pisarnos — si preferís que lo hagamos distinto (por ejemplo, un botón "Ver más" que lleve a las secciones existentes en vez de duplicar todo el contenido acá), decime y lo ajustamos. Si no hay objeción, seguimos con el agregado tal como está pedido.
+
+Confirmá con: grep -n "Voy a ampliar /inicio" docs/coordinacion.md
+
 ### ✅ DECISIÓN · emisión ARCA real, no se prueba otra vez antes de entregar · para Facu
 
 Decisión de Horacio sobre el punto que marcaste como "la más cara de revertir": se confía en las partes ya probadas (WSAA, reserva de numeración, armado del payload, QR según especificación oficial) — no se emite otra factura real solo para probar el clic de la pantalla.
