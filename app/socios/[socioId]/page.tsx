@@ -5,9 +5,10 @@ import { formatDate, formatMoney } from '@/lib/format'
 import { estadoSocio } from '@/lib/domain/socio'
 import { rolActual } from '@/lib/rol-actual'
 import { puede } from '@/lib/permisos'
-import { Badge, Button, DataTable, KpiCard, type ColumnDef } from '@/components/ui'
+import { Badge, DataTable, KpiCard, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 import AccionesSueldo, { type OpcionMes } from './AccionesSueldo'
+import RegistrarRetiro from './RegistrarRetiro'
 
 /**
  * El segmento acepta cualquier texto: se valida ANTES de consultar, así el
@@ -68,7 +69,8 @@ export default async function SocioDetallePage({
 
   const supabase = await createClient()
 
-  const [socioRes, mensualRes, periodosRes, devengosRes, excepcionesRes, rol] = await Promise.all([
+  const [socioRes, mensualRes, periodosRes, devengosRes, excepcionesRes, rol, prediosRes] =
+    await Promise.all([
     // El filtro `tipo = 'socio'` está DENTRO de la vista, así que el uuid de un
     // sponsor o de un equipo no devuelve fila y cae en notFound. No hace falta
     // comprobarlo acá — y comprobarlo acá sería una segunda definición de "qué
@@ -89,6 +91,7 @@ export default async function SocioDetallePage({
     supabase.from('devengo_socio').select('periodo_id, monto').eq('socio_id', socioId),
     supabase.from('sueldo_socio_mes').select('periodo_id, monto').eq('socio_id', socioId),
     rolActual(),
+    supabase.from('predio').select('id, nombre').order('nombre'),
   ])
 
   const error = socioRes.error ?? mensualRes.error
@@ -189,36 +192,21 @@ export default async function SocioDetallePage({
             puedeEditar={puedeEditar}
           />
 
-          {/* ── El hueco de la escritura ──────────────────────────────────
-              El botón está en su lugar y DESHABILITADO, no ausente. Que se vea
-              dónde va a estar contesta la pregunta de Facu —"no se ve cómo
-              registrar un retiro"— sin fingir que ya se puede.
+          {/* Hasta hoy acá había un botón deshabilitado con un cartel de «en
+              construcción». El motor estaba entero desde el módulo de socios
+              —`crear_retiro_socio` valida el saldo de caja, arma el asiento y
+              tiene su guarda— y lo único que faltaba era por dónde llamarlo.
 
-              No está cableado a propósito: `crear_retiro_socio` existe y está
-              completa, pero es una de las seis funciones sin `p_created_by`, y
-              desde que se sacó el fallback a auth.users no puede escribir sin
-              sesión. Un botón que la llame hoy explota con "permission denied
-              for table users".
-
-              La escritura es carril de Horacio: el formulario, la Server Action
-              y el parámetro de la función van juntos. Acá sólo queda el lugar.
-
-              Queda ACÁ y no arriba con las dos acciones de sueldo: aquéllas
-              andan, ésta todavía no, y mezclar un botón muerto entre dos vivos
-              haría dudar de los tres. */}
-          <div className="mb-6 flex flex-wrap items-center gap-3">
-            <Button
-              icon="plus"
-              disabled
-              title="En construcción: la escritura de socios está pendiente"
-            >
-              Registrar retiro
-            </Button>
-            <p className="text-[10.5px] text-muted">
-              En construcción. Los retiros se cargan por ahora desde la base; la pantalla de carga
-              es lo próximo del módulo.
-            </p>
-          </div>
+              Va arriba de la grilla y no al lado del sueldo: cambiar el sueldo
+              acordado es una decisión, retirar mueve plata. */}
+          {puede(rol, 'socio.retirar') && (
+            <RegistrarRetiro
+              socioId={socioId}
+              socio={socio.socio ?? 'este socio'}
+              saldo={saldo}
+              predios={prediosRes.data ?? []}
+            />
+          )}
 
           {/* La fila de total se PASA desde v_socio_lista, no se suma acá.
 
