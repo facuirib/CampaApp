@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { formatDate, formatMoney } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
+import { ChartBarras, type SerieBarras } from '@/components/ui'
 import { Badge, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import MatrizMes, { type DiaCalendario } from './MatrizMes'
 import type { Database } from '@/lib/db/database.types'
@@ -218,6 +219,26 @@ export default async function CalendarioPagosPage({
     neto: d.neto ?? 0,
     vencidos: d.vencidos ?? 0,
   }))
+
+  // Las tres series del gráfico. Reparto de lo YA traído, no una consulta nueva
+  // ni un cálculo: cada número sale tal cual de v_calendario_dia.
+  //
+  // `vencidos` es un CONTEO de items, no un importe — por eso no va como serie
+  // de plata. Se marca el día que tiene alguno reusando su propio `entra`, que
+  // es la magnitud a la que pertenece: lo vencido es plata que debía entrar.
+  const seriesDelMes: SerieBarras[] = [
+    {
+      label: 'Entra',
+      color: 'var(--ok)',
+      valores: dias.map((d) => (d.vencidos > 0 ? 0 : d.entra)),
+    },
+    {
+      label: 'Entra, con vencidos',
+      color: 'var(--warn)',
+      valores: dias.map((d) => (d.vencidos > 0 ? d.entra : 0)),
+    },
+    { label: 'Sale', color: 'var(--err)', valores: dias.map((d) => d.sale) },
+  ]
 
   // El acumulado corre sobre TODOS los días, así que se lee del día, no de la
   // lista filtrada: filtrar por tipo no cambia lo que se acumuló hasta esa fecha.
@@ -465,6 +486,37 @@ export default async function CalendarioPagosPage({
               hrefBase={hrefMatriz}
               hoy={hoy}
             />
+          )}
+
+          {/* ── El desfasaje del mes, día por día ────────────────────────────
+              La matriz dice QUÉ día vence algo; esto dice CUÁNTO y de qué lado,
+              que es lo que se pierde en una grilla de celdas parejas. Las dos
+              vistas salen de `dias` — la misma consulta a v_calendario_dia, ya
+              traída— así que no hay una segunda fuente ni una segunda consulta.
+
+              Apiladas y no agrupadas: entra y sale ocupan lados opuestos del
+              cero, así que apilarlas no suma peras con manzanas — deja ver el
+              NETO del día como la distancia entre las dos puntas, que es
+              exactamente la pregunta («¿este día me alcanza?»). */}
+          {dias.length > 0 && (
+            <div className="mt-4">
+              <h2 className="mb-2 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                Cómo se reparte el mes
+              </h2>
+              <ChartBarras
+                ejeX={dias.map((d) => d.dia.slice(8, 10))}
+                series={seriesDelMes}
+                modo="apiladas"
+                alto={220}
+                maxEtiquetasX={16}
+                titulo="Entradas y salidas comprometidas por día del mes"
+              />
+              <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+                Verde entra, rojo sale. Los días con algo{' '}
+                <strong className="font-semibold text-ink">vencido</strong> van en ámbar sobre la
+                barra de entrada: es plata que ya tendría que haber llegado.
+              </p>
+            </div>
           )}
 
           {/* ── El día abierto ───────────────────────────────────────────── */}
