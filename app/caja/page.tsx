@@ -26,7 +26,9 @@ export default async function CajaPage() {
     <div className="pb-10">
       <header className="mb-7">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Caja</h1>
-        <p className="mt-1 text-[12px] text-muted">Saldos disponibles por caja.</p>
+        <p className="mt-1 text-[12px] text-muted">
+          Saldos disponibles por caja. Tocá una para ver cómo llegó a ese número.
+        </p>
       </header>
 
       {error && (
@@ -48,6 +50,7 @@ export default async function CajaPage() {
           <DataTable
             columns={COL_CAJAS}
             rows={cajas ?? []}
+            rowHref={(f) => `/caja/${f.caja_id}`}
             rowKey="caja_id"
             total={{ nombre: 'Total', saldo: total?.saldo_total ?? 0 }}
             maxHeight={400}

@@ -137,6 +137,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "amortizacion_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "amortizacion_periodo_id_fkey"
             columns: ["periodo_id"]
             isOneToOne: false
@@ -200,6 +207,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "anticipo_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -343,6 +357,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "anticipo_uso_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "anticipo_uso_cuota_id_fkey"
             columns: ["cuota_id"]
             isOneToOne: false
@@ -457,6 +478,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "arqueo_asiento_entrega_id_fkey"
+            columns: ["asiento_entrega_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "arqueo_asiento_id_fkey"
             columns: ["asiento_ajuste_id"]
             isOneToOne: false
@@ -468,6 +496,13 @@ export type Database = {
             columns: ["asiento_ajuste_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "arqueo_asiento_id_fkey"
+            columns: ["asiento_ajuste_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -563,6 +598,13 @@ export type Database = {
             columns: ["anulado_por"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "asiento_anulado_por_fkey"
+            columns: ["anulado_por"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -703,6 +745,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -1108,6 +1157,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "cheque_asiento_alta_id_fkey"
+            columns: ["asiento_alta_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "cheque_asiento_cierre_id_fkey"
             columns: ["asiento_cierre_id"]
             isOneToOne: false
@@ -1119,6 +1175,13 @@ export type Database = {
             columns: ["asiento_cierre_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "cheque_asiento_cierre_id_fkey"
+            columns: ["asiento_cierre_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -1422,6 +1485,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "compromiso_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -1752,6 +1822,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "contrato_sponsor_asiento_firma_id_fkey"
+            columns: ["asiento_firma_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "contrato_sponsor_sponsor_id_fkey"
             columns: ["sponsor_id"]
             isOneToOne: false
@@ -2020,6 +2097,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "cuota_cobro_sponsor_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "cuota_cobro_sponsor_contrato_id_fkey"
             columns: ["contrato_id"]
             isOneToOne: false
@@ -2094,6 +2178,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "devengo_socio_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -2241,6 +2332,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "devengo_sponsor_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -2957,6 +3055,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "gasto_asiento_dev_id_fkey"
+            columns: ["asiento_dev_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "gasto_asiento_pag_id_fkey"
             columns: ["asiento_pag_id"]
             isOneToOne: false
@@ -2968,6 +3073,13 @@ export type Database = {
             columns: ["asiento_pag_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "gasto_asiento_pag_id_fkey"
+            columns: ["asiento_pag_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -3322,11 +3434,25 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "movimiento_fondo_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "movimiento_fondo_caja_id_fkey"
             columns: ["caja_id"]
             isOneToOne: false
             referencedRelation: "caja"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimiento_fondo_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["caja_id"]
           },
           {
             foreignKeyName: "movimiento_fondo_caja_id_fkey"
@@ -3446,6 +3572,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "pago_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -4015,6 +4148,7 @@ export type Database = {
           cantidad: number
           cat_gasto_id: string
           concepto_id: string | null
+          fecha: string | null
           id: string
           presupuesto_id: string
           unidad: string | null
@@ -4024,6 +4158,7 @@ export type Database = {
           cantidad?: number
           cat_gasto_id: string
           concepto_id?: string | null
+          fecha?: string | null
           id?: string
           presupuesto_id: string
           unidad?: string | null
@@ -4033,6 +4168,7 @@ export type Database = {
           cantidad?: number
           cat_gasto_id?: string
           concepto_id?: string | null
+          fecha?: string | null
           id?: string
           presupuesto_id?: string
           unidad?: string | null
@@ -4375,6 +4511,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "retiro_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -4827,6 +4970,13 @@ export type Database = {
             referencedRelation: "v_libro_diario"
             referencedColumns: ["asiento_id"]
           },
+          {
+            foreignKeyName: "usd_operacion_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
         ]
       }
       venta_bar: {
@@ -4885,6 +5035,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "venta_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -5013,6 +5170,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "amortizacion_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -5168,6 +5332,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "arqueo_asiento_entrega_id_fkey"
+            columns: ["asiento_entrega_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "arqueo_asiento_id_fkey"
             columns: ["asiento_ajuste_id"]
             isOneToOne: false
@@ -5179,6 +5350,13 @@ export type Database = {
             columns: ["asiento_ajuste_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "arqueo_asiento_id_fkey"
+            columns: ["asiento_ajuste_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -5230,6 +5408,13 @@ export type Database = {
             columns: ["asiento_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
         ]
@@ -5503,6 +5688,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "cheque_asiento_alta_id_fkey"
+            columns: ["asiento_alta_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "cheque_asiento_cierre_id_fkey"
             columns: ["asiento_cierre_id"]
             isOneToOne: false
@@ -5514,6 +5706,13 @@ export type Database = {
             columns: ["asiento_cierre_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "cheque_asiento_cierre_id_fkey"
+            columns: ["asiento_cierre_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -6806,6 +7005,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "gasto_asiento_dev_id_fkey"
+            columns: ["asiento_dev_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "gasto_asiento_pag_id_fkey"
             columns: ["asiento_pag_id"]
             isOneToOne: false
@@ -6817,6 +7023,13 @@ export type Database = {
             columns: ["asiento_pag_id"]
             isOneToOne: false
             referencedRelation: "v_libro_diario"
+            referencedColumns: ["asiento_id"]
+          },
+          {
+            foreignKeyName: "gasto_asiento_pag_id_fkey"
+            columns: ["asiento_pag_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
             referencedColumns: ["asiento_id"]
           },
           {
@@ -7133,6 +7346,22 @@ export type Database = {
           torneo: string | null
           total_debe: number | null
           total_haber: number | null
+        }
+        Relationships: []
+      }
+      v_movimiento_caja: {
+        Row: {
+          anulado: boolean | null
+          asiento_id: string | null
+          caja: string | null
+          caja_id: string | null
+          debe: number | null
+          descripcion: string | null
+          fecha: string | null
+          haber: number | null
+          neto: number | null
+          origen: string | null
+          saldo_corrido: number | null
         }
         Relationships: []
       }
@@ -7780,6 +8009,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "retiro_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "retiro_bar_predio_id_fkey"
             columns: ["predio_id"]
             isOneToOne: false
@@ -8196,6 +8432,13 @@ export type Database = {
             referencedColumns: ["asiento_id"]
           },
           {
+            foreignKeyName: "venta_bar_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "v_movimiento_caja"
+            referencedColumns: ["asiento_id"]
+          },
+          {
             foreignKeyName: "venta_bar_dia_cancha_id_fkey"
             columns: ["dia_cancha_id"]
             isOneToOne: false
@@ -8384,6 +8627,17 @@ export type Database = {
         Args: { p_destino_id: string; p_origen_id: string }
         Returns: Json
       }
+      clonar_torneo: {
+        Args: {
+          p_anio: number
+          p_created_by?: string
+          p_ejercicio_id: string
+          p_nombre_nuevo: string
+          p_temporada: Database["public"]["Enums"]["temporada"]
+          p_torneo_origen_id: string
+        }
+        Returns: string
+      }
       comprar_usd: {
         Args: {
           p_cantidad: number
@@ -8546,6 +8800,19 @@ export type Database = {
         Args: { p_categoria_id: string; p_nombre: string; p_orden?: number }
         Returns: string
       }
+      crear_sponsor: {
+        Args: {
+          p_condicion_iva_receptor_default?: number
+          p_contacto?: string
+          p_doc_nro_default?: string
+          p_doc_tipo_default?: number
+          p_domicilio_fiscal?: string
+          p_email?: string
+          p_nombre: string
+          p_razon_social?: string
+        }
+        Returns: string
+      }
       crear_torneo: {
         Args: {
           p_anio: number
@@ -8636,6 +8903,10 @@ export type Database = {
       es_sueldo_excepcion: {
         Args: { p_fecha: string; p_socio_id: string }
         Returns: boolean
+      }
+      generar_cuotas_ficha: {
+        Args: { p_equipo_torneo_id: string }
+        Returns: number
       }
       generar_cuotas_instancia: {
         Args: { p_jornada_playoff_id: string }
@@ -8783,6 +9054,7 @@ export type Database = {
           p_devengado_at: string
           p_jornada_id?: string
           p_predio_id?: string
+          p_proveedor_id?: string
           p_torneo_id?: string
         }
         Returns: string
