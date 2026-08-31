@@ -2,9 +2,13 @@ import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import {
   ChartArea,
+  ChartBarras,
+  ChartTorta,
   KpiCard,
   KpiHero,
   Waterfall,
+  type GajoTorta,
+  type SerieBarras,
   type PasoWaterfall,
   type PuntoSerie,
   type ValorKpi,
@@ -47,7 +51,7 @@ export default async function Home({
   const torneoElegido = torneoParam ?? actual?.id ?? null
   const anio = Number(anioParam) || new Date().getFullYear()
 
-  const [dash, caja, flujo] = await Promise.all([
+  const [dash, caja, flujo, etapas, plAnual, plMes, medios] = await Promise.all([
     torneoElegido
       ? supabase.from('v_dashboard').select('*').eq('torneo_id', torneoElegido).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -57,6 +61,13 @@ export default async function Home({
       .select('semana, saldo_proyectado, futura')
       .not('semana', 'is', null)
       .order('semana'),
+    // Las etapas del torneo elegido. Misma fuente que las colas de /cobranza.
+    torneoElegido
+      ? supabase.from('v_cobranza_etapa').select('*').eq('torneo_id', torneoElegido)
+      : Promise.resolve({ data: [], error: null }),
+    supabase.from('v_pl_anual_cuenta').select('*').eq('anio', anio).eq('tipo', 'ingreso'),
+    supabase.from('v_pl_mensual_total').select('*').eq('anio', anio).order('mes'),
+    supabase.from('v_cobro_medio_anio').select('*').eq('anio', anio),
   ])
 
   const d = dash.data
@@ -74,6 +85,63 @@ export default async function Home({
     fecha: f.semana as string,
     valor: f.saldo_proyectado ?? 0,
     proyectado: !!f.futura,
+  }))
+
+  // ── Los gráficos ─────────────────────────────────────────────────────────
+  //
+  // Todo lo de acá abajo es MAPEO: cada importe viene sumado de su vista, y la
+  // pantalla sólo lo acomoda en la forma que el componente espera. No hay una
+  // sola suma, y por eso el dashboard no puede discrepar con el detalle.
+
+  const ROTULO_ETAPA: Record<string, string> = {
+    por_vencer: 'Por vencer',
+    aviso: 'Primer aviso',
+    firme: 'Reclamo firme',
+  }
+
+  const filasEtapa = etapas.data ?? []
+  const ejeEtapas = filasEtapa.map((e) => ROTULO_ETAPA[e.etapa ?? ''] ?? e.etapa ?? '—')
+
+  // Apiladas: vencido y por vencer SÍ se suman — dan el adeudado de la etapa.
+  const seriesCobranza: SerieBarras[] = [
+    { label: 'Vencido', color: 'var(--err)', valores: filasEtapa.map((e) => Number(e.vencido ?? 0)) },
+    { label: 'Por vencer', color: 'var(--warn)', valores: filasEtapa.map((e) => Number(e.por_vencer ?? 0)) },
+  ]
+
+  // La dona de etapas usa color semántico: acá el color SÍ dice algo.
+  const COLOR_ETAPA: Record<string, string> = {
+    por_vencer: 'var(--ok)',
+    aviso: 'var(--warn)',
+    firme: 'var(--err)',
+  }
+  const gajosEtapa: GajoTorta[] = filasEtapa.map((e) => ({
+    label: ROTULO_ETAPA[e.etapa ?? ''] ?? e.etapa ?? '—',
+    valor: Number(e.equipos ?? 0),
+    color: COLOR_ETAPA[e.etapa ?? ''],
+  }))
+
+  const meses = plMes.data ?? []
+  const ejeMeses = meses.map((m) => String(m.mes).padStart(2, '0'))
+  const seriesIngresoGasto: SerieBarras[] = [
+    { label: 'Ingresos', color: 'var(--ok)', valores: meses.map((m) => Number(m.ingresos ?? 0)) },
+    // Los egresos vienen POSITIVOS de la vista —es lo que gastó— y se dibujan
+    // hacia abajo: el signo es del gráfico, no del dato.
+    { label: 'Gastos', color: 'var(--err)', valores: meses.map((m) => -Number(m.egresos ?? 0)) },
+  ]
+
+  // Paleta por posición: «Ingresos por partidos» no es mejor ni peor que
+  // «Ingresos sponsors», así que el color no debe sugerir nada.
+  const gajosIngreso: GajoTorta[] = (plAnual.data ?? [])
+    .map((c) => ({ label: c.nombre ?? '—', valor: Number(c.monto ?? 0) }))
+
+  const ROTULO_MEDIO: Record<string, string> = {
+    efectivo: 'Efectivo',
+    transferencia: 'Transferencia',
+    cheque: 'Cheque',
+  }
+  const gajosMedio: GajoTorta[] = (medios.data ?? []).map((m) => ({
+    label: ROTULO_MEDIO[m.medio_pago ?? ''] ?? m.medio_pago ?? '—',
+    valor: Number(m.total ?? 0),
   }))
 
   // Los tres salen de la misma fila y reconcilian por construcción:
@@ -168,10 +236,90 @@ export default async function Home({
         />
       </div>
 
+      {/* ── Banda de cobranza ─────────────────────────────────────────────
+          🔴 El alcance está ESCRITO, y no es un detalle de estilo.
+
+          Un solo filtro que rija toda la pantalla es imposible sin mentir: la
+          caja es de la EMPRESA y no de un torneo, y el P&L es del año. Si el
+          selector de torneo dijera «filtra todo», habría paneles que lo ignoran
+          en silencio — que es la forma exacta en que un filtro parcial esconde
+          plata.
+
+          Así que hay dos alcances y cada banda dice cuál es el suyo. */}
+      {d && (
+        <section className="mb-7">
+          <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+            Cobranza · {d.torneo}
+          </h2>
+          <p className="mb-3 text-[11px] text-muted">
+            De las mismas colas que{' '}
+            <a href="/cobranza" className="font-semibold text-blue-d hover:underline">
+              Cobranza
+            </a>
+            : cada equipo cuenta en UNA etapa, la más severa.
+          </p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartBarras
+              ejeX={ejeEtapas}
+              series={seriesCobranza}
+              modo="apiladas"
+              alto={230}
+              titulo="Deuda por etapa de cobranza, vencida y por vencer"
+            />
+            <ChartTorta
+              gajos={gajosEtapa}
+              centro={{ valor: String(d.equipos_total ?? 0), nota: 'equipos' }}
+              titulo="Equipos por etapa de cobranza"
+            />
+          </div>
+        </section>
+      )}
+
+      {/* ── Banda de finanzas: el año, no el torneo ─────────────────────── */}
       <section className="mb-7">
-        <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
-          Evolución de la caja
+        <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+          Finanzas · {anio}
         </h2>
+        <p className="mb-3 text-[11px] text-muted">
+          De las mismas vistas que{' '}
+          <a href="/resultados" className="font-semibold text-blue-d hover:underline">
+            Resultados
+          </a>
+          . <strong className="font-semibold text-ink">No dependen del torneo</strong>: el
+          resultado es de la empresa.
+        </p>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartBarras
+            ejeX={ejeMeses}
+            series={seriesIngresoGasto}
+            modo="agrupadas"
+            alto={230}
+            titulo={`Ingresos contra gastos por mes, ${anio}`}
+          />
+          <ChartTorta gajos={gajosIngreso} titulo={`Composición de los ingresos ${anio}`} />
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <ChartTorta gajos={gajosMedio} titulo={`Cómo se cobró en ${anio}`} />
+          <div className="rounded-md border border-line bg-white p-4 text-[11px] leading-relaxed text-muted">
+            <strong className="font-bold text-ink">Cómo se cobró</strong> sale de los pagos
+            registrados, no de lo que cada equipo pactó al inscribirse. Lo pactado está en el
+            historial de cada equipo; lo interesante es el desvío entre una cosa y la otra.
+          </div>
+        </div>
+      </section>
+
+      {/* ── Banda de caja: la empresa, hoy ──────────────────────────────── */}
+      <section className="mb-7">
+        <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+          Caja · la empresa, hoy
+        </h2>
+        <p className="mb-3 text-[11px] text-muted">
+          La misma serie que{' '}
+          <a href="/proyeccion" className="font-semibold text-blue-d hover:underline">
+            Proyección
+          </a>
+          . No depende del torneo ni del año elegidos.
+        </p>
         <ChartArea serie={serie} titulo="Saldo de caja por semana, real y proyectado" />
       </section>
 

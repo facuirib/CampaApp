@@ -768,6 +768,13 @@ export type Database = {
             foreignKeyName: "asiento_linea_cuenta_id_fkey"
             columns: ["cuenta_id"]
             isOneToOne: false
+            referencedRelation: "v_pl_anual_cuenta"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
+            foreignKeyName: "asiento_linea_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
             referencedRelation: "v_pl_mensual"
             referencedColumns: ["cuenta_id"]
           },
@@ -934,6 +941,13 @@ export type Database = {
             foreignKeyName: "caja_cuenta_id_fkey"
             columns: ["cuenta_id"]
             isOneToOne: false
+            referencedRelation: "v_pl_anual_cuenta"
+            referencedColumns: ["cuenta_id"]
+          },
+          {
+            foreignKeyName: "caja_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
             referencedRelation: "v_pl_mensual"
             referencedColumns: ["cuenta_id"]
           },
@@ -991,6 +1005,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cuenta"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cat_gasto_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_anual_cuenta"
+            referencedColumns: ["cuenta_id"]
           },
           {
             foreignKeyName: "cat_gasto_cuenta_id_fkey"
@@ -1949,6 +1970,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cuenta"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuenta_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl_anual_cuenta"
+            referencedColumns: ["cuenta_id"]
           },
           {
             foreignKeyName: "cuenta_padre_id_fkey"
@@ -5853,6 +5881,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cobranza_etapa: {
+        Row: {
+          adeudado: number | null
+          equipos: number | null
+          etapa: string | null
+          por_vencer: number | null
+          torneo_id: string | null
+          vencido: number | null
+        }
+        Relationships: []
+      }
       v_cobranza_kpi: {
         Row: {
           cobrado: number | null
@@ -5881,6 +5920,15 @@ export type Database = {
           total_por_vencer: number | null
           total_vencido: number | null
           vencimiento_mas_antiguo: string | null
+        }
+        Relationships: []
+      }
+      v_cobro_medio_anio: {
+        Row: {
+          anio: number | null
+          cobros: number | null
+          medio_pago: string | null
+          total: number | null
         }
         Relationships: []
       }
@@ -7437,6 +7485,17 @@ export type Database = {
           neto: number | null
           origen: string | null
           saldo_corrido: number | null
+        }
+        Relationships: []
+      }
+      v_pl_anual_cuenta: {
+        Row: {
+          anio: number | null
+          codigo: string | null
+          cuenta_id: string | null
+          monto: number | null
+          nombre: string | null
+          tipo: string | null
         }
         Relationships: []
       }
