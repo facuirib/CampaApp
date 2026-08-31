@@ -34,6 +34,8 @@ export { default as Badge, type BadgeProps, type EstadoBadge } from './Badge'
 export { default as Button, type ButtonProps, type TamanoBoton, type VarianteBoton } from './Button'
 export { default as Card, type CardProps } from './Card'
 export { default as ChartArea, type ChartAreaProps, type PuntoSerie } from './ChartArea'
+export { default as ChartBarras, type ChartBarrasProps, type SerieBarras } from './ChartBarras'
+export { default as ChartTorta, type ChartTortaProps, type GajoTorta } from './ChartTorta'
 export {
   default as BarrasComposicion,
   type BarrasComposicionProps,

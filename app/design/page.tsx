@@ -4,6 +4,8 @@ import {
   Button,
   Card,
   ChartArea,
+  ChartBarras,
+  ChartTorta,
   DataTable,
   Field,
   Input,
@@ -16,6 +18,8 @@ import {
   type ColumnDef,
   type LineaAsiento,
   type PasoWaterfall,
+  type GajoTorta,
+  type SerieBarras,
   type PuntoSerie,
   type ValorKpi,
 } from '@/components/ui'
@@ -240,6 +244,57 @@ const SERIE_QUIEBRE: PuntoSerie[] = [
 
 // El puente cierra: 88,46 − 8,76 = 79,7. Los tres números de la decisión 6d no
 // reconcilian entre sí (742,5 − 8,76 ≠ 79,7), y /design es documentación.
+/** Composición de ingresos, con los colores por posición (categorías neutras). */
+const GAJOS_INGRESO: GajoTorta[] = [
+  { label: 'Partidos', valor: 18400000 },
+  { label: 'Inscripciones', valor: 9200000 },
+  { label: 'Sponsors', valor: 4100000 },
+  { label: 'Bar', valor: 2350000 },
+  { label: 'Otros ingresos', valor: 480000 },
+]
+
+/** El mismo gráfico con color SEMÁNTICO: acá el color dice algo. */
+const GAJOS_ESTADO: GajoTorta[] = [
+  { label: 'Al día', valor: 19, color: 'var(--ok)' },
+  { label: 'Por vencer', valor: 5, color: 'var(--warn)' },
+  { label: 'Vencido', valor: 4, color: 'var(--err)' },
+]
+
+/** Con cola larga: dispara el agrupado en «Otros». */
+const GAJOS_LARGO: GajoTorta[] = [
+  { label: 'Árbitros', valor: 4200000 },
+  { label: 'Predio', valor: 3100000 },
+  { label: 'Coordinación', valor: 1800000 },
+  { label: 'Medicinal', valor: 900000 },
+  { label: 'Tribunal', valor: 600000 },
+  { label: 'Operativos', valor: 480000 },
+  { label: 'Imprenta', valor: 220000 },
+  { label: 'Limpieza', valor: 180000 },
+  { label: 'Varios', valor: 90000 },
+]
+
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago']
+
+/** Ingresos vs gastos: el caso de `agrupadas`, y con meses en rojo. */
+const SERIES_IVG: SerieBarras[] = [
+  {
+    label: 'Ingresos',
+    color: 'var(--ok)',
+    valores: [8200000, 9100000, 7400000, 11200000, 10050000, 6800000, 12400000, 9900000],
+  },
+  {
+    label: 'Gastos',
+    color: 'var(--err)',
+    valores: [-6100000, -7300000, -9800000, -8400000, -7100000, -9200000, -8800000, -10050000],
+  },
+]
+
+/** Deuda por antigüedad: el caso de `apiladas` — los tramos SÍ se suman. */
+const SERIES_DEUDA: SerieBarras[] = [
+  { label: 'Por vencer', color: 'var(--warn)', valores: [2400000, 1800000, 3100000, 900000] },
+  { label: 'Vencido', color: 'var(--err)', valores: [1200000, 3400000, 800000, 2600000] },
+]
+
 const PUENTE: PasoWaterfall[] = [
   { titulo: 'Facturado', valor: 88_460_000, rol: 'suma' },
   { titulo: 'Por cobrar', valor: 8_760_000, rol: 'resta' },
@@ -1105,6 +1160,98 @@ export default function DesignPage() {
               Mismo tratamiento que el Button deshabilitado: fondo{' '}
               <code className="font-mono">--bg</code>, texto{' '}
               <code className="font-mono">--disabled-tx</code>, sin hover.
+            </p>
+          </Ejemplo>
+        </div>
+      </Seccion>
+
+      <Seccion n="10" titulo="ChartTorta / ChartBarras">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Ejemplo titulo="Dona — categorías sin semántica">
+            <ChartTorta gajos={GAJOS_INGRESO} titulo="Composición de ingresos" />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              El agujero del medio lleva el <strong className="font-bold text-ink">total</strong>: una
+              torta maciza obliga a sumar los gajos con la vista para saber sobre qué se reparte. Los
+              colores salen de la paleta <strong className="font-bold text-ink">por posición</strong>,
+              que es lo correcto cuando las categorías no significan bueno ni malo — pintar de rojo a
+              «Bar» le inventaría una alarma que no tiene.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Dona — color semántico y centro propio">
+            <ChartTorta
+              gajos={GAJOS_ESTADO}
+              centro={{ valor: '28', nota: 'equipos' }}
+              titulo="Estado de los equipos"
+            />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Acá el color <strong className="font-bold text-ink">sí</strong> dice algo: verde al día,
+              ámbar por vencer, rojo vencido — los mismos tokens que los badges. Y el centro se pisa
+              con <code className="rounded-sm bg-line2 px-1 font-mono text-[10px]">centro</code>,
+              porque el total útil son 28 equipos y no la suma de pesos.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Dona — cola larga">
+            <ChartTorta gajos={GAJOS_LARGO} tope={5} titulo="Gastos por categoría" />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Con nueve categorías, las que pasan de <code className="rounded-sm bg-line2 px-1 font-mono text-[10px]">tope</code>{' '}
+              se juntan en «Otros», en gris, para que no compita con una categoría real. Sin esto los
+              gajos finos se vuelven ilegibles y la leyenda ocupa más que el gráfico.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Dona vacía">
+            <ChartTorta gajos={[]} />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Sin gajos dibujables dice por qué está vacía, en vez de dejar un recuadro mudo del alto
+              completo. Mismo criterio que ChartArea y Waterfall.
+            </p>
+          </Ejemplo>
+        </div>
+
+        <div className="mt-4 grid gap-4">
+          <Ejemplo titulo="Barras agrupadas — comparar">
+            <ChartBarras
+              ejeX={MESES}
+              series={SERIES_IVG}
+              modo="agrupadas"
+              titulo="Ingresos contra gastos, por mes"
+            />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              <strong className="font-bold text-ink">Agrupadas</strong> es para comparar dos
+              magnitudes que no se suman entre sí. El cero no está pegado abajo: los gastos entran en
+              negativo y bajan de la línea, que es como se leen. Un eje apoyado en cero exageraría las
+              diferencias — el error clásico del eje truncado.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Barras apiladas — componer">
+            <ChartBarras
+              ejeX={['Clausura 25', 'Apertura 26', 'Clausura 26', 'Apertura 27']}
+              series={SERIES_DEUDA}
+              modo="apiladas"
+              alto={220}
+              titulo="Deuda por torneo, vencida y por vencer"
+            />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              <strong className="font-bold text-ink">Apiladas</strong> es para componer: vencido más
+              por vencer <strong className="font-bold text-ink">sí</strong> dan el total adeudado.
+              No es una preferencia visual — apilar cosas que no se suman dibuja un total que no
+              existe.
+            </p>
+          </Ejemplo>
+
+          <Ejemplo titulo="Compacto">
+            <div className="max-w-sm">
+              <ChartBarras ejeX={MESES} series={SERIES_IVG} compacto alto={200} />
+            </div>
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              <code className="rounded-sm bg-line2 px-1 font-mono text-[10px]">compacto</code> achica
+              el <strong className="font-bold text-ink">lienzo</strong>, no las letras: el SVG escala
+              por viewBox, así que un lienzo de 440 en vez de 800 deja cada texto en su tamaño
+              nominal. De paso baja el tope de etiquetas del eje, porque en poco ancho el problema
+              además es el amontonamiento.
             </p>
           </Ejemplo>
         </div>
