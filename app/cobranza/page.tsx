@@ -132,9 +132,10 @@ export default async function CobranzaPage({
     vista?: string
     serie?: string
     estado?: string
+    etapa?: string
   }>
 }) {
-  const { torneo: torneoElegido, vista, serie, estado } = await searchParams
+  const { torneo: torneoElegido, vista, serie, estado, etapa } = await searchParams
   const activa: Vista =
     vista === 'avisos' ? 'avisos' : vista === 'inscripciones' ? 'inscripciones' : 'cuenta'
   const supabase = await createClient()
@@ -178,9 +179,17 @@ export default async function CobranzaPage({
   // El filtro por torneo, por ejemplo, no aplica acá — el aviso se le manda al
   // equipo con todo lo que arrastre, que es el concepto 5.
   if (activa === 'avisos') {
-    const [colaRes, cfgRes] = await Promise.all([
+    const [colaRes, cfgRes, avisosRes, reclamosRes] = await Promise.all([
       supabase.from('v_cobranza_cola').select('*').order('total_adeudado', { ascending: false }),
       supabase.from('config_cobranza').select('*').eq('id', true).maybeSingle(),
+      // Qué se le avisó ya a cada equipo. La cola esconde a quien recibió el
+      // aviso de SU etapa —es el candado— pero puede tener avisos viejos de una
+      // etapa anterior, y eso cambia el tono del mensaje que corresponde.
+      supabase.from('v_reclamo_equipo').select('*'),
+      supabase
+        .from('reclamo')
+        .select('id, tercero_id, fecha, canal, monto_reclamado, etapa')
+        .order('fecha', { ascending: false }),
     ])
 
     return (
@@ -208,7 +217,13 @@ export default async function CobranzaPage({
           </p>
         )}
 
-        <ColasAviso filas={colaRes.data ?? []} ventanas={cfgRes.data ?? null} />
+        <ColasAviso
+          filas={colaRes.data ?? []}
+          ventanas={cfgRes.data ?? null}
+          avisos={avisosRes.data ?? []}
+          reclamos={reclamosRes.data ?? []}
+          etapaFiltro={etapa ?? null}
+        />
       </div>
     )
   }
@@ -224,6 +239,20 @@ export default async function CobranzaPage({
   // definición, en la base. La regla estaba copiada acá y en el tarifario, y las
   // dos copias envejecían por separado.
   const { data: actual } = await supabase.from('v_torneo_actual').select('id, nombre').maybeSingle()
+
+  // La serie de cada equipo, para poder filtrar por ella. Sólo tiene sentido
+  // con un torneo elegido: un equipo puede jugar en series distintas en cada
+  // torneo, así que sin ese corte «serie B» no identifica a nadie.
+  const { data: fichas } = torneoElegido
+    ? await supabase
+        .from('v_cuenta_corriente_equipo')
+        .select('tercero_id, serie, categoria')
+        .eq('torneo_id', torneoElegido)
+    : { data: null }
+
+  const serieDe = new Map(
+    (fichas ?? []).map((f) => [f.tercero_id, [f.categoria, f.serie].filter(Boolean).join(' · ')]),
+  )
   const activo = actual ?? null
 
   // ── De qué vista se lee ──────────────────────────────────────────────────
@@ -290,7 +319,44 @@ export default async function CobranzaPage({
         label: t.estado === 'en_curso' ? `${t.nombre} (en curso)` : t.nombre,
       })),
     },
+    // El estado es el mismo que dibuja el badge: no hay una segunda definición.
+    {
+      parametro: 'estado',
+      label: 'Estado',
+      todos: 'Todos',
+      opciones: [
+        { valor: 'mora', label: 'En mora' },
+        { valor: 'por_vencer', label: 'Por vencer' },
+        { valor: 'anticipo', label: 'Con anticipo' },
+      ],
+    },
+    // La serie sólo aparece con un torneo elegido, por lo mismo que arriba.
+    ...(serieDe.size > 0
+      ? [
+          {
+            parametro: 'serie',
+            label: 'Serie',
+            todos: 'Todas las series',
+            opciones: [...new Set(serieDe.values())]
+              .filter(Boolean)
+              .sort((a, b) => a.localeCompare(b, 'es'))
+              .map((v) => ({ valor: v, label: v })),
+          } as FiltroUrl,
+        ]
+      : []),
   ]
+
+  // Filtrar filas no es calcular: los importes de cada fila siguen siendo los
+  // de la vista, y los KPI de arriba siguen siendo del torneo entero — son la
+  // foto, no el subconjunto que se está mirando.
+  const filasVisibles = filas.filter((f) => {
+    if (estado === 'mora' && (f.deuda_vencida ?? 0) <= 0) return false
+    if (estado === 'por_vencer' && ((f.deuda_vencida ?? 0) > 0 || (f.saldo_a_favor ?? 0) > 0))
+      return false
+    if (estado === 'anticipo' && (f.saldo_a_favor ?? 0) <= 0) return false
+    if (serie && serieDe.get(f.tercero_id) !== serie) return false
+    return true
+  })
 
   const tasa = kpi?.tasa_cobranza ?? 0
 
@@ -374,7 +440,7 @@ export default async function CobranzaPage({
           equipo y sumar esa columna lo contaría de más. */}
       <DataTable
         columns={columnas(Boolean(torneoElegido))}
-        rows={filas}
+        rows={filasVisibles}
         rowKey="tercero_id"
         rowHref={(f) => `/equipos/${f.tercero_id}`}
         maxHeight={560}
