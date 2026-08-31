@@ -106,6 +106,21 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
   const [fecha, setFecha] = useState(hoyEnCordoba())
   const [predioId, setPredioId] = useState<string | null>(null)
 
+  // ── Los datos del cheque ────────────────────────────────────────────────
+  //
+  // `registrar_cobro` los EXIGE desde siempre —levanta «Un cobro con cheque
+  // necesita número, banco y fecha de cobro»— y este formulario nunca los
+  // ofreció ni los mandaba. O sea que la opción «Cheque» del select estaba
+  // muerta: elegirla y confirmar fallaba siempre, con un error de la base.
+  //
+  // La función tiene razón en exigirlos: un cheque sin número, banco y fecha no
+  // se puede seguir —cuando venza no se sabe cuál acreditar, y si rebota no hay
+  // con qué identificarlo ante el banco— y el único momento en que alguien
+  // tiene el papel en la mano es al cobrarlo.
+  const [chequeNumero, setChequeNumero] = useState('')
+  const [chequeBanco, setChequeBanco] = useState('')
+  const [chequeFechaCobro, setChequeFechaCobro] = useState('')
+
   const [registrando, setRegistrando] = useState(false)
   const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
   const [resultadoExito, setResultadoExito] = useState<string | null>(null)
@@ -207,7 +222,11 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
     monto > 0 &&
     imputaciones.length > 0 &&
     imputacionCompleta &&
-    (medio !== 'efectivo' || !!predioId)
+    (medio !== 'efectivo' || !!predioId) &&
+    // Los tres, o la base lo rechaza. Se pide acá para que el error no llegue
+    // desde Postgres después de armar toda la imputación.
+    (medio !== 'cheque' ||
+      (!!chequeNumero.trim() && !!chequeBanco.trim() && !!chequeFechaCobro))
 
   async function confirmar() {
     if (!torneoSeleccionado) return
@@ -237,6 +256,11 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
       p_imputaciones: imputaciones.filter((i) => i.monto > 0) as unknown as Json,
       p_predio_id: medio === 'efectivo' ? (predioId ?? undefined) : undefined,
       p_responsable_id: user.id,
+      // Sólo cuando corresponde: mandarlos con otro medio haría que la fila de
+      // `cheque` naciera para un cobro que no es un cheque.
+      p_cheque_numero: medio === 'cheque' ? chequeNumero.trim() : undefined,
+      p_cheque_banco: medio === 'cheque' ? chequeBanco.trim() : undefined,
+      p_cheque_fecha_cobro: medio === 'cheque' ? chequeFechaCobro : undefined,
     })
 
     setRegistrando(false)
@@ -246,9 +270,16 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
       return
     }
 
-    setResultadoExito(`Pago de ${formatMoney(monto)} registrado correctamente.`)
+    setResultadoExito(
+      medio === 'cheque'
+        ? `Pago de ${formatMoney(monto)} registrado. El cheque ${chequeNumero.trim()} queda pendiente hasta que se acredite.`
+        : `Pago de ${formatMoney(monto)} registrado correctamente.`,
+    )
     setMonto(0)
     setPredioId(null)
+    setChequeNumero('')
+    setChequeBanco('')
+    setChequeFechaCobro('')
     setRecarga((n) => n + 1)
   }
 
@@ -340,6 +371,40 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
                   <Field label="Fecha">
                     <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                   </Field>
+
+                  {/* Los tres campos del cheque, sólo cuando el medio es
+                      cheque — igual que el predio con el efectivo. Van juntos
+                      porque la base los exige juntos: con dos de tres el cobro
+                      se rechaza igual. */}
+                  {medio === 'cheque' && (
+                    <>
+                      <Field label="Número de cheque" required>
+                        <Input
+                          value={chequeNumero}
+                          onChange={(e) => setChequeNumero(e.target.value)}
+                          placeholder="00012345"
+                        />
+                      </Field>
+                      <Field label="Banco" required>
+                        <Input
+                          value={chequeBanco}
+                          onChange={(e) => setChequeBanco(e.target.value)}
+                          placeholder="Galicia"
+                        />
+                      </Field>
+                      <Field
+                        label="Fecha de cobro"
+                        required
+                        hint="Cuándo se puede depositar. Es la que manda al cashflow."
+                      >
+                        <Input
+                          type="date"
+                          value={chequeFechaCobro}
+                          onChange={(e) => setChequeFechaCobro(e.target.value)}
+                        />
+                      </Field>
+                    </>
+                  )}
 
                   {medio === 'efectivo' && (
                     <Field
