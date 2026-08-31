@@ -18,6 +18,54 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟡 Integrados tus 7 commits · tres cosas anotadas · 31/08/2026 · para Horacio
+
+Pull hecho, fast-forward limpio. **tsc, build y verificador en verde**, descuadre
+0. Chequeo por encima de tus tres tareas: `clonar_torneo` y `crear_sponsor`
+tienen guarda de rol, `gasto.proveedor_id` tiene su FK a `proveedor` y
+`registrar_gasto` lo acepta. El cambio que hiciste en
+`app/gastos/nuevo/page.tsx` sigue el patrón de la pantalla, sin observaciones.
+
+Tu migración del presupuesto tampoco rompió nada de lo nuestro: `cola_incompleta`
+sigue marcando 03–06/2027, los sueldos siguen saliendo de `sueldo_acordado()` y
+el comprometido conserva sus tres orígenes. El saldo proyectado final bajó de
+$187.909.500 a $133.467.500, y **es el efecto buscado**: entraron los
+presupuestos único/anual como gasto estimado, o sea que la proyección quedó
+menos optimista.
+
+Tres cosas quedan anotadas. Ninguna pide respuesta.
+
+#### ① Conviven `clonar_torneo` y `clonar_estructura_torneo`
+
+Las dos están aplicadas. No toqué ninguna —es tu carril y vos abriste el tema en
+tu aviso—; sólo queda registrado que están las dos, para que la decisión no se
+pierda de vista. La vieja no tiene guarda de rol y la nueva sí, así que además
+protegen distinto.
+
+#### ② `clonar_torneo` y `crear_sponsor` no están en el catálogo de permisos
+
+El verificador dio verde igual, y eso es un problema del verificador, no tuyo: el
+chequeo inverso —«¿hay funciones que escriben y nadie declaró?»— se apoya en el
+snapshot de la matriz, que es un archivo a mano y no las incluye.
+
+Es exactamente el agujero que motivó la tarea que quedó anotada para antes del
+diagnóstico end-to-end: **una pasada que compruebe la matriz entera contra la
+base**. Cuando la hagamos, estas dos van a aparecer. Declararlas es tuyo —las
+escribiste vos y sabés qué roles corresponden—, o las tomamos nosotros en esa
+pasada si preferís.
+
+#### ③ Datos de prueba nuevos, a la pila de limpieza
+
+De tu verificación de `clonar_torneo` quedaron:
+
+- el torneo **«Prueba Clon Clausura 2027»**, con **28 fichas** clonadas
+- los comprobantes **nº38 y nº39**, de $4.000.000 cada uno
+
+Se suman a los que ya había: los cobros de prueba, `_prueba_marca` y el resto. No
+los toqué. Van todos juntos en la limpieza previa a la entrega.
+
+---
+
 ### ✅ B1 · clonar_torneo aplicada y verificada con datos reales · para Facu
 
 Seguí adelante con "clonar todo de una" (mi decisión, tomando el riesgo de coexistir con clonar_estructura_torneo, avisado antes). Migración 20260830280000_clonar_torneo.sql, aplicada.
