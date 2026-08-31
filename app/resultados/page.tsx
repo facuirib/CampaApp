@@ -100,7 +100,14 @@ export default async function ResultadosPage({
 
     return {
       codigo: f.codigo,
-      nombre: f.nombre,
+      // J1 · «Ingresos bar», «Ingresos por partidos», «Ingresos sponsors»…
+      // debajo de un bloque que YA se titula Ingresos. La palabra se repite
+      // cuatro veces y no distingue nada: lo que distingue es lo que viene
+      // después. Se saca del rótulo, no del nombre de la cuenta — el plan de
+      // cuentas sigue diciendo «Ingresos por partidos», que es como se llama.
+      nombre: f.nombre.replace(/^Ingresos\s+(por\s+)?/i, (m, _p, off) =>
+        off === 0 ? '' : m,
+      ) || f.nombre,
       meses: f.meses,
       total: f.meses.reduce((a, b) => a + b, 0),
       items,

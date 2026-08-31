@@ -1,7 +1,7 @@
 "use client"
 
 import { Fragment, useState } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatMoneyCorto } from '@/lib/format'
 import { MESES } from '@/lib/domain/pl'
 import { Icon } from '@/components/ui'
 
@@ -74,12 +74,16 @@ function Celda({
   return (
     <td
       className={[
-        'whitespace-nowrap px-3 py-2 text-right tabular-nums',
+        'whitespace-nowrap px-1.5 py-2 text-right tabular-nums',
         color,
         fuerte && valor !== 0 ? 'font-bold' : '',
       ].join(' ')}
+      // D4 · el exacto, al pasar el mouse. Los doce meses no entran en pantalla
+      // con el importe completo, y scrollear una matriz para comparar meses la
+      // vuelve inútil: lo que se busca acá es la FORMA del año.
+      title={formatMoney(valor)}
     >
-      {formatMoney(valor)}
+      {formatMoneyCorto(valor)}
     </td>
   )
 }
@@ -88,18 +92,18 @@ function Encabezado() {
   return (
     <thead>
       <tr className="border-b border-line bg-line2">
-        <th className="sticky left-0 z-10 min-w-[210px] bg-line2 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-[.08em] text-muted">
+        <th className="sticky left-0 z-10 min-w-[150px] bg-line2 px-2 py-2 text-left text-[10px] font-bold uppercase tracking-[.08em] text-muted">
           Concepto
         </th>
         {MESES.map((m) => (
           <th
             key={m}
-            className="min-w-[104px] px-3 py-2 text-right text-[10px] font-bold uppercase tracking-[.08em] text-muted"
+            className="min-w-[68px] px-1.5 py-2 text-right text-[10px] font-bold uppercase tracking-[.08em] text-muted"
           >
             {m}
           </th>
         ))}
-        <th className="min-w-[124px] border-l border-line px-3 py-2 text-right text-[10px] font-bold uppercase tracking-[.08em] text-muted">
+        <th className="min-w-[104px] border-l border-line px-2 py-2 text-right text-[10px] font-bold uppercase tracking-[.08em] text-muted">
           Año
         </th>
       </tr>
@@ -197,11 +201,11 @@ function Bloque({
                     <td
                       key={i}
                       className={[
-                        'whitespace-nowrap px-3 py-1.5 text-right text-[11.5px] tabular-nums',
+                        'whitespace-nowrap px-1.5 py-1.5 text-right text-[11.5px] tabular-nums',
                         m === 0 ? 'text-disabled' : 'text-muted',
                       ].join(' ')}
                     >
-                      {formatMoney(m)}
+                      {formatMoneyCorto(m)}
                     </td>
                   ))}
                   <td className="whitespace-nowrap border-l border-line px-3 py-1.5 text-right text-[11.5px] font-semibold tabular-nums text-muted">
@@ -258,12 +262,16 @@ export default function MatrizPL({
       <table className="w-full border-collapse text-[12px]">
         <Encabezado />
         <tbody>
+          {/* Los ingresos ahora también se abren: v_pl_mensual_item desglosa
+              partidos e inscripciones por medio de cobro, el bar por predio y
+              los sponsors por sponsor. Antes el join de la vista decía
+              `tipo = 'egreso'` y no había nada que desplegar. */}
           <Bloque
             tono="ingreso"
             titulo="Ingresos"
             filas={ingresos}
             total={totalIngresos}
-            expandible={false}
+            expandible
           />
           <Bloque tono="egreso" titulo="Egresos" filas={egresos} total={totalEgresos} expandible />
 
@@ -287,7 +295,7 @@ export default function MatrizPL({
                   m === 0 ? 'text-white/35' : m > 0 ? 'text-ok' : 'text-err',
                 ].join(' ')}
               >
-                {formatMoney(m)}
+                {formatMoneyCorto(m)}
               </td>
             ))}
             <td
