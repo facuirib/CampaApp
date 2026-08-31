@@ -296,12 +296,31 @@ export const PERMISOS = {
 
   // ── Activos y finanzas ───────────────────────────────────────────────────
   'activo.alta': {
-    // La escribe el front directo, sin función: la policy de `activo` es toda
-    // la regla. (Y estuvo rota en producción desde la Fase 2 justamente por
-    // eso: ninguna función la escribe, así que el relevamiento no la vio.)
-    que: 'Dar de alta un activo',
+    // La policy de `activo`. Ya no la usa ninguna pantalla —el alta pasa por
+    // `comprar_activo`— pero se declara igual porque la policy EXISTE: es lo
+    // que decide si `comprar_activo` puede insertar, ya que no es security
+    // definer y RLS le aplica como a cualquiera.
+    que: 'Dar de alta un activo (la policy que habilita comprar_activo)',
     roles: CON_FINANZAS,
     donde: { tabla: 'activo', cmd: 'INSERT' },
+  },
+  'activo.comprar': {
+    // Comprar un bien de uso: el activo nace con su capitalización.
+    //
+    // SENSIBLE y no CON_FINANZAS, a diferencia de `activo.alta`: 🔴 esto
+    // ESTRECHA lo que se podía hacer antes. Hasta ahora capitalizar pasaba por
+    // `registrar_gasto`, que incluye al operador.
+    //
+    // La compra de un bien de uso es la salida más grande que el sistema
+    // registra —la última fue de $50.000.000, contra un gasto de fecha típico
+    // de $50.000— y compromete el resultado de los cinco años siguientes vía
+    // amortización. Es del mismo peso que `comprar_usd` o `anular_asiento`.
+    //
+    // El operador sigue cargando gastos; lo que no puede es decidir que el
+    // club compra un bien.
+    que: 'Comprar un activo (alta + capitalización)',
+    roles: SENSIBLE,
+    donde: { guarda: 'comprar_activo' },
   },
   'activo.amortizar': {
     que: 'Asentar la amortización del período',
@@ -580,7 +599,7 @@ export const RUTAS_PROTEGIDAS: ReadonlyArray<{ patron: RegExp; op: Op; padre: st
   { patron: /^\/gastos\/[^/]+\/comprobante/, op: 'gasto.adjuntar', padre: '/gastos' },
   { patron: /^\/equipos\/[^/]+\/cobrar/, op: 'cobro.registrar', padre: '/equipos' },
   { patron: /^\/sponsors\/[^/]+\/cobrar/, op: 'sponsor.cobrar', padre: '/sponsors' },
-  { patron: /^\/activos\/nuevo/, op: 'activo.alta', padre: '/activos' },
+  { patron: /^\/activos\/nuevo/, op: 'activo.comprar', padre: '/activos' },
   { patron: /^\/activos\/amortizar/, op: 'activo.amortizar', padre: '/activos' },
   { patron: /^\/calendario\/nueva/, op: 'calendario.editar', padre: '/calendario' },
   { patron: /^\/calendario\/[^/]+\/(mover|suspender)/, op: 'calendario.editar', padre: '/calendario' },

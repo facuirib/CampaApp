@@ -151,6 +151,11 @@ export default async function ActivoDetallePage({
                 ? ` · baja ${formatDate(activo.fecha_baja)}${activo.motivo_baja ? `: ${activo.motivo_baja}` : ''}`
                 : ''}
             </p>
+            {activo.descripcion && (
+              <p className="mt-2 max-w-2xl text-[12px] leading-snug text-ink">
+                {activo.descripcion}
+              </p>
+            )}
           </header>
 
           <div className="mb-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">

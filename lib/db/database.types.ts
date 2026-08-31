@@ -34,6 +34,7 @@ export type Database = {
           categoria: string
           created_at: string
           created_by: string
+          descripcion: string | null
           estado: string
           fecha_alta: string
           fecha_baja: string | null
@@ -48,6 +49,7 @@ export type Database = {
           categoria: string
           created_at?: string
           created_by: string
+          descripcion?: string | null
           estado?: string
           fecha_alta: string
           fecha_baja?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           categoria?: string
           created_at?: string
           created_by?: string
+          descripcion?: string | null
           estado?: string
           fecha_alta?: string
           fecha_baja?: string | null
@@ -5096,6 +5099,7 @@ export type Database = {
           cuota_mensual: number | null
           cuotas_confirmadas: number | null
           cuotas_restantes: number | null
+          descripcion: string | null
           estado: string | null
           fecha_alta: string | null
           fecha_baja: string | null
@@ -8646,6 +8650,21 @@ export type Database = {
           p_nombre_nuevo: string
           p_temporada: Database["public"]["Enums"]["temporada"]
           p_torneo_origen_id: string
+        }
+        Returns: string
+      }
+      comprar_activo: {
+        Args: {
+          p_cat_gasto_id: string
+          p_categoria: string
+          p_created_by?: string
+          p_descripcion?: string
+          p_fecha: string
+          p_nombre: string
+          p_predio_id?: string
+          p_proveedor_id?: string
+          p_valor: number
+          p_vida_util_meses: number
         }
         Returns: string
       }

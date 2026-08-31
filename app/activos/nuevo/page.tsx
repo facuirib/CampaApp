@@ -22,6 +22,11 @@ interface Predio {
   codigo: string
 }
 
+interface Opcion {
+  id: string
+  nombre: string
+}
+
 /** Hoy en Córdoba, para el default de la fecha de alta. */
 function hoyEnCordoba(): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -34,6 +39,8 @@ function hoyEnCordoba(): string {
 
 export default function ActivoNuevoPage() {
   const [predios, setPredios] = useState<Predio[]>([])
+  const [categoriasGasto, setCategoriasGasto] = useState<Opcion[]>([])
+  const [proveedores, setProveedores] = useState<Opcion[]>([])
   const [cargando, setCargando] = useState(true)
 
   const [nombre, setNombre] = useState('')
@@ -42,6 +49,9 @@ export default function ActivoNuevoPage() {
   const [fechaAlta, setFechaAlta] = useState(hoyEnCordoba())
   const [valorOrigen, setValorOrigen] = useState(0)
   const [vidaUtil, setVidaUtil] = useState(60)
+  const [descripcion, setDescripcion] = useState('')
+  const [catGastoId, setCatGastoId] = useState('')
+  const [proveedorId, setProveedorId] = useState('')
 
   const [guardando, setGuardando] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
@@ -51,15 +61,21 @@ export default function ActivoNuevoPage() {
   useEffect(() => {
     let cancelado = false
     const supabase = createClient()
-    supabase
-      .from('predio')
-      .select('id, codigo')
-      .order('codigo')
-      .then(({ data }) => {
-        if (cancelado) return
-        setPredios(data ?? [])
-        setCargando(false)
-      })
+    Promise.all([
+      supabase.from('predio').select('id, codigo').order('codigo'),
+      // Sólo las de inversión: `comprar_activo` rechaza cualquier otra, porque
+      // es la naturaleza lo que manda el asiento a BIENES_USO en vez de al
+      // resultado. Ofrecer una categoría de gasto común sería ofrecer un error.
+      supabase.from('cat_gasto').select('id, nombre').eq('naturaleza', 'inversion').eq('activo', true).order('nombre'),
+      supabase.from('proveedor').select('id, nombre').eq('activo', true).order('nombre'),
+    ]).then(([pred, cat, prov]) => {
+      if (cancelado) return
+      setPredios(pred.data ?? [])
+      setCategoriasGasto(cat.data ?? [])
+      setProveedores(prov.data ?? [])
+      if (cat.data?.length === 1) setCatGastoId(cat.data[0].id)
+      setCargando(false)
+    })
     return () => {
       cancelado = true
     }
@@ -69,6 +85,8 @@ export default function ActivoNuevoPage() {
   // tabla. Se revisan acá para dar un mensaje entendible en vez del error crudo
   // de Postgres, no para reemplazar la garantía —que sigue estando abajo—.
   const errorNombre = nombre.trim() === '' ? 'El activo necesita un nombre.' : null
+  const errorCategoriaGasto =
+    catGastoId === '' ? 'Elegí la categoría de inversión a la que se imputa la compra.' : null
   const errorValor =
     valorOrigen <= 0 ? 'El valor de origen tiene que ser mayor a cero.' : null
   const errorVida =
@@ -78,7 +96,7 @@ export default function ActivoNuevoPage() {
         ? 'La vida útil se cuenta en meses enteros.'
         : null
 
-  const hayErrores = Boolean(errorNombre || errorValor || errorVida)
+  const hayErrores = Boolean(errorNombre || errorValor || errorVida || errorCategoriaGasto)
   const cuota = vidaUtil > 0 ? valorOrigen / vidaUtil : 0
 
   async function guardar() {
@@ -98,19 +116,23 @@ export default function ActivoNuevoPage() {
       return
     }
 
-    const { data, error } = await supabase
-      .from('activo')
-      .insert({
-        nombre: nombre.trim(),
-        categoria,
-        predio_id: predioId || null,
-        fecha_alta: fechaAlta,
-        valor_origen: valorOrigen,
-        vida_util_meses: vidaUtil,
-        created_by: user.id,
-      })
-      .select('id, nombre')
-      .single()
+    // 🔴 `comprar_activo` y no un `insert`: el activo y su capitalización pasan
+    // en la misma transacción. Antes esto insertaba la fila sola y la compra se
+    // cargaba después, en otra pantalla — y nada obligaba a que se cargara.
+    // Un activo sin su compra se amortizaría igual: gasto en el resultado por
+    // un bien que nunca entró a los libros.
+    const { data, error } = await supabase.rpc('comprar_activo', {
+      p_nombre: nombre.trim(),
+      p_categoria: categoria,
+      p_valor: valorOrigen,
+      p_vida_util_meses: vidaUtil,
+      p_cat_gasto_id: catGastoId,
+      p_fecha: fechaAlta,
+      p_predio_id: predioId || undefined,
+      p_proveedor_id: proveedorId || undefined,
+      p_descripcion: descripcion.trim() || undefined,
+      p_created_by: user.id,
+    })
 
     setGuardando(false)
 
@@ -119,7 +141,7 @@ export default function ActivoNuevoPage() {
       return
     }
 
-    setCreado({ id: data.id, nombre: data.nombre })
+    setCreado({ id: data as string, nombre: nombre.trim() })
   }
 
   return (
@@ -253,6 +275,48 @@ export default function ActivoNuevoPage() {
             </Field>
           </div>
 
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {/* La categoría de gasto es lo que decide que el asiento vaya a
+                BIENES_USO. Se elige acá y no se adivina: si mañana hay más de
+                una categoría de inversión —equipamiento de bar, infraestructura—
+                cada una puede tener su propia cuenta. */}
+            <Field
+              label="Categoría de la compra"
+              required
+              error={catGastoId !== '' ? null : null}
+              hint="A qué categoría de inversión se imputa. Define la cuenta del asiento."
+            >
+              <Select value={catGastoId} onChange={(e) => setCatGastoId(e.target.value)}>
+                <option value="">Elegí una…</option>
+                {categoriasGasto.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Proveedor" hint="A quién se le compró. Opcional.">
+              <Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
+                <option value="">Sin proveedor</option>
+                {proveedores.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <div className="mt-4">
+            <Field
+              label="Descripción"
+              hint="Qué es, dónde está, número de serie — lo que haga falta para reconocerlo."
+            >
+              <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+            </Field>
+          </div>
+
           {/* La cuota se muestra al cargar, no después: es el número que va a
               impactar el P&L todos los meses, y verlo antes de guardar es lo
               que hace que una vida útil mal puesta se note. */}
@@ -275,7 +339,9 @@ export default function ActivoNuevoPage() {
               {guardando ? 'Guardando…' : 'Dar de alta'}
             </Button>
             <span className="text-[11px] text-muted">
-              El alta no genera asiento. La compra se carga después, desde Gastos.
+              Se registra la compra completa: el activo, su gasto de inversión y el asiento
+              contra Bienes de uso. <strong>No impacta en el resultado</strong> — al P&amp;L va la
+              amortización, mes a mes.
             </span>
           </div>
         </div>
