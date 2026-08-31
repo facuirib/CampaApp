@@ -91,6 +91,33 @@ export default function NuevoCierreBarPage() {
 
   const diasLibres = useMemo(() => dias.filter((d) => d.venta_bar_id === null), [dias])
 
+  // Mismo criterio que /arqueo/nuevo: el día se elige por PREDIO + FECHA y no
+  // de un combo que los junta. Con una temporada entera ese combo llega a
+  // decenas de opciones «06/09/2026 · Tirolesa» que hay que leer una por una,
+  // y el operador ya sabe de qué predio y qué día viene.
+  const [predioExistente, setPredioExistente] = useState<string | null>(null)
+  const [fechaExistente, setFechaExistente] = useState('')
+
+  const prediosConDias = useMemo(
+    () => [
+      ...new Map(
+        diasLibres.map((d) => [d.predio_id, { id: d.predio_id, nombre: d.predio_nombre ?? d.predio }]),
+      ).values(),
+    ],
+    [diasLibres],
+  )
+  const diasDelPredio = useMemo(
+    () => (predioExistente ? diasLibres.filter((d) => d.predio_id === predioExistente) : []),
+    [diasLibres, predioExistente],
+  )
+  const diaPorCruce = useMemo(
+    () =>
+      predioExistente && fechaExistente
+        ? (diasDelPredio.find((d) => d.fecha === fechaExistente) ?? null)
+        : null,
+    [predioExistente, fechaExistente, diasDelPredio],
+  )
+
   // Cálculo de UI para feedback inmediato, mismo criterio que la `diferencia`
   // de /arqueo/nuevo: son tres valores que se están tipeando y todavía no
   // existen en la base, así que ninguna vista puede darlos. El total REAL es la
@@ -241,19 +268,80 @@ export default function NuevoCierreBarPage() {
                   que no se jugó, usá <strong>El día no está en la lista</strong>.
                 </p>
               ) : (
-                <Field label="Día de cancha" required>
-                  <Select
-                    placeholder="Elegir día…"
-                    value={diaCanchaId ?? ''}
-                    onChange={(e) => setDiaCanchaId(e.target.value || null)}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Predio" required>
+                    <Select
+                      placeholder="Elegir predio…"
+                      value={predioExistente ?? ''}
+                      onChange={(e) => {
+                        setPredioExistente(e.target.value || null)
+                        setDiaCanchaId(null)
+                      }}
+                    >
+                      {prediosConDias.map((p) => (
+                        <option key={p.id} value={p.id!}>
+                          {p.nombre}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+
+                  <Field
+                    label="Fecha"
+                    required
+                    hint={
+                      predioExistente
+                        ? `${diasDelPredio.length} día(s) sin cierre en este predio.`
+                        : 'Elegí primero el predio.'
+                    }
                   >
-                    {diasLibres.map((d) => (
-                      <option key={d.dia_cancha_id} value={d.dia_cancha_id!}>
-                        {formatDate(d.fecha)} · {d.predio_nombre ?? d.predio}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
+                    <Input
+                      type="date"
+                      value={fechaExistente}
+                      disabled={!predioExistente}
+                      onChange={(e) => {
+                        setFechaExistente(e.target.value)
+                        const d = diasDelPredio.find((x) => x.fecha === e.target.value)
+                        setDiaCanchaId(d?.dia_cancha_id ?? null)
+                      }}
+                    />
+                  </Field>
+                </div>
+
+                {/* El cruce no dio. Se dice por qué y con qué fechas sí hay
+                    día, en vez de dejar el botón muerto sin explicación. */}
+                {predioExistente && fechaExistente && !diaPorCruce && (
+                  <p className="mt-3 rounded-md bg-warnbg px-3 py-2 text-[11px] leading-relaxed text-warntx">
+                    <strong className="font-bold">
+                      No hay ningún día sin cierre el {formatDate(fechaExistente)} en ese predio.
+                    </strong>{' '}
+                    {diasDelPredio.length > 0 ? (
+                      <>
+                        Los que sí están libres:{' '}
+                        {diasDelPredio.slice(0, 6).map((d, i) => (
+                          <button
+                            key={d.dia_cancha_id}
+                            type="button"
+                            onClick={() => {
+                              setFechaExistente(d.fecha ?? '')
+                              setDiaCanchaId(d.dia_cancha_id ?? null)
+                            }}
+                            className="font-semibold underline"
+                          >
+                            {i > 0 && ' · '}
+                            {formatDate(d.fecha)}
+                          </button>
+                        ))}
+                        {diasDelPredio.length > 6 && ` y ${diasDelPredio.length - 6} más.`}
+                      </>
+                    ) : (
+                      <>
+                        Este predio no tiene días libres. Si el bar abrió un día en que no se jugó,
+                        usá <strong>El día no está en la lista</strong>.
+                      </>
+                    )}
+                  </p>
+                )}
               )
             ) : (
               <>

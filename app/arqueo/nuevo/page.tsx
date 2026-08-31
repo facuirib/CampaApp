@@ -30,7 +30,13 @@ export default function NuevoArqueoPage() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [dias, setDias] = useState<DiaSinArquear[]>([])
 
-  const [diaCanchaId, setDiaCanchaId] = useState<string | null>(null)
+  // El día se elige por PREDIO + FECHA, no de un combo que los junta. Con dos
+  // predios y una temporada entera, ese combo llega a decenas de opciones
+  // «06/09/2026 · Tirolesa» que hay que leer una por una: el operador sabe de
+  // qué predio viene y qué día contó, y ninguna de las dos cosas se busca bien
+  // en una lista. El dia_cancha se resuelve solo cuando las dos coinciden.
+  const [predioId, setPredioId] = useState<string | null>(null)
+  const [fecha, setFecha] = useState('')
   const [saldoContado, setSaldoContado] = useState(0)
 
   const [registrando, setRegistrando] = useState(false)
@@ -74,8 +80,17 @@ export default function NuevoArqueoPage() {
       // ?dia=<uuid>, desde la lista de arqueo. Se lee del location en vez de
       // con useSearchParams para no forzar un boundary de Suspense en una
       // página que no necesita nada del lado del servidor.
+      // ?dia=<uuid> viene de la lista de arqueo. Ahora que el día se resuelve
+      // por predio + fecha, la preselección setea las dos: el resultado es el
+      // mismo día, y de paso el operador VE de cuál se trata.
       const preseleccionado = new URLSearchParams(window.location.search).get('dia')
-      if (preseleccionado) setDiaCanchaId(preseleccionado)
+      if (preseleccionado) {
+        const d = (data ?? []).find((x) => x.dia_cancha_id === preseleccionado)
+        if (d) {
+          setPredioId(d.predio_id)
+          setFecha(d.fecha ?? '')
+        }
+      }
 
       setCargando(false)
     }
@@ -89,7 +104,24 @@ export default function NuevoArqueoPage() {
     // puede tener el arqueo del torneo hecho y el del bar pendiente.
   }, [ambito])
 
-  const diaElegido = dias.find((d) => d.dia_cancha_id === diaCanchaId) ?? null
+  // Los predios que de verdad tienen días sin arquear. Ofrecer uno sin días
+  // sería ofrecer un camino sin salida.
+  const prediosDisponibles = [
+    ...new Map(
+      dias.map((d) => [d.predio_id, { id: d.predio_id, nombre: d.predio_nombre ?? d.predio }]),
+    ).values(),
+  ]
+
+  const diasDelPredio = predioId ? dias.filter((d) => d.predio_id === predioId) : []
+
+  // El día sale del cruce. Si no hay ninguno, `diaCanchaId` queda null y el
+  // botón no se habilita — pero la pantalla dice POR QUÉ, con las fechas que sí
+  // tienen día en ese predio.
+  const diaResuelto =
+    predioId && fecha ? (diasDelPredio.find((d) => d.fecha === fecha) ?? null) : null
+
+  const diaElegido = diaResuelto
+  const diaCanchaId = diaElegido?.dia_cancha_id ?? null
 
   // Cálculo de UI para feedback inmediato — el registro real, y su
   // `diferencia` (columna generada), los hace crear_arqueo en base.
@@ -134,7 +166,7 @@ export default function NuevoArqueoPage() {
     }
 
     setResultadoExito('Arqueo registrado.')
-    setDiaCanchaId(null)
+    setFecha('')
     setSaldoContado(0)
   }
 
@@ -164,7 +196,8 @@ export default function NuevoArqueoPage() {
           variant={ambito === 'torneo' ? 'secondary' : 'tertiary'}
           onClick={() => {
             setAmbito('torneo')
-            setDiaCanchaId(null)
+            setPredioId(null)
+            setFecha('')
             setSaldoContado(0)
           }}
         >
@@ -176,7 +209,8 @@ export default function NuevoArqueoPage() {
           icon="bar"
           onClick={() => {
             setAmbito('bar')
-            setDiaCanchaId(null)
+            setPredioId(null)
+            setFecha('')
             setSaldoContado(0)
           }}
         >
@@ -202,21 +236,35 @@ export default function NuevoArqueoPage() {
             className="mb-4"
           >
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Día de cancha" required className="lg:col-span-2">
+              <Field label="Predio" required>
                 <Select
-                  placeholder="Elegir día…"
-                  value={diaCanchaId ?? ''}
-                  onChange={(e) => setDiaCanchaId(e.target.value || null)}
+                  placeholder="Elegir predio…"
+                  value={predioId ?? ''}
+                  onChange={(e) => setPredioId(e.target.value || null)}
                 >
-                  {dias.map((d) => (
-                    // La vista tipa todas sus columnas como nullable, que es
-                    // lo que hace Supabase con cualquier vista. dia_cancha_id
-                    // viene de dia_cancha.id, que es PK.
-                    <option key={d.dia_cancha_id} value={d.dia_cancha_id!}>
-                      {formatDate(d.fecha)} · {d.predio_nombre ?? d.predio}
+                  {prediosDisponibles.map((p) => (
+                    <option key={p.id} value={p.id!}>
+                      {p.nombre}
                     </option>
                   ))}
                 </Select>
+              </Field>
+
+              <Field
+                label="Fecha"
+                required
+                hint={
+                  predioId
+                    ? `${diasDelPredio.length} día(s) sin arquear en este predio.`
+                    : 'Elegí primero el predio.'
+                }
+              >
+                <Input
+                  type="date"
+                  value={fecha}
+                  disabled={!predioId}
+                  onChange={(e) => setFecha(e.target.value)}
+                />
               </Field>
 
               <Field label="Saldo contado" required hint="Los billetes que hay en el cajón.">
@@ -229,6 +277,36 @@ export default function NuevoArqueoPage() {
                 />
               </Field>
             </div>
+
+            {/* El cruce no dio. Se dice POR QUÉ y con qué fechas sí hay día:
+                un formulario que sólo deshabilita el botón deja al operador
+                probando fechas a ciegas. */}
+            {predioId && fecha && !diaResuelto && (
+              <p className="mt-3 rounded-md bg-warnbg px-3 py-2 text-[11px] leading-relaxed text-warntx">
+                <strong className="font-bold">
+                  No hay ningún día sin arquear el {formatDate(fecha)} en ese predio.
+                </strong>{' '}
+                {diasDelPredio.length > 0 ? (
+                  <>
+                    Los que sí están pendientes:{' '}
+                    {diasDelPredio.slice(0, 6).map((d, i) => (
+                      <button
+                        key={d.dia_cancha_id}
+                        type="button"
+                        onClick={() => setFecha(d.fecha ?? '')}
+                        className="font-semibold underline"
+                      >
+                        {i > 0 && ' · '}
+                        {formatDate(d.fecha)}
+                      </button>
+                    ))}
+                    {diasDelPredio.length > 6 && ` y ${diasDelPredio.length - 6} más.`}
+                  </>
+                ) : (
+                  'Este predio no tiene días pendientes de arqueo.'
+                )}
+              </p>
+            )}
 
             {diaElegido && (
               <>
