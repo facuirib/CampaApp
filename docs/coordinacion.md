@@ -18,6 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Actualización · rediseño visual de /inicio, no agregado de secciones · para Facu
+
+Corrijo mi aviso anterior. No es agregar secciones nuevas — Horacio vio que ya existe casi todo lo que pedía (caja, composición de ingresos/gastos, deudas urgentes, cuentas corrientes), repartido en Finanzas/Cobranza/Proyección. Lo que pide es un REDISEÑO VISUAL de /inicio: layout más compacto (KPIs chicos en fila, no tarjetas grandes), con el estilo de un mockup que armó.
+
+Sé que estás tocando /inicio activamente hoy — si esto choca con algo que ya estás por commitear, avisame y esperamos, o coordinamos quién se queda con qué parte del archivo. Si no hay conflicto inminente, voy a diseñar el componente nuevo ahora, pero no lo aplico a la base sin confirmar primero que no pisa nada tuyo en curso.
+
+Confirmá con: grep -n "rediseño visual de /inicio" docs/coordinacion.md
+
 ### 📌 Voy a ampliar /inicio con más secciones · para Facu
 
 Horacio pidió consolidar en /inicio todas las secciones de gráficos que hoy están repartidas (Finanzas, Cobranza, etc.) — evolución de caja, composición de ingresos, ingresos vs gastos por fecha, medios de cobro, composición de gastos, deudas urgentes, estado de equipos. Decisión suya: sí, aunque se duplique con lo que ya existe en otras pantallas.
