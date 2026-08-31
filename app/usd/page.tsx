@@ -1,3 +1,6 @@
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
+import OperarUsd from './OperarUsd'
 import { createClient } from '@/lib/db/server'
 import { formatEntero, formatUSD } from '@/lib/format'
 import { Badge, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
@@ -78,6 +81,7 @@ export default async function UsdPage() {
     operacionesRes.error
 
   const tenencia = tenenciaRes.data
+  const puedeOperar = puede(await rolActual(), 'usd.operar')
   const sincronia = sincroniaRes.data
   const total = totalRes.data
 
@@ -122,6 +126,18 @@ export default async function UsdPage() {
 
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
+      )}
+
+      {/* Las dos acciones que faltaban. La pantalla mostraba tenencia, costo y
+          resultado, y no tenía cómo registrar una operación: comprar y vender
+          se hacían contra la base. `comprar_usd` y `vender_usd` son de las
+          puertas que no se pueden esquivar —llevan el promedio ponderado y la
+          diferencia de cambio realizada—, así que acá sólo se las llama. */}
+      {puedeOperar && (
+        <OperarUsd
+          tenencia={tenencia?.tenencia_usd ?? 0}
+          costoPromedio={tenencia?.promedio_ponderado ?? 0}
+        />
       )}
 
       {/* Los cuatro salen de vistas. El de resultado viene de
