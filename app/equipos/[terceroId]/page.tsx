@@ -6,6 +6,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import ArmarReclamo from './ArmarReclamo'
+import FichaCliente from './FichaCliente'
 import { PLANTILLA_POR_ETAPA, type EtapaCobranza } from '@/lib/reclamo/plantilla'
 import type { Database } from '@/lib/db/database.types'
 
@@ -69,15 +70,71 @@ const COLUMNAS: ColumnDef<FilaCuota>[] = [
   { key: 'estado', label: 'Estado', format: 'badge' },
 ]
 
+/** Las tres caras del equipo. `cuenta` es el default: es el uso diario. */
+type Pestana = 'cuenta' | 'datos' | 'historial'
+
+const PESTANAS: { id: Pestana; label: string }[] = [
+  { id: 'cuenta', label: 'Cuenta corriente' },
+  { id: 'datos', label: 'Datos' },
+  { id: 'historial', label: 'Historial' },
+]
+
+/**
+ * Las pestañas viven en la URL, no en un `useState` — mismo criterio que
+ * /proyeccion. Son `<Link>`, así que la ficha sigue siendo Server Component
+ * entera y una pestaña se puede compartir por link.
+ *
+ * El torneo elegido viaja con ellas: si alguien está mirando Clausura 2026 y
+ * abre Historial, al volver no perdió dónde estaba.
+ */
+function Pestanas({
+  activa,
+  terceroId,
+  torneo,
+}: {
+  activa: Pestana
+  terceroId: string
+  torneo: string | null
+}) {
+  const query = (id: Pestana) => {
+    const partes = [id === 'cuenta' ? null : `tab=${id}`, torneo ? `torneo=${torneo}` : null]
+      .filter(Boolean)
+      .join('&')
+    return partes ? `/equipos/${terceroId}?${partes}` : `/equipos/${terceroId}`
+  }
+  return (
+    <div className="mb-5 inline-flex gap-1 rounded-md bg-line2 p-1" role="tablist">
+      {PESTANAS.map((p) => {
+        const esActiva = p.id === activa
+        return (
+          <Link
+            key={p.id}
+            href={query(p.id)}
+            role="tab"
+            aria-selected={esActiva}
+            className={[
+              'rounded-sm px-3 py-1 text-[11px] font-bold transition-colors',
+              esActiva ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink',
+            ].join(' ')}
+          >
+            {p.label}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
 export default async function CuentaCorrientePage({
   params,
   searchParams,
 }: {
   params: Promise<{ terceroId: string }>
-  searchParams: Promise<{ torneo?: string }>
+  searchParams: Promise<{ torneo?: string; tab?: string }>
 }) {
   const { terceroId } = await params
-  const { torneo: torneoParam } = await searchParams
+  const { torneo: torneoParam, tab } = await searchParams
+  const pestana: Pestana = tab === 'datos' ? 'datos' : tab === 'historial' ? 'historial' : 'cuenta'
 
   // Un id que no es uuid no puede corresponder a ningún equipo: es un 404, y
   // así se corta antes de consultar. El error de Postgres ni se produce.
@@ -93,7 +150,10 @@ export default async function CuentaCorrientePage({
   // veces para la misma pantalla —acá, en el formulario de cobro y otra vez
   // desde el cliente al armar el aviso—; ahora sale una sola vez y baja por
   // props a lo que la necesite.
-  const [fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, momentoRes, actualRes] =
+  const [
+    fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, momentoRes, actualRes,
+    clienteRes, condicionesRes,
+  ] =
     await Promise.all([
       supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
       supabase
@@ -124,6 +184,11 @@ export default async function CuentaCorrientePage({
         .maybeSingle(),
       // El torneo actual, de la única definición.
       supabase.from('v_torneo_actual').select('id, nombre').maybeSingle(),
+      // La identidad del equipo. Es lo que decide si la ficha existe: un
+      // equipo puede no haber jugado nunca —276 de los 304 están así— y aun
+      // así tiene nombre, delegado y datos fiscales que cargar.
+      supabase.from('v_cliente').select('*').eq('tercero_id', terceroId).maybeSingle(),
+      supabase.from('condicion_iva_receptor').select('id, descripcion').eq('activa', true).order('id'),
     ])
 
   const error = fichasRes.error ?? cuotasRes.error
@@ -141,8 +206,16 @@ export default async function CuentaCorrientePage({
     .eq('clave', etapa ? PLANTILLA_POR_ETAPA[etapa] : 'reclamo_vencida')
     .maybeSingle()
 
-  // Uuid válido pero sin ficha ni cuota: tampoco existe como recurso.
-  if (!error && fichas.length === 0 && cuotas.length === 0) notFound()
+  // 🔴 Qué es «no existe», ahora que esto es la ficha del EQUIPO.
+  //
+  // Mientras vivía en /cobranza, un equipo sin ficha ni cuota no tenía nada
+  // que mostrar y el 404 era correcto. Acá no: la lista muestra los 304 y
+  // **276 no jugaron ningún torneo todavía**. Con el criterio viejo, 9 de cada
+  // 10 filas de /equipos llevaban a un 404.
+  //
+  // Lo que decide que el equipo existe es el equipo, no su deuda.
+  const cliente = clienteRes.data
+  if (!cliente) notFound()
 
   const equipo = fichas[0]?.equipo ?? cuotas[0]?.equipo ?? 'Equipo'
 
@@ -204,14 +277,24 @@ export default async function CuentaCorrientePage({
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">{equipo}</h1>
-          <p className="mt-1 text-[12px] text-muted">
-            La ficha del equipo: lo que debe, cómo se le cobra y qué se le avisó.
+          {/* Con quién se habla, arriba de todo y en las tres pestañas: es lo
+              primero que se necesita cuando hay que reclamar, y estaba en otra
+              pantalla. */}
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-muted">
+            {cliente.delegado && <span className="font-semibold text-ink">{cliente.delegado}</span>}
+            {cliente.email && <span>{cliente.email}</span>}
+            {cliente.telefono && <span>{cliente.telefono}</span>}
+            {!cliente.delegado && !cliente.email && !cliente.telefono && (
+              <Link href={`/equipos/${terceroId}?tab=datos`} className="text-blue-d hover:underline">
+                Sin datos de contacto — cargalos
+              </Link>
+            )}
           </p>
 
           {/* El selector, con el saldo al lado de cada torneo: la deuda vieja se
               ve SIN tener que abrirla. El actual va primero, después los que
               deben, después el resto. */}
-          {torneosDelEquipo.length > 1 && (
+          {pestana !== 'datos' && torneosDelEquipo.length > 1 && (
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {torneosDelEquipo.map((t) => {
                 const esta = t.id === torneoMostrado
@@ -238,18 +321,20 @@ export default async function CuentaCorrientePage({
           )}
 
           {/* Sin torneo en curso NO se inventa uno: se dice. */}
-          {!actual && (
+          {pestana === 'cuenta' && !actual && (
             <p className="mt-2 text-[10.5px] text-muted">
               No hay ningún torneo en curso. Se muestra el más reciente de este equipo.
             </p>
           )}
         </div>
-        {puedeCobrar && (
+        {puedeCobrar && pestana === 'cuenta' && (
           <Link href={`/equipos/${terceroId}/cobrar`}>
             <Button icon="plus">Registrar cobro</Button>
           </Link>
         )}
       </header>
+
+      <Pestanas activa={pestana} terceroId={terceroId} torneo={torneoParam ?? null} />
 
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
@@ -259,6 +344,8 @@ export default async function CuentaCorrientePage({
           La ficha muestra UN torneo, así que la deuda de los otros no se ve —
           y ésa es exactamente la plata que se pierde en silencio. El número va
           arriba, con el link para ir a verla. */}
+      {pestana === 'cuenta' && (
+      <>
       {deudaEnOtros.length > 0 && (
         <div className="mb-6 rounded-md bg-warnbg px-4 py-3 text-[11px] leading-relaxed text-warntx">
           <strong className="font-bold">Además debe en otros torneos.</strong>{' '}
@@ -370,6 +457,43 @@ export default async function CuentaCorrientePage({
             puedeMail={puedeMail}
           />
         </section>
+      )}
+
+      {/* Un equipo del padrón que todavía no jugó: la cuenta corriente no
+          tiene nada que decir, y decirlo es mejor que una pantalla en blanco. */}
+      {fichas.length === 0 && (
+        <p className="rounded-md bg-panel px-4 py-6 text-center text-[12px] text-muted">
+          Este equipo todavía no está inscripto en ningún torneo, así que no tiene cuotas ni
+          deuda.{' '}
+          <Link href={`/equipos/${terceroId}?tab=datos`} className="font-semibold text-blue-d hover:underline">
+            Cargar sus datos
+          </Link>
+        </p>
+      )}
+      </>
+      )}
+
+      {pestana === 'datos' && (
+        <FichaCliente
+          terceroId={terceroId}
+          nombre={cliente.nombre ?? ''}
+          tipo={cliente.tipo ?? 'equipo'}
+          condiciones={(condicionesRes.data ?? []).map((c) => ({
+            id: c.id,
+            descripcion: c.descripcion,
+          }))}
+          inicial={{
+            razon_social: cliente.razon_social,
+            doc_tipo_default: cliente.doc_tipo,
+            doc_nro_default: cliente.doc_nro,
+            condicion_iva_receptor_default: cliente.condicion_iva_id,
+            domicilio_fiscal: cliente.domicilio_fiscal,
+            email: cliente.email,
+            telefono: cliente.telefono,
+            delegado: cliente.delegado,
+          }}
+          puedeEditar={puede(rol, 'cliente.editar')}
+        />
       )}
     </div>
   )
