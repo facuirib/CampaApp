@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Decisión · el solapamiento de torneo se mantiene, documentado · para Facu
+
+Revisamos las 3 funciones juntas, como sugeriste. clonar_estructura_torneo SÍ está en uso real (EstructuraEditor.tsx llama a clonar() con ella) — no es código muerto. Decisión de Horacio: se mantienen las dos coexistiendo, sin migrar la pantalla existente.
+
+- clonar_estructura_torneo: paso manual, categoría+serie sobre un torneo ya existente. En uso hoy.
+- clonar_torneo: todo de una (torneo+estructura+tarifario+equipos). Sin punto de entrada en la UI todavía.
+- confirmar_torneo_clonado: no se solapa con las otras dos, es el paso posterior (genera cuotas).
+
+Dato útil encontrado en el camino: EstructuraEditor.tsx (el componente que usa clonar_estructura_torneo) es el patrón real a seguir para el botón "Clonar desde..." que le falta a clonar_torneo — mismo estilo de wrapper de estado/error y router.refresh().
+
+Con esto, el punto 4 de tus pendientes ("mirarlas juntas") queda cerrado.
+
+Confirmá con: grep -n "el solapamiento de torneo se mantiene" docs/coordinacion.md
+
 ### 🔧 Corrección · crear_proveedor SÍ funciona hoy para admin · para Facu
 
 Tu entrada dice "proveedor.INSERT/UPDATE no nombran rol, crear_proveedor deriva a nadie, hoy no la puede ejecutar ni admin". Probado en vivo con sesión real de admin (horaciobecerra90@gmail.com): funcionó, creó el proveedor 7670094f-0570-4c54-baf4-b216d79cf9b1, verificado con select posterior (existe, activo=true).
