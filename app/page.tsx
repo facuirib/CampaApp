@@ -6,7 +6,10 @@ import {
   ChartTorta,
   KpiCard,
   KpiHero,
+  DataTable,
   Waterfall,
+  type CeldaBadge,
+  type ColumnDef,
   type GajoTorta,
   type SerieBarras,
   type PasoWaterfall,
@@ -28,6 +31,22 @@ import {
  *   v_saldo_caja_total la caja, que es de la EMPRESA y no del torneo
  *   v_cashflow         la serie semanal, la misma que usa /proyeccion
  */
+interface FilaDeuda {
+  tercero_id: string | null
+  equipo: string
+  dias: number
+  vencido: number
+  adeudado: number
+  estado: CeldaBadge
+}
+
+const COLUMNAS_DEUDA: ColumnDef<FilaDeuda>[] = [
+  { key: 'equipo', label: 'Equipo' },
+  { key: 'estado', label: 'Atraso', format: 'badge', width: 110 },
+  { key: 'vencido', label: 'Vencido', format: 'money', width: 140 },
+  { key: 'adeudado', label: 'Adeudado', format: 'money', width: 140 },
+]
+
 export default async function Home({
   searchParams,
 }: {
@@ -51,7 +70,7 @@ export default async function Home({
   const torneoElegido = torneoParam ?? actual?.id ?? null
   const anio = Number(anioParam) || new Date().getFullYear()
 
-  const [dash, caja, flujo, etapas, plAnual, plMes, medios] = await Promise.all([
+  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola] = await Promise.all([
     torneoElegido
       ? supabase.from('v_dashboard').select('*').eq('torneo_id', torneoElegido).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -68,6 +87,16 @@ export default async function Home({
     supabase.from('v_pl_anual_cuenta').select('*').eq('anio', anio).eq('tipo', 'ingreso'),
     supabase.from('v_pl_mensual_total').select('*').eq('anio', anio).order('mes'),
     supabase.from('v_cobro_medio_anio').select('*').eq('anio', anio),
+    // Las deudas urgentes: la misma cola que /cobranza, ordenada por atraso.
+    // `limit(8)` es un recorte del DASHBOARD, no de la cola — por eso abajo va
+    // el link a verlas todas, con el total que quedó afuera.
+    torneoElegido
+      ? supabase
+          .from('v_cobranza_cola')
+          .select('*')
+          .eq('torneo_id', torneoElegido)
+          .order('dias_atraso_maximo', { ascending: false, nullsFirst: false })
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   const d = dash.data
@@ -143,6 +172,28 @@ export default async function Home({
     label: ROTULO_MEDIO[m.medio_pago ?? ''] ?? m.medio_pago ?? '—',
     valor: Number(m.total ?? 0),
   }))
+
+  // ── Deudas urgentes ──────────────────────────────────────────────────────
+  //
+  // Mapeo puro de v_cobranza_cola, la misma que alimenta las colas de
+  // /cobranza. El corte a 8 filas es del dashboard, no de los datos, así que se
+  // dice cuántas quedaron afuera en vez de que parezcan no existir.
+  const URGENTES = 8
+  const filasCola = cola.data ?? []
+  const urgentes: FilaDeuda[] = filasCola.slice(0, URGENTES).map((c) => ({
+    tercero_id: c.tercero_id,
+    equipo: c.equipo ?? '—',
+    dias: c.dias_atraso_maximo ?? 0,
+    vencido: Number(c.total_vencido ?? 0),
+    adeudado: Number(c.total_adeudado ?? 0),
+    estado:
+      (c.dias_atraso_maximo ?? 0) > 30
+        ? { estado: 'vencido', label: `${c.dias_atraso_maximo} días` }
+        : (c.dias_atraso_maximo ?? 0) > 0
+          ? { estado: 'porVencer', label: `${c.dias_atraso_maximo} días` }
+          : { estado: 'ok', label: 'Al día' },
+  }))
+  const restantes = Math.max(filasCola.length - URGENTES, 0)
 
   // Los tres salen de la misma fila y reconcilian por construcción:
   // por_cobrar es sum(monto − imputado), o sea comprometido − cobrado.
@@ -253,9 +304,9 @@ export default async function Home({
           </h2>
           <p className="mb-3 text-[11px] text-muted">
             De las mismas colas que{' '}
-            <a href="/cobranza" className="font-semibold text-blue-d hover:underline">
+            <Link href="/cobranza" className="font-semibold text-blue-d hover:underline">
               Cobranza
-            </a>
+            </Link>
             : cada equipo cuenta en UNA etapa, la más severa.
           </p>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -282,9 +333,9 @@ export default async function Home({
         </h2>
         <p className="mb-3 text-[11px] text-muted">
           De las mismas vistas que{' '}
-          <a href="/resultados" className="font-semibold text-blue-d hover:underline">
+          <Link href="/resultados" className="font-semibold text-blue-d hover:underline">
             Resultados
-          </a>
+          </Link>
           . <strong className="font-semibold text-ink">No dependen del torneo</strong>: el
           resultado es de la empresa.
         </p>
@@ -315,13 +366,45 @@ export default async function Home({
         </h2>
         <p className="mb-3 text-[11px] text-muted">
           La misma serie que{' '}
-          <a href="/proyeccion" className="font-semibold text-blue-d hover:underline">
+          <Link href="/proyeccion" className="font-semibold text-blue-d hover:underline">
             Proyección
-          </a>
+          </Link>
           . No depende del torneo ni del año elegidos.
         </p>
         <ChartArea serie={serie} titulo="Saldo de caja por semana, real y proyectado" />
       </section>
+
+      {urgentes.length > 0 && (
+        <section className="mb-7">
+          <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+            Deudas urgentes
+          </h2>
+          <p className="mb-3 text-[11px] text-muted">
+            Las de mayor atraso, de la misma cola que{' '}
+            <Link href="/cobranza" className="font-semibold text-blue-d hover:underline">
+              Cobranza
+            </Link>
+            . Cada fila abre la ficha del equipo.
+          </p>
+          <DataTable
+            columns={COLUMNAS_DEUDA}
+            rows={urgentes}
+            rowKey={(f, i) => f.tercero_id ?? i}
+            rowHref={(f) => (f.tercero_id ? `/equipos/${f.tercero_id}` : undefined)}
+            emptyMessage="Ningún equipo con deuda."
+          />
+          {/* El corte es del dashboard, no de los datos: decir cuántas quedaron
+              afuera evita que ocho filas se lean como «son ocho». */}
+          {restantes > 0 && (
+            <p className="mt-2 text-[11px] text-muted">
+              Hay {restantes} equipo{restantes === 1 ? '' : 's'} más con deuda.{' '}
+              <Link href="/cobranza" className="font-semibold text-blue-d hover:underline">
+                Verlos todos
+              </Link>
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="mb-7">
         <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
