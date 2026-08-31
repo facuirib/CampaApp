@@ -1,0 +1,61 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- La categoría de inversión imputa a BIENES_USO
+--
+-- D1, commit 1. Corrige un dato que dice lo contrario de lo que el sistema hace.
+--
+-- ── Qué estaba mal, y por qué no se notaba ─────────────────────────────────
+--
+-- `cat_gasto.cuenta_id` de «Equipamiento» —naturaleza `inversion`— apuntaba a
+-- GAS_PREDIO, que es una cuenta de EGRESO. O sea que el dato declaraba que
+-- comprar un activo es un gasto de resultado.
+--
+-- No se notaba porque `registrar_gasto` la pisa:
+--
+--     if v_naturaleza = 'inversion' then
+--       v_cuenta_codigo := 'BIENES_USO';
+--
+-- Los asientos, entonces, SIEMPRE fueron correctos: BIENES_USO / PROVEEDORES,
+-- sin tocar el resultado. Esta migración no repara ningún asiento porque no hay
+-- ninguno que reparar.
+--
+-- ── Pero la columna igual hacía daño, en dos lugares ───────────────────────
+--
+-- La regla vivía en UN solo lugar —el `if`— y el dato decía lo contrario.
+-- Cualquier código nuevo que confiara en la columna, que es lo natural, habría
+-- imputado una compra de activo al resultado.
+--
+-- ── 🔴 Lo que esta migración NO hace, y por qué está bien ──────────────────
+--
+-- Al diseñarla dije que iba a sacar del P&L la línea «GAS_PREDIO ·
+-- Equipamiento · $0,00». **No la saca, y no corresponde que la saque.**
+--
+-- Esa línea no la producía esta columna. `v_pl_mensual_item` no lee
+-- `cat_gasto.cuenta_id`: arma su lista de ítems desde las líneas de asiento que
+-- REALMENTE existen contra cuentas de egreso, y le pone nombre con la categoría
+-- del gasto de origen. Si hay un ítem «Equipamiento», es porque hubo una línea.
+--
+-- Y la hubo: un `gasto_devengo` del 08/08/2026 debitó GAS_PREDIO por
+-- $1.450.000 con categoría de inversión. Es anterior al `if`, y **ya fue
+-- anulado**. El original y su contraasiento se compensan, así que la fila dice
+-- $0,00 — medido: la suma de los 12 meses da 0,00 y ningún mes tiene monto.
+--
+-- O sea que no es una línea fantasma: es el registro de algo que pasó y se
+-- deshizo. Sacarla exigiría filtrar los anulados en una vista que SUMA, que es
+-- exactamente lo que la regla 4 prohíbe — `anular_asiento` marca sólo el
+-- original, así que filtrar dejaría el contraasiento huérfano y el P&L pasaría
+-- a mostrar −1.450.000 donde hoy muestra 0.
+--
+-- La única forma de que esa fila desaparezca es que el año cambie.
+--
+-- ── El `if` de registrar_gasto QUEDA ───────────────────────────────────────
+--
+-- Ahora es redundante: la columna ya dice BIENES_USO, así que el `if` no
+-- cambia nada. Se deja igual, como red. Si alguien vuelve a apuntar la
+-- categoría a una cuenta de egreso —editando cat_gasto desde la pantalla, por
+-- ejemplo— el asiento sigue saliendo bien. Dos candados para un invariante que
+-- si se rompe ensucia el resultado y nadie lo mira hasta el balance.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+update cat_gasto
+   set cuenta_id = (select id from cuenta where codigo = 'BIENES_USO')
+ where naturaleza = 'inversion';
