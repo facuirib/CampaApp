@@ -87,11 +87,27 @@ no son redundantes sino distintas:
 | Sidebar | No ofrece lo que el rol no usa | `GRUPOS` |
 | Botones | No dibuja el control que la base va a negar | cada pantalla |
 
-Las tres de arriba salen de **`lib/permisos.ts`**, un mapa de 31 operaciones
+Las tres de arriba salen de **`lib/permisos.ts`**, un mapa de 54 operaciones
 —verbos del dominio, no tablas— que declara para cada una **dónde vive la misma
 regla en la base**. `scripts/verificar-permisos.ts` deriva la matriz real de
 `pg_policies` siguiendo el grafo de llamadas y falla si el mapa y la base no
 coinciden: es lo que impide que las dos copias del permiso se separen.
+
+**Y desde el 31/08 el chequeo va también al revés.** Recorrer el mapa sólo
+verifica lo que alguien ya declaró: una función que existe en la base y que
+nadie catalogó no tiene entrada que recorrer, así que el script daba verde sin
+haberla mirado nunca —fue el caso de `clonar_torneo` y `crear_sponsor`—. El
+cierre inverso recorre **la base**:
+
+| Chequeo | Qué rompe |
+|---|---|
+| Toda función con `auth_rol()` está en el mapa | Una guarda que ninguna operación declara. Sin excepciones: la guarda **es** la marca de que hay una puerta |
+| Toda función que escribe está declarada **o clasificada** | `INTERNAS` (plomería), `DEPRECADAS`, `PUERTAS_SIN_UI` — cada una con el motivo escrito |
+| Una clasificada que el front llama pierde la exención | Es lo que hace que `PUERTAS_SIN_UI` se pague sola el día que llega el botón |
+| Una lista que nombra algo inexistente | La allowlist se quedó vieja |
+
+Es **allowlist positiva**: no se enumera lo prohibido —esa lista envejece sola—
+se enumera lo conocido, y lo desconocido frena el script.
 
 **Esconder no es impedir.** El botón se decide con `puede(rol, op)` **antes de
 renderizar**, nunca reaccionando a un error, porque un UPDATE o un DELETE que

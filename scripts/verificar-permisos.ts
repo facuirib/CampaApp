@@ -174,7 +174,23 @@ select json_build_object(
 
 // ── Los rpc que el front llama de verdad ───────────────────────────────────
 
-function nombresEnElFront(dir = 'app'): Set<string> {
+/**
+ * Dónde se buscan las llamadas por rpc.
+ *
+ * `app/` sola no alcanzaba: `lib/arca-fecaesolicitar.ts` llama
+ * `reservar_numero_comprobante`, `marcar_error_comprobante` y
+ * `cerrar_comprobante` por rpc, y ninguna de esas llamadas se veía. Están
+ * declaradas, así que hoy no dolía — pero una función nueva llamada sólo desde
+ * `lib/` habría quedado fuera del chequeo inverso sin que nadie se enterara.
+ *
+ * `lib/permisos.ts` queda afuera a propósito: nombra todas las funciones del
+ * catálogo, pero **declararlas no es llamarlas**. Incluirlo haría que cualquier
+ * función clasificada pareciera tener UI el día que se la mencione.
+ */
+const DONDE_SE_LLAMA = ['app', 'lib', 'components']
+const NO_ES_UNA_LLAMADA = ['lib/permisos.ts']
+
+function nombresEnElFront(dirs = DONDE_SE_LLAMA): Set<string> {
   // Cualquier literal con forma de nombre de función, no sólo `.rpc('x')`:
   // `/presupuesto` llama `.rpc(fn, args)` con el nombre en una variable
   // —`llamar('agregar_linea_presupuesto', …)`— y un patrón atado a `.rpc(` no
@@ -184,6 +200,7 @@ function nombresEnElFront(dir = 'app'): Set<string> {
   const recorrer = (d: string) => {
     for (const entrada of readdirSync(d)) {
       const ruta = join(d, entrada)
+      if (NO_ES_UNA_LLAMADA.includes(ruta)) continue
       if (statSync(ruta).isDirectory()) recorrer(ruta)
       else if (/\.tsx?$/.test(ruta)) {
         for (const m of readFileSync(ruta, 'utf8').matchAll(/'([a-z][a-z_]{4,})'/g)) {
@@ -192,7 +209,7 @@ function nombresEnElFront(dir = 'app'): Set<string> {
       }
     }
   }
-  recorrer(dir)
+  dirs.forEach(recorrer)
   return encontrados
 }
 
@@ -205,6 +222,90 @@ const RPC_DE_LECTURA = new Set([
   'email_usuario',
   'sugerir_imputacion',
 ])
+
+// ── El cierre inverso: allowlist positiva ──────────────────────────────────
+//
+// Hasta acá el script recorría el CATÁLOGO y comprobaba cada entrada contra la
+// base. Eso deja pasar el caso que nos costó cuatro síntomas: una función que
+// existe en la base y que **nadie declaró** es invisible — no hay entrada que
+// recorrer, así que no hay nada que chequear, y el script da verde sobre algo
+// que nunca miró. Fue lo que pasó con `clonar_torneo` y `crear_sponsor`.
+//
+// El chequeo inverso lo da vuelta: se recorre **la base**, y toda función que
+// escriba tiene que estar o declarada en el catálogo, o acá abajo con el
+// motivo escrito. Lo que no está en ninguna de las dos, ROMPE.
+//
+// Es allowlist positiva: no se enumera lo prohibido —esa lista se queda vieja
+// sola— se enumera lo conocido, y lo desconocido se frena. Una función nueva
+// que escriba y que nadie clasifique hace fallar el script, que es exactamente
+// lo que tiene que pasar.
+
+/**
+ * Plomería: las llama otra función o un trigger, nunca el front.
+ *
+ * No son puertas — no protegen un invariante propio, lo protege quien las
+ * llama— así que no les corresponde una operación en el mapa. Que el front
+ * llame a una de éstas ES un error, y por eso más abajo se chequea.
+ */
+const INTERNAS: Record<string, string> = {
+  crear_asiento: 'La puerta del diario. La llaman todas las funciones que asientan, nunca el front',
+  periodo_de_fecha: 'Resuelve el período de una fecha; la llama crear_asiento',
+  aplicar_anticipo: 'Consume saldo a favor; la llama registrar_cobro dentro de su transacción',
+  generar_cuotas_ficha: 'Genera el cronograma de una ficha; la llama crear_equipo_torneo',
+  generar_cuotas_instancia: 'Cuotas de una instancia de playoff; la llama crear_playoff',
+  generar_cuotas_plan: 'Cuotas desde un plan de pago; la llaman las de alta',
+  generar_grilla_liga: 'Arma el fixture; la llama la carga de estructura del torneo',
+  sync_cuota_pagada: 'Trigger: deriva pagado_at de las imputaciones',
+  sync_cuota_vence_at: 'Trigger: deriva el vencimiento de la cuota',
+  sync_total_plan: 'Trigger: mantiene total_plan al día',
+}
+
+/**
+ * Deprecadas: siguen en la base pero no se llaman desde ningún lado.
+ *
+ * Se listan igual —no se borran de acá— porque mientras existan en la base
+ * alguien las puede llamar, y entonces queremos que el script lo diga.
+ */
+const DEPRECADAS: Record<string, string> = {
+  imputar_pago_automatico:
+    'Reemplazada por sugerir_imputacion + imputar_pago: la imputación la confirma el operador (regla 10)',
+}
+
+/**
+ * 🟡 Puertas de verdad, todavía sin pantalla.
+ *
+ * Escriben y protegen algo, así que el día que tengan botón necesitan su
+ * operación en el mapa. Hoy no la tienen porque no las llama nadie.
+ *
+ * **Esto no es una excepción permanente y el script no las deja tranquilas:**
+ * en cuanto el front nombre a una de éstas, el chequeo de abajo se pone rojo y
+ * pide catalogarla. O sea que la lista se paga sola cuando llega la UI, que es
+ * el único momento en que se puede decidir bien quién puede tocarla.
+ */
+const PUERTAS_SIN_UI: Record<string, string> = {
+  crear_cat_gasto: 'ABM de categorías de gasto',
+  editar_cat_gasto: 'ABM de categorías de gasto',
+  desactivar_cat_gasto: 'ABM de categorías de gasto',
+  crear_proveedor: 'Alta de proveedor — ojo: sus policies no nombran ningún rol, revisar al catalogar',
+  crear_plan_tarifa: 'Alta de un plan de tarifas (hoy sólo se editan los existentes)',
+  crear_playoff: 'Alta de instancia de playoff — la puerta existe, la pantalla no',
+  crear_gasto_planificado: 'Planificación de gastos',
+  marcar_gasto_planificado_ejecutado: 'Planificación de gastos',
+  eliminar_dia_cancha: 'Borrar un día de cancha del bar',
+  devengar_sponsors: 'Devengo mensual de sponsors (idempotente), sin pantalla que lo dispare',
+  crear_contrato_sponsor: 'Alta de contrato de patrocinio',
+  cargar_cuotas_sponsor: 'Cronograma de cuotas de un contrato de patrocinio',
+  liquidar_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',
+  recibir_efectivo_en_transito: 'Circuito de efectivo en tránsito entre predios',
+  reponer_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',
+}
+
+/** Las tres juntas, para preguntar «¿está clasificada?» de una. */
+const CLASIFICADAS: Record<string, string> = {
+  ...INTERNAS,
+  ...DEPRECADAS,
+  ...PUERTAS_SIN_UI,
+}
 
 // ── Comparar ───────────────────────────────────────────────────────────────
 
@@ -219,7 +320,25 @@ interface Filas {
 
 async function traerFilas(): Promise<Filas> {
   const archivo = argumento('--matriz')
-  if (archivo) return JSON.parse(readFileSync(archivo, 'utf8')) as Filas
+  if (archivo) {
+    // ── 🔴 El camino de escape, y por qué grita ────────────────────────────
+    //
+    // Durante meses éste fue el ÚNICO camino, porque `DATABASE_URL` estaba
+    // vacía y el modo normal tiraba error. Se corrían las consultas por otro
+    // lado y se copiaba el resultado a un archivo — y esa copia derivó: llegó
+    // a tener 12 funciones con guarda cuando la base ya tenía 14, y el script
+    // daba verde igual porque comparaba contra la copia, no contra la base.
+    //
+    // El modo sigue existiendo para cuando de verdad no haya conexión. Pero un
+    // verde de acá vale lo que valga el archivo, y eso hay que verlo en la
+    // salida, no deducirlo de los argumentos.
+    console.warn(
+      `\n⚠️  MODO --matriz: comparando contra «${archivo}», NO contra la base.\n` +
+        `   Lo que diga este verde vale sólo si ese archivo está al día.\n` +
+        `   El camino normal es sin --matriz, con DATABASE_URL puesta.\n`,
+    )
+    return JSON.parse(readFileSync(archivo, 'utf8')) as Filas
+  }
 
   const url = urlDeLaBase()
   if (!url) {
@@ -422,18 +541,62 @@ async function main() {
     lineas.push(`${ok ? '✅' : '🔴'} ${op.padEnd(22)} [${esperado.join(' · ')}]   ← exigirRol en la acción`)
   }
 
-  // ── El chequeo inverso ───────────────────────────────────────────────────
-  const sinDeclarar = [...nombresEnElFront()]
-    .filter((f) => !RPC_DE_LECTURA.has(f))
-    .filter((f) => !declaradas.has(f))
-    .filter((f) => matriz.has(f)) // si no escribe nada, no necesita permiso
-
   console.log(lineas.sort().join('\n'))
   console.log()
 
-  if (sinDeclarar.length) {
+  // ── El cierre inverso: de la BASE hacia el mapa ──────────────────────────
+  //
+  // Los chequeos de arriba recorren el catálogo. Éstos recorren la base, que es
+  // lo único que ve una función que nadie declaró.
+  const llamadasDelFront = nombresEnElFront()
+
+  // ── 1. Toda función con guarda tiene que estar en el catálogo ────────────
+  //
+  // Una guarda es la marca de que la función decide por rol adentro suyo: es
+  // una puerta, por definición. Si ninguna operación la nombra, hay un permiso
+  // en la base que el front no sabe leer — y nadie lo está verificando.
+  //
+  // No admite allowlist. Una función con guarda que no le corresponda a ninguna
+  // operación es una contradicción: la guarda existe justamente porque alguien
+  // decidió quién puede.
+  const guardasSinCatalogar = [...fuentes.keys()].filter((f) => !declaradas.has(f)).sort()
+  for (const f of guardasSinCatalogar) {
+    const roles = [...new Set([...(fuentes.get(f) ?? '').matchAll(RE_ROL)].map((m) => m[1]))].sort()
     problemas.push(
-      `🔴 el front llama por rpc a funciones que escriben y no están en el mapa: ${sinDeclarar.join(', ')}`,
+      `🔴 «${f}» tiene guarda de rol [${roles.join(', ')}] en la base y NINGUNA operación la declara` +
+        `\n     Agregala a lib/permisos.ts con donde: { guarda: '${f}' }`,
+    )
+  }
+
+  // ── 2. Toda función que escribe: declarada o clasificada ─────────────────
+  const escribenSinClasificar = [...matriz.keys()]
+    .filter((f) => !declaradas.has(f))
+    .filter((f) => !(f in CLASIFICADAS))
+    .sort()
+  for (const f of escribenSinClasificar) {
+    problemas.push(
+      `🔴 «${f}» escribe [${matriz.get(f)?.escribe.join(' ')}] y no está ni declarada ni clasificada` +
+        `\n     O le corresponde una operación en lib/permisos.ts, o va a INTERNAS / DEPRECADAS / PUERTAS_SIN_UI con el motivo`,
+    )
+  }
+
+  // ── 3. Una función clasificada que el front llama, ya no está exenta ─────
+  //
+  // Acá es donde PUERTAS_SIN_UI se paga sola: la excusa era «no la llama
+  // nadie», así que en cuanto alguien le pone un botón, se cae.
+  for (const f of [...llamadasDelFront].filter((f) => f in CLASIFICADAS).sort()) {
+    const donde = f in PUERTAS_SIN_UI ? 'PUERTAS_SIN_UI' : f in INTERNAS ? 'INTERNAS' : 'DEPRECADAS'
+    problemas.push(
+      f in PUERTAS_SIN_UI
+        ? `🔴 «${f}» ya tiene UI: el front la llama. Sacala de PUERTAS_SIN_UI y dale su operación en lib/permisos.ts`
+        : `🔴 «${f}» está en ${donde} —${CLASIFICADAS[f]}— y sin embargo el front la llama`,
+    )
+  }
+
+  // ── 4. Una lista que nombra algo que ya no existe se quedó vieja ─────────
+  for (const f of Object.keys(CLASIFICADAS).filter((f) => !matriz.has(f)).sort()) {
+    problemas.push(
+      `🔴 «${f}» está clasificada pero la base no la tiene escribiendo nada — la lista quedó vieja, sacala`,
     )
   }
 
@@ -449,6 +612,18 @@ async function main() {
       `${nombresEnElFront().size} literales del front cruzados contra el catálogo · ` +
       `cero desacuerdos.`,
   )
+  console.log(
+    `✅ cierre inverso: ${fuentes.size} funciones con guarda, todas catalogadas · ` +
+      `${matriz.size} funciones que escriben, todas declaradas o clasificadas ` +
+      `(${Object.keys(INTERNAS).length} internas · ${Object.keys(DEPRECADAS).length} deprecada · ` +
+      `${Object.keys(PUERTAS_SIN_UI).length} puertas sin UI) · ` +
+      `escaneado ${DONDE_SE_LLAMA.join('/')}.`,
+  )
+  if (argumento('--matriz')) {
+    console.log(
+      `\n⚠️  Recordá: esto se comparó contra un archivo, no contra la base.`,
+    )
+  }
 }
 
 main().catch((e) => {

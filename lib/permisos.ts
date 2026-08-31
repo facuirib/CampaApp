@@ -6,7 +6,8 @@ import type { Rol } from './roles'
  *
  * ── Por qué existe este archivo ────────────────────────────────────────────
  *
- * La base ya decide: 79 policies y dos guardas adentro de funciones. Pero RLS
+ * La base ya decide: 89 policies de escritura y 14 guardas adentro de
+ * funciones. Pero RLS
  * **no contesta «¿puedo?»** — contesta denegando, y para UPDATE y DELETE lo
  * hace en silencio, con 0 filas y sin excepción. O sea que el front no puede
  * preguntar antes de dibujar, ni deducir el permiso del resultado de intentar.
@@ -111,6 +112,22 @@ export const PERMISOS = {
     // operador puede iniciar un torneo, que es falso — lo que las restringe es
     // el `if` de adentro. Mismo caso que `pago.anular` y `sponsor.anular`.
     donde: { guarda: 'iniciar_torneo · cerrar_torneo · reabrir_torneo' },
+  },
+  'torneo.clonar': {
+    // Clonar un torneo entero: estructura, fichas y tarifario de una sola vez.
+    //
+    // `guarda` y NO `fns`, y acá la diferencia es la que importa: las tablas
+    // que atraviesa —`torneo`, `categoria`, `serie`— las escriben **admin y
+    // operador**, así que derivarla de sus escrituras declararía que un
+    // operador puede clonar. La guarda de adentro dice `admin` sola, y es la
+    // que manda: es MÁS ESTRICTA que las policies, y lo que se declara tiene
+    // que ser lo que efectivamente frena.
+    //
+    // Que sea admin es coherente con `torneo.ciclo`: clonar crea un torneo
+    // completo con sus fichas: es la operación más grande del módulo.
+    que: 'Clonar un torneo completo (estructura, fichas y tarifario)',
+    roles: SOLO_ADMIN,
+    donde: { guarda: 'clonar_torneo' },
   },
   'torneo.estructura': {
     que: 'Clonar, crear, editar o borrar categorías y series',
@@ -303,6 +320,18 @@ export const PERMISOS = {
         'borrar_linea_presupuesto',
       ],
     },
+  },
+  'sponsor.crear': {
+    // Alta de un sponsor: el tercero y su contrato.
+    //
+    // `guarda` y no `fns` por la razón inversa a `torneo.clonar`: acá la guarda
+    // y las policies dicen lo mismo (admin, finanzas y operador), pero la
+    // guarda es la que se ejecuta primero y con un mensaje entendible. Si
+    // mañana alguien ensancha una policy, el permiso real lo sigue fijando el
+    // `if` de adentro — y es eso lo que el mapa tiene que reflejar.
+    que: 'Dar de alta un sponsor',
+    roles: CON_FINANZAS,
+    donde: { guarda: 'crear_sponsor' },
   },
   'sponsor.cobrar': {
     // Cobrar es del día a día, así que va con `operador` — la misma lista que

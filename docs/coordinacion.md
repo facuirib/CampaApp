@@ -1868,19 +1868,20 @@ Se desactivan en vez de borrarse por la misma razón que Mati: si alguna llegó 
 escribir algo, borrarla dejaría filas con un `created_by` que no resuelve a
 nadie.
 
-**② El verificador de permisos no se auto-ejecuta todavía.**
-`npm run verificar:permisos` necesita `DATABASE_URL` en `.env.local`, y **hoy
-está vacío**. En la sesión del 24/08 se corrió en modo `--matriz`: se ejecutó la
-consulta contra la base por otra vía y se le pasó el resultado en un JSON.
+**② El verificador de permisos ya corre contra la base** *(resuelto el
+31/08)*. `DATABASE_URL` está puesta con el Session pooler, así que
+`npm run verificar:permisos` es un comando y no un trámite. El modo `--matriz`
+sigue existiendo para cuando no haya conexión, pero ahora **avisa a los gritos**
+que lo comparado puede estar viejo.
 
-Eso alcanza para verificar una vez, pero **no para lo que la herramienta tiene
-que ser**: la red que se corre en cada cambio de policy y avisa si el front
-quedó desactualizado. Con la URL puesta, es un comando. Sin ella, es un trámite
-de tres pasos que nadie va a hacer — o sea, no existe.
+Valió la pena mirar por qué había estado vacía tanto tiempo: mientras el único
+camino fue copiar el resultado a un JSON a mano, **esa copia derivó**. Llegó a
+tener 12 funciones con guarda cuando la base ya tenía 14, y el script daba verde
+igual — comparaba contra la copia, no contra la base.
 
-> Es el pendiente más barato de los tres y el que más se paga solo: sin él, la
-> próxima migración que cambie un rol deja el front mintiendo y nadie se entera
-> hasta que alguien aprieta un botón que no funciona.
+> Y el verde tampoco alcanzaba: aun con la copia al día, una función que nadie
+> catalogó no se miraba nunca. Por eso el mismo commit agrega el **cierre
+> inverso** (§2 de arquitectura), que recorre la base y frena lo no declarado.
 
 **③ El ledger de la 3b quedó alineado** *(resuelto en este commit)*. La migración
 se había aplicado con un timestamp propio —`20260824184544`— distinto del nombre
