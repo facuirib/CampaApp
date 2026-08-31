@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import ColasAviso from './ColasAviso'
+import Inscripciones from './Inscripciones'
 import { createClient } from '@/lib/db/server'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
@@ -27,6 +28,8 @@ interface Deudor {
   contexto: number | null
   saldo_a_favor: number | null
   email: string | null
+  /** El botón de cobrar. Es un ReactNode porque la celda ES un control. */
+  accion: React.ReactNode
 }
 
 /**
@@ -61,6 +64,14 @@ function columnas(filtrado: boolean): ColumnDef<Deudor>[] {
     { key: 'contexto', label: filtrado ? 'Cuotas' : 'Torneos', align: 'right', width: 76 },
     { key: 'saldo_a_favor', label: 'A favor', format: 'money', width: 108 },
     { key: 'email', label: 'Email' },
+    // Cobrar desde la lista. La fila entera ya linkea a la ficha, pero llegar a
+    // cobrar exigía abrirla y buscar el botón: dos clicks para la acción que
+    // esta pantalla existe para disparar.
+    //
+    // Va a la MISMA pantalla de cobro del equipo, que llama a registrar_cobro.
+    // No hay un cobro «rápido» aparte: la imputación se elige, y elegirla es
+    // justamente lo que no se puede hacer desde una lista (regla 10).
+    { key: 'accion', label: '', width: 92 },
   ]
 }
 
@@ -75,6 +86,10 @@ function columnas(filtrado: boolean): ColumnDef<Deudor>[] {
 const VISTAS = [
   { vista: 'cuenta', label: 'Cuenta corriente' },
   { vista: 'avisos', label: 'Avisos' },
+  // Inscripciones era un módulo propio, /inscripciones. Es la CUARTA pantalla
+  // que mira las mismas cuotas del mismo equipo, y la inscripción no es otro
+  // dominio: es la primera cuota, la que decide si el equipo entra al torneo.
+  { vista: 'inscripciones', label: 'Inscripciones' },
 ] as const
 
 type Vista = (typeof VISTAS)[number]['vista']
@@ -112,11 +127,50 @@ function Pestanas({ activa, torneo }: { activa: Vista; torneo?: string }) {
 export default async function CobranzaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ torneo?: string; vista?: string }>
+  searchParams: Promise<{
+    torneo?: string
+    vista?: string
+    serie?: string
+    estado?: string
+  }>
 }) {
-  const { torneo: torneoElegido, vista } = await searchParams
-  const activa: Vista = vista === 'avisos' ? 'avisos' : 'cuenta'
+  const { torneo: torneoElegido, vista, serie, estado } = await searchParams
+  const activa: Vista =
+    vista === 'avisos' ? 'avisos' : vista === 'inscripciones' ? 'inscripciones' : 'cuenta'
   const supabase = await createClient()
+
+  // ── La pestaña Inscripciones ───────────────────────────────────────────
+  if (activa === 'inscripciones') {
+    let q = supabase.from('v_inscripcion').select('*')
+    if (torneoElegido) q = q.eq('torneo_id', torneoElegido)
+    const { data, error } = await q
+
+    return (
+      <div className="pb-10">
+        <header className="mb-6">
+          <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Cobranza</h1>
+          <p className="mt-1 text-[12px] text-muted">
+            Quién pagó la inscripción y quién no. Cobrar desde acá usa la misma pantalla —y la
+            misma función— que cualquier otro cobro.
+          </p>
+        </header>
+
+        <Pestanas activa={activa} torneo={torneoElegido} />
+
+        {error && (
+          <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
+            {error.message}
+          </p>
+        )}
+
+        <Inscripciones
+          inscripciones={data ?? []}
+          filtros={{ serie, estado, torneo: torneoElegido }}
+          torneoElegido={torneoElegido ?? null}
+        />
+      </div>
+    )
+  }
 
   // ── La pestaña Avisos ──────────────────────────────────────────────────
   //
@@ -217,6 +271,13 @@ export default async function CobranzaPage({
     contexto: 'torneos_con_deuda' in f ? f.torneos_con_deuda : f.cuotas_impagas,
     saldo_a_favor: f.saldo_a_favor,
     email: f.email,
+    accion: f.tercero_id ? (
+      <Link href={`/equipos/${f.tercero_id}/cobrar`}>
+        <Button size="pill" variant="secondary">
+          Cobrar
+        </Button>
+      </Link>
+    ) : null,
   }))
 
   const FILTROS: FiltroUrl[] = [
