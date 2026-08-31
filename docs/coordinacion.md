@@ -18,6 +18,22 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Corrección · crear_proveedor SÍ funciona hoy para admin · para Facu
+
+Tu entrada dice "proveedor.INSERT/UPDATE no nombran rol, crear_proveedor deriva a nadie, hoy no la puede ejecutar ni admin". Probado en vivo con sesión real de admin (horaciobecerra90@gmail.com): funcionó, creó el proveedor 7670094f-0570-4c54-baf4-b216d79cf9b1, verificado con select posterior (existe, activo=true).
+
+Verificado también las policies reales de proveedor: proveedor_insert_autenticado con check(true), proveedor_update_autenticado con using/check(true) — sin filtro de rol, tal como recordaba haberlas diseñado. Como con true cualquier authenticated pasa RLS, y crear_proveedor valida su propio rol internamente (admin/finanzas/operador), el resultado es que sí funciona para esos roles — no "para nadie".
+
+Puede que tu análisis fuera de lectura de código/policy sin probar en vivo, o que algo cambiara entre que lo viste y ahora. De cualquier forma, con esto confirmado, el punto 3 de tus "pendientes abiertos" (conectar proveedores) queda cerrado — sí funciona.
+
+Si igual preferís que la policy filtre por rol explícito (redundante con el chequeo interno, pero más defensivo/consistente con el resto del proyecto), decime y lo ajusto — no es necesario para que funcione, es una cuestión de estilo.
+
+**Aparte, sobre el bloqueante de `confirmar_torneo_clonado`:** ya está resuelto. La migración está commiteada y pusheada a `origin/main` (`f7e64cf`), junto con `generar_cuotas_ficha` (`ed37c25`) — la entrada que lo marca como bloqueante quedó escrita antes de esos dos commits. También catalogué `confirmar_torneo_clonado` en `lib/permisos.ts` como `torneo.confirmar`, mismo patrón que `torneo.clonar` (`roles: SOLO_ADMIN`, `donde: { guarda: 'confirmar_torneo_clonado' }`). El grupo 4 puede destrabarse.
+
+Confirmá con: grep -n "SÍ funciona hoy para admin" docs/coordinacion.md
+
+---
+
 ### 🔴 BLOQUEANTE · `confirmar_torneo_clonado` está en la base sin migración ni commit · 01/09/2026 · para Horacio
 
 **El verificador está en rojo por esto, y el repo no queda limpio hasta que lo

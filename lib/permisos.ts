@@ -129,6 +129,23 @@ export const PERMISOS = {
     roles: SOLO_ADMIN,
     donde: { guarda: 'clonar_torneo' },
   },
+  'torneo.confirmar': {
+    // Cierra el flujo de torneo.clonar: genera las cuotas de las fichas
+    // clonadas que todavía no las tienen.
+    //
+    // `guarda` y NO `fns`, mismo motivo que torneo.clonar: `cuota_insert_
+    // autenticado` es `to authenticated with check (true)` — ni siquiera
+    // exige admin/operador, cualquier sesión pasa la policy. Derivarla de
+    // esa escritura declararía "cualquiera puede confirmar", que es falso:
+    // la guarda de adentro (`auth_rol() = 'admin'`) es la que manda, y es
+    // más estricta que la policy en sí.
+    //
+    // SOLO_ADMIN por coherencia con torneo.clonar: confirmar genera cuotas
+    // reales para un torneo entero, mismo peso que clonarlo.
+    que: 'Confirmar un torneo clonado (genera las cuotas de sus fichas)',
+    roles: SOLO_ADMIN,
+    donde: { guarda: 'confirmar_torneo_clonado' },
+  },
   'torneo.estructura': {
     que: 'Clonar, crear, editar o borrar categorías y series',
     roles: TODOS_MENOS_LECTURA,
