@@ -46,8 +46,8 @@ export default async function ClientePage({
 
   return (
     <div className="pb-10">
-      <Link href="/clientes" className="text-[12px] text-muted hover:text-ink">
-        ← Clientes
+      <Link href="/equipos" className="text-[12px] text-muted hover:text-ink">
+        ← Equipos
       </Link>
 
       <header className="mb-6 mt-2">

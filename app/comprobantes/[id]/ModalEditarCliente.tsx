@@ -1,7 +1,7 @@
 'use client'
 
 import { Marco } from '@/components/ui'
-import FormularioFiscal from '@/app/clientes/FormularioFiscal'
+import FormularioFiscal from '@/app/equipos/FormularioFiscal'
 import type { ContextoEmision } from './emitir'
 
 export default function ModalEditarCliente({

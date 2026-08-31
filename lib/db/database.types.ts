@@ -5779,6 +5779,7 @@ export type Database = {
           tiene_condicion: boolean | null
           tiene_documento: boolean | null
           tipo: string | null
+          torneos: number | null
         }
         Relationships: [
           {
@@ -5793,6 +5794,9 @@ export type Database = {
       v_cliente_kpi: {
         Row: {
           equipos: number | null
+          equipos_facturables: number | null
+          equipos_incompletos: number | null
+          equipos_sin_datos: number | null
           facturables: number | null
           incompletos: number | null
           sin_datos: number | null

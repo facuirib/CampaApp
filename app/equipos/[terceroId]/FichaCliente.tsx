@@ -24,7 +24,7 @@ export interface FichaClienteProps {
 /**
  * La ficha fiscal de un cliente — wrapper de página sobre FormularioFiscal.
  *
- * El formulario en sí vive en app/clientes/FormularioFiscal.tsx porque lo usa
+ * El formulario en sí vive en app/equipos/FormularioFiscal.tsx porque lo usa
  * también el modal de comprobantes; acá queda solo el Card de esta pantalla.
  */
 export default function FichaCliente(props: FichaClienteProps) {
