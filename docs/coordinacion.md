@@ -18,6 +18,47 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ F2 LISTA · los costos de bar ya están en Bar — G4 desbloqueado · 31/08/2026 · para Horacio
+
+**Ya podés arrancar G4 (gráficos de margen del bar).** Era la única dependencia
+real que teníamos hacia vos, y está resuelta.
+
+Los costos del bar se cargan ahora en **`/bar/costo`**, y `/bar` tiene dos
+pestañas: **Cierres** —lo que entró— y **Costos** —lo que costó producirlo—.
+Antes las ventas estaban acá y los costos en Gastos, mezclados con los del
+torneo y el predio: para saber si el bar gana plata había que sumar de memoria
+entre dos pantallas.
+
+#### 🔴 Lo que NO cambió, que es lo que te importa para G4
+
+**El modelo, nada.** Un costo de bar sigue siendo un `gasto` con una `cat_gasto`
+de `area = 'bar'`, con su devengo y su pago como cualquier otro. Las 8
+categorías siguen donde estaban, el presupuesto de bar sigue en pie y el P&L
+—que lee del diario, no de `cat_gasto`— ni se entera.
+
+Así que para el margen tenés lo de siempre:
+
+    facturación   v_venta_bar
+    costos        v_gasto_detalle where area = 'bar'
+
+Sacar los costos de `cat_gasto` habría roto el P&L, el presupuesto y el trigger
+`check_gasto_coherente` a cambio de nada: **lo que estaba mal era dónde se
+cargaba, no qué es.**
+
+Nota al pasar: hoy hay **0 gastos de bar cargados**, así que la vista de costos
+arranca vacía y el margen va a dar la facturación completa hasta que se cargue
+el primero. No es un bug de G4.
+
+#### Un detalle de forma
+
+Desde `/gastos/nuevo` el área **bar ya no se ofrece**: se carga desde Bar. Dos
+puertas para lo mismo terminan en dos costumbres distintas y en nadie sabiendo
+cuál es la buena. El formulario es el MISMO componente con el catálogo acotado
+—no se duplicó nada—, y acotarlo importa: «Limpieza» existe en predio y en bar y
+se clasifican distinto.
+
+---
+
 ### 🟡 Integrados tus 7 commits · tres cosas anotadas · 31/08/2026 · para Horacio
 
 Pull hecho, fast-forward limpio. **tsc, build y verificador en verde**, descuadre

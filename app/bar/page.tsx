@@ -46,13 +46,140 @@ interface FilaCierre {
  * con permisos distintos —el detalle de un cheque, donde acreditar es del
  * operador y rechazar es de admin— el permiso baja como prop.
  */
-export default async function BarPage() {
+/**
+ * Las dos mitades del bar, en la URL como en /proyeccion y /cobranza.
+ *
+ * «Cierres» es lo que entró; «Costos», lo que costó producirlo. Estaban en dos
+ * módulos distintos —las ventas acá, los costos en Gastos— y para saber si el
+ * bar gana plata había que sumar de memoria entre dos pantallas. Juntas, la
+ * pregunta se contesta mirando.
+ */
+const VISTAS = [
+  { vista: 'cierres', label: 'Cierres' },
+  { vista: 'costos', label: 'Costos' },
+] as const
+
+type Vista = (typeof VISTAS)[number]['vista']
+
+function Pestanas({ activa }: { activa: Vista }) {
+  return (
+    <div className="mb-5 inline-flex gap-1 rounded-md bg-line2 p-1" role="tablist">
+      {VISTAS.map((v) => {
+        const esActiva = v.vista === activa
+        return (
+          <Link
+            key={v.vista}
+            href={v.vista === 'cierres' ? '/bar' : `/bar?vista=${v.vista}`}
+            role="tab"
+            aria-selected={esActiva}
+            className={[
+              'rounded-sm px-3 py-1 text-[11px] font-bold transition-colors',
+              esActiva ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink',
+            ].join(' ')}
+          >
+            {v.label}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+export default async function BarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vista?: string }>
+}) {
+  const { vista } = await searchParams
+  const activa: Vista = vista === 'costos' ? 'costos' : 'cierres'
   const supabase = await createClient()
   const rol = await rolActual()
 
   const puedeCerrar = puede(rol, 'bar.cierre')
   const puedeRetirar = puede(rol, 'bar.retiro')
   const puedeAnular = puede(rol, 'bar.cierre.anular')
+  // Cargar un costo del bar es cargar un gasto: mismo permiso, misma función.
+  const puedeCargarCosto = puede(rol, 'gasto.registrar')
+
+  // ── La vista de costos ─────────────────────────────────────────────────
+  //
+  // Los costos del bar son gastos con `cat_gasto.area = 'bar'`: no hay tabla
+  // nueva ni concepto nuevo. Lo que cambió es dónde se cargan y dónde se ven.
+  if (activa === 'costos') {
+    const { data: costos, error: errorCostos } = await supabase
+      .from('v_gasto_detalle')
+      .select('*')
+      .eq('area', 'bar')
+      .neq('estado', 'anulado')
+      .order('devengado_at', { ascending: false })
+
+    const filasCostos = (costos ?? []).map((g) => ({
+      gasto_id: g.gasto_id!,
+      fecha: g.devengado_at,
+      categoria: g.categoria,
+      concepto: g.concepto,
+      total: g.total,
+      estado: (g.pagado_at
+        ? { estado: 'ok' as const, label: 'Pagado' }
+        : { estado: 'porVencer' as const, label: 'Impago' }),
+    }))
+
+    return (
+      <div className="pb-10">
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Bar</h1>
+            <p className="mt-1 text-[12px] text-muted">
+              Lo que cuesta hacer funcionar el bar. Se cargaban en Gastos, mezclados con los del
+              torneo y el predio.
+            </p>
+          </div>
+          {puedeCargarCosto && (
+            <Link href="/bar/costo">
+              <Button icon="plus">Cargar costo</Button>
+            </Link>
+          )}
+        </header>
+
+        <Pestanas activa={activa} />
+
+        {errorCostos && (
+          <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
+            {errorCostos.message}
+          </p>
+        )}
+
+        {filasCostos.length === 0 ? (
+          <div className="rounded-md border border-line bg-white px-4 py-12 text-center">
+            <p className="text-[13px] font-bold text-ink">Todavía no hay costos de bar cargados</p>
+            <p className="mx-auto mt-1.5 max-w-md text-[11.5px] text-muted">
+              Productos, personal, limpieza, activaciones. Se cargan acá desde ahora — antes se
+              cargaban en Gastos.
+            </p>
+            {puedeCargarCosto && (
+              <div className="mt-4 flex justify-center">
+                <Link href="/bar/costo">
+                  <Button icon="plus">Cargar el primero</Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        ) : (
+          <DataTable
+            columns={[
+              { key: 'fecha', label: 'Fecha', format: 'date', width: 112 },
+              { key: 'categoria', label: 'Categoría', width: 180 },
+              { key: 'concepto', label: 'Concepto' },
+              { key: 'estado', label: 'Estado', format: 'badge', width: 104 },
+              { key: 'total', label: 'Total', format: 'money', width: 140 },
+            ]}
+            rows={filasCostos}
+            rowKey="gasto_id"
+          />
+        )}
+      </div>
+    )
+  }
 
   const { data, error } = await supabase
     .from('v_venta_bar')
@@ -156,6 +283,8 @@ export default async function BarPage() {
           )}
         </div>
       </header>
+
+      <Pestanas activa={activa} />
 
       {cierres.length === 0 ? (
         <div className="rounded-md border border-line bg-white px-4 py-12 text-center">
