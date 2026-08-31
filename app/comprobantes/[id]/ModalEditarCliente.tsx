@@ -27,7 +27,8 @@ export default function ModalEditarCliente({
           condicion_iva_receptor_default: contexto.condicionIvaId,
           domicilio_fiscal: contexto.domicilioFiscal,
           email: contexto.email,
-          contacto: contexto.contacto,
+          telefono: contexto.telefono,
+          delegado: contexto.delegado,
         }}
         puedeEditar={true}
         onGuardado={onGuardado}

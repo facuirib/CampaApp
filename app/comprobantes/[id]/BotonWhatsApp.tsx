@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import { Field, Input } from '@/components/ui'
 import { linkWhatsApp, parsearTelefono } from '@/lib/reclamo/contacto'
-import { guardarContactoTercero } from './acciones'
+import { guardarTelefonoTercero } from './acciones'
 
 export interface BotonWhatsAppProps {
   /** El teléfono del tercero, si lo tiene. Precarga el campo. */
-  contactoTercero: string | null
+  telefonoTercero: string | null
   terceroId: string | null
   esRecibo: boolean
   numeroFormateado: string
@@ -47,15 +47,15 @@ export interface BotonWhatsAppProps {
  * de otra persona, y el operador se entera cuando ya mandó el mensaje.
  */
 export default function BotonWhatsApp({
-  contactoTercero,
+  telefonoTercero,
   terceroId,
   esRecibo,
   numeroFormateado,
   monto,
   nombre,
 }: BotonWhatsAppProps) {
-  const [contacto, setContacto] = useState(contactoTercero ?? '')
-  const [guardar, setGuardar] = useState(!contactoTercero)
+  const [contacto, setContacto] = useState(telefonoTercero ?? '')
+  const [guardar, setGuardar] = useState(!telefonoTercero)
   const [aviso, setAviso] = useState<string | null>(null)
 
   const telefono = parsearTelefono(contacto)
@@ -69,8 +69,8 @@ export default function BotonWhatsApp({
   async function abrir() {
     // Se guarda ANTES de abrir: en el teléfono, tocar el link cambia de app y
     // esta pantalla puede quedar suspendida a mitad de un fetch.
-    if (guardar && terceroId && contacto.trim() && contacto.trim() !== contactoTercero) {
-      const r = await guardarContactoTercero(terceroId, contacto)
+    if (guardar && terceroId && contacto.trim() && contacto.trim() !== telefonoTercero) {
+      const r = await guardarTelefonoTercero(terceroId, contacto)
       setAviso(r.ok ? 'Teléfono guardado en la ficha.' : (r.error ?? 'No se pudo guardar.'))
     }
   }
@@ -80,7 +80,7 @@ export default function BotonWhatsApp({
       <Field
         label="Avisar por WhatsApp"
         hint={
-          contactoTercero
+          telefonoTercero
             ? 'Es el teléfono que tiene cargado. Se puede cambiar para este aviso.'
             : 'Este cliente no tiene teléfono cargado. Escribilo acá.'
         }
@@ -104,7 +104,7 @@ export default function BotonWhatsApp({
         </p>
       )}
 
-      {terceroId && contacto.trim() !== '' && contacto.trim() !== contactoTercero && (
+      {terceroId && contacto.trim() !== '' && contacto.trim() !== telefonoTercero && (
         <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink">
           <input
             type="checkbox"

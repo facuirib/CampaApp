@@ -51,7 +51,7 @@ export default async function ComprobantePage({ params }: { params: Promise<{ id
   const puedeEnviar = puede(rol, 'comprobante.enviar')
   const [{ data: tercero }, { data: envios }] = await Promise.all([
     c.tercero_id
-      ? supabase.from('tercero').select('email, contacto').eq('id', c.tercero_id).maybeSingle()
+      ? supabase.from('tercero').select('email, telefono').eq('id', c.tercero_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from('envio')
@@ -243,7 +243,7 @@ export default async function ComprobantePage({ params }: { params: Promise<{ id
               {(envios?.length ?? 0) > 0 && (
                 <div className="mt-4 border-t border-line pt-4">
                   <BotonWhatsApp
-                    contactoTercero={tercero?.contacto ?? null}
+                    telefonoTercero={tercero?.telefono ?? null}
                     terceroId={c.tercero_id ?? null}
                     esRecibo={esRecibo}
                     numeroFormateado={c.numero_formateado ?? ''}

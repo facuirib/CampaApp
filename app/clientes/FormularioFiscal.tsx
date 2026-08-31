@@ -200,11 +200,19 @@ export default function FormularioFiscal({
           />
         </Field>
 
-        <Field label="Contacto" hint="Teléfono del delegado, para WhatsApp.">
+        <Field label="Delegado" hint="Con quién se habla del equipo.">
           <Input
-            value={datos.contacto ?? ''}
+            value={datos.delegado ?? ''}
             readOnly={!puedeEditar}
-            onChange={(e) => set('contacto', e.target.value)}
+            onChange={(e) => set('delegado', e.target.value)}
+          />
+        </Field>
+
+        <Field label="Teléfono" hint="Para el WhatsApp. Se acepta como venga: 351 555-1234, +54 9…">
+          <Input
+            value={datos.telefono ?? ''}
+            readOnly={!puedeEditar}
+            onChange={(e) => set('telefono', e.target.value)}
           />
         </Field>
       </div>

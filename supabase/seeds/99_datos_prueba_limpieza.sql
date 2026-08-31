@@ -116,7 +116,7 @@ begin
   -- que es de prueba es su email y su teléfono—. Borrar la fila se llevaría el
   -- equipo puesto; lo que hay que sacar es el contacto.
   update tercero
-     set email = null, contacto = null
+     set email = null, telefono = null
    where id in (select id from public._prueba_marca where tipo = 'contacto_tercero');
   get diagnostics v_contactos = row_count;
 

@@ -1,7 +1,7 @@
 /**
- * El teléfono, sacado del campo `contacto`.
+ * El teléfono, sacado del campo `tercero.telefono`.
  *
- * `tercero.contacto` es texto libre — "Juan 351 555-1234", "cel 0351 15 5551234",
+ * `tercero.telefono` es texto libre — "Juan 351 555-1234", "cel 0351 15 5551234",
  * "+54 9 351 5551234"— y WhatsApp necesita un número internacional sin `+` ni
  * separadores. Esto es lo que hay en el medio.
  *

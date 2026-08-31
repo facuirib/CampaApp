@@ -228,7 +228,8 @@ export interface ContextoEmision {
   razonSocial: string | null
   domicilioFiscal: string | null
   email: string | null
-  contacto: string | null
+  telefono: string | null
+  delegado: string | null
 }
 
 export async function contextoEmision(comprobanteId: string): Promise<ContextoEmision | null> {
@@ -272,6 +273,7 @@ export async function contextoEmision(comprobanteId: string): Promise<ContextoEm
     razonSocial: cliente?.razon_social ?? null,
     domicilioFiscal: cliente?.domicilio_fiscal ?? null,
     email: cliente?.email ?? null,
-    contacto: cliente?.contacto ?? null,
+    telefono: cliente?.telefono ?? null,
+    delegado: cliente?.delegado ?? null,
   }
 }

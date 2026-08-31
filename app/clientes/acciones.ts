@@ -50,7 +50,8 @@ export interface DatosFiscales {
   condicion_iva_receptor_default: number | null
   domicilio_fiscal: string | null
   email: string | null
-  contacto: string | null
+  telefono: string | null
+  delegado: string | null
 }
 
 /** Vacío es NULL, no cadena vacía: un dato que no está no es un dato en blanco. */
@@ -78,7 +79,8 @@ export async function guardarDatosFiscales(
     condicion_iva_receptor_default: datos.condicion_iva_receptor_default,
     domicilio_fiscal: limpiar(datos.domicilio_fiscal),
     email: limpiar(datos.email),
-    contacto: limpiar(datos.contacto),
+    telefono: limpiar(datos.telefono),
+    delegado: limpiar(datos.delegado),
   }
 
   const { data, error } = await supabase

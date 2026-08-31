@@ -329,14 +329,14 @@ export async function enviarComprobanteMail(
  * Mismo rol que el envío: es el mismo acto —comunicarle el comprobante a un
  * tercero— por otro medio.
  */
-export async function guardarContactoTercero(
+export async function guardarTelefonoTercero(
   terceroId: string,
-  contacto: string,
+  telefono: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const permiso = await exigirRol(PERMISOS['comprobante.enviar'].roles)
   if (!permiso.ok) return { ok: false, error: permiso.error }
 
-  const valor = contacto.trim()
+  const valor = telefono.trim()
   if (!valor) return { ok: false, error: 'El teléfono está vacío.' }
 
   const supabase = await createClient()
@@ -345,7 +345,7 @@ export async function guardarContactoTercero(
   // FILAS se tocan, no qué campos.
   const { data, error } = await supabase
     .from('tercero')
-    .update({ contacto: valor })
+    .update({ telefono: valor })
     .eq('id', terceroId)
     .select('id')
 

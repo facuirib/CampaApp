@@ -4831,7 +4831,7 @@ export type Database = {
         Row: {
           activo: boolean
           condicion_iva_receptor_default: number | null
-          contacto: string | null
+          delegado: string | null
           doc_nro_default: string | null
           doc_tipo_default: number | null
           domicilio_fiscal: string | null
@@ -4839,12 +4839,13 @@ export type Database = {
           id: string
           nombre: string
           razon_social: string | null
+          telefono: string | null
           tipo: string
         }
         Insert: {
           activo?: boolean
           condicion_iva_receptor_default?: number | null
-          contacto?: string | null
+          delegado?: string | null
           doc_nro_default?: string | null
           doc_tipo_default?: number | null
           domicilio_fiscal?: string | null
@@ -4852,12 +4853,13 @@ export type Database = {
           id?: string
           nombre: string
           razon_social?: string | null
+          telefono?: string | null
           tipo: string
         }
         Update: {
           activo?: boolean
           condicion_iva_receptor_default?: number | null
-          contacto?: string | null
+          delegado?: string | null
           doc_nro_default?: string | null
           doc_tipo_default?: number | null
           domicilio_fiscal?: string | null
@@ -4865,6 +4867,7 @@ export type Database = {
           id?: string
           nombre?: string
           razon_social?: string | null
+          telefono?: string | null
           tipo?: string
         }
         Relationships: [
@@ -5759,7 +5762,7 @@ export type Database = {
           activo: boolean | null
           condicion_iva: string | null
           condicion_iva_id: number | null
-          contacto: string | null
+          delegado: string | null
           doc_nro: string | null
           doc_tipo: number | null
           domicilio_fiscal: string | null
@@ -5771,6 +5774,7 @@ export type Database = {
           falta_texto: string | null
           nombre: string | null
           razon_social: string | null
+          telefono: string | null
           tercero_id: string | null
           tiene_condicion: boolean | null
           tiene_documento: boolean | null
@@ -8803,13 +8807,13 @@ export type Database = {
       crear_sponsor: {
         Args: {
           p_condicion_iva_receptor_default?: number
-          p_contacto?: string
           p_doc_nro_default?: string
           p_doc_tipo_default?: number
           p_domicilio_fiscal?: string
           p_email?: string
           p_nombre: string
           p_razon_social?: string
+          p_telefono?: string
         }
         Returns: string
       }

@@ -105,7 +105,7 @@ export default async function CuentaCorrientePage({
       supabase.from('v_deuda_equipo').select('*').eq('tercero_id', terceroId).maybeSingle(),
       // `v_deuda_equipo` trae el email pero no el contacto: el teléfono del que
       // sale el WhatsApp vive en `tercero`.
-      supabase.from('tercero').select('contacto').eq('id', terceroId).maybeSingle(),
+      supabase.from('tercero').select('telefono').eq('id', terceroId).maybeSingle(),
       supabase
         .from('reclamo')
         .select('*')
@@ -361,7 +361,7 @@ export default async function CuentaCorrientePage({
             terceroId={terceroId}
             resumen={resumen}
             cuotas={cuotas}
-            contacto={terceroRes.data?.contacto ?? null}
+            telefono={terceroRes.data?.telefono ?? null}
             historial={historial}
             plantilla={plantilla ?? null}
             etapa={etapa}

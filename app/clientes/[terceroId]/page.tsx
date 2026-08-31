@@ -80,7 +80,8 @@ export default async function ClientePage({
           condicion_iva_receptor_default: cliente.condicion_iva_id,
           domicilio_fiscal: cliente.domicilio_fiscal,
           email: cliente.email,
-          contacto: cliente.contacto,
+          telefono: cliente.telefono,
+          delegado: cliente.delegado,
         }}
         puedeEditar={puede(rol, 'cliente.editar')}
       />

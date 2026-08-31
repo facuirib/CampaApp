@@ -72,7 +72,7 @@ export interface ArmarReclamoProps {
    */
   resumen: ResumenDeuda
   cuotas: CuotaDeuda[]
-  contacto: string | null
+  telefono: string | null
   historial: ReclamoRow[]
   plantilla: { asunto: string; cuerpo: string; cuerpo_texto: string | null } | null
   /**
@@ -131,7 +131,7 @@ export default function ArmarReclamo({
   terceroId,
   resumen,
   cuotas,
-  contacto,
+  telefono,
   historial,
   plantilla,
   etapa,
@@ -202,7 +202,7 @@ export default function ArmarReclamo({
   // El HTML del mail sale de la misma fila, resuelto de nuevo en el servidor.
   const texto = resuelto?.texto ?? ''
 
-  const telefono = parsearTelefono(contacto)
+  const tel = parsearTelefono(telefono)
   const email = resumen?.email ?? null
 
   // Lo que se congela al registrar: el monto y las cuotas de HOY.
@@ -315,9 +315,9 @@ export default function ArmarReclamo({
                 {/* WhatsApp: el link abre el chat con el texto puesto, pero el
                     sistema NO puede saber si se mandó. Por eso el registro es
                     el botón de al lado, explícito. */}
-                {!puedeRegistrar ? null : telefono.numero ? (
+                {!puedeRegistrar ? null : tel.numero ? (
                   <a
-                    href={linkWhatsApp(telefono.numero, texto)}
+                    href={linkWhatsApp(tel.numero, texto)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex h-[34px] items-center gap-1.5 rounded-pill bg-ok px-3.5 text-[11px] font-bold text-white hover:opacity-90"
@@ -343,15 +343,15 @@ export default function ArmarReclamo({
                       () =>
                         registrarReclamo(
                           datos,
-                          telefono.numero ? 'whatsapp' : 'manual',
-                          telefono.numero ?? null,
+                          tel.numero ? 'whatsapp' : 'manual',
+                          tel.numero ?? null,
                         ),
                       'Reclamo registrado.',
                       setMarcando,
                     )
                   }
                 >
-                  {telefono.numero ? 'Marcar como reclamado' : 'Marcar como reclamado (manual)'}
+                  {tel.numero ? 'Marcar como reclamado' : 'Marcar como reclamado (manual)'}
                 </Button>
                 )}
               </div>
@@ -361,8 +361,8 @@ export default function ArmarReclamo({
                   explicación no. */}
               <p className="mt-2 text-[10.5px] text-muted">
                 {!email && 'Sin email cargado. '}
-                {!telefono.numero && `WhatsApp no disponible: ${telefono.motivo}. `}
-                {email && telefono.numero && 'Los dos canales están disponibles.'}
+                {!tel.numero && `WhatsApp no disponible: ${tel.motivo}. `}
+                {email && tel.numero && 'Los dos canales están disponibles.'}
               </p>
 
               {aviso && (
