@@ -98,3 +98,58 @@ export async function invitar(email: string, rol: string): Promise<Resultado> {
   revalidatePath('/configuracion/usuarios')
   return { ok: true }
 }
+
+/**
+ * Editar un usuario: estado, nombre y apellido.
+ *
+ * El rol NO se toca acá — para eso está `cambiarRol`, que ya existe y tiene su
+ * propia advertencia sobre por qué `app_metadata` no se pisa entero. Dos
+ * puertas y no una porque son dos cosas distintas: nombre y apellido son datos
+ * de la persona; el rol es un permiso, y la operación que más manda de todas.
+ *
+ * ── Nombre y apellido NO necesitan columnas ───────────────────────────────
+ *
+ * Los usuarios viven en `auth.users` y no hay tabla propia. El nombre va a
+ * `user_metadata`, que es exactamente para esto: **datos del usuario que el
+ * usuario puede ver y editar de sí mismo**. El rol, en cambio, vive en
+ * `app_metadata` justamente porque ahí NO puede tocarlo —un rol en
+ * `user_metadata` sería un permiso que su portador se sube solo—.
+ *
+ * Esa distinción ya está tomada y documentada en `invitar()`; acá se respeta.
+ *
+ * ── El estado es un baneo, no una baja ────────────────────────────────────
+ *
+ * Desactivar es `ban_duration`, que impide entrar y deja la cuenta y toda su
+ * historia en pie. Borrar un usuario dejaría los asientos que creó apuntando a
+ * un id que no existe: la autoría del diario no se reasigna (regla del
+ * proyecto).
+ */
+export async function editarUsuario(
+  userId: string,
+  campos: { nombre: string; apellido: string; activo: boolean },
+): Promise<Resultado> {
+  const permiso = await exigirRol(['admin'])
+  if (!permiso.ok) return { ok: false, error: `Editar usuarios es de administrador. ${permiso.error}` }
+
+  const admin = createAdminClient()
+
+  const { data: actual, error: errLeer } = await admin.auth.admin.getUserById(userId)
+  if (errLeer) return { ok: false, error: errLeer.message }
+
+  // Mismo cuidado que en `cambiarRol`: se SUMA al metadata, no se reemplaza.
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...actual.user.user_metadata,
+      nombre: campos.nombre.trim(),
+      apellido: campos.apellido.trim(),
+    },
+    // '0s' levanta el baneo; 'none' no existe en la API y deja el baneo puesto
+    // en silencio, que es la clase de error que nadie nota hasta que alguien
+    // no puede entrar.
+    ban_duration: campos.activo ? '0s' : '876000h',
+  })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/configuracion/usuarios')
+  return { ok: true }
+}

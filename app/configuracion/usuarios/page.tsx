@@ -34,6 +34,10 @@ export default async function UsuariosPage() {
         // El rol sale de `app_metadata`, no de `user_metadata`: el segundo lo
         // edita el propio usuario, así que un rol ahí no sería un permiso.
         rol: (u.app_metadata?.rol as Rol | undefined) ?? null,
+        // De `user_metadata`, que es donde van los datos de la persona — el rol
+        // vive en `app_metadata` justamente para que el usuario no lo toque.
+        nombre: (u.user_metadata?.nombre as string | undefined) ?? '',
+        apellido: (u.user_metadata?.apellido as string | undefined) ?? '',
         ultimo_login: u.last_sign_in_at ?? null,
         creado: u.created_at,
         // `banned_until` viene como fecha; se muestra el hecho, no la fecha —
