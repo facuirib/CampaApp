@@ -4,7 +4,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { formatDate } from '@/lib/format'
 import { MESES_LARGO } from '@/lib/domain/pl'
-import { areaLabel, estadoGasto, naturalezaLabel, NATURALEZAS } from '@/lib/domain/gasto'
+import { areaLabel, estadoGasto, naturalezaLabel, NATURALEZAS_DE_GASTO } from '@/lib/domain/gasto'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import {
   BarrasComposicion,
@@ -179,9 +179,16 @@ export default async function GastosPage({
     // traen TODOS los impagos: un gasto viejo sin pagar no puede esconderse
     // detrás de un filtro de mes.
     (() => {
+      // 🔴 El filtro va acá, en la consulta de la pantalla, y NO adentro de
+      // `v_gasto_detalle`: esa vista alimenta también al cashflow comprometido,
+      // al estimado y a `v_activo.compra_registrada`. Filtrarla ahí sacaría la
+      // compra del activo del cashflow — y la plata igual sale. Medido: una
+      // compra a crédito de $12.000.000 entra al comprometido como −12.000.000,
+      // y desaparecería.
       const q = supabase
         .from('v_gasto_detalle')
         .select('*')
+        .neq('naturaleza', 'inversion')
         .order('devengado_at', { ascending: false })
 
       if (soloImpagos) return q.eq('estado', 'devengado')
@@ -217,7 +224,7 @@ export default async function GastosPage({
   const totalesNaturaleza = [...porNaturaleza.values()]
 
   // ── Los gráficos ─────────────────────────────────────────────────────────
-  const graficoNaturaleza: ItemComposicion[] = NATURALEZAS.map((nat) => {
+  const graficoNaturaleza: ItemComposicion[] = NATURALEZAS_DE_GASTO.map((nat) => {
     const t = porNaturaleza.get(nat.valor)
     return { label: nat.label, valor: t?.total ?? 0, parte: t?.pagado ?? 0 }
   })
@@ -293,7 +300,7 @@ export default async function GastosPage({
   ]
 
   const adeudado = Number(kpi?.adeudado ?? 0)
-  const natActiva = NATURALEZAS.find((n) => n.valor === naturaleza)
+  const natActiva = NATURALEZAS_DE_GASTO.find((n) => n.valor === naturaleza)
 
   return (
     <div className="pb-10">
@@ -304,6 +311,17 @@ export default async function GastosPage({
             Del torneo y de la estructura. Se cuentan al{' '}
             <strong className="font-semibold text-ink">cargarlos</strong> —devengado—, se hayan
             pagado o no; por eso el total no es lo que salió de caja.
+          </p>
+          {/* Comprar un activo no es un gasto: no toca el resultado, y al P&L
+              va su amortización mes a mes. Por eso no está acá — y por eso hay
+              que decir dónde está, o el que lo busque va a pensar que falta. */}
+          <p className="mt-1.5 text-[11px] text-muted">
+            Las <strong className="font-semibold text-ink">inversiones</strong> no se cuentan acá:
+            comprar un bien no es un gasto, se amortiza.{' '}
+            <Link href="/activos" className="font-semibold text-blue-d hover:underline">
+              Van en Activos
+            </Link>
+            .
           </p>
         </div>
         {/* La pantalla de alta existía y no la enlazaba nada: sólo se llegaba

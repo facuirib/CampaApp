@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { formatMoney, formatMoneyCorto } from '@/lib/format'
-import { NATURALEZAS } from '@/lib/domain/gasto'
+import { NATURALEZAS_DE_GASTO } from '@/lib/domain/gasto'
 import { hrefGastos, type ParamsGastos } from './filtros'
 
 /**
@@ -42,7 +42,7 @@ export default function TarjetasNaturaleza({ totales, activa, params }: Tarjetas
 
   return (
     <div className="mb-7 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(228px,1fr))]">
-      {NATURALEZAS.map((nat) => {
+      {NATURALEZAS_DE_GASTO.map((nat) => {
         const t = totales.find((x) => x.naturaleza === nat.valor)
         const total = t?.total ?? 0
         const pagado = t?.pagado ?? 0

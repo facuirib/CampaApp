@@ -121,10 +121,16 @@ export default function FormularioGasto({
         { data: activosData, error: errorActivos },
         { data: proveedoresData, error: errorProveedores },
       ] = await Promise.all([
+        // 🔴 Sin las de inversión: comprar un activo no se carga acá.
+        // Se carga en /activos/nuevo, con `comprar_activo`, que crea el activo
+        // y su capitalización en la misma transacción. Ofrecerlas de este lado
+        // era la mitad del circuito —el gasto sin el activo, o al revés— y por
+        // eso nada garantizaba que un activo tuviera su compra.
         supabase
           .from('cat_gasto')
           .select('id, nombre, naturaleza, area')
           .eq('activo', true)
+          .neq('naturaleza', 'inversion')
           .order('nombre'),
         supabase
           .from('concepto_gasto')

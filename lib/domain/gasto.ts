@@ -17,6 +17,23 @@ export const NATURALEZAS = [
   { valor: 'inversion', label: 'Inversión', ayuda: 'Se amortiza, no se consume' },
 ] as const
 
+/**
+ * Las naturalezas que el módulo Gastos muestra: todas menos `inversion`.
+ *
+ * Comprar un activo no es un gasto. El asiento ya lo sabía —va a BIENES_USO y
+ * no toca el resultado— pero el tablero lo sumaba igual: agosto 2026 mostraba
+ * $60.050.000 de «gastos», de los cuales $50.000.000 eran una compra de bien
+ * de uso. El número grande sobrestimaba el gasto seis veces.
+ *
+ * La inversión vive en `/activos`, donde se compra con `comprar_activo` y donde
+ * lo que sí es gasto —la amortización— se asienta mes a mes.
+ *
+ * `NATURALEZAS` se conserva completa porque sigue habiendo lugares que
+ * necesitan rotular una naturaleza cualquiera, incluida la de inversión:
+ * `naturalezaLabel` la usa, y la ficha del activo muestra su gasto.
+ */
+export const NATURALEZAS_DE_GASTO = NATURALEZAS.filter((n) => n.valor !== 'inversion')
+
 export type Naturaleza = (typeof NATURALEZAS)[number]['valor']
 
 export function naturalezaLabel(n: string | null): string {
