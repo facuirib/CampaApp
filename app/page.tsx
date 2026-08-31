@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import Exportar from './Exportar'
 import {
   ChartArea,
   ChartBarras,
@@ -405,6 +406,16 @@ export default async function Home({
           )}
         </section>
       )}
+
+      <section className="mb-7">
+        <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">Exportar</h2>
+        <p className="mb-3 text-[11px] text-muted">
+          Los datos de los paneles, en planilla. Salen de las mismas vistas que la pantalla, así
+          que <strong className="font-semibold text-ink">no traen el recorte</strong>: la cobranza
+          baja los 27 equipos, no los 8 que se ven arriba.
+        </p>
+        <Exportar torneoId={torneoElegido} anio={anio} />
+      </section>
 
       <section className="mb-7">
         <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
