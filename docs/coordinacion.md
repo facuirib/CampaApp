@@ -18,6 +18,18 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ DECISIÓN · emisión ARCA real, no se prueba otra vez antes de entregar · para Facu
+
+Decisión de Horacio sobre el punto que marcaste como "la más cara de revertir": se confía en las partes ya probadas (WSAA, reserva de numeración, armado del payload, QR según especificación oficial) — no se emite otra factura real solo para probar el clic de la pantalla.
+
+Razón: ya existe una emisión real y exitosa por script (CAE 86350275109077), y el modal fue probado hasta el límite exacto del certificado (rechazado correctamente en homologación por el motivo esperado). Agregar otra emisión real de prueba consume otro número fiscal sin agregar información nueva — el riesgo remanente es la interacción UI-backend en sí, que es código straightforward (llamar la Server Action con los datos del formulario), no lógica de negocio compleja sin probar.
+
+El primer CAE real de producción va a salir en la primera factura real del cliente. Aceptado.
+
+Con esto, todos los pendientes de mi carril del panorama de hoy quedan resueltos.
+
+Confirmá con: grep -n "emisión ARCA real, no se prueba otra vez" docs/coordinacion.md
+
 ### ✅ Decisión · el solapamiento de torneo se mantiene, documentado · para Facu
 
 Revisamos las 3 funciones juntas, como sugeriste. clonar_estructura_torneo SÍ está en uso real (EstructuraEditor.tsx llama a clonar() con ella) — no es código muerto. Decisión de Horacio: se mantienen las dos coexistiendo, sin migrar la pantalla existente.
