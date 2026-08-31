@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatDate } from '@/lib/format'
-import { AsientoPreview, Button, Card, Field, Input, Money } from '@/components/ui'
+import { AsientoPreview, Button, Card, Field, Input, Money, Select } from '@/components/ui'
 import { ERROR_PREVIEW_INESPERADO, leerPreviewAsiento, type PreviewAsiento } from '@/lib/db/preview'
 import type { Database, Json } from '@/lib/db/database.types'
 
@@ -28,6 +28,11 @@ export default function EntregarArqueoPage({ params }: { params: Promise<{ arque
   const [arqueo, setArqueo] = useState<ArqueoDetalle | null>(null)
 
   const [fechaEntrega, setFechaEntrega] = useState(hoyEnCordoba())
+  // La caja destino. Vacío = central, que es lo que hacía antes y sigue siendo
+  // el 95% de las veces: el default no cambia el comportamiento de nadie.
+  const [cajaDestinoId, setCajaDestinoId] = useState('')
+  const [comentario, setComentario] = useState('')
+  const [cajas, setCajas] = useState<{ id: string; nombre: string; predio_id: string | null; cuenta: string }[]>([])
 
   const [previewCargando, setPreviewCargando] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -60,6 +65,24 @@ export default function EntregarArqueoPage({ params }: { params: Promise<{ arque
       }
 
       setArqueo(data)
+
+      // Las cajas activas, para el selector de destino. Se filtran en el
+      // render, no acá: el filtro depende del predio del arqueo.
+      const { data: cajasData } = await supabase
+        .from('caja')
+        .select('id, nombre, predio_id, cuenta:cuenta_id(codigo)')
+        .eq('activo', true)
+        .order('nombre')
+      if (!cancelado) {
+        setCajas(
+          (cajasData ?? []).map((c) => ({
+            id: c.id,
+            nombre: c.nombre,
+            predio_id: c.predio_id,
+            cuenta: (c.cuenta as unknown as { codigo: string } | null)?.codigo ?? '',
+          })),
+        )
+      }
       setCargando(false)
     }
 
@@ -141,6 +164,8 @@ export default function EntregarArqueoPage({ params }: { params: Promise<{ arque
       p_arqueo_id: arqueoId,
       p_fecha: fechaEntrega,
       p_responsable_id: user.id,
+      p_caja_destino_id: cajaDestinoId || undefined,
+      p_comentario: comentario.trim() || undefined,
     })
 
     setRegistrando(false)
@@ -247,6 +272,42 @@ export default function EntregarArqueoPage({ params }: { params: Promise<{ arque
                       value={fechaEntrega}
                       onChange={(e) => setFechaEntrega(e.target.value)}
                     />
+                  </Field>
+
+                  {/* El efectivo no siempre va a la central: puede depositarse,
+                      ir a Mercado Pago o quedar en otra caja. El default sigue
+                      siendo central, así que quien no elija nada hace lo de
+                      siempre.
+
+                      No se ofrece el efectivo de OTRO predio: eso sería un
+                      traslado físico de billetes, tiene su propio circuito, y la
+                      función lo rechaza igual. Ofrecerlo sería ofrecer un error. */}
+                  <Field label="Entregar a" hint="Vacío entrega a la Caja Central, como siempre.">
+                    <Select
+                      value={cajaDestinoId}
+                      onChange={(e) => setCajaDestinoId(e.target.value)}
+                    >
+                      <option value="">Caja Central</option>
+                      {cajas
+                        .filter(
+                          (c) =>
+                            c.cuenta !== 'CAJA_CENTRAL' &&
+                            !(c.cuenta === 'CAJA_EFECTIVO' && c.predio_id !== arqueo?.predio_id),
+                        )
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+
+                  <Field
+                    label="Comentario"
+                    hint="Por qué se entregó ahí, o lo que haga falta anotar."
+                    className="lg:col-span-3"
+                  >
+                    <Input value={comentario} onChange={(e) => setComentario(e.target.value)} />
                   </Field>
                 </div>
               </Card>

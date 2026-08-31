@@ -426,6 +426,7 @@ export type Database = {
           created_at: string
           dia_cancha_id: string
           diferencia: number | null
+          entrega_comentario: string | null
           entregado_at: string | null
           estado: string
           id: string
@@ -442,6 +443,7 @@ export type Database = {
           created_at?: string
           dia_cancha_id: string
           diferencia?: number | null
+          entrega_comentario?: string | null
           entregado_at?: string | null
           estado?: string
           id?: string
@@ -458,6 +460,7 @@ export type Database = {
           created_at?: string
           dia_cancha_id?: string
           diferencia?: number | null
+          entrega_comentario?: string | null
           entregado_at?: string | null
           estado?: string
           id?: string
@@ -9190,6 +9193,8 @@ export type Database = {
       registrar_entrega_central: {
         Args: {
           p_arqueo_id: string
+          p_caja_destino_id?: string
+          p_comentario?: string
           p_fecha?: string
           p_responsable_id?: string
         }
