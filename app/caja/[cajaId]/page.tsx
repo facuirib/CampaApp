@@ -20,9 +20,10 @@ const COLUMNAS: ColumnDef<FilaMov>[] = [
   { key: 'fecha', label: 'Fecha', format: 'date', width: 108 },
   { key: 'descripcion', label: 'Movimiento' },
   { key: 'origen', label: 'Origen', format: 'badge', width: 126 },
-  { key: 'entra', label: 'Entra', format: 'money', width: 130 },
-  { key: 'sale', label: 'Sale', format: 'money', width: 130 },
-  { key: 'saldo_corrido', label: 'Saldo', format: 'money', width: 140 },
+  { key: 'entra', label: 'Entra', format: 'money', tono: 'ingreso', width: 130 },
+  { key: 'sale', label: 'Sale', format: 'money', tono: 'egreso', width: 130 },
+  // El saldo corrido puede cruzar el cero: ahí el signo es la información.
+  { key: 'saldo_corrido', label: 'Saldo', format: 'money', tono: 'auto', width: 140 },
 ]
 
 const ORIGEN: Record<string, CeldaBadge> = {

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { formatDate, formatMoney } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { ChartBarras, type SerieBarras } from '@/components/ui'
-import { Badge, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Badge, DataTable, KpiCard, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import MatrizMes, { type DiaCalendario } from './MatrizMes'
 import type { Database } from '@/lib/db/database.types'
 
@@ -140,9 +140,10 @@ function columnasDe(conAcumulado: boolean): ColumnDef<FilaLista>[] {
     // "Quién" no vale para un gasto impago, donde el detalle es la categoría y
     // no una persona. "Detalle" es honesto para las cinco ramas.
     { key: 'detalle', label: 'Detalle' },
-    // Sin `format: 'money'`: acá el signo distingue lo que entra de lo que
-    // sale, y `Money` no colorea. Se arma la celda a mano en vez de tocar el
-    // componente compartido, que sirve a toda la app.
+    // Celda armada, no `format: 'money'`, porque la fila ya trae el ReactNode.
+    // Lo que dibuja es `<Money tono="auto">`: el signo decide el color. Antes
+    // esto era un <span> a mano «porque Money no colorea» — ahora sí, y el
+    // workaround se fue.
     { key: 'monto', label: 'Monto', align: 'right', width: 148 },
     { key: 'estado', label: 'Estado', format: 'badge', width: 118 },
   ]
@@ -265,12 +266,7 @@ export default async function CalendarioPagosPage({
       fecha: v.fecha_original,
       tipo: rotulo(v.origen),
       detalle: v.detalle,
-      monto: (
-        <span className={`cifra font-bold ${monto < 0 ? 'text-errtx' : 'text-oktx'}`}>
-          {monto > 0 ? '+' : ''}
-          {formatMoney(monto)}
-        </span>
-      ),
+      monto: <Money value={monto} tono="auto" className="font-bold" />,
       estado: v.arrastrada
         ? { estado: 'vencido', label: 'Vencido' }
         : { estado: 'porVencer', label: 'Por vencer' },

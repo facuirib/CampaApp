@@ -46,13 +46,37 @@ export interface MatrizPLProps {
   hayFinancieros: boolean
 }
 
-/** Una celda de plata. El cero va en gris para que no compita con las cifras. */
-function Celda({ valor, fuerte = false }: { valor: number; fuerte?: boolean }) {
+/**
+ * Una celda de plata. El cero va en gris para que no compita con las cifras.
+ *
+ * `tono` sólo se usa en las filas de TOTAL, y a propósito: pintar las 12 celdas
+ * de cada concepto dejaría la mitad de la tabla en rojo, y el rojo dejaría de
+ * significar. El bloque ya dice «Ingresos» o «Egresos»; lo que hay que ver de
+ * un vistazo son las dos magnitudes que se comparan.
+ */
+function Celda({
+  valor,
+  fuerte = false,
+  tono,
+}: {
+  valor: number
+  fuerte?: boolean
+  tono?: 'ingreso' | 'egreso'
+}) {
+  const color =
+    valor === 0
+      ? 'text-disabled'
+      : tono === 'ingreso'
+        ? 'text-oktx'
+        : tono === 'egreso'
+          ? 'text-errtx'
+          : 'text-ink'
   return (
     <td
       className={[
         'whitespace-nowrap px-3 py-2 text-right tabular-nums',
-        valor === 0 ? 'text-disabled' : fuerte ? 'font-bold text-ink' : 'text-ink',
+        color,
+        fuerte && valor !== 0 ? 'font-bold' : '',
       ].join(' ')}
     >
       {formatMoney(valor)}
@@ -84,11 +108,14 @@ function Encabezado() {
 }
 
 function Bloque({
+  tono,
   titulo,
   filas,
   total,
   expandible,
 }: {
+  /** Sólo tiñe la fila de total del bloque, no sus conceptos. */
+  tono?: 'ingreso' | 'egreso'
   titulo: string
   filas: FilaCuenta[]
   total?: FilaTotal
@@ -192,9 +219,20 @@ function Bloque({
             {total.label}
           </th>
           {total.meses.map((m, i) => (
-            <Celda key={i} valor={m} fuerte />
+            <Celda key={i} valor={m} fuerte tono={tono} />
           ))}
-          <td className="whitespace-nowrap border-l border-line px-3 py-2 text-right font-extrabold tabular-nums text-ink">
+          <td
+            className={[
+              'whitespace-nowrap border-l border-line px-3 py-2 text-right font-extrabold tabular-nums',
+              total.total === 0
+                ? 'text-disabled'
+                : tono === 'ingreso'
+                  ? 'text-oktx'
+                  : tono === 'egreso'
+                    ? 'text-errtx'
+                    : 'text-ink',
+            ].join(' ')}
+          >
             {formatMoney(total.total)}
           </td>
         </tr>
@@ -220,8 +258,14 @@ export default function MatrizPL({
       <table className="w-full border-collapse text-[12px]">
         <Encabezado />
         <tbody>
-          <Bloque titulo="Ingresos" filas={ingresos} total={totalIngresos} expandible={false} />
-          <Bloque titulo="Egresos" filas={egresos} total={totalEgresos} expandible />
+          <Bloque
+            tono="ingreso"
+            titulo="Ingresos"
+            filas={ingresos}
+            total={totalIngresos}
+            expandible={false}
+          />
+          <Bloque tono="egreso" titulo="Egresos" filas={egresos} total={totalEgresos} expandible />
 
           {hayFinancieros && (
             <Bloque titulo="Resultado financiero" filas={financieros} expandible={false} />

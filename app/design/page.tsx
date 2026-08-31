@@ -467,6 +467,24 @@ export default function DesignPage() {
                 <Money key={v} value={v} className="block" />
               ))}
             </div>
+            <div className="grid gap-1 text-right text-[13px] font-bold">
+              <Money value={1750000} tono="ingreso" className="block" />
+              <Money value={890000} tono="egreso" className="block" />
+              <Money value={420000} tono="auto" className="block" />
+              <Money value={0} tono="auto" className="block" />
+              <Money value={-850000} tono="auto" className="block" />
+            </div>
+            <p className="min-w-0 text-[11px] leading-relaxed text-muted md:max-w-md">
+              La segunda columna lleva <code className="font-mono">tono</code>:{' '}
+              <code className="font-mono">ingreso</code> verde,{' '}
+              <code className="font-mono">egreso</code> rojo y{' '}
+              <code className="font-mono">auto</code>, donde el signo decide —para saldos,
+              diferencias de arqueo y resultados—. El cero nunca lleva color.{' '}
+              <strong className="font-bold text-ink">El default es sin color</strong>, y es el caso
+              más común: un importe suele ser una magnitud, no una alarma. Si toda la plata llevara
+              color, el color dejaría de decir algo — el mismo criterio por el que ChartTorta no
+              pinta de rojo una categoría neutra.
+            </p>
             <p className="min-w-0 text-[11px] leading-relaxed text-muted md:max-w-md">
               El formateo lo hace <code className="font-mono">formatMoney()</code>, el único lugar
               de la app donde se decide cómo se escribe la plata. El componente pone la otra mitad,

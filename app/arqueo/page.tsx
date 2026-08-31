@@ -93,7 +93,8 @@ const COL_DIFERENCIAS: ColumnDef<FilaDiferencia>[] = [
   { key: 'predio', label: 'Predio' },
   { key: 'saldo_sistema', label: 'Saldo sistema', format: 'money' },
   { key: 'saldo_contado', label: 'Saldo contado', format: 'money' },
-  { key: 'diferencia', label: 'Diferencia', format: 'money' },
+  // Sobrante o faltante: es lo único que se mira de un arqueo cerrado.
+  { key: 'diferencia', label: 'Diferencia', format: 'money', tono: 'auto' },
   { key: 'clase', label: 'Clase', format: 'badge' },
   { key: 'accion', label: '' },
 ]
@@ -111,7 +112,8 @@ const COL_HISTORIAL: ColumnDef<FilaHistorial>[] = [
   { key: 'predio', label: 'Predio' },
   { key: 'saldo_sistema', label: 'Saldo sistema', format: 'money' },
   { key: 'saldo_contado', label: 'Saldo contado', format: 'money' },
-  { key: 'diferencia', label: 'Diferencia', format: 'money' },
+  // Sobrante o faltante: es lo único que se mira de un arqueo cerrado.
+  { key: 'diferencia', label: 'Diferencia', format: 'money', tono: 'auto' },
   { key: 'estado', label: 'Estado', format: 'badge' },
 ]
 

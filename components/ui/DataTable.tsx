@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Badge, { type EstadoBadge } from './Badge'
-import Money from './Money'
+import Money, { type TonoMoney } from './Money'
 import { formatDate } from '@/lib/format'
 
 /** Lo que espera una columna con `format: 'badge'`. */
@@ -21,6 +21,11 @@ export interface ColumnDef<T> {
   /** Default: 'left', salvo en `money`, que se alinea a la derecha sola. */
   align?: AlineacionCelda
   format?: FormatoCelda
+  /**
+   * Sólo para `format: 'money'`: qué significa la columna, y por lo tanto si
+   * lleva color. Default `neutro` — el color se pide, no se hereda.
+   */
+  tono?: TonoMoney
   width?: number | string
 }
 
@@ -84,9 +89,9 @@ function esCeldaBadge(valor: unknown): valor is CeldaBadge {
  * Un `money` sin dato muestra "—" y no "$0": en una planilla de deuda, "no
  * sé cuánto" y "cero pesos" son cosas distintas y no pueden verse igual.
  */
-function renderValor(valor: unknown, formato: FormatoCelda): React.ReactNode {
+function renderValor(valor: unknown, formato: FormatoCelda, tono?: TonoMoney): React.ReactNode {
   if (formato === 'money') {
-    return typeof valor === 'number' ? <Money value={valor} /> : SIN_DATO
+    return typeof valor === 'number' ? <Money value={valor} tono={tono} /> : SIN_DATO
   }
   if (formato === 'date') {
     return typeof valor === 'string' || valor instanceof Date ? formatDate(valor) : SIN_DATO
@@ -178,7 +183,7 @@ export default function DataTable<T extends object>({
   const celdasTotal = total
     ? columns.map((col) => ({
         col,
-        contenido: col.key in total ? renderValor(total[col.key], col.format ?? 'text') : null,
+        contenido: col.key in total ? renderValor(total[col.key], col.format ?? 'text', col.tono) : null,
       }))
     : null
 
@@ -237,7 +242,7 @@ export default function DataTable<T extends object>({
                     })}
                   >
                     {columns.map((col, j) => {
-                      const contenido = renderValor(row[col.key], col.format ?? 'text')
+                      const contenido = renderValor(row[col.key], col.format ?? 'text', col.tono)
                       return (
                         <td
                           key={col.key}
@@ -310,7 +315,7 @@ export default function DataTable<T extends object>({
                       col.format === 'money' ? 'font-bold text-ink' : 'font-semibold text-ink/90',
                     ].join(' ')}
                   >
-                    {renderValor(row[col.key], col.format ?? 'text')}
+                    {renderValor(row[col.key], col.format ?? 'text', col.tono)}
                   </dd>
                 </div>
               ))}

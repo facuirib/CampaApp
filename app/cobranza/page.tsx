@@ -52,7 +52,10 @@ function columnas(filtrado: boolean): ColumnDef<Deudor>[] {
   return [
     { key: 'equipo', label: 'Equipo' },
     { key: 'estado', label: 'Estado', format: 'badge' },
-    { key: 'deuda_vencida', label: 'Vencida', format: 'money', width: 118 },
+    // Rojo sólo la vencida. La deuda total incluye lo que todavía no venció, que
+    // no es un problema — pintar las dos igual borraría la distinción que la
+    // pantalla existe para hacer.
+    { key: 'deuda_vencida', label: 'Vencida', format: 'money', tono: 'egreso', width: 118 },
     { key: 'deuda_total', label: 'Deuda total', format: 'money', width: 128 },
     { key: 'vencimiento_mas_antiguo', label: 'Vence desde', format: 'date', width: 108 },
     { key: 'contexto', label: filtrado ? 'Cuotas' : 'Torneos', align: 'right', width: 76 },

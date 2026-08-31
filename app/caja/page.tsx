@@ -11,7 +11,8 @@ const COL_CAJAS: ColumnDef<FilaCaja>[] = [
   { key: 'nombre', label: 'Caja' },
   { key: 'tipo', label: 'Tipo' },
   { key: 'predio', label: 'Predio' },
-  { key: 'saldo', label: 'Saldo', format: 'money' },
+  // Una caja en negativo es un problema, no una curiosidad: el signo se ve.
+  { key: 'saldo', label: 'Saldo', format: 'money', tono: 'auto' },
 ]
 
 export default async function CajaPage() {
