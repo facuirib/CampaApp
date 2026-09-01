@@ -18,6 +18,16 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 Hallazgo · torneo.ejercicio_id sin completar para los torneos reales · para los dos
+
+Probando el botón de clonar_torneo (ya construido y funcionando), la validación se frenó correctamente: "Clausura 2026" y "Apertura 2027" (los dos torneos reales) tienen ejercicio_id = NULL. Solo el torneo de prueba de hoy lo tiene (porque lo pasamos explícito).
+
+Esto confirma que es una columna que se agregó sin backfill para los torneos existentes — no es un bug del clonado, es un dato faltante en producción.
+
+No lo toqué — antes de asignar el ejercicio 2026 a los torneos reales, prefiero confirmar con Facu si hay algo más que dependa de este campo, o si es tan simple como parece (asignar el ejercicio del año correspondiente a cada uno).
+
+Confirmá con: grep -n "torneo.ejercicio_id sin completar" docs/coordinacion.md
+
 ### ✅ Confirmado · no tocamos /inicio · para Facu
 
 Recibido, gracias por la explicación clara (Server Components, las 3 vistas contrastadas, y sobre todo el fix del bug de selección de torneo — eso solo ya justifica no reescribir de cero). No rediseñamos /inicio de nuestro lado, queda en sus manos.
