@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { formatMoney } from '@/lib/format'
 import Exportar from './Exportar'
 import {
   ChartArea,
@@ -8,10 +9,12 @@ import {
   KpiCard,
   KpiHero,
   DataTable,
+  Icon,
   Waterfall,
   type CeldaBadge,
   type ColumnDef,
   type GajoTorta,
+  type NombreIcono,
   type SerieBarras,
   type PasoWaterfall,
   type PuntoSerie,
@@ -32,6 +35,48 @@ import {
  *   v_saldo_caja_total la caja, que es de la EMPRESA y no del torneo
  *   v_cashflow         la serie semanal, la misma que usa /proyeccion
  */
+/**
+ * El encabezado de un bloque: ícono, título y el link a la pantalla que resuelve.
+ *
+ * Del mockup: los íconos por bloque y el «Ver X →». Los dos ayudan y son
+ * baratos — el ícono da el ancla visual para encontrar un panel en una pantalla
+ * larga, y el link dice dónde se hace algo con lo que el panel muestra.
+ */
+function Bloque({
+  icono,
+  titulo,
+  href,
+  verTexto,
+  children,
+  pie,
+}: {
+  icono: NombreIcono
+  titulo: string
+  href?: string
+  verTexto?: string
+  children: React.ReactNode
+  /** La frase al pie. Sale del dato: si es null, no se dibuja. */
+  pie?: string | null
+}) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-1.5 text-[12.5px] font-extrabold tracking-[-.2px] text-ink">
+          <Icon name={icono} size={15} className="text-muted" />
+          {titulo}
+        </h3>
+        {href && (
+          <Link href={href} className="shrink-0 text-[10.5px] font-semibold text-blue-d hover:underline">
+            {verTexto ?? 'Ver'} →
+          </Link>
+        )}
+      </div>
+      {children}
+      {pie && <p className="mt-2 text-[10.5px] italic leading-snug text-muted">{pie}</p>}
+    </section>
+  )
+}
+
 interface FilaDeuda {
   tercero_id: string | null
   equipo: string
@@ -71,7 +116,10 @@ export default async function Home({
   const torneoElegido = torneoParam ?? actual?.id ?? null
   const anio = Number(anioParam) || new Date().getFullYear()
 
-  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola] = await Promise.all([
+  const mesEnCurso = new Date().toISOString().slice(0, 7)
+
+  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola, gastosCat, gastosDia] =
+    await Promise.all([
     torneoElegido
       ? supabase.from('v_dashboard').select('*').eq('torneo_id', torneoElegido).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -98,6 +146,15 @@ export default async function Home({
           .eq('torneo_id', torneoElegido)
           .order('dias_atraso_maximo', { ascending: false, nullsFirst: false })
       : Promise.resolve({ data: [], error: null }),
+    // Composición de gastos: la vista ya existía, sólo faltaba el bloque.
+    supabase.from('v_gasto_categoria_mes').select('*').eq('anio', anio),
+    // Cuándo sale la plata, día por día del mes en curso.
+    supabase
+      .from('v_gasto_dia_mes')
+      .select('*')
+      .eq('anio', Number(mesEnCurso.slice(0, 4)))
+      .eq('mes', Number(mesEnCurso.slice(5, 7)))
+      .order('dia'),
   ])
 
   const d = dash.data
@@ -173,6 +230,52 @@ export default async function Home({
     label: ROTULO_MEDIO[m.medio_pago ?? ''] ?? m.medio_pago ?? '—',
     valor: Number(m.total ?? 0),
   }))
+
+  // ── Composición de gastos, y cuándo sale la plata ────────────────────────
+  //
+  // Mapeo, no cálculo: cada importe viene sumado de su vista.
+  const gajosGasto: GajoTorta[] = (gastosCat.data ?? [])
+    .filter((g) => Number(g.total ?? 0) > 0)
+    .map((g) => ({ label: g.categoria ?? '—', valor: Number(g.total ?? 0) }))
+
+  const diasGasto = gastosDia.data ?? []
+  const ejeDias = diasGasto.map((d) => String(d.dia))
+  const seriesGasto: SerieBarras[] = [
+    // Dos series y no una: «ya salió» y «va a salir» son cosas distintas, y
+    // apilarlas sin distinguirlas convertiría una previsión en un hecho.
+    { label: 'Ya pagado', color: 'var(--err)', valores: diasGasto.map((d) => Number(d.pagado ?? 0)) },
+    {
+      label: 'Comprometido',
+      color: 'var(--warn)',
+      valores: diasGasto.map((d) => Number(d.comprometido ?? 0)),
+    },
+  ]
+
+  // ── Las frases al pie ────────────────────────────────────────────────────
+  //
+  // 🔴 Salen del DATO, no escritas a mano. Una frase como «el efectivo es el
+  // medio dominante» es verdadera hoy y puede dejar de serlo el mes que viene:
+  // hardcodearla la convierte en una mentira con fecha de vencimiento. Si el
+  // dato no alcanza para afirmar algo, no se afirma nada.
+  const medioMayor = [...gajosMedio].sort((a, b) => b.valor - a.valor)[0]
+  const totalMedios = gajosMedio.reduce((a, g) => a + g.valor, 0)
+  const fraseMedios =
+    medioMayor && totalMedios > 0
+      ? `${medioMayor.label} concentra el ${Math.round((medioMayor.valor / totalMedios) * 100)}% de lo cobrado.`
+      : null
+
+  const gastoMayor = [...gajosGasto].sort((a, b) => b.valor - a.valor)[0]
+  const totalGastos = gajosGasto.reduce((a, g) => a + g.valor, 0)
+  const fraseGastos =
+    gastoMayor && totalGastos > 0
+      ? `${gastoMayor.label} se lleva el ${Math.round((gastoMayor.valor / totalGastos) * 100)}% del gasto.`
+      : null
+
+  const diaPico = [...diasGasto].sort((a, b) => Number(b.total ?? 0) - Number(a.total ?? 0))[0]
+  const fraseDias =
+    diaPico && Number(diaPico.total ?? 0) > 0
+      ? `El día ${diaPico.dia} es el de mayor salida del mes.`
+      : null
 
   // ── Deudas urgentes ──────────────────────────────────────────────────────
   //
@@ -311,18 +414,75 @@ export default async function Home({
             : cada equipo cuenta en UNA etapa, la más severa.
           </p>
           <div className="grid gap-4 lg:grid-cols-2">
-            <ChartBarras
-              ejeX={ejeEtapas}
-              series={seriesCobranza}
-              modo="apiladas"
-              alto={230}
-              titulo="Deuda por etapa de cobranza, vencida y por vencer"
-            />
-            <ChartTorta
-              gajos={gajosEtapa}
-              centro={{ valor: String(d.equipos_total ?? 0), nota: 'equipos' }}
-              titulo="Equipos por etapa de cobranza"
-            />
+            <Bloque
+              icono="calendario"
+              titulo="Cobranza por vencimiento"
+              href="/cobranza"
+              verTexto="Ver cuentas"
+            >
+              <ChartBarras
+                ejeX={ejeEtapas}
+                series={seriesCobranza}
+                modo="apiladas"
+                alto={230}
+                titulo="Deuda por etapa de cobranza, vencida y por vencer"
+              />
+            </Bloque>
+
+            <Bloque
+              icono="equipos"
+              titulo="Estado de equipos"
+              href="/equipos"
+              verTexto="Ver equipos"
+            >
+              {/* Barras de progreso, como el mockup: con tres categorías se
+                  comparan mejor que en una dona, porque el ojo compara largos
+                  mucho mejor que ángulos. */}
+              <div className="rounded-md border border-line bg-white p-4">
+                {gajosEtapa.map((g) => {
+                  const pct =
+                    (d.equipos_total ?? 0) > 0
+                      ? Math.round((g.valor / (d.equipos_total ?? 1)) * 100)
+                      : 0
+                  return (
+                    <div key={g.label} className="mb-3 last:mb-0">
+                      <div className="mb-1 flex justify-between text-[11px]">
+                        <span className="text-muted">{g.label}</span>
+                        <span className="font-bold text-ink">
+                          {g.valor} equipo{g.valor === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <span className="block h-1.5 overflow-hidden rounded-pill bg-line2">
+                        <span
+                          className="block h-full rounded-pill"
+                          style={{ width: `${pct}%`, background: g.color }}
+                        />
+                      </span>
+                    </div>
+                  )
+                })}
+                <div className="mt-4 flex gap-4 border-t border-line pt-3">
+                  <div className="flex-1 text-center">
+                    <div className="text-[20px] font-extrabold text-blue">
+                      {d.equipos_total ?? 0}
+                    </div>
+                    <div className="text-[9px] text-muted">equipos</div>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <div className="text-[20px] font-extrabold text-blue">
+                      {d.equipos_al_dia ?? 0}
+                    </div>
+                    <div className="text-[9px] text-muted">al día</div>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <div className="text-[20px] font-extrabold text-blue">
+                      {d.equipos_en_mora ?? 0}
+                    </div>
+                    <div className="text-[9px] text-muted">en mora</div>
+                  </div>
+                </div>
+              </div>
+            </Bloque>
           </div>
         </section>
       )}
@@ -341,22 +501,102 @@ export default async function Home({
           resultado es de la empresa.
         </p>
         <div className="grid gap-4 lg:grid-cols-2">
-          <ChartBarras
-            ejeX={ejeMeses}
-            series={seriesIngresoGasto}
-            modo="agrupadas"
-            alto={230}
-            titulo={`Ingresos contra gastos por mes, ${anio}`}
-          />
-          <ChartTorta gajos={gajosIngreso} titulo={`Composición de los ingresos ${anio}`} />
-        </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <ChartTorta gajos={gajosMedio} titulo={`Cómo se cobró en ${anio}`} />
-          <div className="rounded-md border border-line bg-white p-4 text-[11px] leading-relaxed text-muted">
-            <strong className="font-bold text-ink">Cómo se cobró</strong> sale de los pagos
-            registrados, no de lo que cada equipo pactó al inscribirse. Lo pactado está en el
-            historial de cada equipo; lo interesante es el desvío entre una cosa y la otra.
-          </div>
+          {/* Por MES calendario, no por jornada: es la decisión de la Ola 3 y
+              se mantiene. El mockup lo hace por fecha del torneo, que responde
+              otra pregunta —cuánto deja cada jornada— y no la de esta banda. */}
+          <Bloque
+            icono="resultados"
+            titulo="Ingresos vs gastos por mes"
+            href="/resultados"
+            verTexto="Ver resultados"
+          >
+            <ChartBarras
+              ejeX={ejeMeses}
+              series={seriesIngresoGasto}
+              modo="agrupadas"
+              alto={230}
+              titulo={`Ingresos contra gastos por mes, ${anio}`}
+            />
+          </Bloque>
+
+          <Bloque icono="monedas" titulo="Composición de ingresos" href="/resultados">
+            <ChartTorta gajos={gajosIngreso} titulo={`Composición de los ingresos ${anio}`} />
+          </Bloque>
+
+          {/* ── Bloque nuevo · composición de GASTOS ─────────────────────────
+              Teníamos la de ingresos y no la de egresos. La vista
+              v_gasto_categoria_mes ya existía: faltaba el panel. */}
+          <Bloque
+            icono="comprobante"
+            titulo="Composición de gastos"
+            href="/gastos"
+            verTexto="Ver gastos"
+            pie={fraseGastos}
+          >
+            <ChartTorta gajos={gajosGasto} titulo={`Composición de los gastos ${anio}`} />
+          </Bloque>
+
+          <Bloque icono="caja" titulo="Cómo cobran los equipos" href="/cobranza" pie={fraseMedios}>
+            {/* Barra apilada horizontal y no dona, como el mockup: con tres
+                medios, una barra deja comparar proporciones de un vistazo y
+                ocupa un tercio del alto. */}
+            <div className="rounded-md border border-line bg-white p-4">
+              <div className="mb-3 flex h-6 overflow-hidden rounded-md">
+                {gajosMedio.map((m, i) => {
+                  const pct = totalMedios > 0 ? (m.valor / totalMedios) * 100 : 0
+                  const color = ['var(--ok)', 'var(--blue)', 'var(--flyway)'][i % 3]
+                  return (
+                    <div
+                      key={m.label}
+                      title={m.label}
+                      style={{ width: `${pct}%`, background: color }}
+                      className="flex items-center justify-center"
+                    >
+                      {pct > 12 && (
+                        <span className="text-[9px] font-bold text-white">{Math.round(pct)}%</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {gajosMedio.map((m, i) => (
+                <div key={m.label} className="flex items-center gap-2 py-1 text-[11px]">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                    style={{ background: ['var(--ok)', 'var(--blue)', 'var(--flyway)'][i % 3] }}
+                  />
+                  <span className="flex-1 text-muted">{m.label}</span>
+                  <span className="cifra font-bold text-ink">{formatMoney(m.valor)}</span>
+                </div>
+              ))}
+              <p className="mt-2 text-[10.5px] leading-snug text-muted">
+                Sale de los pagos registrados, no de lo que cada equipo pactó al inscribirse. Lo
+                pactado está en el historial del equipo; lo interesante es el desvío.
+              </p>
+            </div>
+          </Bloque>
+
+          {/* ── Bloque nuevo · cuándo sale la plata ──────────────────────────
+              🔴 NO se llama «día de vencimiento», como el mockup: en CAMPA un
+              gasto no tiene esa fecha. Tiene cuándo se reconoció y cuándo se
+              pagó. Copiar esa etiqueta inventaría una obligación con fecha que
+              el modelo no tiene. */}
+          <Bloque
+            icono="calendario"
+            titulo="Cuándo sale la plata este mes"
+            href="/calendario-pagos"
+            verTexto="Ver calendario"
+            pie={fraseDias}
+          >
+            <ChartBarras
+              ejeX={ejeDias}
+              series={seriesGasto}
+              modo="apiladas"
+              alto={200}
+              maxEtiquetasX={16}
+              titulo="Salidas por día del mes: pagado y comprometido"
+            />
+          </Bloque>
         </div>
       </section>
 
@@ -372,12 +612,15 @@ export default async function Home({
           </Link>
           . No depende del torneo ni del año elegidos.
         </p>
-        <ChartArea serie={serie} titulo="Saldo de caja por semana, real y proyectado" />
+        <Bloque icono="proyeccion" titulo="Evolución del saldo de caja" href="/proyeccion" verTexto="Ver flujo">
+          <ChartArea serie={serie} titulo="Saldo de caja por semana, real y proyectado" />
+        </Bloque>
       </section>
 
       {urgentes.length > 0 && (
         <section className="mb-7">
-          <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+          <h2 className="mb-1 flex items-center gap-1.5 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+            <Icon name="alerta" size={15} className="text-errtx" />
             Deudas urgentes
           </h2>
           <p className="mb-3 text-[11px] text-muted">

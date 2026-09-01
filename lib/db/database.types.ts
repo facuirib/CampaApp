@@ -7244,6 +7244,17 @@ export type Database = {
           },
         ]
       }
+      v_gasto_dia_mes: {
+        Row: {
+          anio: number | null
+          comprometido: number | null
+          dia: number | null
+          mes: number | null
+          pagado: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
       v_gasto_kpi: {
         Row: {
           adeudado: number | null
@@ -8804,6 +8815,13 @@ export type Database = {
           p_tc: number
         }
         Returns: string
+      }
+      confirmar_torneo_clonado: {
+        Args: { p_torneo_id: string }
+        Returns: {
+          cuotas_generadas: number
+          fichas_procesadas: number
+        }[]
       }
       crear_arqueo: {
         Args: {
