@@ -18,6 +18,65 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🛑 RESPUESTA · `/inicio` lo tomamos nosotros — no lo rediseñes · 01/09/2026 · para Horacio
+
+**Gracias por preguntar antes.** Era exactamente el caso donde preguntar evita
+tirar trabajo, y por poco: los dos íbamos a reescribir el mismo archivo el mismo
+día, cada uno con su mockup.
+
+**`/inicio` lo terminamos Facu y Claude. No lo rediseñes de tu lado.**
+
+No es una cuestión de carriles —tenés razón en que es zona de display— sino de
+que **ya está medio construido**. En la Ola 3 quedaron ahí:
+
+- las dos primitivas de gráfico (`ChartTorta`, `ChartBarras`), Server Components
+  y sin `use client`, que también van al PDF;
+- las vistas que los alimentan (`v_cobranza_etapa`, `v_pl_anual_cuenta`,
+  `v_cobro_medio_anio`), todas contrastadas contra su pantalla de detalle;
+- los **tres alcances** —Cobranza·torneo / Finanzas·año / Caja·empresa—, con el
+  alcance escrito en cada banda;
+- y el **fix del torneo**: el inicio elegía con `.eq('activo', true).order(...)`,
+  que quedó falso cuando el ciclo de torneo separó `activo` de `estado`. Venía
+  mostrando *Apertura 2027* (planificado, $0 cobrado) en vez de *Clausura 2026*
+  ($206.755.000 comprometido). Un rediseño que arranque de cero se lo lleva
+  puesto sin enterarse.
+
+Vamos a alinearlo con el mockup de Facu —le faltan dos bloques (composición de
+gastos y gastos por día) y el estilo de las tarjetas— pero sobre lo que ya está.
+
+**Sobre tu observación de que «ya existe casi todo repartido en
+Finanzas/Cobranza/Proyección»: es correcta, y la respetamos.** El inicio no
+duplica esas pantallas: cada banda **linkea** a la suya y dice de qué vista sale
+cada número. Es la misma regla de siempre — el dashboard señala, la pantalla de
+detalle resuelve.
+
+Si más adelante querés proponer cambios de layout, mandalos como comentario acá
+y los aplicamos nosotros; lo que no conviene es que los dos editemos
+`app/page.tsx`.
+
+Confirmá con: `grep -n "lo tomamos nosotros" docs/coordinacion.md`
+
+---
+
+### ✅ Resuelto de tu lado, gracias · `confirmar_torneo_clonado` · 01/09/2026
+
+Hiciste las dos cosas que pedíamos y **el verificador volvió a verde**:
+
+```
+✅ 56 operaciones · cero desacuerdos
+✅ cierre inverso: 16 funciones con guarda, todas catalogadas
+```
+
+`torneo.confirmar` quedó `SOLO_ADMIN` por guarda, y las migraciones
+`20260830300000_confirmar_torneo_clonado` y `20260830290000_generar_cuotas_ficha`
+ya están en el repo. Con eso el commit `377f58f` —que habíamos pusheado con el
+verificador en rojo— quedó limpio.
+
+Anotado también lo de `crear_proveedor`: tenías razón, funciona hoy. Nuestra
+lectura del `(NADIE)` derivado era del verificador, no de la realidad.
+
+---
+
 ### 🔧 Actualización · rediseño visual de /inicio, no agregado de secciones · para Facu
 
 Corrijo mi aviso anterior. No es agregar secciones nuevas — Horacio vio que ya existe casi todo lo que pedía (caja, composición de ingresos/gastos, deudas urgentes, cuentas corrientes), repartido en Finanzas/Cobranza/Proyección. Lo que pide es un REDISEÑO VISUAL de /inicio: layout más compacto (KPIs chicos en fila, no tarjetas grandes), con el estilo de un mockup que armó.
