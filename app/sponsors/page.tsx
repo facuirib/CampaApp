@@ -1,6 +1,9 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import { estadoSponsor } from '@/lib/domain/sponsor'
-import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaLista = Database['public']['Views']['v_sponsor_lista']['Row']
@@ -39,6 +42,9 @@ function vigencia(desde: string | null, hasta: string | null): string {
 export default async function SponsorsPage() {
   const supabase = await createClient()
 
+  const rol = await rolActual()
+  const puedeCrear = puede(rol, 'sponsor.crear')
+
   const [listaRes, kpiRes] = await Promise.all([
     supabase.from('v_sponsor_lista').select('*').order('sponsor'),
     // Una fila siempre, también sin sponsors: es una agregación sin group by.
@@ -65,12 +71,22 @@ export default async function SponsorsPage() {
 
   return (
     <div className="pb-10">
-      <header className="mb-6">
-        <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Sponsors</h1>
-        <p className="mt-1 text-[12px] text-muted">
-          Un sponsor por fila, con todos sus contratos sumados. El detalle abre los dos calendarios:
-          lo que se reconoce mes a mes y lo que se cobra en cuotas.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Sponsors</h1>
+          <p className="mt-1 text-[12px] text-muted">
+            Un sponsor por fila, con todos sus contratos sumados. El detalle abre los dos
+            calendarios: lo que se reconoce mes a mes y lo que se cobra en cuotas.
+          </p>
+        </div>
+        {/* El alta existía como función desde hace rato y no tenía pantalla: un
+            sponsor sólo podía nacer por SQL, y por eso los tres que hay se
+            cargaron a mano. */}
+        {puedeCrear && (
+          <Link href="/sponsors/nuevo">
+            <Button icon="plus">Nuevo sponsor</Button>
+          </Link>
+        )}
       </header>
 
       {error && (

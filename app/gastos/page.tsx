@@ -9,13 +9,16 @@ import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import {
   BarrasComposicion,
   Button,
+  ChartBarras,
+  ChartTorta,
   DataTable,
   KpiCard,
   type CeldaBadge,
   type ColumnDef,
   type ItemComposicion,
+  type GajoTorta,
+  type SerieBarras,
 } from '@/components/ui'
-import TarjetasNaturaleza, { type TotalNaturaleza } from './TarjetasNaturaleza'
 import { hrefGastos, rangoPeriodo, type ParamsGastos } from './filtros'
 import type { Database } from '@/lib/db/database.types'
 
@@ -155,7 +158,7 @@ export default async function GastosPage({
   const anio = params.anio ? Number(params.anio) : (anios[0] ?? new Date().getFullYear())
   const mes = params.mes ? Number(params.mes) : null
 
-  const [kpiRes, natRes, catRes, gastosRes] = await Promise.all([
+  const [kpiRes, natRes, catRes, gastosRes, natAnioRes] = await Promise.all([
     // `mes is null` es la fila del año entero. Se ELIGE la fila; no se suma.
     (() => {
       const q = supabase.from('v_gasto_kpi').select('*').eq('anio', anio)
@@ -196,6 +199,9 @@ export default async function GastosPage({
       const [desde, hasta] = rangoPeriodo(anio, mes)
       return q.gte('devengado_at', desde).lt('devengado_at', hasta)
     })(),
+    // El año entero, sin filtro de mes: la evolución necesita los doce puntos
+    // aunque la pantalla esté mirando agosto.
+    supabase.from('v_gasto_naturaleza_mes').select('*').eq('anio', anio),
   ])
 
   const error = aniosRes.error ?? kpiRes.error ?? natRes.error ?? catRes.error ?? gastosRes.error
@@ -205,7 +211,12 @@ export default async function GastosPage({
   // `v_gasto_naturaleza_mes` viene por mes; sin filtro de mes hay que juntar
   // los meses del año. Es la única agregación de la pantalla y es sobre filas
   // que ya vienen totalizadas por la vista — no recorre gastos.
-  const porNaturaleza = new Map<string, TotalNaturaleza>()
+  // El tipo vivía en TarjetasNaturaleza, que se fue con las tarjetas. Los
+  // totales por naturaleza siguen haciendo falta para las barras.
+  const porNaturaleza = new Map<
+    string,
+    { naturaleza: string; total: number; pagado: number; adeudado: number; gastos: number }
+  >()
   for (const n of natRes.data ?? []) {
     if (!n.naturaleza) continue
     const a = porNaturaleza.get(n.naturaleza) ?? {
@@ -221,7 +232,6 @@ export default async function GastosPage({
     a.gastos += Number(n.gastos ?? 0)
     porNaturaleza.set(n.naturaleza, a)
   }
-  const totalesNaturaleza = [...porNaturaleza.values()]
 
   // ── Los gráficos ─────────────────────────────────────────────────────────
   const graficoNaturaleza: ItemComposicion[] = NATURALEZAS_DE_GASTO.map((nat) => {
@@ -297,6 +307,46 @@ export default async function GastosPage({
         label: m[0].toUpperCase() + m.slice(1),
       })),
     },
+    // El tipo pasa a dropdown. Era el click de las tarjetas, y las tarjetas se
+    // van: los mismos números están en los gráficos, con la proporción a la
+    // vista en vez de cuatro cifras sueltas que hay que comparar de memoria.
+    {
+      parametro: 'naturaleza',
+      label: 'Tipo',
+      todos: 'Todos los tipos',
+      opciones: NATURALEZAS_DE_GASTO.map((n) => ({ valor: n.valor, label: n.label })),
+    },
+  ]
+
+  // ── Los gráficos nuevos ──────────────────────────────────────────────────
+  // Mapeo de lo ya traído: cada importe viene sumado de su vista.
+  const gajosCategoria: GajoTorta[] = [...porCategoria.values()]
+    .filter((c) => c.valor > 0)
+    .map((c) => ({ label: c.label, valor: c.valor }))
+
+  // La evolución del año. Se pide sin filtro de mes a propósito: un gráfico «en
+  // el tiempo» que muestre un solo mes no es una serie, es una barra.
+  const porMes = new Map<number, { pagado: number; adeudado: number }>()
+  for (const n of natAnioRes.data ?? []) {
+    if (n.mes == null) continue
+    if (naturaleza && n.naturaleza !== naturaleza) continue
+    const a = porMes.get(n.mes) ?? { pagado: 0, adeudado: 0 }
+    a.pagado += Number(n.pagado ?? 0)
+    a.adeudado += Number(n.adeudado ?? 0)
+    porMes.set(n.mes, a)
+  }
+  const mesesConDato = [...porMes.keys()].sort((a, b) => a - b)
+  const seriesTiempo: SerieBarras[] = [
+    {
+      label: 'Pagado',
+      color: 'var(--ok)',
+      valores: mesesConDato.map((m) => porMes.get(m)!.pagado),
+    },
+    {
+      label: 'Impago',
+      color: 'var(--err)',
+      valores: mesesConDato.map((m) => porMes.get(m)!.adeudado),
+    },
   ]
 
   const adeudado = Number(kpi?.adeudado ?? 0)
@@ -366,12 +416,6 @@ export default async function GastosPage({
         />
       </div>
 
-      <TarjetasNaturaleza
-        totales={totalesNaturaleza}
-        activa={naturaleza ?? null}
-        params={{ ...params, anio: String(anio) }}
-      />
-
       {(graficoNaturaleza.length > 0 || graficoCategoria.length > 0) && (
         <div className="mb-7 grid gap-3 lg:grid-cols-2">
           <div>
@@ -388,11 +432,37 @@ export default async function GastosPage({
             <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-muted">
               Por categoría
             </h2>
+            {/* Las barras y la dona no se pisan: las barras muestran cuánto de
+                cada categoría ya se pagó —esa es la porción oscura— y la dona
+                muestra cuánto PESA cada una en el total. Son dos preguntas. */}
             <BarrasComposicion
               items={graficoCategoria}
               tope={7}
               etiquetaParte="ya pagado"
               titulo="Gasto por categoría"
+            />
+          </div>
+
+          <div>
+            <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-muted">
+              Cómo se reparte
+            </h2>
+            <ChartTorta gajos={gajosCategoria} titulo="Distribución del gasto por categoría" />
+          </div>
+
+          <div>
+            <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-muted">
+              En el tiempo · {anio}
+            </h2>
+            {/* Agrupadas y no apiladas: pagado e impago del mismo mes no se
+                suman para llegar a nada que sirva — lo que interesa es la
+                proporción entre los dos, que es qué tanto quedó por pagar. */}
+            <ChartBarras
+              ejeX={mesesConDato.map((m) => String(m).padStart(2, '0'))}
+              series={seriesTiempo}
+              modo="agrupadas"
+              alto={210}
+              titulo={`Gasto por mes de ${anio}, pagado contra impago`}
             />
           </div>
         </div>
