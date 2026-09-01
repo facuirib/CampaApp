@@ -5,6 +5,7 @@ import { formatDate, formatMoney } from '@/lib/format'
 import { estadoSocio } from '@/lib/domain/socio'
 import { rolActual } from '@/lib/rol-actual'
 import { puede } from '@/lib/permisos'
+import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { Badge, DataTable, KpiCard, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 import AccionesSueldo, { type OpcionMes } from './AccionesSueldo'
@@ -25,7 +26,6 @@ interface FilaPeriodo {
   acordado: number | null
   devengado: number | null
   retirado: number | null
-  neto: number | null
   saldo_acumulado: number | null
 }
 
@@ -55,16 +55,18 @@ const COLUMNAS: ColumnDef<FilaPeriodo>[] = [
   { key: 'acordado', label: 'Acordado', format: 'money', width: 128 },
   { key: 'devengado', label: 'Devengado', format: 'money', width: 128 },
   { key: 'retirado', label: 'Retirado', format: 'money', width: 128 },
-  { key: 'neto', label: 'Neto', format: 'money', width: 128 },
   { key: 'saldo_acumulado', label: 'Saldo acumulado', format: 'money', width: 150 },
 ]
 
 export default async function SocioDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ socioId: string }>
+  searchParams: Promise<{ desde?: string; hasta?: string }>
 }) {
   const { socioId } = await params
+  const { desde, hasta } = await searchParams
   if (!UUID.test(socioId)) notFound()
 
   const supabase = await createClient()
@@ -100,7 +102,35 @@ export default async function SocioDetallePage({
   // Uuid válido pero de alguien que no es socio: tampoco existe como recurso.
   if (!error && !socio) notFound()
 
-  const filas: FilaPeriodo[] = (mensualRes.data ?? []).map((f: FilaMensual) => ({
+  // ── El filtro de fechas ──────────────────────────────────────────────────
+  //
+  // Filtrar filas no es calcular (regla 1): `saldo_acumulado` sigue siendo el
+  // que trae la vista, o sea el acumulado desde el PRIMER mes del socio y no
+  // desde el que se está mirando. Recalcularlo sobre el rango sería inventar un
+  // número, y encima uno que contradiría al KpiCard de arriba.
+  //
+  // Los KPI tampoco se tocan: son la foto del socio, no del recorte.
+  const todosLosMeses = mensualRes.data ?? []
+  const claveMes = (f: { anio: number | null; mes: number | null }) =>
+    `${f.anio}-${String(f.mes).padStart(2, '0')}`
+
+  const opcionesMes = todosLosMeses
+    .map((f) => ({ valor: claveMes(f), label: formatPeriodo(f.anio, f.mes) }))
+    .reverse()
+
+  const FILTROS: FiltroUrl[] = [
+    { parametro: 'desde', label: 'Desde', todos: 'El primero', opciones: [...opcionesMes].reverse() },
+    { parametro: 'hasta', label: 'Hasta', todos: 'El último', opciones: opcionesMes },
+  ]
+
+  const visibles = todosLosMeses.filter((f) => {
+    const k = claveMes(f)
+    if (desde && k < desde) return false
+    if (hasta && k > hasta) return false
+    return true
+  })
+
+  const filas: FilaPeriodo[] = visibles.map((f: FilaMensual) => ({
     periodo_id: f.periodo_id!,
     periodo: (
       <span className="inline-flex items-center gap-1.5">
@@ -111,7 +141,6 @@ export default async function SocioDetallePage({
     acordado: f.acordado,
     devengado: f.devengado,
     retirado: f.retirado,
-    neto: f.neto,
     saldo_acumulado: f.saldo_acumulado,
   }))
 
@@ -216,14 +245,23 @@ export default async function SocioDetallePage({
               de lo acordado no es un número que alguien pida — lo que se mira
               es cada fila contra su devengado.
 
-              `saldo_acumulado` queda EN BLANCO a propósito. Las otras columnas
-              son flujo —lo que pasó en cada mes— y sumarlas da algo que
-              significa: los netos suman exactamente el saldo. El acumulado es
-              STOCK: cada fila ya contiene a las anteriores, así que sumar la
-              columna cuenta los meses viejos una vez por cada mes siguiente. El
-              único total sensato sería el último valor de la serie, y ése ya
-              está arriba en el KpiCard de Saldo — bajo un rótulo que dice
-              "saldo" y no "total". */}
+              `saldo_acumulado` queda EN BLANCO a propósito. Devengado y
+              retirado son flujo —lo que pasó en cada mes— y sumarlos da algo
+              que significa. El acumulado es STOCK: cada fila ya contiene a las
+              anteriores, así que sumar la columna contaría los meses viejos una
+              vez por cada mes siguiente. El único total sensato sería el último
+              valor de la serie, y ése ya está arriba en el KpiCard de Saldo —
+              bajo un rótulo que dice "saldo" y no "total".
+
+              La columna `neto` se sacó: era devengado − retirado, o sea una
+              resta de dos columnas que están al lado. Ocupaba un ancho y no
+              agregaba un dato — el saldo del mes se lee del acumulado, y la
+              diferencia del mes se ve comparando las dos columnas vecinas. */}
+          {/* El rango es de la TABLA, no de la pantalla: los KpiCards de arriba
+              siguen siendo la foto del socio. Un filtro que moviera también los
+              KPI haría creer que el saldo cambió al mirar menos meses. */}
+          {opcionesMes.length > 1 && <FiltrosUrl filtros={FILTROS} />}
+
           <DataTable
             columns={COLUMNAS}
             rows={filas}
@@ -233,7 +271,6 @@ export default async function SocioDetallePage({
               periodo: 'Total',
               devengado: socio.devengado ?? 0,
               retirado: socio.retirado ?? 0,
-              neto: saldo,
             }}
             emptyMessage="Todavía no hay devengos ni retiros para este socio."
           />
