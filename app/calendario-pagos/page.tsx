@@ -330,7 +330,7 @@ export default async function CalendarioPagosPage({
           <strong className="font-semibold">el día que vence de verdad</strong> — lo que ya venció y
           sigue sin resolverse queda marcado, no se corre a hoy. Lo que ya se cobró o se pagó no
           está acá:{' '}
-          <Link href="/movimientos" className="font-semibold text-blue-d hover:underline">
+          <Link href="/auditoria?vista=diario" className="font-semibold text-blue-d hover:underline">
             eso es Movimientos
           </Link>
           .

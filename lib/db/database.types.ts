@@ -7471,6 +7471,7 @@ export type Database = {
           anulado: boolean | null
           asiento_id: string | null
           created_at: string | null
+          created_by: string | null
           descripcion: string | null
           fecha: string | null
           jornada: number | null
@@ -8534,6 +8535,14 @@ export type Database = {
           estado: string | null
           lineas_caja_usd: number | null
           operaciones: number | null
+        }
+        Relationships: []
+      }
+      v_usuario: {
+        Row: {
+          email: string | null
+          id: string | null
+          nombre: string | null
         }
         Relationships: []
       }

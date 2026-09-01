@@ -61,7 +61,7 @@ export default async function AsientoPage({ params }: { params: Promise<{ asient
 
   return (
     <div className="pb-10">
-      <Link href="/movimientos" className="text-[11px] font-semibold text-blue-d hover:underline">
+      <Link href="/auditoria?vista=diario" className="text-[11px] font-semibold text-blue-d hover:underline">
         ← Volver al libro diario
       </Link>
 

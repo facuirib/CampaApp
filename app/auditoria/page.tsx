@@ -1,8 +1,10 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import LibroDiario from './LibroDiario'
 import { formatDateTime, formatEntero } from '@/lib/format'
 import { calcularCambios, comoRegistro, resumirCambios } from '@/lib/domain/auditoria'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Autor, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaAuditoria = Database['public']['Views']['v_auditoria']['Row']
@@ -49,7 +51,7 @@ interface FilaEvento {
   operacion: CeldaBadge
   tabla: string | null
   registro: React.ReactNode
-  usuario: string
+  usuario: React.ReactNode
   campos: number | null
   cambios: string
 }
@@ -64,18 +66,77 @@ const COLUMNAS: ColumnDef<FilaEvento>[] = [
   { key: 'cambios', label: 'Cambios' },
 ]
 
+/**
+ * Las dos caras de la trazabilidad, en la URL como en el resto del proyecto.
+ *
+ * «Cambios» es qué se modificó después de creado; «Libro diario», qué se
+ * asentó. Eran dos módulos —/auditoria y /movimientos— y contestan la misma
+ * pregunta desde dos ángulos: quién tocó qué. Separados, para saber si alguien
+ * anduvo en algo había que mirar en dos lados y cruzar a mano.
+ */
+const VISTAS = [
+  { vista: 'cambios', label: 'Cambios' },
+  { vista: 'diario', label: 'Libro diario' },
+] as const
+
+type Vista = (typeof VISTAS)[number]['vista']
+
+function Pestanas({ activa }: { activa: Vista }) {
+  return (
+    <div className="mb-5 inline-flex gap-1 rounded-md bg-line2 p-1" role="tablist">
+      {VISTAS.map((v) => {
+        const esActiva = v.vista === activa
+        return (
+          <Link
+            key={v.vista}
+            href={v.vista === 'cambios' ? '/auditoria' : `/auditoria?vista=${v.vista}`}
+            role="tab"
+            aria-selected={esActiva}
+            className={[
+              'rounded-sm px-3 py-1 text-[11px] font-bold transition-colors',
+              esActiva ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink',
+            ].join(' ')}
+          >
+            {v.label}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
 export default async function AuditoriaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tabla?: string; operacion?: string; cambios?: string }>
+  searchParams: Promise<{
+    tabla?: string
+    operacion?: string
+    cambios?: string
+    vista?: string
+    origen?: string
+    periodo?: string
+    usuario?: string
+  }>
 }) {
-  const { tabla, operacion, cambios } = await searchParams
+  const params = await searchParams
+  const { tabla, operacion, cambios } = params
+  const activa: Vista = params.vista === 'diario' ? 'diario' : 'cambios'
+
+  // La pestaña del diario se delega entera: es la pantalla que vivía en
+  // /movimientos, movida tal cual. Cero cambio de contenido — es una mudanza.
+  if (activa === 'diario') {
+    return <LibroDiario params={params} pestanas={<Pestanas activa={activa} />} />
+  }
   const soloConCambios = cambios === '1'
 
   const supabase = await createClient()
 
   // Las opciones salen de los datos, igual que en el libro diario.
-  const opcionesRes = await supabase.from('v_auditoria').select('tabla, operacion')
+  const [opcionesRes, usuariosRes] = await Promise.all([
+    supabase.from('v_auditoria').select('tabla, operacion'),
+    supabase.from('v_usuario').select('*'),
+  ])
+  const nombreDe = new Map((usuariosRes.data ?? []).map((u) => [u.id, u.nombre]))
 
   // El count viene de la base con `head: true` —cuenta sin traer filas— y NO de
   // medir el largo del array: el array está cortado en LIMITE, así que contarlo
@@ -148,7 +209,10 @@ export default async function AuditoriaPage({
       ),
       // `fn_audit` guarda `auth.uid()`, que sin sesión es null. Hoy son todos
       // "sistema"; lo será hasta que exista auth (bloque 10).
-      usuario: e.usuario_id ? e.usuario_id.slice(0, 8) : 'sistema',
+      // Antes esto era `usuario_id.slice(0, 8)`: ocho caracteres de un uuid.
+      // Sirve para distinguir a dos personas entre sí y para nada más — nadie
+      // sabe quién es «a3f9c210». Ahora sale de v_usuario.
+      usuario: <Autor id={e.usuario_id} nombre={nombreDe.get(e.usuario_id ?? '')} />,
       campos: e.campos_cambiados,
       cambios: resumirCambios(e.operacion ?? '', detalle),
     }
@@ -170,6 +234,8 @@ export default async function AuditoriaPage({
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
+
+      <Pestanas activa={activa} />
 
       <FiltrosUrl filtros={FILTROS} />
 

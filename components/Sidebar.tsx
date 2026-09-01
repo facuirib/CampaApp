@@ -169,7 +169,6 @@ export const GRUPOS: GrupoNav[] = [
       // ese nombre le va a quedar mejor a la pantalla de emisión cuando exista.
       // Sin `roles`, o sea el default OFICINA: el bar no lo ve.
       { href: '/comprobantes', label: 'Comprobantes', icon: 'comprobante' },
-      { href: '/movimientos', label: 'Movimientos', icon: 'movimientos' },
     ],
   },
   {
@@ -188,6 +187,8 @@ export const GRUPOS: GrupoNav[] = [
       // Auditoría estaba en Finanzas y no es plata: es quién tocó qué. Lo que
       // audita son movimientos, sí, pero también altas de equipo, cambios de
       // tarifario y ediciones de plantilla. Es del sistema.
+      // El libro diario vive acá adentro desde que /movimientos se mudó: es la
+      // misma pregunta que la auditoría —quién tocó qué— desde otro ángulo.
       { href: '/auditoria', label: 'Auditoría', icon: 'auditoria' },
       {
         href: '/configuracion',
