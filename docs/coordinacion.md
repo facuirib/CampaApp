@@ -18,6 +18,122 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 📋 ESTADO DEL SISTEMA · plan de pulido completo (lado Facu+Claude) · 01/09/2026
+
+**Informativo: no hay tareas tuyas acá.** Es el mapa de qué cambió del sistema,
+para que no choques con nada al tocar cualquier zona.
+
+El barrido de 30+ observaciones que hicimos entre los dos se convirtió en el
+plan de pulido, y **está completo de nuestro lado**: cuatro olas, más el
+endurecimiento del verificador y la alineación del dashboard.
+
+---
+
+#### 🔴 Lo que más te puede afectar: el verificador cambió
+
+Ahora corre **contra la base** (`DATABASE_URL` con el pooler) en vez de contra
+un JSON copiado a mano, y tiene **cierre inverso**: además de comprobar lo que
+el catálogo declara, recorre la base y frena lo que nadie declaró.
+
+**La regla, en una línea: función nueva con guarda o que escribe → catalogarla
+en `lib/permisos.ts`, o el verificador se pone rojo.**
+
+  1. toda función con `auth_rol()` tiene que estar nombrada por alguna operación
+  2. toda función que escribe: declarada, o en `INTERNAS` / `DEPRECADAS` /
+     `PUERTAS_SIN_UI` con el motivo escrito
+  3. una función clasificada que el front empieza a llamar pierde la exención
+  4. una lista que nombra algo inexistente quedó vieja
+
+Ya pasó tres veces —`clonar_torneo`, `crear_sponsor` y `confirmar_torneo_clonado`—
+y en las tres la agarró **antes** de que el front la llamara.
+
+**Un punto ciego que conviene que sepas**, y que descubrimos con tu corrección
+de `crear_proveedor`: la derivación saca los roles del **texto** de la policy,
+así que una policy con `check(true)` le parece «ningún rol» cuando en realidad
+significa «todos los autenticados». Por eso leímos `(NADIE)` donde vos probaste
+en vivo que funciona. **Tuviste razón** — el verificador es bueno detectando lo
+que falta, y no es una fuente de verdad sobre lo que una policy permite.
+
+---
+
+#### Cambios de estructura que te pueden cruzar
+
+**La ficha del equipo se unificó en `/equipos/[id]`.** Eran dos —`/cobranza/[id]`
+con la deuda y `/clientes/[id]` con lo fiscal— sin un solo link entre ellas.
+Redirigen `/clientes`, `/clientes/[id]`, `/cobranza/[id]`, `/cobranza/[id]/cobrar`
+y `/reclamos/[id]`. **Si linkeás a un equipo, va a `/equipos/[id]`.**
+
+El concepto: el equipo es la entidad y un torneo es un producto adentro. La
+ficha tiene tres pestañas —cuenta corriente, datos, historial de torneos.
+
+**🔴 `tercero.contacto` se renombró a `tercero.telefono`, y se agregó
+`tercero.delegado`.** El campo guardaba un teléfono y se consumía como teléfono;
+el nombre ocupaba el lugar del delegado. Tu `crear_sponsor` ya usa `p_telefono`
+—lo adaptamos en la misma migración—. **`proveedor.contacto` NO se tocó**: es
+otra columna, en otra tabla, y ahí el nombre es correcto.
+
+**Inversión ≠ gasto.** Comprar un activo va a `/activos` con `comprar_activo`,
+que crea el activo y su capitalización en una transacción — antes eran dos pasos
+en dos pantallas y nada obligaba al segundo. El módulo Gastos ya no cuenta
+inversión (el KPI de agosto bajaba de $60M a $10M: $50M eran una compra de bien
+de uso). La amortización ahora se avisa al cerrar el período.
+
+**Ciclo de vida del torneo.** `estado` (planificado / en_curso / cerrado) es la
+verdad; `activo` quedó **sólo** como baja lógica. `v_torneo_actual` es el único
+`en_curso`, garantizado por un unique index parcial. Hay `iniciar_torneo`,
+`cerrar_torneo` y `reabrir_torneo`.
+
+**Ojo con esto**: cualquier consulta que todavía elija torneo con
+`.eq('activo', true)` está eligiendo mal. El dashboard lo hacía y mostraba
+*Apertura 2027* (planificado, $0 cobrado) en vez de *Clausura 2026*
+($206.755.000 comprometido).
+
+**Cobranza unificada.** `/cobranza` tiene tres pestañas: cuenta corriente,
+avisos e inscripciones. `/inscripciones` redirige. Las tres colas salen de
+`v_cobranza_momento` con las ventanas de `config_cobranza`.
+
+**Movimientos → `/auditoria`**, con dos pestañas: Cambios y Libro diario.
+`/movimientos` redirige; `/movimientos/[asientoId]` **se queda** (es el detalle
+de un asiento). El diario ahora muestra **quién** asentó cada cosa:
+`asiento.created_by` existía desde siempre y la vista no lo exponía.
+
+**Costos del bar dentro de `/bar`**, movidos de Gastos, con una tercera pestaña
+de Números (mix de cobro, facturación y margen).
+
+**`/inicio` es carril [F] y ya está.** Dashboard con gráficos propios en SVG
+—Server Components, sin recharts— alineado con el mockup de Facu. **No lo
+rediseñes de tu lado**, como quedó en la nota de arriba.
+
+---
+
+#### Lo que se viene
+
+**Pasada visual.** Facu va a revisar todas las pantallas en runtime. Es la
+clase de bug que ni `tsc` ni el build ni el verificador ven — el caso C2, un
+`<Link href="">` que tumbó 285 filas, compilaba perfecto.
+
+**Diagnóstico end-to-end conjunto**, cada uno su carril, antes de entregar.
+
+Y tres cosas tuyas que **ya cerraste**, anotadas para que quede el registro:
+
+  · **emisión ARCA real** — decidiste no volver a emitir para probar, confiando
+    en las partes ya ejercitadas (WSAA, numeración, payload, QR) y en el CAE
+    real que ya existe. El primer CAE de producción sale con la primera factura
+    del cliente. Aceptado.
+  · **`crear_proveedor`** — probaste en vivo que funciona. Cerrado.
+  · **solapamiento de torneo** — decidiste que `clonar_torneo` y
+    `clonar_estructura_torneo` coexisten, documentado, porque la segunda está
+    en uso real desde `EstructuraEditor`.
+
+Queda abierta una sola cosa, y es tu oferta, no un pedido nuestro: si querés que
+las policies de `proveedor` filtren por rol explícito en vez de `check(true)`
+—redundante con la guarda interna, pero más consistente con el resto—, para
+nosotros suma. No es necesario para que funcione.
+
+Confirmá con: `grep -n "ESTADO DEL SISTEMA" docs/coordinacion.md`
+
+---
+
 ### 🛑 RESPUESTA · `/inicio` lo tomamos nosotros — no lo rediseñes · 01/09/2026 · para Horacio
 
 **Gracias por preguntar antes.** Era exactamente el caso donde preguntar evita
