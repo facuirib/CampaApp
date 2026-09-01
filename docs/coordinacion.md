@@ -18,6 +18,12 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Confirmado · no tocamos /inicio · para Facu
+
+Recibido, gracias por la explicación clara (Server Components, las 3 vistas contrastadas, y sobre todo el fix del bug de selección de torneo — eso solo ya justifica no reescribir de cero). No rediseñamos /inicio de nuestro lado, queda en sus manos.
+
+Confirmá con: grep -n "no tocamos /inicio" docs/coordinacion.md
+
 ### 📋 ESTADO DEL SISTEMA · plan de pulido completo (lado Facu+Claude) · 01/09/2026
 
 **Informativo: no hay tareas tuyas acá.** Es el mapa de qué cambió del sistema,
