@@ -11,6 +11,7 @@ import type { Database } from '@/lib/db/database.types'
 type Ficha = Database['public']['Views']['v_ficha_torneo']['Row']
 type Estructura = Database['public']['Views']['v_estructura_torneo']['Row']
 type Torneo = Database['public']['Views']['v_torneo_lista']['Row']
+type MedioPrevisto = Database['public']['Enums']['medio_pago']
 
 interface Previo {
   fichas_creadas: number
@@ -19,6 +20,16 @@ interface Previo {
   sin_plan_equivalente: number
   salteadas: { equipo: string; motivo: string }[]
 }
+
+interface ResultadoConfirmar {
+  fichas_procesadas: number
+  cuotas_generadas: number
+}
+
+const MEDIOS: { value: MedioPrevisto; label: string }[] = [
+  { value: 'efectivo', label: 'Efectivo' },
+  { value: 'transferencia', label: 'Transferencia' },
+]
 
 export default function FichasEditor({
   torneoId,
@@ -65,6 +76,13 @@ export default function FichasEditor({
         ),
     [series],
   )
+
+  // Cuántas fichas todavía no tienen cuotas — el estado normal después de
+  // clonar, y lo que "Confirmar" resuelve. Distinto de `atada` (que mira
+  // cuotas atadas a JORNADA, no cuotas en general): acá alcanza con que
+  // tenga alguna, sea cual sea, porque editar_medio_previsto y borrar_ficha
+  // bloquean apenas hay una.
+  const sinConfirmar = useMemo(() => ordenadas.filter((f) => (f.cuotas ?? 0) === 0).length, [ordenadas])
 
   async function simular() {
     setOcupado('preview')
@@ -123,6 +141,61 @@ export default function FichasEditor({
       setError(err.message)
       return
     }
+    router.refresh()
+  }
+
+  /** Sacar una ficha. borrar_ficha() ya rechaza si tiene cuotas; acá además
+   *  no se ofrece el botón en ese caso — mismo criterio que `atada` de arriba. */
+  async function sacar(fichaId: string) {
+    setOcupado(`b:${fichaId}`)
+    setError(null)
+    const { error: err } = await sb().rpc('borrar_ficha', { p_equipo_torneo_id: fichaId })
+    setOcupado(null)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    router.refresh()
+  }
+
+  async function cambiarMedio(fichaId: string, medio: MedioPrevisto) {
+    setOcupado(`mp:${fichaId}`)
+    setError(null)
+    const { error: err } = await sb().rpc('editar_medio_previsto', {
+      p_equipo_torneo_id: fichaId,
+      p_medio_previsto: medio,
+    })
+    setOcupado(null)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    router.refresh()
+  }
+
+  /** Confirmar: genera las cuotas de todas las fichas que todavía no las
+   *  tienen. `confirmar_torneo_clonado` es RETURNS TABLE, así que `data`
+   *  llega como array de una fila, no como objeto. */
+  async function confirmar() {
+    setOcupado('confirmar')
+    setError(null)
+    setResultado(null)
+    const { data, error: err } = await sb().rpc('confirmar_torneo_clonado', {
+      p_torneo_id: torneoId,
+    })
+    setOcupado(null)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    const r = (data as unknown as ResultadoConfirmar[])[0]
+    setResultado(
+      r.fichas_procesadas === 0
+        ? 'No había fichas pendientes: todas ya tenían cuotas generadas.'
+        : `Se confirmaron ${r.fichas_procesadas} ficha${r.fichas_procesadas === 1 ? '' : 's'}, con ${
+            r.cuotas_generadas
+          } cuota${r.cuotas_generadas === 1 ? '' : 's'} generada${r.cuotas_generadas === 1 ? '' : 's'} en total.`,
+    )
     router.refresh()
   }
 
@@ -247,12 +320,19 @@ export default function FichasEditor({
                 <th className="py-2 pr-3">Partidos</th>
                 <th className="py-2 pr-3 text-right">Plan</th>
                 <th className="py-2 pr-3 text-right">Cuotas</th>
-                <th className="py-2">Mover de serie</th>
+                <th className="py-2 pr-3">Mover de serie</th>
+                <th className="py-2 pr-3">Medio previsto</th>
+                <th className="py-2">Sacar</th>
               </tr>
             </thead>
             <tbody>
               {ordenadas.map((f) => {
                 const atada = (f.cuotas_con_jornada ?? 0) > 0
+                // Distinto de `atada`: acá importa CUALQUIER cuota, no solo
+                // las atadas a jornada. editar_medio_previsto y borrar_ficha
+                // rechazan apenas hay una — el monto ya se calculó con el
+                // medio_previsto y el plan de ese momento.
+                const tieneCuotas = (f.cuotas ?? 0) > 0
                 return (
                   <tr key={f.ficha_id} className="border-b border-line last:border-0">
                     {/* El nombre linkea a la ficha del equipo. Era el tercer
@@ -278,7 +358,7 @@ export default function FichasEditor({
                     <td className="py-2 pr-3 text-right tabular-nums">
                       {f.cuotas_pagadas}/{f.cuotas}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2 pr-3">
                       {atada ? (
                         /* No se ofrece el select y se dice por qué. Ofrecerlo y
                            que la función lo rechace sería hacerle descubrir el
@@ -304,6 +384,42 @@ export default function FichasEditor({
                         </Select>
                       )}
                     </td>
+                    <td className="py-2 pr-3">
+                      {tieneCuotas ? (
+                        <span className="text-[11px] text-muted">
+                          <Badge estado="neutro">No se puede</Badge> ya tiene cuotas
+                        </span>
+                      ) : (
+                        <Select
+                          value={(f.medio_previsto as MedioPrevisto) ?? ''}
+                          disabled={ocupado === `mp:${f.ficha_id}`}
+                          onChange={(e) => cambiarMedio(f.ficha_id!, e.target.value as MedioPrevisto)}
+                          className="w-36"
+                        >
+                          {MEDIOS.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    </td>
+                    <td className="py-2">
+                      {tieneCuotas ? (
+                        <span className="text-[11px] text-muted">—</span>
+                      ) : (
+                        <Button
+                          size="pill"
+                          variant="tertiary"
+                          icon="borrar"
+                          loading={ocupado === `b:${f.ficha_id}`}
+                          disabled={ocupado !== null}
+                          onClick={() => sacar(f.ficha_id!)}
+                        >
+                          Sacar
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -318,6 +434,31 @@ export default function FichasEditor({
             ? 'Todavía no hay equipos inscriptos, y no hay otro torneo del cual traerlos.'
             : 'Este torneo no tiene estructura cargada: primero las categorías, series y el tarifario.'}
         </p>
+      )}
+
+      {/* ── Confirmar ────────────────────────────────────────────────────
+          Mismo estilo destacado que el bloque de arrastre cuando corresponde
+          actuar: acá "corresponde" es que haya algo sin confirmar. */}
+      {sinConfirmar > 0 && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-5">
+          <h2 className="text-base font-semibold text-slate-900">
+            {sinConfirmar} ficha{sinConfirmar === 1 ? '' : 's'} sin confirmar
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Todavía no tienen cuotas — es el estado normal después de clonar un torneo.
+            Revisá series, medio previsto y bajas antes de confirmar: una vez generadas las
+            cuotas, esta pantalla ya no deja tocar esos datos para las fichas afectadas.
+          </p>
+          <div className="mt-3 flex justify-end">
+            <Button
+              onClick={confirmar}
+              loading={ocupado === 'confirmar'}
+              disabled={ocupado !== null}
+            >
+              Confirmar y generar cuotas
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   )

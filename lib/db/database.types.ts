@@ -8748,6 +8748,7 @@ export type Database = {
       }
       auth_rol: { Args: never; Returns: string }
       borrar_categoria: { Args: { p_categoria_id: string }; Returns: undefined }
+      borrar_ficha: { Args: { p_equipo_torneo_id: string }; Returns: undefined }
       borrar_linea_presupuesto: {
         Args: { p_linea_id: string }
         Returns: undefined
@@ -9062,6 +9063,13 @@ export type Database = {
           p_observacion?: string
           p_precio_efectivo?: number
           p_precio_transferencia?: number
+        }
+        Returns: undefined
+      }
+      editar_medio_previsto: {
+        Args: {
+          p_equipo_torneo_id: string
+          p_medio_previsto: Database["public"]["Enums"]["medio_pago"]
         }
         Returns: undefined
       }

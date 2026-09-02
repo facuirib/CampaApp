@@ -18,6 +18,20 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 Bug sin resolver · "Sacar"/"Medio previsto" en fichas no reaccionan al clic · para los dos
+
+Construidas las 3 piezas del flujo "confirmar torneo clonado": borrar_ficha, editar_medio_previsto (motor, aplicadas), y su cableado en FichasEditor.tsx. Compilan limpio (tsc + build).
+
+Probado en vivo en el torneo de prueba (c27ce901-..., 28 fichas, 0 cuotas — confirmado contra la base): el Select de "Medio previsto" y el botón "Sacar" no reaccionan al clic/cambio. Cero logs en consola, cero request de red. "Mover de serie" (función previa, mismo patrón) sí funciona en la misma pantalla.
+
+Descartado: caché (hard reload + rm -rf .next + reinicio completo, sin cambios), tieneCuotas escondiendo los controles (confirmado 0 cuotas), cableado del código (onClick/onChange apuntan bien, revisado dos veces).
+
+Sin resolver todavía. Próximo paso: inspeccionar con React DevTools (pestaña Components) si el prop onClick realmente llega al elemento en el árbol de React, en vez de confiar en el HTML crudo.
+
+No apliqué nada a medias — el motor (borrar_ficha, editar_medio_previsto) está bien y verificado por su cuenta. El problema es específico de la conexión UI, no de las funciones en sí.
+
+Confirmá con: grep -n "Sacar.*Medio previsto.*en fichas no reaccionan" docs/coordinacion.md
+
 ### 🔴 Hallazgo · torneo.ejercicio_id sin completar para los torneos reales · para los dos
 
 Probando el botón de clonar_torneo (ya construido y funcionando), la validación se frenó correctamente: "Clausura 2026" y "Apertura 2027" (los dos torneos reales) tienen ejercicio_id = NULL. Solo el torneo de prueba de hoy lo tiene (porque lo pasamos explícito).
