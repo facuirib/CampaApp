@@ -145,6 +145,9 @@ export const GRUPOS: GrupoNav[] = [
     titulo: 'Operación',
     items: [
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
+      // Al lado de Gastos porque es su contracara, igual que Equipos al lado de
+      // Cobranza: acá está A QUIÉN se le compra, allá CUÁNTO se gastó.
+      { href: '/proveedores', label: 'Proveedores', icon: 'equipos' },
       { href: '/caja', label: 'Caja', icon: 'caja' },
       { href: '/arqueo', label: 'Arqueo', icon: 'arqueo', roles: CON_ARQUEO },
       { href: '/bar', label: 'Bar', icon: 'bar', roles: CON_BAR },

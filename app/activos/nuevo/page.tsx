@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
+import SelectorProveedor from '@/app/proveedores/SelectorProveedor'
 import { formatMoney } from '@/lib/format'
 import { Button, Field, Input, Select } from '@/components/ui'
 
@@ -296,16 +297,16 @@ export default function ActivoNuevoPage() {
               </Select>
             </Field>
 
-            <Field label="Proveedor" hint="A quién se le compró. Opcional.">
-              <Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
-                <option value="">Sin proveedor</option>
-                {proveedores.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {/* Mismo criterio que en el alta de gasto: el proveedor de un
+                activo casi siempre es uno nuevo —una compra grande y puntual—
+                así que tiene que poder crearse acá. */}
+            <SelectorProveedor
+              proveedores={proveedores.map((p) => ({ id: p.id!, nombre: p.nombre }))}
+              valor={proveedorId}
+              onChange={setProveedorId}
+              puedeCrear
+              hint="A quién se le compró. Si no está, se crea acá."
+            />
           </div>
 
           <div className="mt-4">

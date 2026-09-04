@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
+import SelectorProveedor from '@/app/proveedores/SelectorProveedor'
 import { formatMoney } from '@/lib/format'
 import { AsientoPreview, Button, Card, Field, Input, Select } from '@/components/ui'
 import { ERROR_PREVIEW_INESPERADO, leerPreviewAsiento, type PreviewAsiento } from '@/lib/db/preview'
@@ -529,19 +530,17 @@ export default function FormularioGasto({
                 </Select>
               </Field>
 
-              <Field label="Proveedor">
-                <Select
-                  placeholder="Sin proveedor…"
-                  value={proveedorId ?? ''}
-                  onChange={(e) => setProveedorId(e.target.value || null)}
-                >
-                  {proveedores.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              {/* El proveedor se descubre acá: llegó la factura de alguien que
+                  no está en la lista. Mandar a otra pantalla significaría
+                  perder el formulario a medio llenar — y el resultado real fue
+                  que nadie cargaba proveedor: 16 gastos, ninguno con uno. */}
+              <SelectorProveedor
+                proveedores={proveedores}
+                valor={proveedorId ?? ''}
+                onChange={(id) => setProveedorId(id || null)}
+                puedeCrear
+                hint="A quién se le compró. Si no está, se crea acá."
+              />
 
 
               {pideActivo && (

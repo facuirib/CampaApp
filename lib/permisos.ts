@@ -220,6 +220,35 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['registrar_cobro', 'imputar_pago'] },
   },
+  'proveedor.crear': {
+    // Dar de alta y editar proveedores: a quién se le compra.
+    //
+    // CON_FINANZAS, la misma lista que `gasto.registrar`, y por eso: un
+    // proveedor se da de alta CUANDO se carga un gasto o se compra un activo.
+    // Quien puede cargar el gasto tiene que poder nombrar a quién se le compró
+    // sin pedirle a otro que cree la ficha.
+    //
+    // 🔴 Hasta esta migración las policies eran `check(true)`: cualquier
+    // autenticado podía crear un proveedor, `lectura` incluido — probado rol
+    // por rol. El verificador decía «(NADIE)» porque extrae los roles del texto
+    // de la policy y un `true` no nombra ninguno; el efecto real era el
+    // opuesto.
+    //
+    // Son DOS ops y no una, porque son dos puertas distintas: el alta pasa por
+    // `crear_proveedor` y la edición escribe la tabla directo. Cada una se
+    // verifica contra lo que de verdad la protege.
+    que: 'Dar de alta un proveedor',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_proveedor'] },
+  },
+  'proveedor.editar': {
+    // La otra puerta. La ficha escribe la tabla directo, sin función, así que
+    // la policy de UPDATE es toda la regla — y hasta esta migración era
+    // `using(true)`: cualquiera editaba.
+    que: 'Editar los datos de un proveedor',
+    roles: CON_FINANZAS,
+    donde: { tabla: 'proveedor', cmd: 'UPDATE' },
+  },
   'cliente.editar': {
     // Los datos fiscales de un cliente: lo que después se congela en el
     // comprobante. Mismos roles que el resto de `tercero` —el que carga un CUIT

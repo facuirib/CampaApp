@@ -3187,6 +3187,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gasto_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "v_proveedor"
+            referencedColumns: ["proveedor_id"]
+          },
+          {
             foreignKeyName: "gasto_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
@@ -8234,6 +8241,26 @@ export type Database = {
           cuotas: number | null
           monto: number | null
           torneo_id: string | null
+        }
+        Relationships: []
+      }
+      v_proveedor: {
+        Row: {
+          activo: boolean | null
+          activos: number | null
+          adeudado: number | null
+          compras: number | null
+          condicion_iva: string | null
+          contacto: string | null
+          cuit: string | null
+          domicilio: string | null
+          email: string | null
+          nombre: string | null
+          pagado: number | null
+          proveedor_id: string | null
+          razon_social: string | null
+          total: number | null
+          ultima_compra: string | null
         }
         Relationships: []
       }

@@ -286,7 +286,6 @@ const PUERTAS_SIN_UI: Record<string, string> = {
   crear_cat_gasto: 'ABM de categorías de gasto',
   editar_cat_gasto: 'ABM de categorías de gasto',
   desactivar_cat_gasto: 'ABM de categorías de gasto',
-  crear_proveedor: 'Alta de proveedor — ojo: sus policies no nombran ningún rol, revisar al catalogar',
   crear_plan_tarifa: 'Alta de un plan de tarifas (hoy sólo se editan los existentes)',
   crear_playoff: 'Alta de instancia de playoff — la puerta existe, la pantalla no',
   crear_gasto_planificado: 'Planificación de gastos',
