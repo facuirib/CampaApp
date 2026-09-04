@@ -5,6 +5,7 @@ import { formatDate } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Badge, Card, Icon, KpiCard } from '@/components/ui'
+import ConfirmarTorneo from './ConfirmarTorneo'
 import PestanasTorneo from './PestanasTorneo'
 
 export const dynamic = 'force-dynamic'
@@ -64,9 +65,12 @@ export default async function TorneoDetallePage({
   if (!UUID.test(torneoId)) notFound()
 
   const supabase = await createClient()
-  const [{ data: listo }, { data: torneo }, rol] = await Promise.all([
+  const [{ data: listo }, { data: torneo }, { data: previo }, rol] = await Promise.all([
     supabase.from('v_torneo_listo').select('*').eq('torneo_id', torneoId).maybeSingle(),
     supabase.from('v_torneo_lista').select('*').eq('torneo_id', torneoId).maybeSingle(),
+    // Qué generaría confirmar. Sale de su vista y se verificó contra el
+    // resultado real: coinciden al peso.
+    supabase.from('v_previo_confirmar').select('*').eq('torneo_id', torneoId).maybeSingle(),
     rolActual(),
   ])
 
@@ -186,11 +190,21 @@ export default async function TorneoDetallePage({
             anularlas primero.
           </p>
         ) : (
-          <p className="rounded-md bg-okbg px-4 py-3 text-[11.5px] text-oktx">
-            <strong className="font-bold">Listo para confirmar.</strong> Al confirmar se generan
-            las cuotas de las {listo.fichas} fichas.
-            {!puedeConfirmar && ' Confirmar es de administrador.'}
-          </p>
+          <>
+            <p className="mb-3 rounded-md bg-okbg px-4 py-3 text-[11.5px] text-oktx">
+              <strong className="font-bold">Listo para confirmar.</strong> Al confirmar se generan
+              las cuotas de las {listo.fichas} fichas, a partir del tarifario y del calendario.
+              {!puedeConfirmar && ' Confirmar es de administrador.'}
+            </p>
+            {puedeConfirmar && (
+              <ConfirmarTorneo
+                torneoId={torneoId}
+                cuotas={previo?.cuotas ?? 0}
+                monto={Number(previo?.monto ?? 0)}
+                fichas={listo.fichas ?? 0}
+              />
+            )}
+          </>
         )}
       </Card>
     </div>

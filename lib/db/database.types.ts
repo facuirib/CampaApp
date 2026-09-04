@@ -8229,6 +8229,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_previo_confirmar: {
+        Row: {
+          cuotas: number | null
+          monto: number | null
+          torneo_id: string | null
+        }
+        Relationships: []
+      }
       v_reclamo_equipo: {
         Row: {
           dias_desde_ultimo: number | null
