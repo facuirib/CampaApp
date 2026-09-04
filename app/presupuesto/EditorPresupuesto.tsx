@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney } from '@/lib/format'
-import { Badge, Button, Card, Field, Input, Select } from '@/components/ui'
+import { Badge, Button, Card, Field, Input, KpiCard, Select } from '@/components/ui'
 
 /**
  * El presupuesto: lo MUESTRA y lo edita.
@@ -122,6 +122,25 @@ export default function EditorPresupuesto({
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  /**
+   * El año que se está mirando.
+   *
+   * Un presupuesto pertenece a un **ejercicio**, y `ejercicio.anio` ES el año
+   * calendario: no hace falta inventar una dimensión nueva para filtrar por
+   * año, ya está en el modelo. `v_presupuesto_ambito` lo trae resuelto y baja
+   * en `s.anio`.
+   *
+   * Arranca en «todos» y no en el año en curso, a propósito: el presupuesto se
+   * arma con meses de anticipación —en octubre se presupuesta el año que
+   * viene— y abrir escondiendo justo eso sería esconder el trabajo en curso.
+   */
+  const [anio, setAnio] = useState<number | 'todos'>('todos')
+
+  // Los años que REALMENTE tienen presupuesto, no los ejercicios que existen:
+  // un ejercicio sin ninguna cabecera daría una opción que filtra a cero.
+  const anios = [...new Set(secciones.map((s) => s.anio))].sort((a, b) => b - a)
+  const visibles = anio === 'todos' ? secciones : secciones.filter((s) => s.anio === anio)
+
   async function llamar(fn: string, args: Record<string, unknown>, alTerminar?: () => void) {
     setOcupado(true)
     setError(null)
@@ -157,8 +176,67 @@ export default function EditorPresupuesto({
         </div>
       )}
 
+      {/* ── El año ─────────────────────────────────────────────────────────
+          Sólo aparece cuando hay más de uno. Un filtro con una sola opción no
+          filtra nada: es un control muerto que hace parecer que hay algo que
+          elegir. */}
+      {anios.length > 1 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[.06em] text-muted">Año</span>
+          {(['todos', ...anios] as const).map((a) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => setAnio(a as number | 'todos')}
+              className={
+                'rounded-full border px-3 py-1 text-[11px] font-semibold transition ' +
+                (anio === a
+                  ? 'border-blue-d bg-blue-d text-white'
+                  : 'border-line bg-white text-muted hover:text-ink')
+              }
+            >
+              {a === 'todos' ? 'Todos' : a}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Los KPIs ───────────────────────────────────────────────────────
+          Viven acá y no en la Server Page porque tienen que seguir al filtro
+          de año, que es estado de cliente. El número sigue saliendo de la
+          vista —`s.total`, ya resuelto por v_presupuesto_ambito—: lo que se
+          mudó es dónde se dibuja, no quién lo calcula.
+
+          No hay un "total general": sumar los ámbitos sería el .reduce() que
+          la regla 1 prohíbe, y además mezclaría un torneo con la estructura
+          anual, que no se comparan. */}
+      {visibles.length > 0 && (
+        <div className="mb-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
+          {visibles.map((s) => (
+            <KpiCard
+              key={s.presupuesto_id}
+              tono={s.estado === 'aprobado' ? 'info' : 'neutro'}
+              titulo={s.ambito}
+              valor={s.total}
+              icon={s.es_estructura ? 'banco' : 'proyeccion'}
+              subtitulo={
+                s.estado === 'aprobado'
+                  ? `${s.lineas} ${s.lineas === 1 ? 'línea' : 'líneas'} · proyectando`
+                  : `${s.lineas} ${s.lineas === 1 ? 'línea' : 'líneas'} · en borrador, no proyecta`
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {secciones.length > 0 && visibles.length === 0 && (
+        <p className="mb-4 rounded-md border border-dashed border-line bg-panel px-4 py-6 text-center text-[11px] text-muted">
+          No hay ningún presupuesto del {anio}. Los que hay están en otros años.
+        </p>
+      )}
+
       <div className="grid gap-4">
-        {secciones.map((s) => {
+        {visibles.map((s) => {
           const aprobado = s.estado === 'aprobado'
           return (
             <Card

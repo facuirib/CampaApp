@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { KpiCard } from '@/components/ui'
+
 import EditorPresupuesto, { type AmbitoPresupuesto, type LineaPresupuesto } from './EditorPresupuesto'
 import type { Database } from '@/lib/db/database.types'
 
@@ -111,29 +111,9 @@ export default async function PresupuestoPage() {
         <p className="mb-4 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
 
-      {/* ── Los KPIs ───────────────────────────────────────────────────────
-          Uno por ámbito, con su total ya resuelto por v_presupuesto_ambito.
-          No hay un "total general" sumado acá: sumar los ámbitos sería
-          exactamente el .reduce() que la regla 1 prohíbe, y además mezclaría
-          un torneo con la estructura anual, que no se comparan. */}
-      {secciones.length > 0 && (
-        <div className="mb-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
-          {secciones.map((s) => (
-            <KpiCard
-              key={s.presupuesto_id}
-              tono={s.estado === 'aprobado' ? 'info' : 'neutro'}
-              titulo={s.ambito}
-              valor={s.total}
-              icon={s.es_estructura ? 'banco' : 'proyeccion'}
-              subtitulo={
-                s.estado === 'aprobado'
-                  ? `${s.lineas} ${s.lineas === 1 ? 'línea' : 'líneas'} · proyectando`
-                  : `${s.lineas} ${s.lineas === 1 ? 'línea' : 'líneas'} · en borrador, no proyecta`
-              }
-            />
-          ))}
-        </div>
-      )}
+      {/* Los KPIs por ámbito los dibuja EditorPresupuesto: tienen que seguir al
+          filtro de año, que es estado de cliente. El número sigue saliendo de
+          v_presupuesto_ambito — se mudó el render, no el cálculo. */}
 
       {/* ── Cobertura ──────────────────────────────────────────────────────
           Un aviso, no un error: presupuestar todo no es obligatorio. Pero lo
