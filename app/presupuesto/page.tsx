@@ -82,6 +82,7 @@ export default async function PresupuestoPage() {
           unidad_linea: l.unidad_linea ?? null,
           factor: l.factor ?? 0,
           total: l.total_presupuestado ?? 0,
+          nota: l.concepto_libre,
         }),
       )
       .sort((a, b) => (b.total ?? 0) - (a.total ?? 0)),

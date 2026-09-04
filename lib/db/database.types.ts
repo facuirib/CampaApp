@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       _prueba_marca: {
@@ -4252,6 +4277,7 @@ export type Database = {
           cantidad: number
           cat_gasto_id: string
           concepto_id: string | null
+          concepto_libre: string | null
           fecha: string | null
           id: string
           presupuesto_id: string
@@ -4262,6 +4288,7 @@ export type Database = {
           cantidad?: number
           cat_gasto_id: string
           concepto_id?: string | null
+          concepto_libre?: string | null
           fecha?: string | null
           id?: string
           presupuesto_id: string
@@ -4272,6 +4299,7 @@ export type Database = {
           cantidad?: number
           cat_gasto_id?: string
           concepto_id?: string | null
+          concepto_libre?: string | null
           fecha?: string | null
           id?: string
           presupuesto_id?: string
@@ -7960,6 +7988,7 @@ export type Database = {
           cantidad: number | null
           cat_gasto_id: string | null
           concepto_id: string | null
+          concepto_libre: string | null
           ejercicio_id: string | null
           estado: string | null
           factor: number | null
@@ -8943,6 +8972,7 @@ export type Database = {
           p_cantidad?: number
           p_cat_gasto_id: string
           p_concepto_id?: string
+          p_concepto_libre?: string
           p_presupuesto_id: string
           p_unidad?: string
         }
@@ -9350,6 +9380,7 @@ export type Database = {
         Args: {
           p_base?: number
           p_cantidad?: number
+          p_concepto_libre?: string
           p_linea_id: string
           p_unidad?: string
         }
@@ -9822,6 +9853,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       concepto_pago: ["inscripcion", "partidos"],

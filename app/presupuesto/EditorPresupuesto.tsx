@@ -40,6 +40,15 @@ export interface LineaPresupuesto {
   unidad_linea: string | null
   factor: number
   total: number
+  /**
+   * La aclaración en texto libre, o null.
+   *
+   * ACOMPAÑA a la categoría, no la reemplaza: una línea puede estar bien
+   * clasificada y además necesitar decir «suponiendo dos predios» o «pendiente
+   * de confirmar con el proveedor». Por eso no hay XOR con `concepto_id` como
+   * sí lo hay en `gasto` — obligaría a elegir entre clasificar y explicar.
+   */
+  nota: string | null
 }
 
 export interface AmbitoPresupuesto {
@@ -106,11 +115,13 @@ export default function EditorPresupuesto({
   const [editando, setEditando] = useState<string | null>(null)
   const [base, setBase] = useState(0)
   const [cantidad, setCantidad] = useState(1)
+  const [nota, setNota] = useState('')
 
   const [agregandoEn, setAgregandoEn] = useState<string | null>(null)
   const [nuevaCat, setNuevaCat] = useState('')
   const [nuevaBase, setNuevaBase] = useState(0)
   const [nuevaCant, setNuevaCant] = useState(1)
+  const [nuevaNota, setNuevaNota] = useState('')
 
   const [borrando, setBorrando] = useState<LineaPresupuesto | null>(null)
   const [borrandoDe, setBorrandoDe] = useState<AmbitoPresupuesto | null>(null)
@@ -301,12 +312,31 @@ export default function EditorPresupuesto({
                       const enEdicion = editando === l.id
                       return (
                         <tr key={l.id} className="border-t border-line2">
+                          {/* La nota vive DEBAJO de la categoría y no en una
+                              columna propia: es una aclaración de esta línea,
+                              no un dato más que se compare entre filas. Una
+                              séptima columna además dejaría la tabla sin aire
+                              justo donde están los números. */}
                           <td className="px-4 py-2.5 font-semibold text-ink">
                             {l.categoria}
                             {l.unidad_linea === null && (
                               <span className="ml-1.5 text-[9px] uppercase tracking-wide text-muted">
                                 unidad heredada
                               </span>
+                            )}
+                            {enEdicion ? (
+                              <Input
+                                className="mt-1.5"
+                                value={nota}
+                                placeholder="Aclaración (opcional)"
+                                onChange={(e) => setNota(e.target.value)}
+                              />
+                            ) : (
+                              l.nota && (
+                                <p className="mt-0.5 text-[10.5px] font-normal leading-snug text-muted">
+                                  {l.nota}
+                                </p>
+                              )
                             )}
                           </td>
 
@@ -361,7 +391,17 @@ export default function EditorPresupuesto({
                                   onClick={() =>
                                     llamar(
                                       'editar_linea_presupuesto',
-                                      { p_linea_id: l.id, p_base: base, p_cantidad: cantidad },
+                                      {
+                                        p_linea_id: l.id,
+                                        p_base: base,
+                                        p_cantidad: cantidad,
+                                        // Se manda SIEMPRE, incluso vacía: la
+                                        // función distingue cadena vacía —borrar
+                                        // la nota— de null —no tocarla—, y si el
+                                        // campo se vaciara a propósito y no se
+                                        // mandara, la nota vieja quedaría.
+                                        p_concepto_libre: nota,
+                                      },
                                       () => setEditando(null),
                                     )
                                   }
@@ -386,6 +426,7 @@ export default function EditorPresupuesto({
                                     setEditando(l.id)
                                     setBase(l.base)
                                     setCantidad(l.cantidad)
+                                    setNota(l.nota ?? '')
                                   }}
                                 >
                                   Editar
@@ -441,6 +482,19 @@ export default function EditorPresupuesto({
                         onChange={(e) => setNuevaCant(Number(e.target.value))}
                       />
                     </Field>
+                    <Field
+                      label="Aclaración"
+                      // Span 3 y no 4: así cae en la segunda fila ocupando el
+                      // ancho de los tres controles, y los botones quedan a su
+                      // derecha en la columna `auto` en vez de solos abajo.
+                      className="sm:col-span-3"
+                      hint="Opcional. Por qué se presupuestó así — «suponiendo dos predios», «a confirmar con el proveedor»."
+                    >
+                      <Input
+                        value={nuevaNota}
+                        onChange={(e) => setNuevaNota(e.target.value)}
+                      />
+                    </Field>
                     <div className="flex gap-2 pb-1">
                       <Button
                         loading={ocupado}
@@ -453,12 +507,14 @@ export default function EditorPresupuesto({
                               p_cat_gasto_id: nuevaCat,
                               p_base: nuevaBase,
                               p_cantidad: nuevaCant,
+                              p_concepto_libre: nuevaNota,
                             },
                             () => {
                               setAgregandoEn(null)
                               setNuevaCat('')
                               setNuevaBase(0)
                               setNuevaCant(1)
+                              setNuevaNota('')
                             },
                           )
                         }
