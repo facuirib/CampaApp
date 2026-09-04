@@ -7790,6 +7790,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pl_semanal_total: {
+        Row: {
+          anio: number | null
+          egresos: number | null
+          financiero: number | null
+          ingresos: number | null
+          resultado: number | null
+          semana: string | null
+        }
+        Relationships: []
+      }
       v_plan_tarifa_uso: {
         Row: {
           activo: boolean | null
@@ -9226,6 +9237,7 @@ export type Database = {
         Args: { p_fecha: string; p_predio_id: string }
         Returns: string
       }
+      crear_ejercicio: { Args: { p_anio: number }; Returns: string }
       crear_equipo_torneo: {
         Args: {
           p_medio_previsto: Database["public"]["Enums"]["medio_pago"]

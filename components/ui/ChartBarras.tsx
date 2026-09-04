@@ -1,4 +1,4 @@
-import { formatMoneyCorto } from '@/lib/format'
+import { escalaEje, formatTickMoneda } from './escala'
 
 /** Una serie: la misma magnitud a lo largo del eje X. */
 export interface SerieBarras {
@@ -98,8 +98,12 @@ export default function ChartBarras({
       for (const s of series) topes.push(s.valores[i] ?? 0)
     }
   }
-  const maxV = Math.max(...topes)
-  const minV = Math.min(...topes)
+  // El eje va a números redondos en vez de al máximo exacto del dato: el techo
+  // se rotulaba «$7,9M», que es el valor de la barra más alta y no una regla
+  // contra la cual leerla. Ver components/ui/escala.ts.
+  const eje = escalaEje(Math.min(...topes), Math.max(...topes), 5)
+  const minV = eje.min
+  const maxV = eje.max
   const rango = maxV - minV || 1
   const escalaY = (v: number) => MARGEN.arr + altoPlot - ((v - minV) / rango) * altoPlot
   const yCero = escalaY(0)
@@ -134,7 +138,7 @@ export default function ChartBarras({
           strokeWidth={1}
         />
         <text x={MARGEN.izq - 8} y={escalaY(maxV) + 4} textAnchor="end" fontSize={10} fill="var(--muted)">
-          {formatMoneyCorto(maxV)}
+          {formatTickMoneda(maxV, eje.paso)}
         </text>
 
         <line
@@ -147,7 +151,7 @@ export default function ChartBarras({
         />
         {minV < 0 && (
           <text x={MARGEN.izq - 8} y={escalaY(minV) + 4} textAnchor="end" fontSize={10} fill="var(--muted)">
-            {formatMoneyCorto(minV)}
+            {formatTickMoneda(minV, eje.paso)}
           </text>
         )}
 

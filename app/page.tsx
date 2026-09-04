@@ -6,6 +6,7 @@ import Exportar from './Exportar'
 import {
   ChartArea,
   ChartBarras,
+  ChartBarrasH,
   ChartTorta,
   KpiCard,
   DataTable,
@@ -117,7 +118,7 @@ export default async function Home({
 
   const mesEnCurso = new Date().toISOString().slice(0, 7)
 
-  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola, gastosCat, gastosDia] =
+  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola, gastosCat, gastosDia, cajas] =
     await Promise.all([
     torneoElegido
       ? supabase.from('v_dashboard').select('*').eq('torneo_id', torneoElegido).maybeSingle()
@@ -133,7 +134,11 @@ export default async function Home({
       ? supabase.from('v_cobranza_etapa').select('*').eq('torneo_id', torneoElegido)
       : Promise.resolve({ data: [], error: null }),
     supabase.from('v_pl_anual_cuenta').select('*').eq('anio', anio).eq('tipo', 'ingreso'),
-    supabase.from('v_pl_mensual_total').select('*').eq('anio', anio).order('mes'),
+    // Por SEMANA y no por mes: es lo que pide el panel de ingresos vs gastos.
+    // `v_pl_semanal_total` es la mensual con otro corte temporal —mismo origen,
+    // misma convención de signo—, verificado que los totales del año dan
+    // idénticos por las dos vías.
+    supabase.from('v_pl_semanal_total').select('*').eq('anio', anio).order('semana'),
     supabase.from('v_cobro_medio_anio').select('*').eq('anio', anio),
     // Las deudas urgentes: la misma cola que /cobranza, ordenada por atraso.
     // `limit(8)` es un recorte del DASHBOARD, no de la cola — por eso abajo va
@@ -154,6 +159,9 @@ export default async function Home({
       .eq('anio', Number(mesEnCurso.slice(0, 4)))
       .eq('mes', Number(mesEnCurso.slice(5, 7)))
       .order('dia'),
+    // Cuánta plata hay en cada caja. La MISMA vista que /caja, así que los dos
+    // números son el mismo número (A2).
+    supabase.from('v_saldo_caja').select('nombre, saldo').order('saldo', { ascending: false }),
   ])
 
   const d = dash.data
@@ -200,13 +208,40 @@ export default async function Home({
     color: etapaCobranza(e.etapa)?.color,
   }))
 
-  const meses = plMes.data ?? []
-  const ejeMeses = meses.map((m) => String(m.mes).padStart(2, '0'))
+  // ── Ingresos vs gastos, por semana ───────────────────────────────────────
+  //
+  // El corte a las últimas 12 es del DASHBOARD, no de los datos: un año son 52
+  // filas horizontales y eso no es un panel, es una tabla. Se dice cuántas
+  // quedaron afuera, igual que con las deudas urgentes.
+  //
+  // Las 12 más recientes, pero dibujadas de la más vieja a la más nueva: se lee
+  // hacia abajo como avanza el tiempo.
+  const SEMANAS = 12
+  const semanasTodas = plMes.data ?? []
+  const semanas = semanasTodas.slice(-SEMANAS)
+  const semanasFuera = Math.max(semanasTodas.length - SEMANAS, 0)
+
+  const ejeSemanas = semanas.map((s) => {
+    const [, m, dd] = String(s.semana).split('-')
+    return `Sem. ${dd}/${m}`
+  })
+  // 🔴 Los dos POSITIVOS, al revés que en la versión vertical. Allá el gasto se
+  // dibujaba hacia abajo porque compartían el eje cero; acá son dos barras
+  // lado a lado y lo que se compara es el LARGO. Un gasto hacia la izquierda se
+  // leería como un gasto negativo.
   const seriesIngresoGasto: SerieBarras[] = [
-    { label: 'Ingresos', color: 'var(--ok)', valores: meses.map((m) => Number(m.ingresos ?? 0)) },
-    // Los egresos vienen POSITIVOS de la vista —es lo que gastó— y se dibujan
-    // hacia abajo: el signo es del gráfico, no del dato.
-    { label: 'Gastos', color: 'var(--err)', valores: meses.map((m) => -Number(m.egresos ?? 0)) },
+    { label: 'Ingresos', color: 'var(--ok)', valores: semanas.map((s) => Number(s.ingresos ?? 0)) },
+    { label: 'Gastos', color: 'var(--err)', valores: semanas.map((s) => Number(s.egresos ?? 0)) },
+  ]
+
+  // ── Cuánta plata hay en cada caja ────────────────────────────────────────
+  //
+  // Mapeo de v_saldo_caja, la misma vista que dibuja /caja. Una sola serie, así
+  // que el gráfico escribe el saldo al final de cada barra.
+  const filasCaja = cajas.data ?? []
+  const ejeCajas = filasCaja.map((c) => c.nombre ?? 'Caja')
+  const serieCajas: SerieBarras[] = [
+    { label: 'Saldo', color: 'var(--blue)', valores: filasCaja.map((c) => Number(c.saldo ?? 0)) },
   ]
 
   // Paleta por posición: «Ingresos por partidos» no es mejor ni peor que
@@ -451,6 +486,26 @@ export default async function Home({
           torneo ni del año elegidos.
         </p>
         <ChartArea serie={serie} alto={380} titulo="Saldo de caja por semana, real y proyectado" />
+
+        {/* ── Dónde está esa plata ──────────────────────────────────────────
+            La curva de arriba dice cuánto hay en total; ésta, en qué caja está.
+            Son la misma pregunta a dos niveles y por eso van juntas: el saldo
+            total no dice nada sobre si la plata está donde hace falta.
+
+            Horizontal porque las cajas tienen nombre —«Bar Efectivo
+            Aeropuerto»— y en vertical no entra ninguno. Y porque hay una en
+            −$48M: el eje ubica el cero según el rango, así que esa barra sale
+            para el otro lado en vez de apoyarse contra el borde. */}
+        <div className="mt-4">
+          <Bloque icono="caja" titulo="Dónde está la plata" href="/caja" verTexto="Ver cajas">
+            <ChartBarrasH
+              categorias={ejeCajas}
+              series={serieCajas}
+              anchoEtiqueta={190}
+              titulo="Saldo de cada caja"
+            />
+          </Bloque>
+        </div>
       </section>
 
       {/* ── Banda de cobranza ─────────────────────────────────────────────
@@ -578,25 +633,41 @@ export default async function Home({
           . <strong className="font-semibold text-ink">No dependen del torneo</strong>: el
           resultado es de la empresa.
         </p>
-        {/* Ancho completo: es el único de la banda que compara DOS magnitudes a
-            lo largo del tiempo, y con doce meses en media pantalla las barras
-            quedaban tan finas que no se comparaba nada. */}
+        {/* ── Ingresos vs gastos, por semana y en horizontal ────────────────
+            Ancho completo: es el único de la banda que compara dos magnitudes
+            a lo largo del tiempo.
+
+            🔴 Por SEMANA y no por mes calendario. La decisión de la Ola 3 —mes
+            calendario— era sobre qué balde usar contra la alternativa de la
+            JORNADA del torneo, y eso sigue igual: esto se sigue midiendo por
+            fecha del calendario y no por fecha del fixture. Lo que cambia es el
+            tamaño del balde.
+
+            La semana sale de `v_pl_semanal_total`, una vista nueva: no se
+            reusó `v_cashflow.entradas/salidas`, que ya tenía semana, porque
+            mide CAJA y este panel muestra RESULTADO. Para los ingresos
+            coinciden —el ingreso se reconoce al cobrar— pero para los gastos
+            no: el gasto se devenga al cargarlo y se paga después. Habría
+            cambiado el significado del gráfico con la excusa de cambiarle la
+            granularidad. */}
         <div className="mb-4">
-          {/* Por MES calendario, no por jornada: es la decisión de la Ola 3 y
-              se mantiene. El mockup lo hace por fecha del torneo, que responde
-              otra pregunta —cuánto deja cada jornada— y no la de esta banda. */}
           <Bloque
             icono="resultados"
-            titulo="Ingresos vs gastos por mes"
+            titulo="Ingresos vs gastos por semana"
             href="/resultados"
             verTexto="Ver resultados"
+            pie={
+              semanasFuera > 0
+                ? `Las últimas ${SEMANAS} semanas con movimiento. Hay ${semanasFuera} anteriores en ${anio}, en Resultados.`
+                : null
+            }
           >
-            <ChartBarras
-              ejeX={ejeMeses}
+            <ChartBarrasH
+              categorias={ejeSemanas}
               series={seriesIngresoGasto}
               modo="agrupadas"
-              alto={260}
-              titulo={`Ingresos contra gastos por mes, ${anio}`}
+              anchoEtiqueta={110}
+              titulo={`Ingresos contra gastos por semana, ${anio}`}
             />
           </Bloque>
         </div>

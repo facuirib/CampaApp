@@ -1,4 +1,4 @@
-import { formatMoneyCorto } from '@/lib/format'
+import { escalaEje, formatTickMoneda } from './escala'
 
 export interface PuntoSerie {
   fecha: string | Date
@@ -175,9 +175,14 @@ export default function ChartArea({
   const valores = serie.map((p) => p.valor)
   const crudoMin = Math.min(0, ...valores)
   const crudoMax = Math.max(0, ...valores)
+  // El eje se lleva a números redondos en vez de a los extremos exactos del
+  // dato. El colchón sigue existiendo —para que el trazo no toque el borde—
+  // pero lo que se rotula ya no es «$7,9M» sino la marca redonda que lo
+  // contiene. Ver components/ui/escala.ts.
   const colchon = (crudoMax - crudoMin || 1) * 0.1
-  const minY = crudoMin - colchon
-  const maxY = crudoMax + colchon
+  const eje = escalaEje(crudoMin - colchon, crudoMax + colchon, L.ticks)
+  const minY = eje.min
+  const maxY = eje.max
 
   const n = serie.length
   const escalaX = (i: number) =>
@@ -214,10 +219,8 @@ export default function ChartArea({
   const y0 = escalaY(0)
   const baseArea = Math.min(Math.max(y0, MARGEN.arr), MARGEN.arr + altoPlot)
 
-  const ticksY = Array.from(
-    { length: L.ticks },
-    (_, i) => maxY - (i / (L.ticks - 1)) * (maxY - minY),
-  )
+  // De arriba hacia abajo, que es el orden en que se dibujan.
+  const ticksY = [...eje.ticks].reverse()
   const pasoX = Math.max(1, Math.ceil(n / topeEtiquetasX))
   // La última fecha se rotula solo si no queda pegada a la anterior. Forzarla
   // siempre hacía que en `compacto` se solaparan las dos últimas ("31 ago7 sept").
@@ -281,7 +284,7 @@ export default function ChartArea({
             fill="var(--muted)"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
-            {formatMoneyCorto(t)}
+            {formatTickMoneda(t, eje.paso)}
           </text>
         ))}
 

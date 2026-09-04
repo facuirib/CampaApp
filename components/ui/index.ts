@@ -36,6 +36,8 @@ export { default as Button, type ButtonProps, type TamanoBoton, type VarianteBot
 export { default as Card, type CardProps } from './Card'
 export { default as ChartArea, type ChartAreaProps, type PuntoSerie } from './ChartArea'
 export { default as ChartBarras, type ChartBarrasProps, type SerieBarras } from './ChartBarras'
+export { default as ChartBarrasH, type ChartBarrasHProps } from './ChartBarrasH'
+export { escalaEje, formatTickMoneda, type EscalaEje } from './escala'
 export { default as ChartTorta, type ChartTortaProps, type GajoTorta } from './ChartTorta'
 export {
   default as BarrasComposicion,
