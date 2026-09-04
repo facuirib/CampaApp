@@ -711,6 +711,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "asiento_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       asiento_linea: {
@@ -1109,6 +1116,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -1694,6 +1708,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "compromiso_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -2931,6 +2952,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       escenario: {
@@ -3214,6 +3242,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       gasto_planificado: {
@@ -3329,6 +3364,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_planificado_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -3549,6 +3591,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "movimiento_fondo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -3955,6 +4004,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       plan_tarifa_linea: {
@@ -4172,6 +4228,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -4488,6 +4551,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "reclamo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -5612,6 +5682,13 @@ export type Database = {
             referencedColumns: ["torneo_id"]
           },
           {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
+          {
             foreignKeyName: "jornada_instancia_fkey"
             columns: ["instancia"]
             isOneToOne: false
@@ -6437,6 +6514,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       v_dia_cancha_bar: {
@@ -6521,6 +6605,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
           {
@@ -6647,6 +6738,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -6822,6 +6920,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "categoria_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -7047,6 +7152,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       v_gasto_categoria_mes: {
@@ -7125,6 +7237,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -7299,6 +7418,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "gasto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -7522,6 +7648,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "equipo_torneo_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       v_libro_diario: {
@@ -7719,6 +7852,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "plan_tarifa_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       v_presupuesto_ambito: {
@@ -7796,6 +7936,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -7908,6 +8055,13 @@ export type Database = {
             referencedRelation: "v_torneo_lista"
             referencedColumns: ["torneo_id"]
           },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
+            referencedColumns: ["torneo_id"]
+          },
         ]
       }
       v_presupuesto_total: {
@@ -8015,6 +8169,13 @@ export type Database = {
             columns: ["torneo_id"]
             isOneToOne: false
             referencedRelation: "v_torneo_lista"
+            referencedColumns: ["torneo_id"]
+          },
+          {
+            foreignKeyName: "presupuesto_torneo_id_fkey"
+            columns: ["torneo_id"]
+            isOneToOne: false
+            referencedRelation: "v_torneo_listo"
             referencedColumns: ["torneo_id"]
           },
         ]
@@ -8585,6 +8746,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_torneo_listo: {
+        Row: {
+          categorias: number | null
+          confirmado: boolean | null
+          cuotas: number | null
+          estado: string | null
+          falta: string[] | null
+          fichas: number | null
+          jornadas: number | null
+          jornadas_sin_fecha: number | null
+          nombre: string | null
+          planes: number | null
+          series: number | null
+          torneo_id: string | null
+        }
+        Insert: {
+          categorias?: never
+          confirmado?: never
+          cuotas?: never
+          estado?: string | null
+          falta?: never
+          fichas?: never
+          jornadas?: never
+          jornadas_sin_fecha?: never
+          nombre?: string | null
+          planes?: never
+          series?: never
+          torneo_id?: string | null
+        }
+        Update: {
+          categorias?: never
+          confirmado?: never
+          cuotas?: never
+          estado?: string | null
+          falta?: never
+          fichas?: never
+          jornadas?: never
+          jornadas_sin_fecha?: never
+          nombre?: string | null
+          planes?: never
+          series?: never
+          torneo_id?: string | null
+        }
+        Relationships: []
       }
       v_usd_sincronia: {
         Row: {

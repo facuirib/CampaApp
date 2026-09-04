@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import PestanasTorneo from '../PestanasTorneo'
 import { Card } from '@/components/ui'
 import EstructuraEditor from './EstructuraEditor'
 
@@ -36,6 +37,8 @@ export default async function EstructuraPage({
           Las categorías y series de este torneo. Son propias: las de un torneo no se
           comparten con otro, aunque se llamen igual.
         </p>
+
+        <PestanasTorneo activa="estructura" torneoId={torneoId} />
       </div>
 
       <Card>

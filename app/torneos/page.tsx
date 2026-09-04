@@ -195,7 +195,16 @@ export default async function TorneosPage() {
       )}
 
       <Card>
-        <DataTable columns={COLUMNAS} rows={filas} rowKey={(f, i) => f.torneo_id ?? i} />
+        {/* La puerta de entrada que faltaba. Hasta hoy a un torneo sólo se
+            llegaba por los dos botones de la fila —Estructura y Equipos— y no
+            había forma de verlo entero: ni su calendario, ni si estaba listo
+            para confirmar. */}
+        <DataTable
+          columns={COLUMNAS}
+          rows={filas}
+          rowKey={(f, i) => f.torneo_id ?? i}
+          rowHref={(f) => (f.torneo_id ? `/torneos/${f.torneo_id}` : undefined)}
+        />
       </Card>
     </div>
   )

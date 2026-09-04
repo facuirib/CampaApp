@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import PestanasTorneo from '../PestanasTorneo'
 import { Card } from '@/components/ui'
 import FichasEditor from './FichasEditor'
 
@@ -40,6 +41,19 @@ export default async function FichasPage({
         <p className="mt-1 text-sm text-slate-500">
           Cada ficha es la inscripción de un equipo en este torneo, con su serie y sus
           opciones de pago. El equipo persiste entre torneos; la ficha no.
+        </p>
+
+        <PestanasTorneo activa="equipos" torneoId={torneoId} />
+
+        {/* 🔴 Lo que confundió a Horacio: los controles de «Medio previsto» y
+            «Sacar» NO se dibujan cuando la ficha ya tiene cuotas — el monto se
+            calculó con ese medio y ese plan. No es que no reaccionen: no están.
+            Decirlo acá evita el rato que se pierde buscando un bug de click. */}
+        <p className="mt-3 rounded-md bg-panel px-3 py-2 text-[11px] leading-snug text-muted">
+          Una ficha <strong className="font-semibold text-ink">con cuotas generadas</strong> no se
+          puede sacar ni cambiarle el medio de pago: el monto de cada cuota se calculó con ese
+          medio. Para cambiarlo hay que anular las cuotas primero. Por eso en esas filas los
+          controles no aparecen, y en su lugar dice «No se puede».
         </p>
       </div>
 
