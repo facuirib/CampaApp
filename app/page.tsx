@@ -200,6 +200,19 @@ export default async function Home({
     { label: 'Por vencer', color: 'var(--warn)', valores: filasEtapa.map((e) => Number(e.por_vencer ?? 0)) },
   ]
 
+  // ── Pagos por vencer ─────────────────────────────────────────────────────
+  //
+  // La fila `por_vencer` de v_cobranza_etapa: los equipos de la cola «Por
+  // vencer», con lo que están por pagar. 🔴 NO es `v_dashboard.por_vencer`, y
+  // la diferencia es el sentido de la tarjeta: aquél suma TODA cuota futura
+  // ($37M hoy), esto sólo lo que entra en la ventana de aviso ($7,6M) — lo
+  // PRÓXIMO a vencer, que es plata que está por llegar y equipos a los que
+  // conviene avisarles antes de que se conviertan en mora.
+  //
+  // En esa fila `adeudado` y `por_vencer` coinciden por construcción: la etapa
+  // se asigna cuando el equipo no tiene nada vencido.
+  const colaPorVencer = filasEtapa.find((e) => e.etapa === 'por_vencer')
+
   // La dona de etapas usa color semántico: acá el color SÍ dice algo. Sale de
   // la misma tabla que la etiqueta, así que no pueden desalinearse.
   const gajosEtapa: GajoTorta[] = filasEtapa.map((e) => ({
@@ -443,6 +456,22 @@ export default async function Home({
           valor={d?.vencido ?? 0}
           icon="alerta"
           subtitulo="Vencida e impaga"
+        />
+        {/* El link entra DERECHO a la cola «Por vencer» de avisos, no a la
+            portada de /cobranza: es la misma URL que usa la tarjeta-filtro de
+            esa pantalla, y esta tarjeta existe para ir a avisar. El tono sale
+            de lib/domain/cobranza, como todo lo de la etapa. */}
+        <KpiCard
+          href="/cobranza?vista=avisos&etapa=por_vencer"
+          tono={etapaCobranza('por_vencer')?.tono ?? 'info'}
+          titulo="Pagos por vencer"
+          valor={Number(colaPorVencer?.adeudado ?? 0)}
+          icon="calendario"
+          subtitulo={
+            (colaPorVencer?.equipos ?? 0) > 0
+              ? `${colaPorVencer?.equipos} ${colaPorVencer?.equipos === 1 ? 'equipo' : 'equipos'} · vence en estos días`
+              : 'Nada por vencer en la ventana de aviso'
+          }
         />
         <KpiCard
           href="/equipos"
