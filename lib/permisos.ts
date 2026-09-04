@@ -166,6 +166,25 @@ export const PERMISOS = {
     roles: TODOS_MENOS_LECTURA,
     donde: { fns: ['arrastrar_fichas', 'mover_ficha_de_serie'] },
   },
+  'ficha.editar': {
+    // Sacar una ficha del torneo, y cambiarle el medio de pago previsto.
+    //
+    // 🔴 NO van en `torneo.fichas`, aunque sean de la misma pantalla. Esa op es
+    // TODOS_MENOS_LECTURA —admin y operador— y se declara por `fns`, o sea que
+    // sus roles se derivan de las policies que las funciones atraviesan. Estas
+    // dos tienen `admin` sola escrito en un `if` adentro, que es más estricto
+    // que las policies. Meterlas ahí diría que un operador puede sacar una
+    // ficha, que es falso — mismo caso que `torneo.ciclo` contra `torneo.crear`.
+    //
+    // Las funciones son de Horacio (commit 7fd5ec9) y las catalogamos nosotros
+    // porque el repo quedó rojo y bloqueaba. Esto TRANSCRIBE su guarda, no
+    // decide nada: el rol sale del `if` que él escribió, y el verificador lo lee
+    // de ahí. Queda pedido en coordinacion.md que confirme que admin es lo que
+    // quiso.
+    que: 'Sacar una ficha del torneo o cambiarle el medio de pago previsto',
+    roles: SOLO_ADMIN,
+    donde: { guarda: 'borrar_ficha · editar_medio_previsto' },
+  },
   'ficha.alta': {
     que: 'Dar de alta una ficha, que genera sus cuotas',
     roles: TODOS_MENOS_LECTURA,

@@ -18,6 +18,120 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Catalogamos tus 2 funciones nuevas · el verificador estaba rojo · 04/09/2026 · para Horacio
+
+`borrar_ficha` y `editar_medio_previsto` quedaron aplicadas en la base sin
+catalogar, y el cierre inverso las frenó — 3 desacuerdos, repo en rojo. **Las
+catalogamos nosotros para no quedar bloqueados**, y te lo avisamos para que lo
+confirmes.
+
+**No fueron a `torneo.fichas`**, aunque sean de la misma pantalla, y el motivo
+importa: esa op es `TODOS_MENOS_LECTURA` —admin y operador— y se declara por
+`fns`, o sea que sus roles se derivan de las policies que las funciones
+atraviesan. Las tuyas tienen **`admin` sola** escrita en un `if` adentro, que es
+más estricto que las policies. Meterlas ahí diría que un operador puede sacar
+una ficha, que es falso. Es el mismo caso que `torneo.ciclo` contra
+`torneo.crear`.
+
+Van en una op propia, `ficha.editar`, declarada **por guarda**:
+
+```ts
+'ficha.editar': {
+  que: 'Sacar una ficha del torneo o cambiarle el medio de pago previsto',
+  roles: SOLO_ADMIN,
+  donde: { guarda: 'borrar_ficha · editar_medio_previsto' },
+}
+```
+
+**Esto transcribe tu guarda, no decide nada**: el rol sale del `if` que
+escribiste y el verificador lo lee de ahí. **Lo único que te pedimos es que
+confirmes que `admin` es lo que quisiste** — si querés que operador también
+pueda, se cambia el `if` y la op se actualiza sola.
+
+Verde de nuevo: 57 operaciones · 18 funciones con guarda, todas catalogadas.
+
+Cuarta vez que el cierre inverso agarra esto, y las cuatro **antes** de que el
+front las llamara de verdad. La regla, por si sirve tenerla a mano: **función
+nueva con guarda → una entrada en `lib/permisos.ts`, o el repo queda rojo.**
+
+---
+
+### 🔎 Tu bug de «Sacar» y «Medio previsto» · lo más probable, medido · 04/09/2026 · para Horacio
+
+Miramos el render, no las funciones. **El cableado está bien**: el componente es
+`"use client"`, `Select` reenvía `onChange` con el spread, `ocupado` arranca en
+`null`, la tabla tiene 9 `<th>` y 9 `<td>`, y hay una sola tabla. Nada de eso
+explica el síntoma.
+
+**Lo que sí lo explica exactamente: que los controles NO ESTÉN.** Los tres usan
+banderas distintas:
+
+```
+Mover de serie      se esconde con  atada        = cuotas_con_jornada > 0
+Medio previsto      se esconden con tieneCuotas  = cuotas > 0
+Sacar                     ídem
+```
+
+Cuando una ficha tiene cuotas **sin jornada atada**, pasa justo lo que
+describís: *Mover* se dibuja y funciona, y los otros dos son un `<span>` que
+dice «No se puede · ya tiene cuotas». Clickear un `<span>` no produce logs ni
+request de red — cero y cero, como viste.
+
+Medido, ficha por ficha:
+
+| Torneo | Fichas | Con tu síntoma exacto |
+|---|---|---|
+| **Apertura 2027** (año 2027, `fb16c40d`) | 6 | **las 6** |
+| **Clausura 2026** (`826f8fd6`) | 28 | **13** |
+| Prueba Clon Clausura 2027 (`c27ce901`) | 28 | 0 — todo visible |
+| Apertura 2027 (año **2028**, `e2daf8fb`) | 28 | 0 — todo visible |
+
+**Y hay una trampa que hace muy fácil caer en esto: hay DOS torneos llamados
+«Apertura 2027».** El real (año 2027, 6 fichas, todas con el síntoma) y uno que
+dejó tu prueba de clonado (año 2028, 28 fichas, todo visible). Si elegiste
+«Apertura 2027» de un selector, es probable que hayas abierto el real.
+
+**No es una afirmación de que no haya bug** — decís que probaste en `c27ce901`,
+y ahí las 28 fichas tienen todo visible. Pero es lo primero para descartar, y
+cuesta un minuto: abrí `c27ce901` y fijate si los controles se ven como
+controles o como el texto gris «No se puede». Si se ven como controles y aun así
+no reaccionan, ahí sí hay algo que no encontramos y seguimos buscando.
+
+Si resulta ser esto, el arreglo no es de código: es que el torneo duplicado
+confunde. Sería bueno borrar los dos torneos de prueba antes de entregar.
+
+---
+
+### 📊 `torneo.ejercicio_id` · qué depende del campo · 04/09/2026 · para Horacio
+
+Relevado, sin tocar nada — es tu carril y tu pregunta.
+
+**Hoy no rompe nada.** `v_torneo_actual` devuelve «Clausura 2026» correctamente:
+sólo **expone** `ejercicio_id`, no filtra por él. `v_torneo_lista` devuelve los
+cuatro torneos. La columna es nuleable y no hay constraint que lo exija.
+
+**Quién lo lee de verdad:**
+
+| Dónde | Qué hace con él |
+|---|---|
+| `clonar_torneo` | **lo valida** — por eso te frenó |
+| `crear_torneo` · `crear_presupuesto` · `periodo_de_fecha` | lo usan |
+| `v_presupuesto_*` (4 vistas) · `v_cashflow_comprometido` · `v_cashflow_estimado` | lo leen |
+| `/presupuesto` | elige ejercicio al crear una cabecera |
+
+O sea: **está latente, no roto.** Lo que hoy se apoya en el campo es el
+presupuesto y el clonado; el resto lo arrastra sin usarlo.
+
+**🔴 Y el dato que cambia tu pregunta: sólo existe UN ejercicio, el 2026**
+(2026-01-01 → 2026-12-31, abierto). Así que «asignar el ejercicio del año
+correspondiente» funciona para *Clausura 2026*, pero **para *Apertura 2027* no
+hay ejercicio que asignar** — habría que crear el 2027 primero.
+
+Eso es más que un backfill: es decidir cuándo se abre un ejercicio nuevo y quién
+lo hace. Te lo dejamos con el dato para que lo definas.
+
+---
+
 ### 🔴 Bug sin resolver · "Sacar"/"Medio previsto" en fichas no reaccionan al clic · para los dos
 
 Construidas las 3 piezas del flujo "confirmar torneo clonado": borrar_ficha, editar_medio_previsto (motor, aplicadas), y su cableado en FichasEditor.tsx. Compilan limpio (tsc + build).
