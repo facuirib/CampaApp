@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import Icon, { type NombreIcono } from './Icon'
 import Money from './Money'
 import { formatEntero, formatPorcentaje, formatUSD } from '@/lib/format'
@@ -73,6 +74,17 @@ export interface KpiCardProps extends ValorKpi {
   sparkline?: number[]
   /** Sin esta prop no hay badge. Ver `VariacionKpi`. */
   variacion?: VariacionKpi
+  /**
+   * A dónde lleva la tarjeta. Sin esto es un cartel y no un link.
+   *
+   * Un KPI es la punta de un hilo: el número dice cuánto y la pantalla de
+   * detalle dice de qué está hecho. Cuando la tarjeta no lleva a ningún lado,
+   * ese hilo se corta y hay que buscar el camino por el menú.
+   *
+   * Es un `<Link>` y no un `onClick`: la tarjeta sigue siendo Server Component,
+   * y además se puede abrir en otra pestaña como cualquier link.
+   */
+  href?: string
   className?: string
 }
 
@@ -187,36 +199,53 @@ export default function KpiCard({
   icon,
   sparkline,
   variacion,
+  href,
   className,
 }: KpiCardProps) {
-  return (
-    <div
-      className={[
-        'rounded-md border border-line border-l-4 bg-white p-4 shadow-sm',
-        BARRA[tono],
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      <div className="flex items-center gap-1.5 text-[9.5px] font-semibold text-muted">
+  // La proporción: el número es lo que se viene a leer, así que ocupa la
+  // tarjeta. Antes el valor iba en 22px con el rótulo en 9,5 y el subtítulo en
+  // 9 — tres tamaños chicos repartidos en una tarjeta grande, que se leía como
+  // espacio sobrante alrededor de un dato tímido. Sube el número y suben apenas
+  // los dos textos, que en 9px estaban en el límite de lo legible.
+  const contenido = (
+    <>
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted">
         {icon && <Icon name={icon} size={12} className="shrink-0" />}
         {titulo}
       </div>
 
       <div className="mt-2 flex items-end justify-between gap-3">
-        <div className="text-[22px] font-extrabold tracking-[-.5px] text-ink">
+        <div className="text-[26px] font-extrabold leading-none tracking-[-.6px] text-ink">
           {valorKpi(valor, formato)}
         </div>
         {sparkline && <Sparkline serie={sparkline} className={TRAZO[tono]} />}
       </div>
 
-      {subtitulo && <div className="mt-1.5 text-[9px] text-muted">{subtitulo}</div>}
+      {subtitulo && <div className="mt-2 text-[10px] text-muted">{subtitulo}</div>}
       {variacion && (
         <div className="mt-2">
           <Variacion {...variacion} />
         </div>
       )}
-    </div>
+    </>
   )
+
+  const clases = [
+    'block rounded-md border border-line border-l-4 bg-white p-4 shadow-sm',
+    BARRA[tono],
+    href && 'transition-colors hover:border-ink/25 hover:bg-panel/40',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  if (href) {
+    return (
+      <Link href={href} className={`group ${clases}`}>
+        {contenido}
+      </Link>
+    )
+  }
+
+  return <div className={clases}>{contenido}</div>
 }

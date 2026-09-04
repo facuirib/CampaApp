@@ -8,7 +8,6 @@ import {
   ChartBarras,
   ChartTorta,
   KpiCard,
-  KpiHero,
   DataTable,
   Icon,
   Waterfall,
@@ -19,7 +18,6 @@ import {
   type SerieBarras,
   type PasoWaterfall,
   type PuntoSerie,
-  type ValorKpi,
 } from '@/components/ui'
 
 /**
@@ -163,11 +161,10 @@ export default async function Home({
 
   const enCaja = caja.data?.saldo_total ?? 0
 
-  const resumen: ValorKpi[] = [
-    { titulo: 'Resultado del torneo', valor: d?.resultado ?? 0 },
-    { titulo: 'En caja', valor: enCaja, tono: 'info' },
-    { titulo: 'Por cobrar', valor: d?.por_cobrar ?? 0, tono: 'alerta' },
-  ]
+  // La banda oscura de tres números (KpiHero) se sacó: sus tres valores
+  // —resultado, en caja, por cobrar— viven ahora como tarjetas en la única fila
+  // de KPIs, con su link. Ningún dato se perdió; «En caja» dejó de estar dos
+  // veces en la misma pantalla.
 
   const serie: PuntoSerie[] = (flujo.data ?? []).map((f) => ({
     fecha: f.semana as string,
@@ -260,12 +257,28 @@ export default async function Home({
       ? `${medioMayor.label} concentra el ${Math.round((medioMayor.valor / totalMedios) * 100)}% de lo cobrado.`
       : null
 
-  const gastoMayor = [...gajosGasto].sort((a, b) => b.valor - a.valor)[0]
-  const totalGastos = gajosGasto.reduce((a, g) => a + g.valor, 0)
-  const fraseGastos =
-    gastoMayor && totalGastos > 0
-      ? `${gastoMayor.label} se lleva el ${Math.round((gastoMayor.valor / totalGastos) * 100)}% del gasto.`
-      : null
+  /**
+   * «X se lleva el N% de …», para el pie de una dona.
+   *
+   * 🔴 El `reduce` es sobre los gajos que la dona YA está dibujando, y el
+   * resultado es un porcentaje para una frase — no un total de plata que salga
+   * a pantalla. El total que se muestra lo calcula la dona en su propio centro,
+   * sobre los mismos gajos. La regla 1 prohíbe que la pantalla invente un
+   * número; acá no hay ninguno que no esté ya en el gráfico.
+   *
+   * Una sola función y no dos copias: las dos composiciones dicen lo mismo con
+   * distinto sustantivo, y separadas se iban a desincronizar como se
+   * desincronizaron los mapas de etapas.
+   */
+  const fraseConcentracion = (gajos: GajoTorta[], sufijo: string) => {
+    const mayor = [...gajos].sort((a, b) => b.valor - a.valor)[0]
+    const total = gajos.reduce((a, g) => a + g.valor, 0)
+    if (!mayor || total <= 0) return null
+    return `${mayor.label} se lleva el ${Math.round((mayor.valor / total) * 100)}% ${sufijo}`
+  }
+
+  const fraseGastos = fraseConcentracion(gajosGasto, 'del gasto.')
+  const fraseIngresos = fraseConcentracion(gajosIngreso, 'de lo que entra.')
 
   const diaPico = [...diasGasto].sort((a, b) => Number(b.total ?? 0) - Number(a.total ?? 0))[0]
   const fraseDias =
@@ -351,12 +364,29 @@ export default async function Home({
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
 
-      <div className="mb-6">
-        <KpiHero valores={resumen} />
-      </div>
+      {/* ── Los KPIs ───────────────────────────────────────────────────────
+          Una sola fila, y antes eran dos: arriba una banda oscura con tres
+          números y abajo cuatro tarjetas blancas. Dos formas distintas para la
+          misma clase de dato —un número con su rótulo— obligaban a leer la
+          pantalla dos veces, y «En caja» aparecía en las dos.
 
-      <div className="mb-7 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+          🔴 Cada una LLEVA a la pantalla que la explica. Un KPI es la punta de
+          un hilo: dice cuánto, y el detalle dice de qué está hecho. Sin el
+          link, ese hilo se corta y hay que buscar el camino por el menú.
+
+          Los números no cambiaron: son los mismos de `v_dashboard` y
+          `v_saldo_caja_total` que ya estaban (A2). */}
+      <div className="mb-6 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
         <KpiCard
+          href="/resultados"
+          tono={(d?.resultado ?? 0) >= 0 ? 'positivo' : 'alerta'}
+          titulo="Resultado del torneo"
+          valor={d?.resultado ?? 0}
+          icon="resultados"
+          subtitulo="Cobrado menos gastos"
+        />
+        <KpiCard
+          href="/caja"
           tono="positivo"
           titulo="En caja hoy"
           valor={enCaja}
@@ -364,6 +394,15 @@ export default async function Home({
           subtitulo="Caja real, sin proyectar"
         />
         <KpiCard
+          href="/cobranza"
+          tono="info"
+          titulo="Por cobrar"
+          valor={d?.por_cobrar ?? 0}
+          icon="cobranza"
+          subtitulo="Vencido y por vencer"
+        />
+        <KpiCard
+          href="/cobranza"
           tono="alerta"
           titulo="Deuda vencida"
           valor={d?.vencido ?? 0}
@@ -371,13 +410,7 @@ export default async function Home({
           subtitulo="Vencida e impaga"
         />
         <KpiCard
-          tono="info"
-          titulo="Por vencer"
-          valor={d?.por_vencer ?? 0}
-          icon="calendario"
-          subtitulo="Todavía no vencido"
-        />
-        <KpiCard
+          href="/equipos"
           tono="info"
           titulo="Equipos al día"
           valor={d?.equipos_al_dia ?? 0}
@@ -386,6 +419,39 @@ export default async function Home({
           subtitulo={`de ${d?.equipos_total ?? 0} equipos`}
         />
       </div>
+
+      {/* ── Evolución de caja · el gráfico PRINCIPAL ────────────────────────
+          Arriba de todo y a ancho completo, porque es la única pregunta que se
+          contesta sola de un vistazo: si la caja sube o baja. Estaba anteúltimo
+          y del mismo tamaño que los cinco gráficos de apoyo, así que había que
+          bajar toda la pantalla para llegar a lo más importante.
+
+          Su alcance es la EMPRESA y no el torneo, y por eso lo dice: el
+          selector de arriba no lo toca. */}
+      <section className="mb-7">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="flex items-center gap-1.5 text-[14px] font-extrabold tracking-[-.2px] text-ink">
+            <Icon name="proyeccion" size={16} className="text-muted" />
+            Evolución de la caja
+          </h2>
+          <Link
+            href="/proyeccion"
+            className="shrink-0 text-[10.5px] font-semibold text-blue-d hover:underline"
+          >
+            Ver flujo →
+          </Link>
+        </div>
+        <p className="mb-3 text-[11px] text-muted">
+          La misma serie que{' '}
+          <Link href="/proyeccion" className="font-semibold text-blue-d hover:underline">
+            Proyección
+          </Link>
+          , semana por semana: lo real y lo proyectado.{' '}
+          <strong className="font-semibold text-ink">Es de la empresa</strong> — no depende del
+          torneo ni del año elegidos.
+        </p>
+        <ChartArea serie={serie} alto={380} titulo="Saldo de caja por semana, real y proyectado" />
+      </section>
 
       {/* ── Banda de cobranza ─────────────────────────────────────────────
           🔴 El alcance está ESCRITO, y no es un detalle de estilo.
@@ -480,6 +546,22 @@ export default async function Home({
               </div>
             </Bloque>
           </div>
+
+          {/* El puente vive acá y no suelto al final de la pantalla: es de
+              cobranza —comprometido, por cobrar, cobrado del torneo— y a 700px
+              de distancia de la banda que lo explica quedaba como un gráfico
+              huérfano. Ocupa la fila entera, así que además cierra la banda sin
+              dejar hueco. */}
+          <div className="mt-4">
+            <Bloque
+              icono="cobranza"
+              titulo="De lo comprometido a lo cobrado"
+              href="/cobranza"
+              verTexto="Ver cobranza"
+            >
+              <Waterfall pasos={puente} titulo="Puente entre lo comprometido y lo cobrado" />
+            </Bloque>
+          </div>
         </section>
       )}
 
@@ -496,7 +578,10 @@ export default async function Home({
           . <strong className="font-semibold text-ink">No dependen del torneo</strong>: el
           resultado es de la empresa.
         </p>
-        <div className="grid gap-4 lg:grid-cols-2">
+        {/* Ancho completo: es el único de la banda que compara DOS magnitudes a
+            lo largo del tiempo, y con doce meses en media pantalla las barras
+            quedaban tan finas que no se comparaba nada. */}
+        <div className="mb-4">
           {/* Por MES calendario, no por jornada: es la decisión de la Ola 3 y
               se mantiene. El mockup lo hace por fecha del torneo, que responde
               otra pregunta —cuánto deja cada jornada— y no la de esta banda. */}
@@ -510,17 +595,39 @@ export default async function Home({
               ejeX={ejeMeses}
               series={seriesIngresoGasto}
               modo="agrupadas"
-              alto={230}
+              alto={260}
               titulo={`Ingresos contra gastos por mes, ${anio}`}
             />
           </Bloque>
+        </div>
 
-          <Bloque icono="monedas" titulo="Composición de ingresos" href="/resultados">
-            <ChartTorta gajos={gajosIngreso} titulo={`Composición de los ingresos ${anio}`} />
+        {/* ── Las dos composiciones, una al lado de la otra ─────────────────
+            Estaban separadas por «Cómo cobran los equipos», así que para
+            comparar de qué está hecho lo que entra contra lo que sale había que
+            saltear un panel del medio. Son la misma pregunta espejada y ahora
+            se leen juntas.
+
+            🔴 Y son del MISMO alto por construcción, no por casualidad: las dos
+            usan `leyendaAlLado`, que fija la proporción del lienzo. Con la
+            leyenda apilada abajo, el alto crecía con la cantidad de categorías
+            —los ingresos tienen tres cuentas y los gastos siete—, así que una
+            salía casi al doble que la otra. */}
+        <div className="mb-4 grid gap-4 lg:grid-cols-2">
+          <Bloque
+            icono="monedas"
+            titulo="Composición de ingresos"
+            href="/resultados"
+            verTexto="Ver resultados"
+            pie={fraseIngresos}
+          >
+            <ChartTorta
+              gajos={gajosIngreso}
+              leyendaAlLado
+              titulo={`Composición de los ingresos ${anio}`}
+            />
           </Bloque>
 
-          {/* ── Bloque nuevo · composición de GASTOS ─────────────────────────
-              Teníamos la de ingresos y no la de egresos. La vista
+          {/* Teníamos la de ingresos y no la de egresos. La vista
               v_gasto_categoria_mes ya existía: faltaba el panel. */}
           <Bloque
             icono="comprobante"
@@ -529,9 +636,15 @@ export default async function Home({
             verTexto="Ver gastos"
             pie={fraseGastos}
           >
-            <ChartTorta gajos={gajosGasto} titulo={`Composición de los gastos ${anio}`} />
+            <ChartTorta
+              gajos={gajosGasto}
+              leyendaAlLado
+              titulo={`Composición de los gastos ${anio}`}
+            />
           </Bloque>
+        </div>
 
+        <div className="grid gap-4 lg:grid-cols-2">
           <Bloque icono="caja" titulo="Cómo cobran los equipos" href="/cobranza" pie={fraseMedios}>
             {/* Barra apilada horizontal y no dona, como el mockup: con tres
                 medios, una barra deja comparar proporciones de un vistazo y
@@ -596,22 +709,8 @@ export default async function Home({
         </div>
       </section>
 
-      {/* ── Banda de caja: la empresa, hoy ──────────────────────────────── */}
-      <section className="mb-7">
-        <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
-          Caja · la empresa, hoy
-        </h2>
-        <p className="mb-3 text-[11px] text-muted">
-          La misma serie que{' '}
-          <Link href="/proyeccion" className="font-semibold text-blue-d hover:underline">
-            Proyección
-          </Link>
-          . No depende del torneo ni del año elegidos.
-        </p>
-        <Bloque icono="proyeccion" titulo="Evolución del saldo de caja" href="/proyeccion" verTexto="Ver flujo">
-          <ChartArea serie={serie} titulo="Saldo de caja por semana, real y proyectado" />
-        </Bloque>
-      </section>
+      {/* La banda de caja subió al tope de la pantalla como gráfico principal.
+          Acá quedaba anteúltima y del mismo tamaño que los de apoyo. */}
 
       {urgentes.length > 0 && (
         <section className="mb-7">
@@ -654,13 +753,6 @@ export default async function Home({
           baja los 27 equipos, no los 8 que se ven arriba.
         </p>
         <Exportar torneoId={torneoElegido} anio={anio} />
-      </section>
-
-      <section className="mb-7">
-        <h2 className="mb-3 text-[13px] font-extrabold tracking-[-.2px] text-ink">
-          De lo comprometido a lo cobrado
-        </h2>
-        <Waterfall pasos={puente} titulo="Puente entre lo comprometido y lo cobrado" />
       </section>
     </div>
   )
