@@ -27,6 +27,12 @@ interface JornadaCalendarioRow {
   serie_completa: string | null
   reprograma_a: string | null
   reprograma_a_fecha: string | null
+  // El torneo se DERIVA en la vista (serie → categoria → torneo). `jornada` no
+  // lo guarda a propósito: un dato derivable que se guarda es un dato que se
+  // puede contradecir.
+  torneo_id: string | null
+  torneo: string | null
+  torneo_estado: string | null
 }
 
 interface FilaCalendario {
@@ -66,9 +72,9 @@ const COL_CALENDARIO: ColumnDef<FilaCalendario>[] = [
 export default async function CalendarioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ serie?: string }>
+  searchParams: Promise<{ serie?: string; torneo?: string }>
 }) {
-  const { serie } = await searchParams
+  const { serie, torneo } = await searchParams
   const supabase = await createClient()
   // Una sola operación gobierna las tres pantallas del calendario —crear,
   // mover y suspender—, así que también gobierna el link y el rowHref.
@@ -87,8 +93,30 @@ export default async function CalendarioPage({
 
   const jornadas = data ?? []
 
+  // 🔴 Los torneos salen de su propia consulta y no de las jornadas. Si se
+  // dedujeran de `jornadas`, un torneo SIN calendario no aparecería en la
+  // lista — y ése es exactamente el que hay que ver: es el que va a hacer
+  // fallar la confirmación.
+  const { data: torneosData } = await supabase
+    .from('v_torneo_lista')
+    .select('torneo_id, nombre, estado')
+    .order('anio', { ascending: false })
+
+  // El torneo primero: es el corte grande. Sin él, las series de todos los
+  // torneos caen juntas en el desplegable —hoy 61— sin decir de cuál es cada
+  // una, y «A» aparece cuatro veces sin distinguirse.
+  const torneosMap = new Map<string, string>()
+  for (const t of torneosData ?? []) {
+    if (!t.torneo_id || !t.nombre) continue
+    torneosMap.set(t.torneo_id, t.estado === 'en_curso' ? `${t.nombre} (en curso)` : t.nombre)
+  }
+  const torneos = [...torneosMap.entries()].map(([valor, label]) => ({ valor, label }))
+
+  // Las series se recortan al torneo elegido: ofrecer las de otro torneo daría
+  // un filtro que devuelve vacío y parece un error.
   const seriesMap = new Map<string, string>()
   for (const j of jornadas) {
+    if (torneo && j.torneo_id !== torneo) continue
     if (j.serie_id && j.serie_completa) seriesMap.set(j.serie_id, j.serie_completa)
   }
   const series = [...seriesMap.entries()]
@@ -96,6 +124,7 @@ export default async function CalendarioPage({
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 
   const FILTROS: FiltroUrl[] = [
+    { parametro: 'torneo', label: 'Torneo', todos: 'Todos los torneos', opciones: torneos },
     { parametro: 'serie', label: 'Serie', todos: 'Elegí una serie…', opciones: series },
   ]
 
@@ -138,9 +167,31 @@ export default async function CalendarioPage({
         <>
           <FiltrosUrl filtros={FILTROS} />
 
+          {/* Sin serie elegida ya NO es una pantalla vacía: se muestra cuántas
+              jornadas tiene cada torneo. Es lo que faltaba para ver de un
+              vistazo que un torneo clonado no tiene calendario todavía — que es
+              justo lo que hace fallar la confirmación. */}
           {!serie && (
-            <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
-              Elegí una serie para ver su calendario.
+            <div className="rounded-md border border-line bg-white p-4">
+              <p className="mb-3 text-[11px] text-muted">
+                Elegí una serie para ver y editar su calendario. Mientras tanto, cuántas jornadas
+                tiene cada torneo:
+              </p>
+              <ul className="space-y-1.5">
+                {[...torneosMap.entries()]
+                  .filter(([id]) => !torneo || id === torneo)
+                  .map(([id, label]) => {
+                    const n = jornadas.filter((j) => j.torneo_id === id).length
+                    return (
+                      <li key={id} className="flex items-center justify-between text-[12px]">
+                        <span className="font-semibold text-ink">{label}</span>
+                        <span className={n === 0 ? 'text-errtx' : 'text-muted'}>
+                          {n === 0 ? 'sin calendario' : `${n} jornadas`}
+                        </span>
+                      </li>
+                    )
+                  })}
+              </ul>
             </div>
           )}
 
