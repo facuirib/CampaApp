@@ -8763,6 +8763,7 @@ export type Database = {
           estado: string | null
           falta: string[] | null
           fichas: number | null
+          impide_borrar: string[] | null
           jornadas: number | null
           jornadas_sin_fecha: number | null
           nombre: string | null
@@ -8777,6 +8778,7 @@ export type Database = {
           estado?: string | null
           falta?: never
           fichas?: never
+          impide_borrar?: never
           jornadas?: never
           jornadas_sin_fecha?: never
           nombre?: string | null
@@ -8791,6 +8793,7 @@ export type Database = {
           estado?: string | null
           falta?: never
           fichas?: never
+          impide_borrar?: never
           jornadas?: never
           jornadas_sin_fecha?: never
           nombre?: string | null

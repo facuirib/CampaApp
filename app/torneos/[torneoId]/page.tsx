@@ -6,6 +6,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Badge, Card, Icon, KpiCard } from '@/components/ui'
 import ConfirmarTorneo from './ConfirmarTorneo'
+import EliminarTorneo from './EliminarTorneo'
 import PestanasTorneo from './PestanasTorneo'
 
 export const dynamic = 'force-dynamic'
@@ -78,6 +79,7 @@ export default async function TorneoDetallePage({
 
   const falta = listo.falta ?? []
   const puedeConfirmar = puede(rol, 'torneo.confirmar')
+  const puedeBorrar = puede(rol, 'torneo.borrar')
   const estado = ESTADO[listo.estado ?? ''] ?? { estado: 'neutro' as const, label: listo.estado ?? '—' }
 
   return (
@@ -207,6 +209,26 @@ export default async function TorneoDetallePage({
           </>
         )}
       </Card>
+
+      {/* Al fondo y separado: es lo único destructivo de la pantalla, y no
+          tiene por qué estar cerca de lo que se usa todos los días. */}
+      {puedeBorrar && (
+        <section className="mt-8 border-t border-line pt-6">
+          <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+            Eliminar este torneo
+          </h2>
+          <p className="mb-3 max-w-prose text-[11px] leading-snug text-muted">
+            Sólo se borra de verdad un torneo <strong>planificado</strong>, sin cuotas generadas y
+            sin nada que lo referencie. Si algo lo frena, queda dado de baja: sale de las listas y
+            sus datos siguen enteros.
+          </p>
+          <EliminarTorneo
+            torneoId={torneoId}
+            nombre={listo.nombre ?? 'este torneo'}
+            impideBorrar={listo.impide_borrar ?? []}
+          />
+        </section>
+      )}
     </div>
   )
 }
