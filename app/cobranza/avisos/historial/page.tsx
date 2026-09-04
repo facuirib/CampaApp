@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { etapaCobranza, etiquetaEtapa } from '@/lib/domain/cobranza'
 import type { Database } from '@/lib/db/database.types'
 
 type ReclamoRow = Database['public']['Tables']['reclamo']['Row']
@@ -34,14 +35,14 @@ interface FilaHistorial {
  * `null` en los reclamos anteriores a las etapas: no se puede saber cuál les
  * correspondía, así que se muestran como «—» en vez de inventarles una.
  */
-const ETAPAS: Record<string, CeldaBadge> = {
-  por_vencer: { estado: 'info', label: 'Por vencer' },
-  recordatorio: { estado: 'porVencer', label: 'Recordatorio' },
-  firme: { estado: 'mora', label: 'Firme' },
-}
-
 function badgeEtapa(etapa: string | null): CeldaBadge {
-  return ETAPAS[etapa ?? ''] ?? { estado: 'neutro', label: '—' }
+  const e = etapaCobranza(etapa)
+  // El «—» es sólo para `etapa is null`, que es el caso que el comentario de
+  // arriba describe. Una etapa desconocida —una que la base gane y el front
+  // todavía no— cae en el default de `etiquetaEtapa`, que muestra el valor
+  // crudo: se entiende y delata el faltante, en vez de esconderlo.
+  if (!e) return { estado: 'neutro', label: etapa ? etiquetaEtapa(etapa) : '—' }
+  return { estado: e.badge, label: e.etiqueta }
 }
 
 const COLUMNAS: ColumnDef<FilaHistorial>[] = [

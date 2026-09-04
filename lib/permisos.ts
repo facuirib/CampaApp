@@ -599,7 +599,7 @@ export const PERMISOS = {
     // Sólo admin, y NO `CON_FINANZAS` como las plantillas: cambiar una plantilla
     // cambia CÓMO se dice algo; mover estas ventanas cambia A QUIÉN se le manda
     // qué, para toda la cartera de una vez. Un `dias_firme` de 1 pone a los 28
-    // equipos en la cola del reclamo firme.
+    // equipos en la cola de Vencido —la etapa que en la base se llama `firme`.
     que: 'Cambiar las ventanas de la gestión de cobranza',
     roles: SOLO_ADMIN,
     donde: { tabla: 'config_cobranza', cmd: 'UPDATE' },

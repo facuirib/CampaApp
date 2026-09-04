@@ -115,7 +115,8 @@ export async function guardarPlantilla(
  *
  * Sólo admin, y no `CON_FINANZAS` como las plantillas: mover estos tres números
  * cambia a quién se le manda qué mensaje, para todos los equipos a la vez. Un
- * `dias_firme` de 1 pone a la cartera entera en la cola del reclamo firme.
+  * `dias_firme` de 1 pone a la cartera entera en la cola de Vencido (el valor
+ * de la etapa en la base sigue siendo `firme`; «Vencido» es sólo la etiqueta).
  *
  * El check de la base garantiza el orden —firme después de recordatorio—; acá
  * se traduce, porque el mensaje de Postgres habla de un constraint.
@@ -138,7 +139,7 @@ export async function guardarConfigCobranza(campos: {
     return {
       ok: false,
       error:
-        'El reclamo firme tiene que empezar después del recordatorio. Al revés, la etapa del ' +
+        'La etapa Vencido tiene que empezar después del recordatorio. Al revés, la etapa del ' +
         'medio no se alcanza nunca y esa cola queda vacía para siempre.',
     }
   }

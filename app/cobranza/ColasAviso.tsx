@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { formatDate, formatMoney } from '@/lib/format'
 import { DataTable, Icon, KpiCard, type ColumnDef } from '@/components/ui'
+import { ETAPAS_COBRANZA } from '@/lib/domain/cobranza'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaCola = Database['public']['Views']['v_cobranza_cola']['Row']
@@ -75,26 +76,11 @@ const CANAL: Record<string, string> = {
  * estas mismas cuotas. Si le vence una nueva, vuelve.
  */
 
-const ETAPAS = [
-  {
-    clave: 'por_vencer',
-    titulo: 'Por vencer',
-    bajada: 'Todavía no vencieron. Un aviso amable, antes de que sea un problema.',
-    tono: 'info' as const,
-  },
-  {
-    clave: 'recordatorio',
-    titulo: 'Recordatorio',
-    bajada: 'Vencidas hace poco. Puede que el pago se haya cruzado.',
-    tono: 'advertencia' as const,
-  },
-  {
-    clave: 'firme',
-    titulo: 'Reclamo firme',
-    bajada: 'Vencidas hace tiempo. Hay que regularizar.',
-    tono: 'alerta' as const,
-  },
-] as const
+// Las tres etapas —clave, etiqueta, bajada y tono— salen de `lib/domain/cobranza`,
+// que es la misma tabla que usan el dashboard y el historial de avisos. Acá
+// estaban escritas a mano, y así fue como el dashboard terminó rotulando una
+// etapa que no existe.
+const ETAPAS = ETAPAS_COBRANZA
 
 export default function ColasAviso({
   filas,
@@ -140,7 +126,7 @@ export default function ColasAviso({
             >
               <KpiCard
                 tono={suyas.length === 0 ? 'neutro' : e.tono}
-                titulo={e.titulo}
+                titulo={e.etiqueta}
                 valor={suyas.length}
                 formato="entero"
                 subtitulo={
@@ -158,7 +144,8 @@ export default function ColasAviso({
         <p className="mb-6 text-[11px] leading-snug text-muted">
           Se avisa cuando falten <strong>{ventanas.dias_por_vencer} días</strong> o menos para el
           vencimiento; el recordatorio va desde los <strong>{ventanas.dias_recordatorio} días</strong>{' '}
-          de atraso y el reclamo firme desde los <strong>{ventanas.dias_firme}</strong>.{' '}
+          de atraso y la etapa <strong>Vencido</strong> desde los{' '}
+          <strong>{ventanas.dias_firme}</strong>.{' '}
           <Link href="/configuracion" className="font-semibold text-blue-d hover:underline">
             Cambiar las ventanas
           </Link>
@@ -219,7 +206,7 @@ export default function ColasAviso({
         return (
           <section key={e.clave} className="mb-8">
             <h2 className="text-[13px] font-extrabold tracking-[-.2px] text-ink">
-              {e.titulo}{' '}
+              {e.etiqueta}{' '}
               <span className="font-semibold text-muted">
                 · {rows.length === 1 ? '1 equipo' : `${rows.length} equipos`}
               </span>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
+import { etapaCobranza, etiquetaEtapa } from '@/lib/domain/cobranza'
 import Exportar from './Exportar'
 import {
   ChartArea,
@@ -180,14 +181,13 @@ export default async function Home({
   // pantalla sólo lo acomoda en la forma que el componente espera. No hay una
   // sola suma, y por eso el dashboard no puede discrepar con el detalle.
 
-  const ROTULO_ETAPA: Record<string, string> = {
-    por_vencer: 'Por vencer',
-    aviso: 'Primer aviso',
-    firme: 'Reclamo firme',
-  }
-
+  // Las etiquetas salen de `lib/domain/cobranza`, que es la misma fuente que
+  // usan las colas de /cobranza y el historial de avisos. Acá había un mapa a
+  // mano que rotulaba una etapa `aviso` inexistente —el valor real de la base es
+  // `recordatorio`—, y por eso esa etapa se iba a dibujar con el valor crudo y
+  // sin color en cuanto cayera alguien en ella.
   const filasEtapa = etapas.data ?? []
-  const ejeEtapas = filasEtapa.map((e) => ROTULO_ETAPA[e.etapa ?? ''] ?? e.etapa ?? '—')
+  const ejeEtapas = filasEtapa.map((e) => etiquetaEtapa(e.etapa))
 
   // Apiladas: vencido y por vencer SÍ se suman — dan el adeudado de la etapa.
   const seriesCobranza: SerieBarras[] = [
@@ -195,16 +195,12 @@ export default async function Home({
     { label: 'Por vencer', color: 'var(--warn)', valores: filasEtapa.map((e) => Number(e.por_vencer ?? 0)) },
   ]
 
-  // La dona de etapas usa color semántico: acá el color SÍ dice algo.
-  const COLOR_ETAPA: Record<string, string> = {
-    por_vencer: 'var(--ok)',
-    aviso: 'var(--warn)',
-    firme: 'var(--err)',
-  }
+  // La dona de etapas usa color semántico: acá el color SÍ dice algo. Sale de
+  // la misma tabla que la etiqueta, así que no pueden desalinearse.
   const gajosEtapa: GajoTorta[] = filasEtapa.map((e) => ({
-    label: ROTULO_ETAPA[e.etapa ?? ''] ?? e.etapa ?? '—',
+    label: etiquetaEtapa(e.etapa),
     valor: Number(e.equipos ?? 0),
-    color: COLOR_ETAPA[e.etapa ?? ''],
+    color: etapaCobranza(e.etapa)?.color,
   }))
 
   const meses = plMes.data ?? []

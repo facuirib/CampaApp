@@ -79,7 +79,7 @@ export default function EditorVentanas({
           <Input {...campo('dias_recordatorio')} />
         </Field>
         <Field
-          label="Reclamo firme desde"
+          label="Vencido desde"
           hint="Días de atraso."
           error={ordenMal ? 'Tiene que ser mayor que el recordatorio.' : null}
         >
@@ -90,8 +90,8 @@ export default function EditorVentanas({
       <p className="mt-3 rounded-md bg-panel px-3 py-2 text-[11px] leading-snug text-muted">
         Con estos valores: se avisa cuando falten <strong>{v.dias_por_vencer}</strong> días o menos;
         el recordatorio va entre los <strong>{v.dias_recordatorio}</strong> y los{' '}
-        <strong>{Math.max(v.dias_firme - 1, v.dias_recordatorio)}</strong> días de atraso; el reclamo
-        firme, desde los <strong>{v.dias_firme}</strong>.
+        <strong>{Math.max(v.dias_firme - 1, v.dias_recordatorio)}</strong> días de atraso; la etapa{' '}
+        <strong>Vencido</strong>, desde los <strong>{v.dias_firme}</strong>.
       </p>
 
       {puedeEditar && (
