@@ -447,7 +447,18 @@ export default async function GastosPage({
             <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-muted">
               Cómo se reparte
             </h2>
-            <ChartTorta gajos={gajosCategoria} titulo="Distribución del gasto por categoría" />
+            {/* Los dos gráficos de esta fila quedan del mismo alto, y sin
+                forzarlo con una altura fija: los dos son SVG al 100% del
+                ancho, así que el alto que se ve sale de la PROPORCIÓN del
+                lienzo. La dona con la leyenda al costado mide 640×280 y las
+                barras 800×350 — 0,4375 las dos. Como las dos columnas del
+                grid son iguales, los dos gráficos aterrizan en el mismo alto
+                solos, en cualquier ancho de pantalla. */}
+            <ChartTorta
+              gajos={gajosCategoria}
+              leyendaAlLado
+              titulo="Distribución del gasto por categoría"
+            />
           </div>
 
           <div>
@@ -461,7 +472,7 @@ export default async function GastosPage({
               ejeX={mesesConDato.map((m) => String(m).padStart(2, '0'))}
               series={seriesTiempo}
               modo="agrupadas"
-              alto={210}
+              alto={350}
               titulo={`Gasto por mes de ${anio}, pagado contra impago`}
             />
           </div>

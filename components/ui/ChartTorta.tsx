@@ -26,6 +26,16 @@ export interface ChartTortaProps {
   compacto?: boolean
   /** Cuántos gajos como máximo. El resto se junta en «Otros». Default 6. */
   tope?: number
+  /**
+   * La leyenda al costado de la dona en vez de apilada abajo.
+   *
+   * Es lo que decide la PROPORCIÓN del gráfico, no sólo dónde cae el texto.
+   * Con la leyenda abajo el lienzo es casi cuadrado —el alto crece con cada
+   * gajo— y al lado de un gráfico de barras, que es ancho y bajo, queda al
+   * doble de alto. Al costado, el alto es fijo y la dona entra en un lienzo
+   * apaisado que convive con las barras sin que uno aplaste al otro.
+   */
+  leyendaAlLado?: boolean
   /** Qué se muestra en el centro. Sin esto va el total. */
   centro?: { valor: string; nota?: string }
   /** Texto accesible del gráfico, no un título visible. */
@@ -81,14 +91,19 @@ export default function ChartTorta({
   gajos,
   compacto = false,
   tope = 6,
+  leyendaAlLado = false,
   centro,
   titulo,
   className,
 }: ChartTortaProps) {
-  const lado = compacto ? 300 : 420
+  // Con la leyenda al costado el lienzo se ensancha y la dona se corre a la
+  // izquierda; el `compacto` manda sobre esto, porque en poco ancho no hay
+  // lugar para dos columnas.
+  const alLado = leyendaAlLado && !compacto
+  const lado = compacto ? 300 : alLado ? 640 : 420
   const radio = compacto ? 88 : 116
   const grosor = compacto ? 30 : 38
-  const cx = lado / 2
+  const cx = alLado ? 160 : lado / 2
   const cy = compacto ? 108 : 140
 
   // Lo que no se puede dibujar se separa ANTES de ordenar, para poder contarlo.
@@ -139,8 +154,18 @@ export default function ChartTorta({
     return arco
   })
 
-  const altoLeyenda = items.length * (compacto ? 19 : 21) + 8
-  const alto = cy + radio + 24 + altoLeyenda
+  const pasoLeyenda = compacto ? 19 : 21
+  const altoLeyenda = items.length * pasoLeyenda + 8
+  // Al costado el alto NO depende de cuántos gajos haya: lo fija la dona. Ése
+  // es el punto — así la proporción del gráfico es estable y se puede poner al
+  // lado de otro sin que la cantidad de categorías decida el layout.
+  const alto = alLado ? cy + radio + 24 : cy + radio + 24 + altoLeyenda
+
+  // La columna de la leyenda, centrada verticalmente contra la dona.
+  const leyendaX = alLado ? 300 : 14
+  const leyendaY0 = alLado
+    ? Math.max(28, (alto - items.length * pasoLeyenda) / 2 + 10)
+    : cy + radio + 26
 
   return (
     <div className={`rounded-md border border-line bg-white p-4 ${className ?? ''}`}>
@@ -182,11 +207,16 @@ export default function ChartTorta({
             entero es una sola pieza que se puede llevar a un PDF sin rearmar
             nada, que es justo lo que estos componentes tienen que permitir. */}
         {arcos.map((a, i) => {
-          const y = cy + radio + 26 + i * (compacto ? 19 : 21)
+          const y = leyendaY0 + i * pasoLeyenda
           return (
             <g key={`leyenda-${a.label}-${i}`}>
-              <rect x={14} y={y - 8} width={9} height={9} rx={2} fill={a.color} />
-              <text x={30} y={y} fontSize={compacto ? 10.5 : 11.5} fill="var(--ink)">
+              <rect x={leyendaX} y={y - 8} width={9} height={9} rx={2} fill={a.color} />
+              <text
+                x={leyendaX + 16}
+                y={y}
+                fontSize={compacto ? 10.5 : 11.5}
+                fill="var(--ink)"
+              >
                 {a.label}
               </text>
               <text

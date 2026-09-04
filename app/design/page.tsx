@@ -1219,6 +1219,18 @@ export default function DesignPage() {
             </p>
           </Ejemplo>
 
+          <Ejemplo titulo="Dona — leyenda al costado">
+            <ChartTorta gajos={GAJOS_INGRESO} leyendaAlLado titulo="Composición de ingresos" />
+            <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              Con{' '}
+              <code className="rounded-sm bg-line2 px-1 font-mono text-[10px]">leyendaAlLado</code>{' '}
+              el lienzo pasa de casi cuadrado a apaisado, y —esto es lo importante— el alto{' '}
+              <strong className="font-bold text-ink">deja de depender de cuántos gajos haya</strong>.
+              Es lo que permite ponerla al lado de un gráfico de barras sin que una quede al doble de
+              alto que el otro: se emparejan las proporciones, no se fuerza una altura fija.
+            </p>
+          </Ejemplo>
+
           <Ejemplo titulo="Dona vacía">
             <ChartTorta gajos={[]} />
             <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
