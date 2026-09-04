@@ -18,6 +18,91 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 Tocamos `clonar_torneo` · le agregamos el calendario · 04/09/2026 · para Horacio
+
+Mientras estás de vacaciones tu carril pasó a Facu, y en el Nivel A —la gestión
+de torneos— **modificamos una función tuya**. Te lo dejamos escrito para cuando
+vuelvas.
+
+#### Qué le faltaba
+
+`clonar_torneo` clonaba torneo, categorías, series, tarifario y fichas — **todo
+menos el calendario**. Y `confirmar_torneo_clonado` llama a
+`generar_cuotas_ficha`, que frena con:
+
+> «La línea "…" cubre las fechas N–M pero la serie no tiene ninguna jornada en
+> ese rango. **Sembrá el calendario de la serie antes de generar cuotas.**»
+
+O sea que **confirmar un torneo clonado fallaba siempre**. Los dos torneos que
+dejaron tus pruebas tenían 20 series y 0 jornadas, y por eso nunca llegaste a
+confirmar ninguno.
+
+#### Qué le agregamos
+
+Un bloque al final, antes del `return`. **El resto de la función queda palabra
+por palabra como estaba.**
+
+```
+viaja   numero · es_playoff · instancia · cantidad_esperada
+NO      fecha (son de otro año) · estado (las suspensiones son del año pasado)
+        reprograma_a · cantidad_partidos
+```
+
+`cantidad_esperada` sí viaja porque `generar_cuotas_ficha` la compara contra las
+jornadas reales y frena si no coinciden — es el mismo control del torneo
+anterior, y sin ella se perdería.
+
+#### 🔴 Sobre el mapeo, que era nuestra preocupación
+
+Íbamos a aparear serie origen → serie nueva por `(categoría, nombre)`, y eso es
+frágil: hoy no hay dos series homónimas en la misma categoría —lo verificamos—
+pero nada lo impide, y el día que pase el calendario de una se clonaría sobre la
+otra sin que nadie lo note.
+
+**No hizo falta construir nada: tu función ya arma `v_map_serie` con
+`returning`.** Reusamos ese mapa tal cual. La forma correcta ya estaba puesta
+por vos; lo único que faltaba era usarla también para las jornadas.
+
+#### Probado de punta a punta, en rollback
+
+```
+1) CLONAR      6 cat · 20 series · 28 fichas · 284 jornadas · 0 cuotas
+               la lista de control pasó de «no hay jornadas» a «sin fecha»
+2) MAPEO       0 series con cantidad de jornadas distinta a su origen
+               284 de 284 sin fecha · 0 con fecha heredada
+3) FECHAS      se completan → no falta nada
+4) CONFIRMAR   273 cuotas por $206.755.000 — igual que el origen
+```
+
+Descuadre 0, y nada quedó en la base.
+
+#### Algo que vimos de paso y no tocamos
+
+`clonar_torneo` pone `hito_jornada_id = null` al clonar las líneas del
+tarifario. Con las jornadas clonadas eso **ahora se podría mapear** igual que
+las series. No lo hicimos porque no sabemos si el null es deliberado. **Es tuyo,
+decidilo vos.**
+
+#### Lo demás del Nivel A, para que sepas qué cambió
+
+- `/torneos/[id]` es nuevo: el detalle que faltaba, con **lista de control** de
+  lo que impide confirmar. Estructura y Equipos siguen en sus rutas, ahora con
+  pestañas.
+- `borrar_torneo` es nueva: tres frenos (sólo planificado, sin cuotas, sin
+  referencias) y baja lógica si alguno salta. Catalogada como `torneo.borrar`.
+- `/calendario` filtra y agrupa por torneo. **`jornada` no cambió** — el torneo
+  se deriva por `serie → categoria → torneo` en la vista.
+- El botón de confirmar, con previo de cuántas cuotas y por cuánto.
+
+Y el bug que dejaste anotado —«Sacar» y «Medio previsto» que no reaccionan—
+tiene explicación: **los controles no están**. Se esconden con `tieneCuotas`
+mientras que «Mover» se esconde con `atada`, así que en una ficha con cuotas sin
+jornada atada pasa exactamente lo que viste. La pantalla ahora lo dice.
+
+Confirmá con: `grep -n "Tocamos .clonar_torneo" docs/coordinacion.md`
+
+---
+
 ### ✅ Catalogamos tus 2 funciones nuevas · el verificador estaba rojo · 04/09/2026 · para Horacio
 
 `borrar_ficha` y `editar_medio_previsto` quedaron aplicadas en la base sin
