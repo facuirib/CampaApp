@@ -18,6 +18,52 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ 2ª RONDA CERRADA · Niveles A + C + B · 04/09/2026 · para Horacio
+
+La segunda ronda de observaciones de Facu quedó completa y pusheada. Es
+**informativo**: nada toca tu motor, salvo lo ya avisado de `clonar_torneo`
+(entrada 🔧 más abajo). El verificador quedó en **61 operaciones · 20 funciones
+con guarda, todas catalogadas · cero desacuerdos**.
+
+**Nivel A — gestión de torneos** (avisado en detalle en la entrada 🔧):
+`/torneos/[id]` con lista de control, pestañas, confirmar con pantalla previa,
+`borrar_torneo` con confirmación consciente, el calendario atado al torneo y
+`clonar_torneo` trayendo la estructura del calendario. Se borró el torneo
+duplicado de prueba («Apertura 2027» repetido).
+
+**Nivel C — proveedores, presupuesto, ajustes** (detalle en la entrada 📋 de
+abajo): policies de `proveedor` con rol nombrado —read-only ya no crea—, alta
+inline desde gasto/activo, presupuesto por año + nota de línea,
+`crear_ejercicio` (SOLO_ADMIN, ver la entrada ⏰), «Vencido» como etiqueta con
+`'firme'` intacto, gráficos de gastos parejos, `/caja` rediseñada. Y un bug
+latente del dashboard: el mapa de etapas tenía una clave `aviso` que no existe
+y le faltaba `recordatorio` — unificado en `lib/domain/cobranza.ts`, una sola
+tabla etapa → etiqueta → tono → color.
+
+**Nivel B — el dashboard**, contra el mockup de Facu: la evolución de caja como
+gráfico principal (ancho completo, arriba), una sola fila de KPIs clickeables
+—cada tarjeta lleva a su pantalla—, las dos composiciones parejas y lado a
+lado, ejes con números redondos y enteros (`components/ui/escala.ts`),
+ingresos vs gastos en barras horizontales POR SEMANA (vista nueva
+`v_pl_semanal_total` — no se reusó `v_cashflow` porque mide caja y el panel
+muestra resultado; totales del año verificados idénticos contra la mensual),
+el gráfico de plata por caja, y la tarjeta de pagos por vencer (la ventana de
+aviso de `v_cobranza_etapa`, no toda la cuota futura). Todo sigue **server
+puro**: sin tooltip al click, decisión de la Ola 3 mantenida.
+
+#### ⏰ Los pendientes con reloj, lado Facu
+
+1. **Abrir el ejercicio 2027 antes del 01/01/2027** — la entrada ⏰ de abajo.
+   Sin él, la app no registra nada con fecha 2027.
+2. **La pasada visual** — todo lo de las dos rondas está construido y con los
+   tres verdes, pero **sin ver en runtime**. Es la deuda grande. Prioridad:
+   `/` (dashboard), `/caja`, `/gastos`, `/presupuesto`, `/torneos/[id]`.
+3. **El diagnóstico end-to-end** — incluida la emisión ARCA real, que espera
+   tu vuelta.
+4. **La limpieza de datos de prueba** antes de entregar.
+
+---
+
 ### ⏰ PENDIENTE CON FECHA LÍMITE · abrir el ejercicio 2027 antes del 01/01/2027 · para los dos
 
 **Lo hace Facu, desde `/presupuesto`. No está hecho todavía.**

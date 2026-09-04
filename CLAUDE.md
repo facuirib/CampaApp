@@ -238,6 +238,12 @@ El sobrante queda como anticipo (saldo a favor), no se pierde.
   routes
 - Los tipos salen de `supabase gen types`, no se escriben a mano
 - Errores de dominio: clase `DomainError`, no strings sueltos
+- **Un vocabulario del dominio tiene UNA tabla de presentación**, en
+  `lib/domain/` — clave, etiqueta, tono, color, todo junto (`cobranza.ts` es el
+  modelo). Nunca mapas por pantalla: tres copias del mapa de etapas se
+  desincronizaron hasta rotular una etapa que no existía. Ante clave
+  desconocida se muestra la clave cruda, no «—»: delata el faltante en vez de
+  esconderlo
 - Toda función SQL nueva va en una migración numerada, no en un script suelto
 
 ## Las puertas
@@ -295,8 +301,18 @@ No replicar estas validaciones en el front — ya están garantizadas:
 
 ## Antes de dar una tarea por terminada
 
-- [ ] `npm run build` pasa
+**Los tres verdes van ANTES de escribir el commit, no después** — y encadenados,
+de modo que el commit sólo corra si el verificador da cero. La regla existe
+porque se falló tres veces: un commit con JSX roto (tsc corrió después), un push
+con el verificador rojo (se vio y se commiteó igual), y un commit con el
+verificador rojo en el mismo bloque sin encadenar.
+
+- [ ] `npm run build` pasa — **hasta el final**: imprime «Compiled successfully»
+      y DESPUÉS puede fallar en lint; la primera línea no es el veredicto
 - [ ] `npx tsc --noEmit` sin errores
+- [ ] `npm run verificar:permisos` en cero desacuerdos. También verifica el
+      **cierre inverso**: una función con guarda nueva sin catalogar en
+      `lib/permisos.ts` lo pone rojo — se cataloga, no se esquiva
 - [ ] Si tocaste SQL: la migración corre sobre base limpia
 - [ ] Si tocaste asientos: hay test que verifica Debe = Haber
 - [ ] Ningún total calculado en el cliente
