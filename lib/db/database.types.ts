@@ -9020,6 +9020,7 @@ export type Database = {
       }
       borrar_linea_tarifa: { Args: { p_linea_id: string }; Returns: undefined }
       borrar_serie: { Args: { p_serie_id: string }; Returns: undefined }
+      borrar_torneo: { Args: { p_torneo_id: string }; Returns: Json }
       cambiar_estado_cheque: {
         Args: {
           p_caja_id?: string

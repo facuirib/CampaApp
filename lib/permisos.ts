@@ -146,6 +146,17 @@ export const PERMISOS = {
     roles: SOLO_ADMIN,
     donde: { guarda: 'confirmar_torneo_clonado' },
   },
+  'torneo.borrar': {
+    // Borrar un torneo planificado, o darlo de baja si no se puede.
+    //
+    // SOLO_ADMIN, como el resto del ciclo. Y la función es más conservadora que
+    // el permiso: sólo borra de verdad un torneo `planificado`, sin cuotas y
+    // sin nada que lo referencie. Si alguno de los tres frenos salta, no falla
+    // — lo da de baja lógica y explica cuál fue, con los números.
+    que: 'Borrar un torneo planificado, o darlo de baja',
+    roles: SOLO_ADMIN,
+    donde: { guarda: 'borrar_torneo' },
+  },
   'torneo.estructura': {
     que: 'Clonar, crear, editar o borrar categorías y series',
     roles: TODOS_MENOS_LECTURA,
