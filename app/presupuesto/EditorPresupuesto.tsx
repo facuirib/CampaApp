@@ -86,6 +86,12 @@ export interface EditorPresupuestoProps {
   torneosSinPresupuesto: { id: string; nombre: string }[]
   faltaEstructura: boolean
   ejercicios: { id: string; anio: number }[]
+  /**
+   * Si el rol puede abrir un ejercicio. Es SOLO_ADMIN, más estricto que
+   * `presupuesto.editar` —que es de finanzas—, así que baja aparte: abrir el
+   * año no es presupuestar.
+   */
+  puedeAbrirEjercicio: boolean
 }
 
 const ROTULO_UNIDAD: Record<string, string> = {
@@ -109,6 +115,7 @@ export default function EditorPresupuesto({
   torneosSinPresupuesto,
   faltaEstructura,
   ejercicios,
+  puedeAbrirEjercicio,
 }: EditorPresupuestoProps) {
   const router = useRouter()
 
@@ -146,6 +153,14 @@ export default function EditorPresupuesto({
    * viene— y abrir escondiendo justo eso sería esconder el trabajo en curso.
    */
   const [anio, setAnio] = useState<number | 'todos'>('todos')
+  const [abriendoAnio, setAbriendoAnio] = useState(false)
+
+  // El único año que se puede abrir es el que sigue al último: la función exige
+  // que sean consecutivos, así que ofrecer un campo libre sería ofrecer valores
+  // que va a rechazar. Es un máximo sobre una lista de años, no un total de
+  // plata.
+  const ultimoAnio = ejercicios.length > 0 ? Math.max(...ejercicios.map((e) => e.anio)) : null
+  const proximoAnio = ultimoAnio === null ? null : ultimoAnio + 1
 
   // Los años que REALMENTE tienen presupuesto, no los ejercicios que existen:
   // un ejercicio sin ninguna cabecera daría una opción que filtra a cero.
@@ -627,6 +642,68 @@ export default function EditorPresupuesto({
                 mueve la caja hasta aprobarlo. Una cabecera por torneo y ejercicio.
               </span>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── El año contable ────────────────────────────────────────────────
+          Vive acá y no en Configuración porque es acá donde se choca con el
+          problema: se va a crear el presupuesto del año que viene y el año no
+          está en el desplegable. Y va SUELTO, fuera del panel de «crear
+          presupuesto», porque ese panel desaparece cuando todos los ámbitos ya
+          tienen el suyo — justo el momento en que abrir el año siguiente es lo
+          único que queda por hacer. */}
+      {puedeAbrirEjercicio && proximoAnio !== null && (
+        <div className="mt-4 rounded-md border border-line bg-white px-4 py-4">
+          <h2 className="text-[13px] font-extrabold tracking-[-.2px] text-ink">El año contable</h2>
+
+          {abriendoAnio ? (
+            <>
+              <div className="mt-2 rounded-md bg-warnbg px-4 py-3 text-[11px] text-warntx">
+                <p className="font-bold">Abrir el ejercicio {proximoAnio} no se deshace.</p>
+                <p className="mt-1">
+                  No hay forma de borrar un ejercicio, así que si el año está mal queda cargado. Va
+                  del 1 de enero al 31 de diciembre de {proximoAnio}, y nace{' '}
+                  <strong className="font-semibold">abierto</strong>: desde ese momento se pueden
+                  registrar movimientos con fecha de {proximoAnio}.
+                </p>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  icon="check"
+                  loading={ocupado}
+                  disabled={ocupado}
+                  onClick={() =>
+                    llamar('crear_ejercicio', { p_anio: proximoAnio }, () =>
+                      setAbriendoAnio(false),
+                    )
+                  }
+                >
+                  Abrir el ejercicio {proximoAnio}
+                </Button>
+                <Button variant="tertiary" disabled={ocupado} onClick={() => setAbriendoAnio(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 max-w-[80ch] text-[11px] leading-snug text-muted">
+                El último abierto es el <strong className="font-semibold text-ink">{ultimoAnio}</strong>.
+                Un presupuesto pertenece a un ejercicio, así que para presupuestar {proximoAnio} hay
+                que abrirlo antes.{' '}
+                <strong className="font-semibold text-ink">
+                  Y no es sólo el presupuesto: mientras el {proximoAnio} no exista, ningún
+                  movimiento con fecha de ese año se puede registrar
+                </strong>{' '}
+                — ni un cobro ni un gasto. Conviene abrirlo antes de fin de año, no el 2 de enero.
+              </p>
+              <div className="mt-3">
+                <Button variant="secondary" icon="plus" onClick={() => setAbriendoAnio(true)}>
+                  Abrir el ejercicio {proximoAnio}
+                </Button>
+              </div>
+            </>
           )}
         </div>
       )}

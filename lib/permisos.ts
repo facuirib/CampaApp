@@ -403,6 +403,20 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['asentar_amortizacion'] },
   },
+  // Abrir el año, y no «editar el presupuesto»: son dos cosas distintas y por
+  // eso son dos operaciones. Presupuestar es de finanzas y se hace todo el año;
+  // abrir un ejercicio pasa una vez, habilita a registrar con fechas de ese año
+  // —`periodo_de_fecha` corta cualquier movimiento fuera de un ejercicio— y no
+  // hay forma de deshacerlo. Es de administrador.
+  //
+  // Va por `guarda` y no por `fns`: la función exige admin por dentro, que es
+  // más estricto de lo que diría leer sólo la policy.
+  'ejercicio.crear': {
+    que: 'Abrir un ejercicio nuevo (el año contable)',
+    roles: SOLO_ADMIN,
+    donde: { guarda: 'crear_ejercicio' },
+  },
+
   'presupuesto.editar': {
     que: 'Crear, aprobar y editar el presupuesto y sus líneas',
     roles: CON_FINANZAS,

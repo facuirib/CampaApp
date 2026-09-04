@@ -46,6 +46,10 @@ export default async function PresupuestoPage() {
   const error =
     ambitosRes.error ?? lineasRes.error ?? catsRes.error ?? torneosRes.error ?? ejerciciosRes.error
 
+  // Dos permisos y no uno: presupuestar es de finanzas y se hace todo el año;
+  // abrir el ejercicio es de admin, pasa una vez y no se deshace.
+  const rol = await rolActual()
+
   const ambitos = (ambitosRes.data ?? []) as FilaAmbito[]
   const lineas = (lineasRes.data ?? []) as FilaLinea[]
   const cats = catsRes.data ?? []
@@ -132,7 +136,8 @@ export default async function PresupuestoPage() {
       )}
 
       <EditorPresupuesto
-        puedeEditar={puede(await rolActual(), 'presupuesto.editar')}
+        puedeEditar={puede(rol, 'presupuesto.editar')}
+        puedeAbrirEjercicio={puede(rol, 'ejercicio.crear')}
         secciones={secciones}
         categorias={cats.map((c) => ({
           id: c.id,
