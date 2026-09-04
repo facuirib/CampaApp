@@ -18,6 +18,129 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ⏰ PENDIENTE CON FECHA LÍMITE · abrir el ejercicio 2027 antes del 01/01/2027 · para los dos
+
+**Lo hace Facu, desde `/presupuesto`. No está hecho todavía.**
+
+Hoy existe **un solo ejercicio, el 2026** (01/01 a 31/12, abierto). Mientras no
+exista el 2027:
+
+> `periodo_de_fecha` corta **cualquier** movimiento con fecha de 2027 —
+> «No hay ejercicio que contenga la fecha X». No es sólo el presupuesto:
+> **ni un cobro ni un gasto se pueden registrar**. La app se congela el 1 de
+> enero.
+
+Está verificado contra la base, no deducido: antes de crear el 2027, una fecha
+de enero de 2027 levanta esa excepción; con el 2027 creado, resuelve el período
+`2027-01 abierto`.
+
+**Cómo se abre:** `/presupuesto`, bloque «El año contable», botón «Abrir el
+ejercicio 2027». Es de **administrador**. Confirmación en dos pasos, porque no
+se deshace: **no hay forma de borrar un ejercicio.**
+
+**Por qué no lo abrimos nosotros:** abrir un ejercicio es un dato real de
+negocio, no setup — y es una decisión de cuándo, no de si. La función y la
+pantalla quedaron listas y probadas; el acto queda para Facu.
+
+**Conviene hacerlo antes de fin de año, no el 2 de enero.** Si se abre recién
+cuando alguien no puede cargar un cobro, ya hubo un rato de app parada.
+
+---
+
+### 📋 Nivel C · lo que cambió mientras no estabas · 04/09/2026 · para Horacio
+
+Informativo, para cuando vuelvas. **Nada de esto toca tu motor**: ni el candado
+de reclamos, ni las plantillas, ni `v_cobranza_momento`/`v_cobranza_cola`, ni
+`registrar_cobro`, ni la emisión ARCA. Está todo pusheado en `main` (7 commits,
+`ef73dfd..2aecbff`), con tsc, build y verificador verdes en cada uno.
+
+El verificador quedó en **61 operaciones · 20 funciones con guarda, todas
+catalogadas · cero desacuerdos**.
+
+#### 🔴 Proveedores — esto sí corrige algo que estaba mal
+
+Encontramos que **`lectura` podía crear proveedores**. Las policies de
+`proveedor` eran `..._autenticado`, o sea abiertas a cualquiera con sesión. Las
+dos lecturas que teníamos eran erróneas: la nuestra («no puede nadie») y la tuya
+(«valida por dentro») — la realidad era que estaba abierto a todos.
+
+Ahora las policies **nombran el rol**: `admin · operador · finanzas` para INSERT
+y UPDATE. Un `lectura` ya no crea proveedores.
+
+También hay pantalla `/proveedores`, y **alta inline** desde `/gastos/nuevo` y
+`/activos/nuevo` — se puede crear el proveedor sin salir del formulario.
+
+#### Presupuesto — filtro por año y nota de línea
+
+- **Filtro por año**: no hizo falta modelo nuevo. Un presupuesto pertenece a un
+  ejercicio y `ejercicio.anio` *es* el año calendario.
+- **Nota en texto libre**: columna `presupuesto_linea.concepto_libre`, más el
+  parámetro en `agregar_linea_presupuesto` y `editar_linea_presupuesto` (las dos
+  fueron `drop`+`create` porque suman un parámetro).
+
+  🔴 Una diferencia deliberada con `gasto`: **acá `concepto_id` y
+  `concepto_libre` NO son excluyentes.** En `gasto` hay un check que exige
+  exactamente uno; en el presupuesto la nota **acompaña** al concepto. El XOR
+  obligaría a elegir entre clasificar y explicar.
+
+  En `editar_linea_presupuesto`, la nota se borra con **cadena vacía**; `null`
+  significa «no la estoy tocando», igual que los otros campos.
+
+#### `crear_ejercicio` — función nueva
+
+`ejercicio` tenía **una sola policy, el select**: la app podía leerlo y nadie
+podía crearlo. Ahora hay `crear_ejercicio(p_anio)`, con guarda de admin **y** la
+policy de INSERT con el rol nombrado — la función corre con los permisos de
+quien llama, así que sin la policy el insert se frenaba igual, y en silencio.
+
+Tres decisiones, por si las revisás:
+
+- **No crea los doce períodos.** `periodo_de_fecha` los crea al vuelo; adelantarlos
+  dejaría doce filas vacías que hacen parecer trabajado un mes sin movimientos.
+- **Las fechas se derivan del año.** La unidad `por_mes` del presupuesto calcula
+  su factor midiendo el largo del ejercicio: uno de seis meses cargado a mano
+  partiría ese factor al medio en silencio.
+- **Exige año contiguo** (`max`/`min` leídos de la base, sin ningún año escrito —
+  regla 12). Un hueco no falla al crearse: falla meses después. Y como no se
+  puede borrar un ejercicio, un `2062` mal tipeado queda para siempre.
+
+Catalogada como `ejercicio.crear` → `SOLO_ADMIN` por guarda. Más estricto que
+`presupuesto.editar`, que es de finanzas: presupuestar se hace todo el año,
+abrir el ejercicio pasa una vez.
+
+Ver el aviso con reloj de arriba ⏰.
+
+#### «Reclamo firme» → «Vencido» — 🔴 sólo la etiqueta
+
+**El valor en la base sigue siendo `'firme'`. No lo tocamos, y no hay migración.**
+Lo dejamos escrito porque es justo lo que te podría preocupar: el check de
+`reclamo.etapa`, tu candado, los filtros de las colas y el enganche con las
+plantillas (`cobranza_recordatorio`, etc.) dependen de ese valor, y renombrarlo
+los rompería los cuatro sin que nada avise. Las URLs `?etapa=firme` también
+quedaron iguales.
+
+Lo que cambió es lo que se lee en pantalla. De paso, la etiqueta estaba escrita
+a mano en tres pantallas y los tres mapas se habían separado: **el dashboard
+rotulaba una etapa `aviso` que no existe** —el valor real es `recordatorio`—, así
+que en cuanto alguien cayera en esa cola el gráfico lo mostraba con el valor
+crudo y sin el color semántico. No se veía porque esa cola está en cero hoy.
+Ahora las tres salen de `lib/domain/cobranza.ts`, una sola tabla
+etapa → etiqueta → tono → color.
+
+#### Visual
+
+- **`/gastos`**: la dona y las barras de pagado/impago quedaron del mismo alto.
+  `ChartTorta` gana `leyendaAlLado` — con la leyenda abajo, el alto crecía con
+  cada categoría, o sea que la proporción del gráfico la decidía la cantidad de
+  datos. El default no cambió, así que los otros usos quedan igual.
+- **`/caja`**: la tabla pasó a tarjetas tipo cuenta bancaria, con el saldo como
+  pieza grande, agrupadas en tres familias (efectivo con predio · digitales ·
+  dólares). Se mantiene el link a `/caja/[id]` y el rojo en negativos.
+
+Nada de esto está visto renderizado todavía — la pasada visual sigue pendiente.
+
+---
+
 ### 🔧 Tocamos `clonar_torneo` · le agregamos el calendario · 04/09/2026 · para Horacio
 
 Mientras estás de vacaciones tu carril pasó a Facu, y en el Nivel A —la gestión
