@@ -328,13 +328,28 @@ export default function Sidebar({ email, rol }: SidebarProps) {
   const [abierto, setAbierto] = useState(false)
   const itemActivo = useRef<HTMLLIElement | null>(null)
 
+  // Qué grupos están colapsados, por título. Nunca contiene `null` —el de
+  // Inicio no tiene título y no se ofrece para colapsar— así que sus ítems
+  // siempre quedan visibles sin necesitar un caso aparte.
+  const [colapsados, setColapsados] = useState<Set<string>>(new Set())
+
+  function toggleGrupo(titulo: string) {
+    setColapsados((prev) => {
+      const next = new Set(prev)
+      if (next.has(titulo)) next.delete(titulo)
+      else next.add(titulo)
+      return next
+    })
+  }
+
   // El árbol del rol, y `hrefActivo` sobre ESE árbol: si se marcara el activo
   // contra el árbol completo, una pantalla que el rol no ve por menú —pero
   // alcanza por link— resaltaría un ítem que no está dibujado.
   const grupos = gruposDe(rol ?? null)
   const activo = hrefActivo(pathname, grupos)
 
-  // Traer a la vista el ítem de la pantalla en la que estás.
+  // Traer a la vista el ítem de la pantalla en la que estás, y reabrir su
+  // grupo si estaba colapsado.
   //
   // La lista no entra entera en una laptop, así que estando en las últimas
   // secciones —Configuración, por ejemplo— la nav cargaba mostrando el
@@ -344,9 +359,29 @@ export default function Sidebar({ email, rol }: SidebarProps) {
   // `block: 'nearest'` mueve lo mínimo indispensable: si el ítem ya se ve, no
   // toca nada. Y `scrollIntoView` acá sólo mueve el contenedor que scrollea
   // —el <nav>—, no la página.
+  //
+  // El reabrir es la misma idea, un nivel más arriba: colapsar es para
+  // achicar lo que no estás mirando, no para esconder dónde estás parado. Si
+  // alguien navega a una pantalla de un grupo que había colapsado, se reabre
+  // solo — y sigue pudiendo colapsarlo de nuevo a mano después, esto sólo
+  // reacciona a NAVEGAR, no lo fuerza abierto en cada render.
   useEffect(() => {
     itemActivo.current?.scrollIntoView({ block: 'nearest' })
-  }, [activo])
+
+    if (!activo) return
+    const grupoActivo = grupos.find((g) =>
+      g.items.some((i) => i.href === activo || (i.hijos ?? []).some((h) => h.href === activo)),
+    )
+    if (grupoActivo?.titulo) {
+      const titulo = grupoActivo.titulo
+      setColapsados((prev) => {
+        if (!prev.has(titulo)) return prev
+        const next = new Set(prev)
+        next.delete(titulo)
+        return next
+      })
+    }
+  }, [activo, grupos])
 
   // /design/mobile se embebe en un iframe angosto dentro de /design para
   // mostrar el colapso a cards del DataTable. Ahí la navegación es ruido.
@@ -394,14 +429,28 @@ export default function Sidebar({ email, rol }: SidebarProps) {
       <nav
         className={`${abierto ? 'block' : 'hidden'} px-2 pb-4 md:block md:min-h-0 md:flex-1 md:overflow-y-auto`}
       >
-        {grupos.map((grupo, i) => (
+        {grupos.map((grupo, i) => {
+          const colapsado = !!grupo.titulo && colapsados.has(grupo.titulo)
+
+          return (
           <div key={grupo.titulo ?? 'inicio'} className={i > 0 ? 'mt-4' : ''}>
             {grupo.titulo && (
-              <h2 className="px-2.5 pb-1.5 text-[8.5px] font-bold uppercase tracking-[.07em] text-muted">
+              <button
+                type="button"
+                onClick={() => toggleGrupo(grupo.titulo!)}
+                aria-expanded={!colapsado}
+                className="flex w-full items-center justify-between px-2.5 pb-1.5 text-[8.5px] font-bold uppercase tracking-[.07em] text-muted hover:text-ink"
+              >
                 {grupo.titulo}
-              </h2>
+                <Icon
+                  name="chevronDerecha"
+                  size={11}
+                  className={`shrink-0 transition-transform ${colapsado ? '' : 'rotate-90'}`}
+                />
+              </button>
             )}
 
+            {!colapsado && (
             <ul className="grid gap-0.5">
               {grupo.items.map((item) => {
                 const esActivo = item.href === activo
@@ -485,8 +534,10 @@ export default function Sidebar({ email, rol }: SidebarProps) {
                 )
               })}
             </ul>
+            )}
           </div>
-        ))}
+          )
+        })}
       </nav>
 
       {/* Sólo con sesión: el sidebar no se muestra en /login, pero si algún día
