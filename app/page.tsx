@@ -458,7 +458,7 @@ export default async function Home({
         <KpiCard
           compacto
           href="/caja"
-          tono="positivo"
+          tono={enCaja >= 0 ? 'positivo' : 'alerta'}
           titulo="En caja hoy"
           valor={enCaja}
           icon="caja"
@@ -651,6 +651,11 @@ export default async function Home({
                     </div>
                   )
                 })}
+                {/* Los tres números ya no van del mismo color: "al día" y "en
+                    mora" tienen semántica de bueno/malo —la misma que ya
+                    usan las barras de arriba, vía `etapaCobranza`—, y
+                    pintarlos igual que "total" (que es neutro, la suma de
+                    los otros dos) la escondía. */}
                 <div className="mt-4 flex gap-4 border-t border-line pt-3">
                   <div className="flex-1 text-center">
                     <div className="text-[21px] font-extrabold text-blue">
@@ -659,13 +664,13 @@ export default async function Home({
                     <div className="text-[11px] text-muted">equipos</div>
                   </div>
                   <div className="flex-1 text-center">
-                    <div className="text-[21px] font-extrabold text-blue">
+                    <div className="text-[21px] font-extrabold text-ok">
                       {d.equipos_al_dia ?? 0}
                     </div>
                     <div className="text-[11px] text-muted">al día</div>
                   </div>
                   <div className="flex-1 text-center">
-                    <div className="text-[21px] font-extrabold text-blue">
+                    <div className="text-[21px] font-extrabold text-err">
                       {d.equipos_en_mora ?? 0}
                     </div>
                     <div className="text-[11px] text-muted">en mora</div>
