@@ -546,7 +546,7 @@ export default async function Home({
               serie={serie}
               compacto
               alto={320}
-              masLetra={2}
+              masLetra={0}
               sinMarco
               className="h-full"
               titulo="Saldo de caja por semana, real y proyectado"
@@ -613,6 +613,7 @@ export default async function Home({
                 compacto
                 alto={280}
                 masLetra={3}
+                mostrarValor
                 className="h-full"
                 titulo="Deuda por etapa de cobranza, vencida y por vencer"
               />
@@ -869,7 +870,9 @@ export default async function Home({
               modo="apiladas"
               alto={200}
               maxEtiquetasX={16}
-              masLetra={5}
+              masLetra={8}
+              masLetraLeyenda={6}
+              mostrarValor
               className="h-full"
               titulo="Salidas por día del mes: pagado y comprometido"
             />

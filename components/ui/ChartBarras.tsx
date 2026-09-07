@@ -1,3 +1,4 @@
+import { formatMoneyCorto } from '@/lib/format'
 import { escalaEje, formatTickMoneda } from './escala'
 
 /** Una serie: la misma magnitud a lo largo del eje X. */
@@ -29,8 +30,19 @@ export interface ChartBarrasProps {
   alto?: number
   /** Tope de etiquetas en el eje X, para que no se amontonen. */
   maxEtiquetasX?: number
+  /**
+   * Escribe el valor DENTRO de cada segmento —blanco, centrado—. Si el
+   * segmento es tan bajo que el texto no entra, no se dibuja: una cifra a
+   * medio cortar contra el borde es peor que no mostrarla.
+   */
+  mostrarValor?: boolean
   /** Suma esta cantidad de puntos a cada fuente del SVG. Ver ChartArea. */
   masLetra?: number
+  /**
+   * Anula `masLetra` sólo para la leyenda, cuando necesita moverse aparte de
+   * los ejes y las barras. Sin esto, la leyenda usa `masLetra` como el resto.
+   */
+  masLetraLeyenda?: number
   /** Texto accesible del gráfico, no un título visible. */
   titulo?: string
   className?: string
@@ -63,13 +75,16 @@ export default function ChartBarras({
   compacto = false,
   alto = 260,
   maxEtiquetasX,
+  mostrarValor = false,
   masLetra = 0,
+  masLetraLeyenda,
   titulo,
   className,
 }: ChartBarrasProps) {
   const ANCHO = compacto ? 440 : 800
   const MARGEN = { izq: 46, der: 14, arr: 28, ab: series.length > 1 ? 54 : 38 }
   const f = (base: number) => base + masLetra
+  const fLeyenda = (base: number) => base + (masLetraLeyenda ?? masLetra)
 
   if (ejeX.length === 0 || series.length === 0 || series.every((s) => s.valores.every((v) => v === 0))) {
     return (
@@ -195,16 +210,38 @@ export default function ChartBarras({
                   altoBarra = Math.abs(escalaY(v) - yCero)
                 }
 
+                const anchoRect = Math.max(anchoBarra - (modo === 'agrupadas' ? 2 : 0), 1)
+                const fSegmento = f(compacto ? 9 : 10)
+                // Sólo entra si el segmento es más alto que la letra + un
+                // colchón — si no, el texto se pisaría contra el borde de
+                // arriba o de abajo, o contra el segmento vecino.
+                const entraLabel = mostrarValor && altoBarra > fSegmento + 6
+
                 return (
-                  <rect
-                    key={`${s.label}-${i}`}
-                    x={x}
-                    y={yArriba}
-                    width={Math.max(anchoBarra - (modo === 'agrupadas' ? 2 : 0), 1)}
-                    height={Math.max(altoBarra, 1)}
-                    fill={color}
-                    rx={2}
-                  />
+                  <g key={`${s.label}-${i}`}>
+                    <rect
+                      x={x}
+                      y={yArriba}
+                      width={anchoRect}
+                      height={Math.max(altoBarra, 1)}
+                      fill={color}
+                      rx={2}
+                    />
+                    {entraLabel && (
+                      <text
+                        x={x + anchoRect / 2}
+                        y={yArriba + altoBarra / 2}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={fSegmento}
+                        fontWeight={700}
+                        fill="#fff"
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {formatMoneyCorto(v)}
+                      </text>
+                    )}
+                  </g>
                 )
               })}
 
@@ -234,7 +271,7 @@ export default function ChartBarras({
             return (
               <g key={`leyenda-${s.label}`}>
                 <rect x={x} y={y - 8} width={9} height={9} rx={2} fill={s.color ?? PALETA[j % PALETA.length]} />
-                <text x={x + 15} y={y} fontSize={f(compacto ? 10 : 11)} fill="var(--ink)">
+                <text x={x + 15} y={y} fontSize={fLeyenda(compacto ? 10 : 11)} fill="var(--ink)">
                   {s.label}
                 </text>
               </g>
