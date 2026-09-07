@@ -1,3 +1,4 @@
+import { formatMoneyCorto } from '@/lib/format'
 import { escalaEje, formatTickMoneda } from './escala'
 
 export interface PuntoSerie {
@@ -408,6 +409,44 @@ export default function ChartArea({
             .map((p, i) => (
               <circle key={`pn${i}`} cx={p.x} cy={p.y} r={L.punto} fill="var(--err)" />
             ))}
+
+        {/* El valor en los puntos rotulados: MISMOS índices que las fechas del
+            eje X — no cada punto de la serie. Rotular los 40 puntos de un año
+            de semanas los haría pisarse entre sí; el eje X ya resuelve cuántos
+            entran sin amontonarse, así que el valor viaja con esa fecha.
+            Siempre se rotula el último punto aunque no le toque por el paso:
+            es el valor vigente, y es el que se viene a buscar. */}
+        {puntos.map((p, i) => {
+          const esUltima = i === n - 1
+          if (i % pasoX !== 0 && !(esUltima && rotularUltima)) return null
+          const color = p.valor < 0
+            ? 'var(--err)'
+            : p.incompleto
+              ? 'var(--warn)'
+              : p.proyectado
+                ? 'var(--flyway)'
+                : 'var(--night)'
+          // Arriba del punto por default; si no entra por estar pegado al
+          // techo del plot, se escribe abajo para no salir del lienzo.
+          const arriba = p.y - MARGEN.arr > L.cuerpo + 6
+          const y = arriba ? p.y - 10 : p.y + L.cuerpo + 4
+          return (
+            <g key={`val${i}`}>
+              <circle cx={p.x} cy={p.y} r={L.punto} fill={color} stroke="white" strokeWidth={1.5} />
+              <text
+                x={p.x}
+                y={y}
+                textAnchor="middle"
+                fontSize={L.cuerpo - 1}
+                fontWeight={700}
+                fill={color}
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+              >
+                {formatMoneyCorto(p.valor)}
+              </text>
+            </g>
+          )
+        })}
       </svg>
     </div>
   )

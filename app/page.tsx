@@ -3,6 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
 import { etapaCobranza, etiquetaEtapa } from '@/lib/domain/cobranza'
 import Exportar from './Exportar'
+import IngresosGastosSemana from './IngresosGastosSemana'
 import {
   ChartArea,
   ChartBarras,
@@ -238,14 +239,19 @@ export default async function Home({
     const [, m, dd] = String(s.semana).split('-')
     return `Sem. ${dd}/${m}`
   })
-  // 🔴 Los dos POSITIVOS, al revés que en la versión vertical. Allá el gasto se
-  // dibujaba hacia abajo porque compartían el eje cero; acá son dos barras
-  // lado a lado y lo que se compara es el LARGO. Un gasto hacia la izquierda se
-  // leería como un gasto negativo.
-  const seriesIngresoGasto: SerieBarras[] = [
-    { label: 'Ingresos', color: 'var(--ok)', valores: semanas.map((s) => Number(s.ingresos ?? 0)) },
-    { label: 'Gastos', color: 'var(--err)', valores: semanas.map((s) => Number(s.egresos ?? 0)) },
-  ]
+  // 🔴 Los dos POSITIVOS, apilados en UNA barra por semana — pero el 100% de
+  // esa barra es «lo que se movió esta semana» (ingreso + gasto), no un total
+  // de negocio: es la misma geometría que usa `ChartBarras` en `apiladas`
+  // (los segmentos se suman para saber dónde arranca el siguiente), sólo que
+  // acá el resultado de esa suma no se muestra en ningún lado. Cada semana
+  // tiene su propia escala —el 100% de la semana 1 no es la misma plata que
+  // el 100% de la semana 12—, porque lo que se lee es la PROPORCIÓN de esa
+  // semana, no cuánto movió una semana contra otra.
+  const filasSemana = semanas.map((s, i) => ({
+    label: ejeSemanas[i],
+    ingreso: Number(s.ingresos ?? 0),
+    gasto: Number(s.egresos ?? 0),
+  }))
 
   // ── Cuánta plata hay en cada caja ────────────────────────────────────────
   //
@@ -514,18 +520,28 @@ export default async function Home({
           <strong className="font-semibold text-ink">Es de la empresa</strong> — no depende del
           torneo ni del año elegidos.
         </p>
-        <ChartArea serie={serie} alto={380} titulo="Saldo de caja por semana, real y proyectado" />
+        {/* Chica y al costado de «Dónde está la plata», mismo tamaño que
+            «Cobranza por vencimiento» / «Estado de equipos»: dejó de ser el
+            gráfico ancho-completo de arriba de todo — con `compacto` los
+            trazos y puntos quedan al tamaño nominal en esta columna angosta
+            en vez de finos, mismo motivo que documenta la prop. */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartArea
+            serie={serie}
+            compacto
+            alto={230}
+            titulo="Saldo de caja por semana, real y proyectado"
+          />
 
-        {/* ── Dónde está esa plata ──────────────────────────────────────────
-            La curva de arriba dice cuánto hay en total; ésta, en qué caja está.
-            Son la misma pregunta a dos niveles y por eso van juntas: el saldo
-            total no dice nada sobre si la plata está donde hace falta.
+          {/* ── Dónde está esa plata ────────────────────────────────────────
+              La curva de al lado dice cuánto hay en total; ésta, en qué caja
+              está. Son la misma pregunta a dos niveles y por eso van juntas: el
+              saldo total no dice nada sobre si la plata está donde hace falta.
 
-            Horizontal porque las cajas tienen nombre —«Bar Efectivo
-            Aeropuerto»— y en vertical no entra ninguno. Y porque hay una en
-            −$48M: el eje ubica el cero según el rango, así que esa barra sale
-            para el otro lado en vez de apoyarse contra el borde. */}
-        <div className="mt-4">
+              Horizontal porque las cajas tienen nombre —«Bar Efectivo
+              Aeropuerto»— y en vertical no entra ninguno. Y porque hay una en
+              −$48M: el eje ubica el cero según el rango, así que esa barra
+              sale para el otro lado en vez de apoyarse contra el borde. */}
           <Bloque icono="caja" titulo="Dónde está la plata" href="/caja" verTexto="Ver cajas">
             <ChartBarrasH
               categorias={ejeCajas}
@@ -630,22 +646,6 @@ export default async function Home({
               </div>
             </Bloque>
           </div>
-
-          {/* El puente vive acá y no suelto al final de la pantalla: es de
-              cobranza —comprometido, por cobrar, cobrado del torneo— y a 700px
-              de distancia de la banda que lo explica quedaba como un gráfico
-              huérfano. Ocupa la fila entera, así que además cierra la banda sin
-              dejar hueco. */}
-          <div className="mt-4">
-            <Bloque
-              icono="cobranza"
-              titulo="De lo comprometido a lo cobrado"
-              href="/cobranza"
-              verTexto="Ver cobranza"
-            >
-              <Waterfall pasos={puente} titulo="Puente entre lo comprometido y lo cobrado" />
-            </Bloque>
-          </div>
         </section>
       )}
 
@@ -679,7 +679,13 @@ export default async function Home({
             no: el gasto se devenga al cargarlo y se paga después. Habría
             cambiado el significado del gráfico con la excusa de cambiarle la
             granularidad. */}
-        <div className="mb-4">
+        {/* Chico y de a dos por fila, mismo patrón que el resto de la banda —
+            «Composición de ingresos»/«Composición de gastos» más abajo—. El
+            puente de cobranza se sumó acá al lado: son del mismo TAMAÑO
+            chico, aunque no del mismo ALCANCE, y por eso el puente lo dice en
+            su propio pie en vez de heredar en silencio el «no depende del
+            torneo» del párrafo de arriba. */}
+        <div className="mb-4 grid gap-4 lg:grid-cols-2">
           <Bloque
             icono="resultados"
             titulo="Ingresos vs gastos por semana"
@@ -691,14 +697,35 @@ export default async function Home({
                 : null
             }
           >
-            <ChartBarrasH
-              categorias={ejeSemanas}
-              series={seriesIngresoGasto}
-              modo="agrupadas"
-              anchoEtiqueta={110}
-              titulo={`Ingresos contra gastos por semana, ${anio}`}
-            />
+            {/* Mismo estilo que «Cómo cobran los equipos»: UNA barra por
+                fila, partida en dos segmentos por porcentaje — acá el
+                segmento no es «qué parte del total cobrado», es «de lo que
+                movió esta semana (ingreso + gasto), qué proporción fue cada
+                uno». Verde/rojo fijos, no una paleta por posición.
+
+                Es Client Component solo por el desplegable de las 8 semanas
+                más viejas: `filasSemana` ya viene resuelto de acá, el
+                componente no pide ni calcula nada nuevo. */}
+            <IngresosGastosSemana filas={filasSemana} />
           </Bloque>
+
+          {/* El puente entre lo comprometido y lo cobrado. Es de COBRANZA
+              —del torneo elegido— y no de la empresa, a diferencia del resto
+              de esta banda: por eso el pie lo aclara en vez de dejar que el
+              «no depende del torneo» del párrafo de arriba se lea como que
+              también vale acá. Sólo se dibuja con torneo elegido, porque sin
+              `d` los tres pasos son cero y no hay puente que mostrar. */}
+          {d && (
+            <Bloque
+              icono="cobranza"
+              titulo="De lo comprometido a lo cobrado"
+              href="/cobranza"
+              verTexto="Ver cobranza"
+              pie="Del torneo elegido — no de la empresa, a diferencia del resto de esta banda."
+            >
+              <Waterfall pasos={puente} alto={230} titulo="Puente entre lo comprometido y lo cobrado" />
+            </Bloque>
+          )}
         </div>
 
         {/* ── Las dos composiciones, una al lado de la otra ─────────────────
