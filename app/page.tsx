@@ -499,10 +499,14 @@ export default async function Home({
               : 'Nada por vencer en la ventana de aviso'
           }
         />
+        {/* `neutro`, no `info`: es un conteo, ni bueno ni malo por sí solo —
+            con el fix de color de KpiCard, `tono` ya pinta el número y no
+            sólo el borde, así que dejarlo en `info` lo hubiera teñido de
+            azul sin que hubiera nada "informativo" que señalar. */}
         <KpiCard
           compacto
           href="/equipos"
-          tono="info"
+          tono="neutro"
           titulo="Equipos al día"
           valor={d?.equipos_al_dia ?? 0}
           formato="entero"

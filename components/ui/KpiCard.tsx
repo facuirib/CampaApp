@@ -43,7 +43,12 @@ export interface ValorKpi {
   valor: number | null
   /** Default: 'money'. */
   formato?: FormatoKpi
-  /** En la card tiñe la barra lateral; en la hero, el número. */
+  /**
+   * En la card tiñe la barra lateral Y el número; en la hero, sólo el
+   * número —ahí no hay barra—. Antes acá decía que en la card sólo teñía
+   * la barra: era la documentación de un bug, no una decisión — el número
+   * quedaba siempre en `text-ink` sin importar el tono.
+   */
   tono?: TonoKpi
 }
 
@@ -102,6 +107,24 @@ const BARRA: Record<TonoKpi, string> = {
   advertencia: 'border-l-warn',
   info: 'border-l-blue',
   neutro: 'border-l-line',
+}
+
+/**
+ * El color del número grande. Los tokens `tx` —no los `ok`/`err`/`warn`
+ * pelados de `BARRA`— porque acá es TEXTO sobre blanco, y el contraste que
+ * necesita un borde no es el que necesita una letra.
+ *
+ * 🔴 Antes esto no existía: `tono` sólo llegaba a `BARRA` (un borde de 4px) y
+ * el número quedaba siempre en `text-ink`, viera lo que viera. Un
+ * "Resultado del torneo" negativo y uno positivo se leían del mismo color —
+ * el cambio de `tono` era invisible donde más importa mirar.
+ */
+const NUMERO: Record<TonoKpi, string> = {
+  positivo: 'text-oktx',
+  alerta: 'text-errtx',
+  advertencia: 'text-warntx',
+  info: 'text-blue-d',
+  neutro: 'text-ink',
 }
 
 /** El color de la línea del sparkline, del mismo tono que la barra. */
@@ -231,7 +254,7 @@ export default function KpiCard({
 
       <div className="mt-2 flex items-end justify-between gap-3">
         <div
-          className={`font-extrabold leading-none tracking-[-.6px] text-ink ${compacto ? 'text-[20px]' : 'text-[26px]'}`}
+          className={`font-extrabold leading-none tracking-[-.6px] ${NUMERO[tono]} ${compacto ? 'text-[20px]' : 'text-[26px]'}`}
         >
           {valorKpi(valor, formato)}
         </div>
