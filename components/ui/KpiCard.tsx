@@ -85,6 +85,13 @@ export interface KpiCardProps extends ValorKpi {
    * y además se puede abrir en otra pestaña como cualquier link.
    */
   href?: string
+  /**
+   * Tarjeta más angosta: número, título y subtítulo más chicos, y menos
+   * padding. Pensado para una fila con más tarjetas de las que entran al
+   * tamaño normal — Inicio hoy es el único caso. Default false: sin esto, la
+   * tarjeta es la de siempre, así que ninguna otra pantalla se entera.
+   */
+  compacto?: boolean
   className?: string
 }
 
@@ -200,6 +207,7 @@ export default function KpiCard({
   sparkline,
   variacion,
   href,
+  compacto = false,
   className,
 }: KpiCardProps) {
   // La proporción: el número es lo que se viene a leer, así que ocupa la
@@ -207,21 +215,34 @@ export default function KpiCard({
   // 9 — tres tamaños chicos repartidos en una tarjeta grande, que se leía como
   // espacio sobrante alrededor de un dato tímido. Sube el número y suben apenas
   // los dos textos, que en 9px estaban en el límite de lo legible.
+  //
+  // `compacto` es la excepción a ese razonamiento: una fila con más tarjetas
+  // de las que entran a 210px cada una necesita columnas más angostas, y ahí
+  // el número de 26px es el que sobra — se achica junto con el resto para que
+  // la tarjeta no quede pellizcada.
   const contenido = (
     <>
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted">
+      <div
+        className={`flex items-center gap-1.5 font-semibold text-muted ${compacto ? 'text-[9.5px]' : 'text-[10px]'}`}
+      >
         {icon && <Icon name={icon} size={12} className="shrink-0" />}
         {titulo}
       </div>
 
       <div className="mt-2 flex items-end justify-between gap-3">
-        <div className="text-[26px] font-extrabold leading-none tracking-[-.6px] text-ink">
+        <div
+          className={`font-extrabold leading-none tracking-[-.6px] text-ink ${compacto ? 'text-[20px]' : 'text-[26px]'}`}
+        >
           {valorKpi(valor, formato)}
         </div>
         {sparkline && <Sparkline serie={sparkline} className={TRAZO[tono]} />}
       </div>
 
-      {subtitulo && <div className="mt-2 text-[10px] text-muted">{subtitulo}</div>}
+      {subtitulo && (
+        <div className={`mt-2 text-muted ${compacto ? 'text-[9.5px]' : 'text-[10px]'}`}>
+          {subtitulo}
+        </div>
+      )}
       {variacion && (
         <div className="mt-2">
           <Variacion {...variacion} />
@@ -231,7 +252,8 @@ export default function KpiCard({
   )
 
   const clases = [
-    'block rounded-md border border-line border-l-4 bg-white p-4 shadow-sm',
+    'block rounded-md border border-line border-l-4 bg-white shadow-sm',
+    compacto ? 'p-3' : 'p-4',
     BARRA[tono],
     href && 'transition-colors hover:border-ink/25 hover:bg-panel/40',
     className,

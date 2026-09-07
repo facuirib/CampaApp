@@ -60,7 +60,14 @@ function Bloque({
   pie?: string | null
 }) {
   return (
-    <section>
+    // `flex h-full flex-col`: en una fila de grid de a dos, el <section> YA se
+    // estira solo a la altura de la fila —es el comportamiento default de
+    // CSS Grid (`align-items: stretch`)—, pero sin flex ese estiramiento se
+    // queda en el <section> y no le llega a la tarjeta con borde de adentro,
+    // que es la que se ve. `flex-1` en el contenedor de `children` es lo que
+    // pasa ese alto para abajo; de ahí lo toma la tarjeta del gráfico con
+    // `h-full` en su propio className (ver los usos de Bloque en la página).
+    <section className="flex h-full flex-col">
       <div className="mb-2 flex items-center justify-between gap-3">
         <h3 className="flex items-center gap-1.5 text-[12.5px] font-extrabold tracking-[-.2px] text-ink">
           <Icon name={icono} size={15} className="text-muted" />
@@ -72,7 +79,7 @@ function Bloque({
           </Link>
         )}
       </div>
-      {children}
+      <div className="flex-1">{children}</div>
       {pie && <p className="mt-2 text-[10.5px] italic leading-snug text-muted">{pie}</p>}
     </section>
   )
@@ -257,10 +264,13 @@ export default async function Home({
   //
   // Mapeo de v_saldo_caja, la misma vista que dibuja /caja. Una sola serie, así
   // que el gráfico escribe el saldo al final de cada barra.
+  //
+  // Sin `color`: el gráfico pinta cada barra por SIGNO (`colorPorSigno`), no
+  // por serie — no hay un color fijo que ponerle acá.
   const filasCaja = cajas.data ?? []
   const ejeCajas = filasCaja.map((c) => c.nombre ?? 'Caja')
   const serieCajas: SerieBarras[] = [
-    { label: 'Saldo', color: 'var(--blue)', valores: filasCaja.map((c) => Number(c.saldo ?? 0)) },
+    { label: 'Saldo', valores: filasCaja.map((c) => Number(c.saldo ?? 0)) },
   ]
 
   // Paleta por posición: «Ingresos por partidos» no es mejor ni peor que
@@ -430,8 +440,14 @@ export default async function Home({
 
           Los números no cambiaron: son los mismos de `v_dashboard` y
           `v_saldo_caja_total` que ya estaban (A2). */}
-      <div className="mb-6 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
+      {/* `minmax(150px, 1fr)`, no 210: a 210 las seis nunca entran en una fila
+          —6×210 + los gaps piden 1320px, y el ancho máximo del layout
+          (`max-w-6xl`) es 1152—, así que la sexta siempre iba a saltar a una
+          fila propia sin importar la letra. `compacto` en cada tarjeta es lo
+          que hace que 150px no se sienta apretado. */}
+      <div className="mb-6 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
         <KpiCard
+          compacto
           href="/resultados"
           tono={(d?.resultado ?? 0) >= 0 ? 'positivo' : 'alerta'}
           titulo="Resultado del torneo"
@@ -440,6 +456,7 @@ export default async function Home({
           subtitulo="Cobrado menos gastos"
         />
         <KpiCard
+          compacto
           href="/caja"
           tono="positivo"
           titulo="En caja hoy"
@@ -448,6 +465,7 @@ export default async function Home({
           subtitulo="Caja real, sin proyectar"
         />
         <KpiCard
+          compacto
           href="/cobranza"
           tono="info"
           titulo="Por cobrar"
@@ -456,6 +474,7 @@ export default async function Home({
           subtitulo="Vencido y por vencer"
         />
         <KpiCard
+          compacto
           href="/cobranza"
           tono="alerta"
           titulo="Deuda vencida"
@@ -468,6 +487,7 @@ export default async function Home({
             esa pantalla, y esta tarjeta existe para ir a avisar. El tono sale
             de lib/domain/cobranza, como todo lo de la etapa. */}
         <KpiCard
+          compacto
           href="/cobranza?vista=avisos&etapa=por_vencer"
           tono={etapaCobranza('por_vencer')?.tono ?? 'info'}
           titulo="Pagos por vencer"
@@ -480,6 +500,7 @@ export default async function Home({
           }
         />
         <KpiCard
+          compacto
           href="/equipos"
           tono="info"
           titulo="Equipos al día"
@@ -490,27 +511,21 @@ export default async function Home({
         />
       </div>
 
-      {/* ── Evolución de caja · el gráfico PRINCIPAL ────────────────────────
-          Arriba de todo y a ancho completo, porque es la única pregunta que se
-          contesta sola de un vistazo: si la caja sube o baja. Estaba anteúltimo
-          y del mismo tamaño que los cinco gráficos de apoyo, así que había que
-          bajar toda la pantalla para llegar a lo más importante.
+      {/* ── Caja: la banda PRINCIPAL ─────────────────────────────────────────
+          Arriba de todo, primera banda, porque es la única pregunta que se
+          contesta sola de un vistazo: si la caja sube o baja. Mismo patrón que
+          las bandas de Cobranza y Finanzas de más abajo —h2 de banda + texto +
+          grid de Bloques—: antes «Evolución de la caja» tenía su propio título
+          y su «Ver flujo →» en un renglón a ANCHO COMPLETO de la sección,
+          mientras el gráfico de abajo ocupaba solo la columna izquierda del
+          grid — el link terminaba pegado al borde derecho de toda la pantalla,
+          lejos del gráfico al que pertenece. Envuelto en `Bloque` como su
+          hermano, el título y el link quedan pegados a SU columna.
 
           Su alcance es la EMPRESA y no el torneo, y por eso lo dice: el
           selector de arriba no lo toca. */}
       <section className="mb-7">
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="flex items-center gap-1.5 text-[14px] font-extrabold tracking-[-.2px] text-ink">
-            <Icon name="proyeccion" size={16} className="text-muted" />
-            Evolución de la caja
-          </h2>
-          <Link
-            href="/proyeccion"
-            className="shrink-0 text-[10.5px] font-semibold text-blue-d hover:underline"
-          >
-            Ver flujo →
-          </Link>
-        </div>
+        <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">Caja</h2>
         <p className="mb-3 text-[11px] text-muted">
           La misma serie que{' '}
           <Link href="/proyeccion" className="font-semibold text-blue-d hover:underline">
@@ -520,18 +535,23 @@ export default async function Home({
           <strong className="font-semibold text-ink">Es de la empresa</strong> — no depende del
           torneo ni del año elegidos.
         </p>
-        {/* Chica y al costado de «Dónde está la plata», mismo tamaño que
-            «Cobranza por vencimiento» / «Estado de equipos»: dejó de ser el
-            gráfico ancho-completo de arriba de todo — con `compacto` los
-            trazos y puntos quedan al tamaño nominal en esta columna angosta
-            en vez de finos, mismo motivo que documenta la prop. */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <ChartArea
-            serie={serie}
-            compacto
-            alto={230}
-            titulo="Saldo de caja por semana, real y proyectado"
-          />
+          <Bloque
+            icono="proyeccion"
+            titulo="Evolución de la caja"
+            href="/proyeccion"
+            verTexto="Ver flujo"
+          >
+            <ChartArea
+              serie={serie}
+              compacto
+              alto={320}
+              masLetra={2}
+              sinMarco
+              className="h-full"
+              titulo="Saldo de caja por semana, real y proyectado"
+            />
+          </Bloque>
 
           {/* ── Dónde está esa plata ────────────────────────────────────────
               La curva de al lado dice cuánto hay en total; ésta, en qué caja
@@ -546,7 +566,11 @@ export default async function Home({
             <ChartBarrasH
               categorias={ejeCajas}
               series={serieCajas}
-              anchoEtiqueta={190}
+              anchoEtiqueta={130}
+              compacto
+              masLetra={1}
+              colorPorSigno
+              className="h-full"
               titulo="Saldo de cada caja"
             />
           </Bloque>
@@ -586,7 +610,10 @@ export default async function Home({
                 ejeX={ejeEtapas}
                 series={seriesCobranza}
                 modo="apiladas"
-                alto={230}
+                compacto
+                alto={280}
+                masLetra={3}
+                className="h-full"
                 titulo="Deuda por etapa de cobranza, vencida y por vencer"
               />
             </Bloque>
@@ -600,7 +627,7 @@ export default async function Home({
               {/* Barras de progreso, como el mockup: con tres categorías se
                   comparan mejor que en una dona, porque el ojo compara largos
                   mucho mejor que ángulos. */}
-              <div className="rounded-md border border-line bg-white p-4">
+              <div className="h-full rounded-md border border-line bg-white p-4">
                 {gajosEtapa.map((g) => {
                   const pct =
                     (d.equipos_total ?? 0) > 0
@@ -608,7 +635,7 @@ export default async function Home({
                       : 0
                   return (
                     <div key={g.label} className="mb-3 last:mb-0">
-                      <div className="mb-1 flex justify-between text-[11px]">
+                      <div className="mb-1 flex justify-between text-[13px]">
                         <span className="text-muted">{g.label}</span>
                         <span className="font-bold text-ink">
                           {g.valor} equipo{g.valor === 1 ? '' : 's'}
@@ -625,22 +652,22 @@ export default async function Home({
                 })}
                 <div className="mt-4 flex gap-4 border-t border-line pt-3">
                   <div className="flex-1 text-center">
-                    <div className="text-[20px] font-extrabold text-blue">
+                    <div className="text-[21px] font-extrabold text-blue">
                       {d.equipos_total ?? 0}
                     </div>
-                    <div className="text-[9px] text-muted">equipos</div>
+                    <div className="text-[11px] text-muted">equipos</div>
                   </div>
                   <div className="flex-1 text-center">
-                    <div className="text-[20px] font-extrabold text-blue">
+                    <div className="text-[21px] font-extrabold text-blue">
                       {d.equipos_al_dia ?? 0}
                     </div>
-                    <div className="text-[9px] text-muted">al día</div>
+                    <div className="text-[11px] text-muted">al día</div>
                   </div>
                   <div className="flex-1 text-center">
-                    <div className="text-[20px] font-extrabold text-blue">
+                    <div className="text-[21px] font-extrabold text-blue">
                       {d.equipos_en_mora ?? 0}
                     </div>
-                    <div className="text-[9px] text-muted">en mora</div>
+                    <div className="text-[11px] text-muted">en mora</div>
                   </div>
                 </div>
               </div>
@@ -723,7 +750,15 @@ export default async function Home({
               verTexto="Ver cobranza"
               pie="Del torneo elegido — no de la empresa, a diferencia del resto de esta banda."
             >
-              <Waterfall pasos={puente} alto={230} titulo="Puente entre lo comprometido y lo cobrado" />
+              <Waterfall
+                pasos={puente}
+                compacto
+                alto={280}
+                masLetra={1}
+                masLetraValor={0}
+                className="h-full"
+                titulo="Puente entre lo comprometido y lo cobrado"
+              />
             </Bloque>
           )}
         </div>
@@ -750,6 +785,8 @@ export default async function Home({
             <ChartTorta
               gajos={gajosIngreso}
               leyendaAlLado
+              masLetra={3}
+              className="h-full"
               titulo={`Composición de los ingresos ${anio}`}
             />
           </Bloque>
@@ -766,6 +803,8 @@ export default async function Home({
             <ChartTorta
               gajos={gajosGasto}
               leyendaAlLado
+              masLetra={3}
+              className="h-full"
               titulo={`Composición de los gastos ${anio}`}
             />
           </Bloque>
@@ -776,7 +815,7 @@ export default async function Home({
             {/* Barra apilada horizontal y no dona, como el mockup: con tres
                 medios, una barra deja comparar proporciones de un vistazo y
                 ocupa un tercio del alto. */}
-            <div className="rounded-md border border-line bg-white p-4">
+            <div className="h-full rounded-md border border-line bg-white p-4">
               <div className="mb-3 flex h-6 overflow-hidden rounded-md">
                 {gajosMedio.map((m, i) => {
                   const pct = totalMedios > 0 ? (m.valor / totalMedios) * 100 : 0
@@ -789,14 +828,14 @@ export default async function Home({
                       className="flex items-center justify-center"
                     >
                       {pct > 12 && (
-                        <span className="text-[9px] font-bold text-white">{Math.round(pct)}%</span>
+                        <span className="text-[11px] font-bold text-white">{Math.round(pct)}%</span>
                       )}
                     </div>
                   )
                 })}
               </div>
               {gajosMedio.map((m, i) => (
-                <div key={m.label} className="flex items-center gap-2 py-1 text-[11px]">
+                <div key={m.label} className="flex items-center gap-2 py-1 text-[13px]">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-sm"
                     style={{ background: ['var(--ok)', 'var(--blue)', 'var(--flyway)'][i % 3] }}
@@ -805,7 +844,7 @@ export default async function Home({
                   <span className="cifra font-bold text-ink">{formatMoney(m.valor)}</span>
                 </div>
               ))}
-              <p className="mt-2 text-[10.5px] leading-snug text-muted">
+              <p className="mt-2 text-[12.5px] leading-snug text-muted">
                 Sale de los pagos registrados, no de lo que cada equipo pactó al inscribirse. Lo
                 pactado está en el historial del equipo; lo interesante es el desvío.
               </p>
@@ -830,6 +869,8 @@ export default async function Home({
               modo="apiladas"
               alto={200}
               maxEtiquetasX={16}
+              masLetra={5}
+              className="h-full"
               titulo="Salidas por día del mes: pagado y comprometido"
             />
           </Bloque>

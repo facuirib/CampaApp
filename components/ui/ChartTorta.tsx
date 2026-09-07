@@ -38,6 +38,8 @@ export interface ChartTortaProps {
   leyendaAlLado?: boolean
   /** Qué se muestra en el centro. Sin esto va el total. */
   centro?: { valor: string; nota?: string }
+  /** Suma esta cantidad de puntos a cada fuente del SVG. Ver ChartArea. */
+  masLetra?: number
   /** Texto accesible del gráfico, no un título visible. */
   titulo?: string
   className?: string
@@ -93,9 +95,11 @@ export default function ChartTorta({
   tope = 6,
   leyendaAlLado = false,
   centro,
+  masLetra = 0,
   titulo,
   className,
 }: ChartTortaProps) {
+  const f = (base: number) => base + masLetra
   // Con la leyenda al costado el lienzo se ensancha y la dona se corre a la
   // izquierda; el `compacto` manda sobre esto, porque en poco ancho no hay
   // lugar para dos columnas.
@@ -186,7 +190,7 @@ export default function ChartTorta({
           x={cx}
           y={cy - 2}
           textAnchor="middle"
-          fontSize={compacto ? 17 : 21}
+          fontSize={f(compacto ? 17 : 21)}
           fontWeight={800}
           fill="var(--ink)"
           style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -197,7 +201,7 @@ export default function ChartTorta({
           x={cx}
           y={cy + (compacto ? 14 : 17)}
           textAnchor="middle"
-          fontSize={compacto ? 9.5 : 10.5}
+          fontSize={f(compacto ? 9.5 : 10.5)}
           fill="var(--muted)"
         >
           {centro?.nota ?? 'total'}
@@ -214,7 +218,7 @@ export default function ChartTorta({
               <text
                 x={leyendaX + 16}
                 y={y}
-                fontSize={compacto ? 10.5 : 11.5}
+                fontSize={f(compacto ? 10.5 : 11.5)}
                 fill="var(--ink)"
               >
                 {a.label}
@@ -223,7 +227,7 @@ export default function ChartTorta({
                 x={lado - 62}
                 y={y}
                 textAnchor="end"
-                fontSize={compacto ? 10.5 : 11.5}
+                fontSize={f(compacto ? 10.5 : 11.5)}
                 fill="var(--muted)"
                 style={{ fontVariantNumeric: 'tabular-nums' }}
               >
@@ -233,7 +237,7 @@ export default function ChartTorta({
                 x={lado - 14}
                 y={y}
                 textAnchor="end"
-                fontSize={compacto ? 10.5 : 11.5}
+                fontSize={f(compacto ? 10.5 : 11.5)}
                 fontWeight={700}
                 fill="var(--ink)"
                 style={{ fontVariantNumeric: 'tabular-nums' }}

@@ -29,6 +29,8 @@ export interface ChartBarrasProps {
   alto?: number
   /** Tope de etiquetas en el eje X, para que no se amontonen. */
   maxEtiquetasX?: number
+  /** Suma esta cantidad de puntos a cada fuente del SVG. Ver ChartArea. */
+  masLetra?: number
   /** Texto accesible del gráfico, no un título visible. */
   titulo?: string
   className?: string
@@ -61,11 +63,13 @@ export default function ChartBarras({
   compacto = false,
   alto = 260,
   maxEtiquetasX,
+  masLetra = 0,
   titulo,
   className,
 }: ChartBarrasProps) {
   const ANCHO = compacto ? 440 : 800
   const MARGEN = { izq: 46, der: 14, arr: 28, ab: series.length > 1 ? 54 : 38 }
+  const f = (base: number) => base + masLetra
 
   if (ejeX.length === 0 || series.length === 0 || series.every((s) => s.valores.every((v) => v === 0))) {
     return (
@@ -137,7 +141,7 @@ export default function ChartBarras({
           stroke="var(--line2)"
           strokeWidth={1}
         />
-        <text x={MARGEN.izq - 8} y={escalaY(maxV) + 4} textAnchor="end" fontSize={10} fill="var(--muted)">
+        <text x={MARGEN.izq - 8} y={escalaY(maxV) + 4} textAnchor="end" fontSize={f(10)} fill="var(--muted)">
           {formatTickMoneda(maxV, eje.paso)}
         </text>
 
@@ -150,7 +154,7 @@ export default function ChartBarras({
           strokeWidth={1}
         />
         {minV < 0 && (
-          <text x={MARGEN.izq - 8} y={escalaY(minV) + 4} textAnchor="end" fontSize={10} fill="var(--muted)">
+          <text x={MARGEN.izq - 8} y={escalaY(minV) + 4} textAnchor="end" fontSize={f(10)} fill="var(--muted)">
             {formatTickMoneda(minV, eje.paso)}
           </text>
         )}
@@ -209,7 +213,7 @@ export default function ChartBarras({
                   x={centro}
                   y={alto - MARGEN.ab + 16}
                   textAnchor="middle"
-                  fontSize={compacto ? 9.5 : 10.5}
+                  fontSize={f(compacto ? 9.5 : 10.5)}
                   fill="var(--muted)"
                 >
                   {etiqueta}
@@ -230,7 +234,7 @@ export default function ChartBarras({
             return (
               <g key={`leyenda-${s.label}`}>
                 <rect x={x} y={y - 8} width={9} height={9} rx={2} fill={s.color ?? PALETA[j % PALETA.length]} />
-                <text x={x + 15} y={y} fontSize={compacto ? 10 : 11} fill="var(--ink)">
+                <text x={x + 15} y={y} fontSize={f(compacto ? 10 : 11)} fill="var(--ink)">
                   {s.label}
                 </text>
               </g>

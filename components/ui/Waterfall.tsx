@@ -20,12 +20,26 @@ export interface WaterfallProps {
   pasos: PasoWaterfall[]
   /** Alto del área de dibujo, en unidades del viewBox. Default 260. */
   alto?: number
+  /**
+   * Achica el LIENZO, no las letras. Mismo criterio que ChartArea: el SVG
+   * escala por `viewBox`, así que con menos unidades de ancho de por medio,
+   * el mismo dibujo —montos, barras, rótulos— sale más grande en píxeles
+   * para el mismo contenedor.
+   */
+  compacto?: boolean
+  /** Suma esta cantidad de puntos a cada fuente del SVG. Ver ChartArea. */
+  masLetra?: number
+  /**
+   * Anula `masLetra` sólo para el monto arriba de la barra, cuando ese
+   * número necesita un tamaño distinto del rótulo de abajo. Sin esto, el
+   * monto usa `masLetra` igual que el rótulo — los dos suben o bajan juntos.
+   */
+  masLetraValor?: number
   /** Qué muestra el gráfico. Es el texto accesible, no un título visible. */
   titulo?: string
   className?: string
 }
 
-const ANCHO = 800
 const MARGEN = { izq: 20, der: 20, arr: 34, ab: 46 }
 
 /** Una `resta` no siempre es una pérdida: en un puente puede ser lo que todavía
@@ -55,7 +69,18 @@ const TEXTO_VALOR: Record<RolPaso, string> = {
  *
  * Ninguna cifra se calcula: las que se muestran son las que vinieron.
  */
-export default function Waterfall({ pasos, alto = 260, titulo, className }: WaterfallProps) {
+export default function Waterfall({
+  pasos,
+  alto = 260,
+  compacto = false,
+  masLetra = 0,
+  masLetraValor,
+  titulo,
+  className,
+}: WaterfallProps) {
+  const ANCHO = compacto ? 440 : 800
+  const f = (base: number) => base + masLetra
+  const fValor = (base: number) => base + (masLetraValor ?? masLetra)
   // Sin pasos, o con todos en cero. El segundo caso importa: un puente cuyos
   // tres números son 0 dibuja tres hilos sobre la línea de base y deja un
   // recuadro vacío del alto completo. No está roto, pero no dice nada y ocupa
@@ -159,7 +184,7 @@ export default function Waterfall({ pasos, alto = 260, titulo, className }: Wate
                 x={cx}
                 y={yArriba - 10}
                 textAnchor="middle"
-                fontSize={13}
+                fontSize={fValor(13)}
                 fontWeight={800}
                 fill={TEXTO_VALOR[p.rol]}
                 style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -173,7 +198,7 @@ export default function Waterfall({ pasos, alto = 260, titulo, className }: Wate
                 x={cx}
                 y={alto - MARGEN.ab + 20}
                 textAnchor="middle"
-                fontSize={11}
+                fontSize={f(11)}
                 fontWeight={p.rol === 'resultado' ? 700 : 400}
                 fill={p.rol === 'resultado' ? 'var(--ink)' : 'var(--muted)'}
               >

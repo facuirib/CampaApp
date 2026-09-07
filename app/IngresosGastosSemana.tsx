@@ -39,7 +39,7 @@ export default function IngresosGastosSemana({ filas }: IngresosGastosSemanaProp
     const pctGasto = total > 0 ? (f.gasto / total) * 100 : 0
     return (
       <div className="mb-3 last:mb-0">
-        <div className="mb-1 flex items-baseline justify-between text-[10.5px]">
+        <div className="mb-1 flex items-baseline justify-between text-[12.5px]">
           <span className="font-bold text-ink">{f.label}</span>
           <span className="cifra">
             <span className="font-semibold text-oktx">{formatMoney(f.ingreso)}</span>
@@ -55,7 +55,7 @@ export default function IngresosGastosSemana({ filas }: IngresosGastosSemanaProp
               className="flex items-center justify-center"
             >
               {pctIngreso > 14 && (
-                <span className="text-[9px] font-bold text-white">{Math.round(pctIngreso)}%</span>
+                <span className="text-[11px] font-bold text-white">{Math.round(pctIngreso)}%</span>
               )}
             </div>
           )}
@@ -66,7 +66,7 @@ export default function IngresosGastosSemana({ filas }: IngresosGastosSemanaProp
               className="flex items-center justify-center"
             >
               {pctGasto > 14 && (
-                <span className="text-[9px] font-bold text-white">{Math.round(pctGasto)}%</span>
+                <span className="text-[11px] font-bold text-white">{Math.round(pctGasto)}%</span>
               )}
             </div>
           )}
@@ -76,7 +76,7 @@ export default function IngresosGastosSemana({ filas }: IngresosGastosSemanaProp
   }
 
   return (
-    <div className="rounded-md border border-line bg-white p-4">
+    <div className="h-full rounded-md border border-line bg-white p-4">
       {recientes.map((f) => (
         <Fila key={f.label} f={f} />
       ))}
@@ -92,7 +92,7 @@ export default function IngresosGastosSemana({ filas }: IngresosGastosSemanaProp
             type="button"
             onClick={() => setAbierto((v) => !v)}
             aria-expanded={abierto}
-            className="mt-1 flex w-full items-center justify-center gap-1 rounded-sm py-1.5 text-[10.5px] font-semibold text-blue-d hover:bg-row-hover"
+            className="mt-1 flex w-full items-center justify-center gap-1 rounded-sm py-1.5 text-[12.5px] font-semibold text-blue-d hover:bg-row-hover"
           >
             {abierto ? `Ver últimas ${VISIBLES}` : `Ver las ${filas.length} semanas`}
             <Icon
@@ -112,7 +112,7 @@ export default function IngresosGastosSemana({ filas }: IngresosGastosSemanaProp
         </>
       )}
 
-      <p className="mt-2 text-[10.5px] leading-snug text-muted">
+      <p className="mt-2 text-[12.5px] leading-snug text-muted">
         El largo de cada franja es su parte de lo que se movió esa semana —ingreso más gasto—, no
         una comparación contra el resto del año.
       </p>

@@ -18,6 +18,29 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Ajustes de UX en Inicio · gráficos más chicos y prolijos · para Facu
+
+Cambios de Horacio en app/page.tsx, ya commiteados (6c798fc):
+
+1. "Evolución de caja" (ChartArea): tamaño compacto (alto=230, como "Cobranza
+   por vencimiento"), ahora al costado de "Dónde está la plata" en la misma
+   fila. Agregado labels con el valor en varios puntos de la serie (no solo
+   hover).
+2. "De lo comprometido a lo cobrado" (Waterfall): mismo tamaño compacto,
+   movido a la banda de Finanzas, al costado de "Ingresos vs gastos por
+   semana". Como ese puente es del torneo elegido (esa banda dice "no depende
+   del torneo"), tiene un pie propio aclarándolo, y solo se dibuja si hay
+   torneo elegido.
+3. "Ingresos vs gastos por semana": nuevo componente
+   app/IngresosGastosSemana.tsx — mismo estilo visual que "Cómo cobran los
+   equipos" (barras de progreso por fila), colores fijos verde/rojo. Muestra 4
+   semanas siempre, con desplegable para ver las 12.
+
+tsc y build limpios. verificar:permisos no corrió (sin DATABASE_URL en este
+entorno) — no aplica, no se tocó SQL.
+
+---
+
 ### ✅ 2ª RONDA CERRADA · Niveles A + C + B · 04/09/2026 · para Horacio
 
 La segunda ronda de observaciones de Facu quedó completa y pusheada. Es

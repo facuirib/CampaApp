@@ -43,6 +43,20 @@ export interface ChartAreaProps {
   maxEtiquetasX?: number
   /** Resalta en rojo los tramos que caen bajo cero. Default true. */
   marcarNegativo?: boolean
+  /**
+   * Suma esta cantidad de puntos a cada fuente del SVG. Pensado para Inicio,
+   * donde los gráficos conviven chicos y el texto queda fino; sin esto (o en
+   * 0) el default es el de siempre, así que cualquier otro lugar que use este
+   * componente no se entera.
+   */
+  masLetra?: number
+  /**
+   * Saca el marco rectangular completo y deja solo el eje inferior — la
+   * grilla horizontal ya marca la referencia de arriba, así que el rectángulo
+   * era un segundo encuadre encima del mismo trabajo. Default false: sin
+   * esto, el gráfico queda igual que siempre.
+   */
+  sinMarco?: boolean
   /** Qué muestra el gráfico. Es el texto accesible, no un título visible. */
   titulo?: string
   className?: string
@@ -149,6 +163,8 @@ export default function ChartArea({
   alto,
   maxEtiquetasX,
   marcarNegativo = true,
+  masLetra = 0,
+  sinMarco = false,
   titulo,
   className,
 }: ChartAreaProps) {
@@ -163,6 +179,7 @@ export default function ChartArea({
   }
 
   const L = compacto ? LIENZO.compacto : LIENZO.normal
+  const cuerpo = L.cuerpo + masLetra
   const ANCHO = L.ancho
   const MARGEN = L.margen
   const altoTotal = alto ?? L.alto
@@ -262,16 +279,32 @@ export default function ChartArea({
         ))}
 
         {/* El marco que cierra el plot. Sin esto el área queda abierta arriba y
-            a los costados, que era lo que se veía mal en /proyeccion. */}
-        <rect
-          x={MARGEN.izq}
-          y={MARGEN.arr}
-          width={anchoPlot}
-          height={altoPlot}
-          fill="none"
-          stroke="var(--line)"
-          strokeWidth={1}
-        />
+            a los costados, que era lo que se veía mal en /proyeccion.
+
+            `sinMarco` lo cambia por un solo eje inferior: la grilla horizontal
+            ya da la referencia de arriba, así que el rectángulo completo era
+            un segundo encuadre encima del mismo trabajo — dos formas de decir
+            "acá termina el gráfico" a la vez. */}
+        {sinMarco ? (
+          <line
+            x1={MARGEN.izq}
+            y1={MARGEN.arr + altoPlot}
+            x2={ANCHO - MARGEN.der}
+            y2={MARGEN.arr + altoPlot}
+            stroke="var(--line)"
+            strokeWidth={1}
+          />
+        ) : (
+          <rect
+            x={MARGEN.izq}
+            y={MARGEN.arr}
+            width={anchoPlot}
+            height={altoPlot}
+            fill="none"
+            stroke="var(--line)"
+            strokeWidth={1}
+          />
+        )}
 
         {/* Etiquetas del eje Y */}
         {ticksY.map((t, i) => (
@@ -281,7 +314,7 @@ export default function ChartArea({
             y={escalaY(t)}
             textAnchor="end"
             dominantBaseline="middle"
-            fontSize={L.cuerpo}
+            fontSize={cuerpo}
             fill="var(--muted)"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
@@ -299,7 +332,7 @@ export default function ChartArea({
               x={escalaX(i)}
               y={altoTotal - MARGEN.ab + 14}
               textAnchor="middle"
-              fontSize={L.cuerpo}
+              fontSize={cuerpo}
               fill="var(--muted)"
             >
               {fechaCorta(p.fecha)}
@@ -428,8 +461,8 @@ export default function ChartArea({
                 : 'var(--night)'
           // Arriba del punto por default; si no entra por estar pegado al
           // techo del plot, se escribe abajo para no salir del lienzo.
-          const arriba = p.y - MARGEN.arr > L.cuerpo + 6
-          const y = arriba ? p.y - 10 : p.y + L.cuerpo + 4
+          const arriba = p.y - MARGEN.arr > cuerpo + 6
+          const y = arriba ? p.y - 10 : p.y + cuerpo + 4
           return (
             <g key={`val${i}`}>
               <circle cx={p.x} cy={p.y} r={L.punto} fill={color} stroke="white" strokeWidth={1.5} />
@@ -437,7 +470,7 @@ export default function ChartArea({
                 x={p.x}
                 y={y}
                 textAnchor="middle"
-                fontSize={L.cuerpo - 1}
+                fontSize={cuerpo - 1}
                 fontWeight={700}
                 fill={color}
                 style={{ fontVariantNumeric: 'tabular-nums' }}

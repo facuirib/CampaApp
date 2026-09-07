@@ -12,6 +12,22 @@ export interface ChartBarrasHProps {
   anchoEtiqueta?: number
   /** Escribe el valor al final de cada barra. Con muchas filas, estorba. */
   mostrarValor?: boolean
+  /**
+   * Pinta cada barra según el SIGNO de su valor —verde positivo, rojo
+   * negativo— en vez del color de la serie. Sólo tiene sentido con una
+   * única serie: con varias, cada barra ya lleva el color que distingue una
+   * serie de otra, y pintar por signo se lo pisaría.
+   */
+  colorPorSigno?: boolean
+  /**
+   * Achica el LIENZO, no las letras. Mismo criterio que ChartArea: el SVG
+   * escala por `viewBox`, así que con menos unidades de ancho de por medio,
+   * el mismo dibujo —texto, barras, alto— sale más grande en píxeles para el
+   * mismo contenedor.
+   */
+  compacto?: boolean
+  /** Suma esta cantidad de puntos a cada fuente del SVG. Ver ChartArea. */
+  masLetra?: number
   /** Texto accesible del gráfico, no un título visible. */
   titulo?: string
   className?: string
@@ -53,9 +69,13 @@ export default function ChartBarrasH({
   modo = 'agrupadas',
   anchoEtiqueta = 150,
   mostrarValor = true,
+  colorPorSigno = false,
+  compacto = false,
+  masLetra = 0,
   titulo,
   className,
 }: ChartBarrasHProps) {
+  const f = (base: number) => base + masLetra
   if (
     categorias.length === 0 ||
     series.length === 0 ||
@@ -70,7 +90,7 @@ export default function ChartBarrasH({
     )
   }
 
-  const ANCHO = 800
+  const ANCHO = compacto ? 440 : 800
   const PASO_FILA = modo === 'apiladas' || series.length === 1 ? 30 : 34
   const MARGEN = {
     izq: anchoEtiqueta,
@@ -136,7 +156,7 @@ export default function ChartBarrasH({
               x={escalaX(t)}
               y={MARGEN.arr + altoPlot + 16}
               textAnchor="middle"
-              fontSize={10}
+              fontSize={f(10)}
               fill="var(--muted)"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
@@ -158,7 +178,7 @@ export default function ChartBarrasH({
                 y={yFila + PASO_FILA / 2}
                 textAnchor="end"
                 dominantBaseline="middle"
-                fontSize={11}
+                fontSize={f(11)}
                 fill="var(--ink)"
               >
                 {cat}
@@ -166,7 +186,11 @@ export default function ChartBarrasH({
 
               {series.map((s, j) => {
                 const v = s.valores[i] ?? 0
-                const color = s.color ?? PALETA[j % PALETA.length]
+                const color = colorPorSigno
+                  ? v >= 0
+                    ? 'var(--ok)'
+                    : 'var(--err)'
+                  : (s.color ?? PALETA[j % PALETA.length])
 
                 let x: number
                 let ancho: number
@@ -206,7 +230,7 @@ export default function ChartBarrasH({
                   x={ANCHO - MARGEN.der + 8}
                   y={yFila + PASO_FILA / 2}
                   dominantBaseline="middle"
-                  fontSize={11}
+                  fontSize={f(11)}
                   fontWeight={700}
                   fill={(series[0].valores[i] ?? 0) < 0 ? 'var(--errtx)' : 'var(--ink)'}
                   style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -234,7 +258,7 @@ export default function ChartBarrasH({
                   rx={2}
                   fill={s.color ?? PALETA[j % PALETA.length]}
                 />
-                <text x={x + 15} y={y} fontSize={11} fill="var(--muted)">
+                <text x={x + 15} y={y} fontSize={f(11)} fill="var(--muted)">
                   {s.label}
                 </text>
               </g>
