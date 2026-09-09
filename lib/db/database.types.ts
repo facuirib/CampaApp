@@ -4054,7 +4054,6 @@ export type Database = {
           fecha_desde: number | null
           fecha_hasta: number | null
           fecha_referencia: string | null
-          hito_jornada_id: string | null
           id: string
           linea_orden: number
           observacion: string | null
@@ -4071,7 +4070,6 @@ export type Database = {
           fecha_desde?: number | null
           fecha_hasta?: number | null
           fecha_referencia?: string | null
-          hito_jornada_id?: string | null
           id?: string
           linea_orden: number
           observacion?: string | null
@@ -4088,7 +4086,6 @@ export type Database = {
           fecha_desde?: number | null
           fecha_hasta?: number | null
           fecha_referencia?: string | null
-          hito_jornada_id?: string | null
           id?: string
           linea_orden?: number
           observacion?: string | null
@@ -4098,20 +4095,6 @@ export type Database = {
           regla?: Database["public"]["Enums"]["regla_vencimiento"]
         }
         Relationships: [
-          {
-            foreignKeyName: "plan_tarifa_linea_hito_jornada_id_fkey"
-            columns: ["hito_jornada_id"]
-            isOneToOne: false
-            referencedRelation: "jornada"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "plan_tarifa_linea_hito_jornada_id_fkey"
-            columns: ["hito_jornada_id"]
-            isOneToOne: false
-            referencedRelation: "v_calendario_jornadas"
-            referencedColumns: ["jornada_id"]
-          },
           {
             foreignKeyName: "plan_tarifa_linea_plan_tarifa_id_fkey"
             columns: ["plan_tarifa_id"]

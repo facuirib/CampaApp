@@ -532,7 +532,7 @@ Armar la ficha genera todas sus cuotas, traduciendo las líneas de las dos opcio
 
 | `regla` de la línea | `es_playoff` | Genera | Vencimiento |
 |---|---|---|---|
-| `fecha_fija` | — | **1 cuota por línea** | Fecha propia de la línea (`hito_jornada_id` / `fecha_referencia`), **independiente del calendario de juego** |
+| `fecha_fija` | — | **1 cuota por línea** | Fecha propia de la línea (`fecha_referencia`), **independiente del calendario de juego** |
 | `por_partido` | `false` | **1 cuota por fecha** del rango `fecha_desde`..`fecha_hasta` — 10 fechas, 10 cuotas del arancel unitario | **Atado a la jornada**: cada cuota vence con su fecha del calendario y **se mueve si la jornada se reprograma** |
 | `bloque_adelantado` | — | **1 cuota** con el total del bloque (el importe cargado ya es el total, no unitario) | Fecha del bloque |
 | `por_partido` | `true` | **ninguna** | — |
@@ -704,7 +704,7 @@ Una fecha agrupa muchas jornadas. Y de ahí emerge una entidad natural que antes
 
 **Grilla.** `generar_grilla_liga()` pasa de sembrar 28 filas fecha × género a cargar las **284 desde el calendario validado por serie** (`supabase/seeds/clausura_2026_04_calendario.csv`). Sus parámetros `p_fechas_masc` / `p_fechas_fem` dejan de tener sentido: cada serie tiene su propia cantidad de fechas y sus propios días.
 
-**Puente con el tarifario.** El placeholder `hito_calendario` (texto) fue reemplazado por el FK real `plan_tarifa_linea.hito_jornada_id → jornada(id)`. Cada línea `fecha_fija` apunta a la jornada que define su vencimiento; reprogramar la jornada recalcula el vencimiento.
+**Puente con el tarifario — la vuelta entera.** El placeholder `hito_calendario` (texto) fue reemplazado por el FK `plan_tarifa_linea.hito_jornada_id → jornada(id)`, con la promesa de que reprogramar la jornada recalculara el vencimiento de las líneas `fecha_fija`. **Esa promesa nunca se implementó** —la generación de cuotas sólo leyó `fecha_referencia`— y la columna **se eliminó el 09/09/2026** (migración `muere_hito_jornada`), por decisión de Facu al definir el modelo: la inscripción **no se ata al calendario**, y la necesidad real —vencimientos que siguen al calendario— se resuelve a nivel **cuota**, donde `mover_jornada` arrastra los vencimientos de las cuotas impagas de su jornada (`cuota.jornada_id`).
 
 #### `dia_cancha` · el día de operación de un predio
 
@@ -2407,7 +2407,7 @@ Dos conceptos independientes por género, cada uno con opciones alternativas; el
 
 | Regla | Qué modela |
 |---|---|
-| `fecha_fija` | Importe fijo que vence en una fecha resuelta contra el calendario del torneo. La línea apunta con `hito_jornada_id` (FK → `jornada`) a la fecha que define su vencimiento, más `fecha_referencia` (snapshot informativo); no una fecha plana. Reprogramar la jornada recalcula el vencimiento (ver §3.5). |
+| `fecha_fija` | Importe fijo que vence en `fecha_referencia`, una fecha propia de la línea, **independiente del calendario de juego** — es la regla de la inscripción, que por definición no se ata a jornadas. (El FK `hito_jornada_id` que ataba estas líneas al calendario nunca llegó a usarse y se eliminó el 09/09/2026; ver §3.5.) |
 | `por_partido` | Arancel unitario por partido jugado (fechas 1–10, playoffs). Total = arancel × cantidad (decisión 8). Define el importe de la cuota, no un devengo: el ingreso se reconoce al cobrar. |
 | `bloque_adelantado` | Rango de fechas cobrado de una vez por adelantado (Masc fechas 11–15, Fem 11–13). El importe cargado **es** el total del bloque. |
 
