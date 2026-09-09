@@ -4,6 +4,7 @@ import { formatDate } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Button, Card, DataTable, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import AnularArqueo from './AnularArqueo'
 import AsentarDiferencia from './AsentarDiferencia'
 
 // ── Filas preparadas (badge ya resuelto) ────────────────────────────────────
@@ -297,6 +298,21 @@ export default async function ArqueoPage() {
             maxHeight={400}
             emptyMessage="No hay arqueos registrados"
           />
+
+          {/* La anulación, debajo del historial. Los anulados no se ofrecen —
+              anular dos veces no existe— y el permiso es el del circuito. */}
+          {puede(rol, 'arqueo.anular') && (
+            <AnularArqueo
+              arqueos={(historialRaw ?? [])
+                .filter((f) => f.arqueo_id && !f.anulado_at)
+                .map((f) => ({
+                  id: f.arqueo_id!,
+                  fecha: f.fecha,
+                  predio: f.predio,
+                  ambito: f.ambito,
+                }))}
+            />
+          )}
         </section>
       )}
     </div>
