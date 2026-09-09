@@ -106,7 +106,7 @@ export default function MoverJornadaPage({
 
     const supabase = createClient()
 
-    const { error } = await supabase.rpc('mover_jornada', {
+    const { data, error } = await supabase.rpc('mover_jornada', {
       p_jornada_id: jornadaId,
       p_nueva_fecha: nuevaFecha,
     })
@@ -118,10 +118,24 @@ export default function MoverJornadaPage({
       return
     }
 
+    // El mensaje sale de lo que la función HIZO, no de lo que se esperaba.
+    // Este texto ya decía «N cuotas actualizadas» antes de que mover_jornada
+    // tocara ninguna cuota — era la descripción de un comportamiento que no
+    // existía. Ahora la función arrastra los vencimientos y devuelve el
+    // resumen real: movidas e intactas vienen de ahí.
+    const r = data as unknown as {
+      cuotas_movidas: number
+      cuotas_pagadas_intactas: number
+      reprogramada: boolean
+    } | null
+    const movidas = r?.cuotas_movidas ?? 0
+    const pagadas = r?.cuotas_pagadas_intactas ?? 0
     setResultadoExito(
-      `Jornada movida al ${formatDate(nuevaFecha)}. ${cuotasAtadas} cuota${
-        cuotasAtadas === 1 ? '' : 's'
-      } actualizada${cuotasAtadas === 1 ? '' : 's'}.`,
+      `Jornada movida al ${formatDate(nuevaFecha)}. ` +
+        (movidas > 0
+          ? `${movidas} cuota${movidas === 1 ? '' : 's'} impaga${movidas === 1 ? '' : 's'} ahora vence${movidas === 1 ? '' : 'n'} ese día.`
+          : 'Sin cuotas impagas que mover.') +
+        (pagadas > 0 ? ` Las ${pagadas} ya pagadas no se tocaron.` : ''),
     )
   }
 
@@ -189,7 +203,8 @@ export default function MoverJornadaPage({
               <>
                 Mover esta jornada cambiará el vencimiento de <strong>{cuotasAtadas}</strong> cuota
                 {cuotasAtadas === 1 ? '' : 's'} de liga de los equipos de{' '}
-                {jornada.serie_completa ?? jornada.serie ?? 'esta serie'}.
+                {jornada.serie_completa ?? jornada.serie ?? 'esta serie'}: las impagas pasan a
+                vencer la fecha nueva. Las ya pagadas no se tocan.
               </>
             ) : (
               'No hay cuotas atadas a esta jornada todavía.'

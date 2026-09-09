@@ -9470,10 +9470,7 @@ export type Database = {
         Args: { p_ficha_id: string; p_nueva_serie_id: string }
         Returns: undefined
       }
-      mover_jornada: {
-        Args: { p_jornada_id: string; p_nueva_fecha: string }
-        Returns: undefined
-      }
+      mover_jornada: { Args: { p_jornada_id: string; p_nueva_fecha: string }; Returns: Json }
       pagar_gasto: {
         Args: {
           p_cheque_banco?: string
