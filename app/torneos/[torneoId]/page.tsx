@@ -7,6 +7,7 @@ import { rolActual } from '@/lib/rol-actual'
 import { Badge, Card, Icon, KpiCard } from '@/components/ui'
 import ConfirmarTorneo from './ConfirmarTorneo'
 import EliminarTorneo from './EliminarTorneo'
+import ReactivarTorneo from './ReactivarTorneo'
 import PestanasTorneo from './PestanasTorneo'
 
 export const dynamic = 'force-dynamic'
@@ -80,6 +81,11 @@ export default async function TorneoDetallePage({
   const falta = listo.falta ?? []
   const puedeConfirmar = puede(rol, 'torneo.confirmar')
   const puedeBorrar = puede(rol, 'torneo.borrar')
+  const puedeReactivar = puede(rol, 'torneo.reactivar')
+  // La baja lógica, que hasta ahora esta pantalla no podía ver: la vista no
+  // exponía `activo` y el detalle ofrecía «Dar de baja» sobre un torneo que ya
+  // estaba dado de baja, como si nada hubiera pasado.
+  const deBaja = listo.activo === false
   const estado = ESTADO[listo.estado ?? ''] ?? { estado: 'neutro' as const, label: listo.estado ?? '—' }
 
   return (
@@ -94,6 +100,7 @@ export default async function TorneoDetallePage({
             {listo.nombre}
             <Badge estado={estado.estado}>{estado.label}</Badge>
             {listo.confirmado && <Badge estado="ok">Confirmado</Badge>}
+            {deBaja && <Badge estado="vencido">Dado de baja</Badge>}
           </h1>
           <p className="mt-1 text-[12px] text-muted">
             {torneo?.fecha_desde && torneo?.fecha_hasta
@@ -103,6 +110,22 @@ export default async function TorneoDetallePage({
           </p>
         </div>
       </header>
+
+      {/* La banda de la baja va ANTES de todo lo demás: es lo primero que hay
+          que saber al abrir este torneo. Se muestra tenga o no permiso de
+          reactivar — el estado es información de todos; el botón, de admin. */}
+      {deBaja && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-md bg-warnbg px-4 py-3">
+          <div>
+            <p className="text-[11.5px] font-bold text-warntx">Este torneo está dado de baja.</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-warntx">
+              No aparece como activo en las listas, pero sus datos siguen enteros — incluidas sus
+              cuotas, que la baja no toca.
+            </p>
+          </div>
+          {puedeReactivar && <ReactivarTorneo torneoId={torneoId} />}
+        </div>
+      )}
 
       <PestanasTorneo activa="resumen" torneoId={torneoId} />
 
@@ -212,7 +235,10 @@ export default async function TorneoDetallePage({
 
       {/* Al fondo y separado: es lo único destructivo de la pantalla, y no
           tiene por qué estar cerca de lo que se usa todos los días. */}
-      {puedeBorrar && (
+      {/* Sin `!deBaja`, un torneo ya dado de baja ofrecía «Dar de baja» otra
+          vez — el bug que encontró Facu. De baja, la acción disponible es
+          reactivar (en la banda de arriba), no volver a bajarlo. */}
+      {puedeBorrar && !deBaja && (
         <section className="mt-8 border-t border-line pt-6">
           <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
             Eliminar este torneo

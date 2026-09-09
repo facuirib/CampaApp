@@ -8824,6 +8824,7 @@ export type Database = {
       }
       v_torneo_listo: {
         Row: {
+          activo: boolean | null
           categorias: number | null
           confirmado: boolean | null
           cuotas: number | null
@@ -9687,6 +9688,7 @@ export type Database = {
         Returns: number
       }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
+      reactivar_torneo: { Args: { p_torneo_id: string }; Returns: undefined }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       trasladar_entre_cajas: {
         Args: {

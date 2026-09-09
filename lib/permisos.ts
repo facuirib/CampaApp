@@ -157,6 +157,15 @@ export const PERMISOS = {
     roles: SOLO_ADMIN,
     donde: { guarda: 'borrar_torneo' },
   },
+  'torneo.reactivar': {
+    // El espejo de la baja, con el mismo rol: quien puede bajar puede
+    // devolver. La función exige que el torneo esté efectivamente de baja —
+    // reactivar lo activo no es idempotencia inocua, es señal de estar
+    // operando sobre el torneo equivocado.
+    que: 'Reactivar un torneo dado de baja',
+    roles: SOLO_ADMIN,
+    donde: { guarda: 'reactivar_torneo' },
+  },
   'torneo.estructura': {
     que: 'Clonar, crear, editar o borrar categorías y series',
     roles: TODOS_MENOS_LECTURA,
