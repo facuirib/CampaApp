@@ -290,6 +290,13 @@ export const PERMISOS = {
   },
 
   // ── Gastos ───────────────────────────────────────────────────────────────
+  'gasto.catalogo': {
+    // El ABM de los dos ejes del gasto. La coherencia naturaleza × anclaje la
+    // valida trg_gasto_coherente al cargar cada gasto — esto arma el catálogo.
+    que: 'Crear, editar o desactivar categorías de gasto',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_cat_gasto', 'editar_cat_gasto', 'desactivar_cat_gasto'] },
+  },
   'gasto.registrar': {
     que: 'Cargar un gasto (devengo)',
     roles: CON_FINANZAS,

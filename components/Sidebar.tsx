@@ -125,6 +125,7 @@ export const GRUPOS: GrupoNav[] = [
       // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
       { href: '/equipos', label: 'Equipos', icon: 'equipos' },
       { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario', roles: SIN_FINANZAS },
+      { href: '/catalogos/gastos', label: 'Categorías de gasto', icon: 'filtro', roles: OFICINA },
       { href: '/torneos', label: 'Torneos', icon: 'equipos', roles: SIN_FINANZAS },
     ],
   },
