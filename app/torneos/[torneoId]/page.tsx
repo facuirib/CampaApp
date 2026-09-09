@@ -6,6 +6,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Badge, Card, Icon, KpiCard } from '@/components/ui'
 import ConfirmarTorneo from './ConfirmarTorneo'
+import EditarTorneo from './EditarTorneo'
 import EliminarTorneo from './EliminarTorneo'
 import ReactivarTorneo from './ReactivarTorneo'
 import PestanasTorneo from './PestanasTorneo'
@@ -67,14 +68,19 @@ export default async function TorneoDetallePage({
   if (!UUID.test(torneoId)) notFound()
 
   const supabase = await createClient()
-  const [{ data: listo }, { data: torneo }, { data: previo }, rol] = await Promise.all([
-    supabase.from('v_torneo_listo').select('*').eq('torneo_id', torneoId).maybeSingle(),
-    supabase.from('v_torneo_lista').select('*').eq('torneo_id', torneoId).maybeSingle(),
-    // Qué generaría confirmar. Sale de su vista y se verificó contra el
-    // resultado real: coinciden al peso.
-    supabase.from('v_previo_confirmar').select('*').eq('torneo_id', torneoId).maybeSingle(),
-    rolActual(),
-  ])
+  const [{ data: listo }, { data: torneo }, { data: previo }, rol, { data: fila }, { data: ejercicios }] =
+    await Promise.all([
+      supabase.from('v_torneo_listo').select('*').eq('torneo_id', torneoId).maybeSingle(),
+      supabase.from('v_torneo_lista').select('*').eq('torneo_id', torneoId).maybeSingle(),
+      // Qué generaría confirmar. Sale de su vista y se verificó contra el
+      // resultado real: coinciden al peso.
+      supabase.from('v_previo_confirmar').select('*').eq('torneo_id', torneoId).maybeSingle(),
+      rolActual(),
+      // La fila cruda, para el formulario de edición: los valores actuales de
+      // lo editable, que las vistas de arriba no exponen completos.
+      supabase.from('torneo').select('nombre, anio, temporada, ejercicio_id').eq('id', torneoId).maybeSingle(),
+      supabase.from('ejercicio').select('id, anio').order('anio', { ascending: false }),
+    ])
 
   if (!listo) notFound()
 
@@ -109,6 +115,19 @@ export default async function TorneoDetallePage({
             · La estructura, los equipos, el tarifario y el calendario de este torneo.
           </p>
         </div>
+
+        {puede(rol, 'torneo.editar') && fila && (
+          <EditarTorneo
+            torneoId={torneoId}
+            inicial={{
+              nombre: fila.nombre ?? '',
+              anio: fila.anio ?? 0,
+              temporada: fila.temporada ?? 'clausura',
+              ejercicio_id: fila.ejercicio_id,
+            }}
+            ejercicios={(ejercicios ?? []).map((e) => ({ id: e.id, anio: e.anio }))}
+          />
+        )}
       </header>
 
       {/* La banda de la baja va ANTES de todo lo demás: es lo primero que hay

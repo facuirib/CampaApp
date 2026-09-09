@@ -9688,6 +9688,16 @@ export type Database = {
         Returns: number
       }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
+      editar_torneo: {
+        Args: {
+          p_anio?: number
+          p_ejercicio_id?: string
+          p_nombre?: string
+          p_temporada?: Database["public"]["Enums"]["temporada"]
+          p_torneo_id: string
+        }
+        Returns: undefined
+      }
       reactivar_torneo: { Args: { p_torneo_id: string }; Returns: undefined }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       trasladar_entre_cajas: {

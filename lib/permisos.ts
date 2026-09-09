@@ -97,6 +97,15 @@ export const PERMISOS = {
     roles: TODOS_MENOS_LECTURA,
     donde: { fns: ['crear_torneo'] },
   },
+  'torneo.editar': {
+    // Lo DESCRIPTIVO: nombre, año, temporada, ejercicio. El estado va por el
+    // ciclo y la baja por su par borrar/reactivar. Va por guarda porque la
+    // policy de UPDATE de torneo es `_autenticado` y la función es más
+    // estricta que ella.
+    que: 'Editar nombre, año, temporada o ejercicio de un torneo',
+    roles: TODOS_MENOS_LECTURA,
+    donde: { guarda: 'editar_torneo' },
+  },
   'torneo.ciclo': {
     // Iniciar, cerrar y reabrir un torneo.
     //
