@@ -7,6 +7,7 @@ import { rolActual } from '@/lib/rol-actual'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import ArmarReclamo from './ArmarReclamo'
 import FichaCliente from './FichaCliente'
+import PagosEquipo from './PagosEquipo'
 import { PLANTILLA_POR_ETAPA, type EtapaCobranza } from '@/lib/reclamo/plantilla'
 import type { Database } from '@/lib/db/database.types'
 
@@ -182,7 +183,7 @@ export default async function CuentaCorrientePage({
   // props a lo que la necesite.
   const [
     fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, momentoRes, actualRes,
-    clienteRes, condicionesRes,
+    clienteRes, condicionesRes, pagosRes,
   ] =
     await Promise.all([
       supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
@@ -219,6 +220,13 @@ export default async function CuentaCorrientePage({
       // así tiene nombre, delegado y datos fiscales que cargar.
       supabase.from('v_cliente').select('*').eq('tercero_id', terceroId).maybeSingle(),
       supabase.from('condicion_iva_receptor').select('id, descripcion').eq('activa', true).order('id'),
+      // Los pagos del equipo, con su asiento para saber si están anulados.
+      // Es una LISTA de filas, no un total: la regla 1 no pide vista para esto.
+      supabase
+        .from('pago')
+        .select('id, fecha, monto, medio_pago, asiento_id, asiento(anulado_por)')
+        .eq('tercero_id', terceroId)
+        .order('fecha', { ascending: false }),
     ])
 
   const error = fichasRes.error ?? cuotasRes.error
@@ -485,6 +493,18 @@ export default async function CuentaCorrientePage({
           equipo con su propia tabla de las mismas cuotas, sin un solo link
           entre las dos. El operador que veía a un deudor acá tenía que volver
           al menú y buscarlo de nuevo allá. */}
+      <PagosEquipo
+        puedeAnular={puede(rol, 'pago.anular')}
+        pagos={(pagosRes.data ?? []).map((p) => ({
+          id: p.id,
+          fecha: p.fecha,
+          monto: p.monto ?? 0,
+          medio: p.medio_pago,
+          asiento_id: p.asiento_id,
+          anulado: p.asiento?.anulado_por != null,
+        }))}
+      />
+
       {resumen && (
         <section className="mt-8 border-t border-line pt-6">
           <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
