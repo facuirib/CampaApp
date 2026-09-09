@@ -374,6 +374,15 @@ export const PERMISOS = {
     roles: ARQUEO,
     donde: { fns: ['anular_arqueo'] },
   },
+  'bar.eliminar_dia': {
+    // El día creado por error, antes de que tenga movimiento: si ya tiene
+    // ventas o arqueo, los FK de la base bloquean el borrado. La policy de
+    // DELETE es más angosta que la de crear (el rol bar crea días, no los
+    // borra) y la matriz lo refleja.
+    que: 'Eliminar un día de cancha creado por error',
+    roles: TODOS_MENOS_LECTURA,
+    donde: { fns: ['eliminar_dia_cancha'] },
+  },
   'bar.cierre': {
     que: 'Cerrar la caja del bar de un día',
     roles: CON_EL_BAR,

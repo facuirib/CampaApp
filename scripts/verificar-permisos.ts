@@ -286,7 +286,6 @@ const PUERTAS_SIN_UI: Record<string, string> = {
   crear_playoff: 'Alta de instancia de playoff — la puerta existe, la pantalla no',
   crear_gasto_planificado: 'Planificación de gastos',
   marcar_gasto_planificado_ejecutado: 'Planificación de gastos',
-  eliminar_dia_cancha: 'Borrar un día de cancha del bar',
   liquidar_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',
   recibir_efectivo_en_transito: 'Circuito de efectivo en tránsito entre predios',
   reponer_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',

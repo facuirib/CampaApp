@@ -5,6 +5,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Button, Card, DataTable, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import AnularArqueo from './AnularArqueo'
+import EliminarDiaCancha from './EliminarDiaCancha'
 import AsentarDiferencia from './AsentarDiferencia'
 
 // ── Filas preparadas (badge ya resuelto) ────────────────────────────────────
@@ -274,6 +275,16 @@ export default async function ArqueoPage() {
             maxHeight={400}
             emptyMessage="No hay días de cancha registrados"
           />
+
+          {/* El día creado por error, sólo días sin arquear. Los FK bloquean
+              el que ya tiene ventas — la base decide, acá se ofrece. */}
+          {puede(rol, 'bar.eliminar_dia') && (
+            <EliminarDiaCancha
+              dias={(diaCanchaRaw ?? [])
+                .filter((f) => f.dia_cancha_id && !f.arqueo_id)
+                .map((f) => ({ id: f.dia_cancha_id!, fecha: f.fecha, predio: f.predio }))}
+            />
+          )}
         </section>
       )}
 
