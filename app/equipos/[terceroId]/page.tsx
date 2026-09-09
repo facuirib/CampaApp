@@ -7,6 +7,7 @@ import { rolActual } from '@/lib/rol-actual'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import ArmarReclamo from './ArmarReclamo'
 import FichaCliente from './FichaCliente'
+import AplicarAnticipo from './AplicarAnticipo'
 import PagosEquipo from './PagosEquipo'
 import { PLANTILLA_POR_ETAPA, type EtapaCobranza } from '@/lib/reclamo/plantilla'
 import type { Database } from '@/lib/db/database.types'
@@ -183,7 +184,7 @@ export default async function CuentaCorrientePage({
   // props a lo que la necesite.
   const [
     fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, momentoRes, actualRes,
-    clienteRes, condicionesRes, pagosRes,
+    clienteRes, condicionesRes, pagosRes, anticipoSaldoRes, anticiposRes,
   ] =
     await Promise.all([
       supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
@@ -227,6 +228,10 @@ export default async function CuentaCorrientePage({
         .select('id, fecha, monto, medio_pago, asiento_id, asiento(anulado_por)')
         .eq('tercero_id', terceroId)
         .order('fecha', { ascending: false }),
+      // El saldo a favor, de SU vista (regla 1) — y los anticipos que lo
+      // componen, para saber a qué pago llamar sugerir_imputacion.
+      supabase.from('v_anticipo_saldo').select('saldo_disponible').eq('tercero_id', terceroId).maybeSingle(),
+      supabase.from('anticipo').select('pago_id, fecha, monto').eq('tercero_id', terceroId).order('fecha'),
     ])
 
   const error = fichasRes.error ?? cuotasRes.error
@@ -493,6 +498,15 @@ export default async function CuentaCorrientePage({
           equipo con su propia tabla de las mismas cuotas, sin un solo link
           entre las dos. El operador que veía a un deudor acá tenía que volver
           al menú y buscarlo de nuevo allá. */}
+      {puedeCobrar && (
+        <AplicarAnticipo
+          saldoDisponible={anticipoSaldoRes.data?.saldo_disponible ?? 0}
+          anticipos={(anticiposRes.data ?? [])
+            .filter((a) => a.pago_id)
+            .map((a) => ({ pago_id: a.pago_id!, fecha: a.fecha, monto: a.monto ?? 0 }))}
+        />
+      )}
+
       <PagosEquipo
         puedeAnular={puede(rol, 'pago.anular')}
         pagos={(pagosRes.data ?? []).map((p) => ({
