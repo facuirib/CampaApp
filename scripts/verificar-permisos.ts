@@ -283,7 +283,6 @@ const DEPRECADAS: Record<string, string> = {
  * el único momento en que se puede decidir bien quién puede tocarla.
  */
 const PUERTAS_SIN_UI: Record<string, string> = {
-  crear_playoff: 'Alta de instancia de playoff — la puerta existe, la pantalla no',
   crear_gasto_planificado: 'Planificación de gastos',
   marcar_gasto_planificado_ejecutado: 'Planificación de gastos',
   liquidar_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',

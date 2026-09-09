@@ -229,7 +229,7 @@ export const PERMISOS = {
   'calendario.editar': {
     que: 'Crear, mover o suspender una jornada',
     roles: TODOS_MENOS_LECTURA,
-    donde: { fns: ['crear_jornada', 'mover_jornada', 'suspender_jornada'] },
+    donde: { fns: ['crear_jornada', 'crear_playoff', 'mover_jornada', 'suspender_jornada'] },
   },
 
   // ── Cobranza ─────────────────────────────────────────────────────────────

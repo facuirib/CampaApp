@@ -25,6 +25,11 @@ export default function NuevaJornadaPage() {
   const [serieDesdeQuery, setSerieDesdeQuery] = useState(false)
   const [numero, setNumero] = useState(0)
   const [fecha, setFecha] = useState('')
+  // Liga o playoff: dos puertas distintas en la base —crear_jornada exige
+  // número; crear_playoff exige instancia del formato— y un solo formulario.
+  const [tipo, setTipo] = useState<'liga' | 'playoff'>('liga')
+  const [instancia, setInstancia] = useState('')
+  const [formatos, setFormatos] = useState<{ nombre: string; cantidad_partidos: number }[]>([])
 
   const [registrando, setRegistrando] = useState(false)
   const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
@@ -59,6 +64,12 @@ export default function NuevaJornadaPage() {
       // useSearchParams, para no forzar un boundary de Suspense en una
       // página que no necesita nada del servidor — mismo patrón que
       // /arqueo/nuevo.
+      const { data: formatosData } = await supabase
+        .from('formato_instancia')
+        .select('nombre, cantidad_partidos')
+        .order('orden')
+      if (!cancelado) setFormatos(formatosData ?? [])
+
       const preseleccionada = new URLSearchParams(window.location.search).get('serie')
       if (preseleccionada) {
         setSerieId(preseleccionada)
@@ -92,7 +103,8 @@ export default function NuevaJornadaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serieId, cargando])
 
-  const puedeConfirmar = !registrando && !!serieId && numero > 0
+  const puedeConfirmar =
+    !registrando && !!serieId && (tipo === 'liga' ? numero > 0 : !!instancia)
 
   async function confirmar() {
     if (!serieId) return
@@ -103,11 +115,18 @@ export default function NuevaJornadaPage() {
 
     const supabase = createClient()
 
-    const { error } = await supabase.rpc('crear_jornada', {
-      p_serie_id: serieId,
-      p_numero: numero,
-      p_fecha: fecha || undefined,
-    })
+    const { error } =
+      tipo === 'liga'
+        ? await supabase.rpc('crear_jornada', {
+            p_serie_id: serieId,
+            p_numero: numero,
+            p_fecha: fecha || undefined,
+          })
+        : await supabase.rpc('crear_playoff', {
+            p_serie_id: serieId,
+            p_instancia: instancia,
+            ...(fecha ? { p_fecha: fecha } : {}),
+          })
 
     setRegistrando(false)
 
@@ -116,7 +135,11 @@ export default function NuevaJornadaPage() {
       return
     }
 
-    setResultadoExito(`Jornada ${numero} creada en ${serieElegida?.label ?? 'la serie'}.`)
+    setResultadoExito(
+      tipo === 'liga'
+        ? `Jornada ${numero} creada en ${serieElegida?.label ?? 'la serie'}.`
+        : `${instancia} creada en ${serieElegida?.label ?? 'la serie'}.`,
+    )
   }
 
   return (
@@ -165,15 +188,42 @@ export default function NuevaJornadaPage() {
                 </Field>
               )}
 
-              <Field label="Número" required>
-                <Input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={numero || ''}
-                  onChange={(e) => setNumero(parseInt(e.target.value, 10) || 0)}
-                />
+              <Field label="Tipo" required>
+                <Select value={tipo} onChange={(e) => setTipo(e.target.value as 'liga' | 'playoff')}>
+                  <option value="liga">Fecha de liga</option>
+                  <option value="playoff">Playoff</option>
+                </Select>
               </Field>
+
+              {tipo === 'liga' ? (
+                <Field label="Número" required>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={numero || ''}
+                    onChange={(e) => setNumero(parseInt(e.target.value, 10) || 0)}
+                  />
+                </Field>
+              ) : (
+                <Field
+                  label="Instancia"
+                  required
+                  hint="Del formato del torneo. Una sola de cada tipo por serie."
+                >
+                  <Select
+                    placeholder="Elegir…"
+                    value={instancia}
+                    onChange={(e) => setInstancia(e.target.value)}
+                  >
+                    {formatos.map((f) => (
+                      <option key={f.nombre} value={f.nombre}>
+                        {f.nombre} · {f.cantidad_partidos} partido{f.cantidad_partidos === 1 ? '' : 's'}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
 
               <Field
                 label="Fecha"
