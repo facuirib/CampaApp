@@ -24,7 +24,12 @@ const TONOS = [
   'var(--muted)',
 ]
 
-function tonoDe(id: string): string {
+/**
+ * Exportado para quien necesite la MISMA identidad de color en otra forma —
+ * la ficha de usuarios dibuja burbujas con dos iniciales y tiene que dar el
+ * mismo tono que el avatar de este componente para la misma persona.
+ */
+export function tonoDeId(id: string): string {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
   return TONOS[h % TONOS.length]
@@ -54,7 +59,7 @@ export default function Autor({ id, nombre, soloAvatar = false, className }: Aut
     <span className={`flex items-center gap-1.5 ${className ?? ''}`} title={nombre ?? id}>
       <span
         className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-pill text-[9.5px] font-bold text-white"
-        style={{ background: tonoDe(id) }}
+        style={{ background: tonoDeId(id) }}
         aria-hidden
       >
         {inicial}
