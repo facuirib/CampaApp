@@ -290,6 +290,14 @@ export const PERMISOS = {
   },
 
   // ── Gastos ───────────────────────────────────────────────────────────────
+  'gasto.planificar': {
+    // La rama manual del estimado: plata que se sabe que va a salir, antes de
+    // ser gasto. Pendiente proyecta en /proyeccion; al cargarse el gasto real
+    // se marca ejecutado y deja de proyectar — sin la marca se cuenta doble.
+    que: 'Planificar un gasto futuro y marcarlo ejecutado',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_gasto_planificado', 'marcar_gasto_planificado_ejecutado'] },
+  },
   'gasto.catalogo': {
     // El ABM de los dos ejes del gasto. La coherencia naturaleza × anclaje la
     // valida trg_gasto_coherente al cargar cada gasto — esto arma el catálogo.
