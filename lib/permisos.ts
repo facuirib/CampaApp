@@ -223,7 +223,7 @@ export const PERMISOS = {
     que: 'Editar el tarifario: el plan y sus líneas',
     roles: TODOS_MENOS_LECTURA,
     donde: {
-      fns: ['editar_plan_tarifa', 'crear_linea_tarifa', 'editar_linea_tarifa', 'borrar_linea_tarifa'],
+      fns: ['crear_plan_tarifa', 'editar_plan_tarifa', 'crear_linea_tarifa', 'editar_linea_tarifa', 'borrar_linea_tarifa'],
     },
   },
   'calendario.editar': {

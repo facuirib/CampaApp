@@ -12,12 +12,15 @@ import Link from 'next/link'
  * funcionaban. Lo que faltaba era la puerta de entrada y saber en cuál de las
  * cuatro está uno parado.
  */
-export type PestanaTorneo = 'resumen' | 'estructura' | 'equipos' | 'calendario'
+export type PestanaTorneo = 'resumen' | 'estructura' | 'equipos' | 'tarifario' | 'calendario'
 
 const PESTANAS: { id: PestanaTorneo; label: string; ruta: (id: string) => string }[] = [
   { id: 'resumen', label: 'Resumen', ruta: (id) => `/torneos/${id}` },
   { id: 'estructura', label: 'Estructura', ruta: (id) => `/torneos/${id}/estructura` },
   { id: 'equipos', label: 'Equipos', ruta: (id) => `/torneos/${id}/fichas` },
+  // Mismo criterio que Calendario: el tarifario es del torneo aunque su
+  // pantalla viva en /catalogos — se entra ya filtrado, no se duplica el editor.
+  { id: 'tarifario', label: 'Tarifario', ruta: (id) => `/catalogos/tarifario?torneo=${id}` },
   // El calendario es del torneo, aunque su pantalla viva en /calendario: se
   // entra ya filtrado. Duplicarla acá sería tener dos editores de lo mismo.
   { id: 'calendario', label: 'Calendario', ruta: (id) => `/calendario?torneo=${id}` },

@@ -6,6 +6,7 @@ import type { Database } from '@/lib/db/database.types'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import EditarPlan from './EditarPlan'
+import NuevaOpcion from './NuevaOpcion'
 
 type Genero = Database['public']['Enums']['genero']
 type Concepto = Database['public']['Enums']['concepto_pago']
@@ -196,7 +197,25 @@ export default async function TarifarioPage({
         // Filtro sobre lo ya traído: los cuatro bloques son la misma consulta
         // repartida, no cuatro consultas.
         const susPlanes = planes.filter((p: Plan) => p.genero === genero && p.concepto === concepto)
-        if (susPlanes.length === 0) return null
+
+        // Un bloque vacío ya no se esconde: para quien puede editar es justo
+        // el lugar donde se crea la PRIMERA opción — escondido, un torneo que
+        // nació sin «Cuotas» no podía ganarla nunca. Para lectura sí se omite:
+        // un título sin contenido ni acción no informa nada.
+        if (susPlanes.length === 0) {
+          if (!puedeEditarTarifario || !torneoElegido) return null
+          return (
+            <section key={`${genero}-${concepto}`} className="mb-8">
+              <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                {CONCEPTO[concepto]} · {GENERO[genero]}
+              </h2>
+              <p className="mb-2 text-[11px] text-muted">
+                Este torneo todavía no tiene ninguna opción de pago acá.
+              </p>
+              <NuevaOpcion torneoId={torneoElegido} genero={genero} concepto={concepto} />
+            </section>
+          )
+        }
 
         // La tabla muestra las opciones vigentes; el editor, todas.
         const vigentes = susPlanes.filter((p: Plan) => p.activo)
@@ -271,6 +290,10 @@ export default async function TarifarioPage({
               uso={uso}
               torneoId={torneoElegido ?? ''}
             />
+            )}
+
+            {puedeEditarTarifario && torneoElegido && (
+              <NuevaOpcion torneoId={torneoElegido} genero={genero} concepto={concepto} />
             )}
 
             {observaciones.length > 0 && (
