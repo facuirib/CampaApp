@@ -167,30 +167,66 @@ export default async function CalendarioPage({
         <>
           <FiltrosUrl filtros={FILTROS} />
 
-          {/* Sin serie elegida ya NO es una pantalla vacía: se muestra cuántas
-              jornadas tiene cada torneo. Es lo que faltaba para ver de un
-              vistazo que un torneo clonado no tiene calendario todavía — que es
-              justo lo que hace fallar la confirmación. */}
-          {!serie && (
+          {/* Sin serie elegida, la lista LLEVA, no solo informa. Antes era un
+              cartel: torneos con su conteo de jornadas, sin nada para tocar —
+              y la edición quedaba a un desplegable de distancia que nadie
+              descubría (lo encontró Facu intentando editar un calendario).
+              Ahora cada fila es un link: torneo → sus series → las jornadas,
+              el mismo camino que los filtros, pero a la vista. */}
+          {!serie && !torneo && (
             <div className="rounded-md border border-line bg-white p-4">
               <p className="mb-3 text-[11px] text-muted">
-                Elegí una serie para ver y editar su calendario. Mientras tanto, cuántas jornadas
-                tiene cada torneo:
+                Tocá un torneo para entrar a su calendario:
               </p>
-              <ul className="space-y-1.5">
-                {[...torneosMap.entries()]
-                  .filter(([id]) => !torneo || id === torneo)
-                  .map(([id, label]) => {
-                    const n = jornadas.filter((j) => j.torneo_id === id).length
-                    return (
-                      <li key={id} className="flex items-center justify-between text-[12px]">
-                        <span className="font-semibold text-ink">{label}</span>
-                        <span className={n === 0 ? 'text-errtx' : 'text-muted'}>
-                          {n === 0 ? 'sin calendario' : `${n} jornadas`}
+              <ul className="divide-y divide-line2">
+                {[...torneosMap.entries()].map(([id, label]) => {
+                  const n = jornadas.filter((j) => j.torneo_id === id).length
+                  return (
+                    <li key={id}>
+                      <Link
+                        href={`/calendario?torneo=${id}`}
+                        className="group flex items-center justify-between py-2 text-[12px]"
+                      >
+                        <span className="font-semibold text-ink group-hover:text-blue-d">
+                          {label}
                         </span>
-                      </li>
-                    )
-                  })}
+                        <span className={n === 0 ? 'text-errtx' : 'text-muted'}>
+                          {n === 0 ? 'sin calendario' : `${n} jornadas`} →
+                        </span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {!serie && torneo && (
+            <div className="rounded-md border border-line bg-white p-4">
+              <p className="mb-3 text-[11px] text-muted">
+                {series.length > 0
+                  ? 'El calendario es por serie — cada serie juega sus propias fechas. Tocá una:'
+                  : 'Este torneo todavía no tiene ninguna jornada cargada.'}
+              </p>
+              <ul className="divide-y divide-line2">
+                {series.map((s) => {
+                  const n = jornadas.filter((j) => j.serie_id === s.valor).length
+                  return (
+                    <li key={s.valor}>
+                      <Link
+                        href={`/calendario?torneo=${torneo}&serie=${s.valor}`}
+                        className="group flex items-center justify-between py-2 text-[12px]"
+                      >
+                        <span className="font-semibold text-ink group-hover:text-blue-d">
+                          {s.label}
+                        </span>
+                        <span className="text-muted">
+                          {n} jornada{n === 1 ? '' : 's'} →
+                        </span>
+                      </Link>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}
