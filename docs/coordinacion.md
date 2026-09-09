@@ -18,6 +18,52 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 TOCAMOS 4 FUNCIONES TUYAS + 1 columna menos · ciclo de torneo completo en la app · 09/09/2026 · para Horacio
+
+Facu definió el modelo de torneo/tarifario/calendario en detalle y pidió
+construir todo lo que faltaba. Nueve commits. **Cuatro funciones de tu motor
+cambiaron** — todo probado como usuario real (rol authenticated + JWT) en
+transacciones revertidas, y los tres verdes en cada commit:
+
+1. **`borrar_torneo`** — estaba ROTO para todos: `torneo` y `equipo_torneo` no
+   tenían policy de DELETE, RLS denegaba en silencio y la función devolvía
+   «borrado» sin borrar (nunca verificaba row_count). Ahora: policies DELETE
+   con rol (admin) + cinturón de row_count que explota si el delete no borró.
+
+2. **`mover_jornada`** — ahora ARRASTRA los vencimientos de las cuotas impagas
+   de su jornada y devuelve un resumen jsonb (era void → drop+create). Las
+   pagadas no se tocan. Decisión de Facu. Ojo si algo tuyo llama
+   `mover_jornada` esperando void: el único caller era la pantalla de mover,
+   ya adaptada.
+
+3. **`crear_equipo_torneo`** — candados nuevos: los planes elegidos deben ser
+   del torneo de la serie, del género de su categoría, del concepto correcto
+   (inscripción vs partidos) y estar activos. Antes aceptaba cualquier cruce.
+   `arrastrar_fichas` no se tocó (mapea por construcción).
+
+4. **`clonar_torneo`** — recreada sin `hito_jornada_id`, porque…
+
+**`plan_tarifa_linea.hito_jornada_id` MURIÓ** (decisión de Facu): nunca se
+implementó su promesa —la generación de cuotas solo lee `fecha_referencia`— y
+la necesidad real la cubre ahora la cascada de `mover_jornada` a nivel cuota.
+Si tenés algo local que la referencie, va a fallar al mergear.
+
+**Funciones nuevas** (catalogadas, verificador en 63 ops · 22 guardas · cero
+desacuerdos): `editar_torneo` (nombre/año/temporada/ejercicio — con esto Facu
+puede asignar el `ejercicio_id` de los dos torneos reales desde la app, tu
+pendiente) y `reactivar_torneo` (la baja no tenía vuelta atrás).
+
+**UI nueva**: crear opción del tarifario (`crear_plan_tarifa` salió de la
+allowlist de puertas sin UI — quedan 13), inscribir equipo debutante
+(`crear_equipo_torneo` por fin tiene pantalla), pestaña Tarifario en el
+torneo, detalle del torneo que ve la baja, calendario navegable por click.
+
+⚠️ `supabase gen types` estuvo caído hoy (API cuelga; --db-url exige Docker):
+`database.types.ts` lleva un puñado de entradas parcheadas a mano, exactas al
+formato del generador. La próxima regeneración las pisa con lo mismo.
+
+---
+
 ### 🟢 Ajustes de UX en Inicio · gráficos más chicos y prolijos · para Facu
 
 Cambios de Horacio en app/page.tsx, ya commiteados (6c798fc):
