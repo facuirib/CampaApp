@@ -125,7 +125,6 @@ export const GRUPOS: GrupoNav[] = [
       // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
       { href: '/equipos', label: 'Equipos', icon: 'equipos' },
       { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario', roles: SIN_FINANZAS },
-      { href: '/catalogos/gastos', label: 'Categorías de gasto', icon: 'filtro', roles: OFICINA },
       { href: '/torneos', label: 'Torneos', icon: 'equipos', roles: SIN_FINANZAS },
     ],
   },
@@ -200,8 +199,7 @@ export const GRUPOS: GrupoNav[] = [
         icon: 'configuracion',
         hijos: [
           { href: '/configuracion/plantillas', label: 'Plantillas' },
-          { href: '/configuracion/categorias', label: 'Categorías de gasto', pronto: true },
-          { href: '/configuracion/cierres', label: 'Cierres de período', pronto: true },
+          { href: '/configuracion/categorias', label: 'Categorías de gasto' },
           // La única regla del menú que además es un permiso de verdad: la
           // pantalla lee el padrón con service_role y el middleware la corta.
           { href: '/configuracion/usuarios', label: 'Usuarios', roles: ['admin'] },

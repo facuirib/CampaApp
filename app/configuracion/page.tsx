@@ -32,15 +32,12 @@ const SECCIONES: Seccion[] = [
   {
     href: '/configuracion/categorias',
     titulo: 'Categorías de gasto',
-    descripcion: 'Naturaleza, área y unidad de costo de cada categoría.',
-    pronto: true,
+    descripcion: 'Naturaleza, área, cuenta contable y unidad de cada categoría.',
   },
-  {
-    href: '/configuracion/cierres',
-    titulo: 'Cierres de período',
-    descripcion: 'Cerrar un mes para que no se escriba más sobre él.',
-    pronto: true,
-  },
+  // «Cierres de período» no está acá y es a propósito: el cierre vive en
+  // /resultados, al pie del P&L del año — cerrar el mes es declarar definitivo
+  // ese resultado, y se hace mirándolo. Un duplicado acá sería el segundo
+  // camino para lo mismo.
   {
     href: '/configuracion/emisor',
     titulo: 'Emisor y puntos de venta',
