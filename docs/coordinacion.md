@@ -501,7 +501,15 @@ No apliqué nada a medias — el motor (borrar_ficha, editar_medio_previsto) est
 
 Confirmá con: grep -n "Sacar.*Medio previsto.*en fichas no reaccionan" docs/coordinacion.md
 
-### 🔴 Hallazgo · torneo.ejercicio_id sin completar para los torneos reales · para los dos
+### ✅ RESUELTO (10/09) · torneo.ejercicio_id sin completar para los torneos reales · para los dos
+
+**Cerrado**: Facu asignó el ejercicio 2026 al Clausura 2026 desde `editar_torneo`
+(la puerta nueva del 09/09), verificado contra la base. «Apertura 2027» ya no
+existe —se borró con la limpieza de torneos de prueba—, así que no queda ningún
+torneo con `ejercicio_id` NULL. El freno de `clonar_torneo` por este campo no
+va a saltar más. Lo de abajo queda como registro del hallazgo original.
+
+#### El hallazgo original (04/09)
 
 Probando el botón de clonar_torneo (ya construido y funcionando), la validación se frenó correctamente: "Clausura 2026" y "Apertura 2027" (los dos torneos reales) tienen ejercicio_id = NULL. Solo el torneo de prueba de hoy lo tiene (porque lo pasamos explícito).
 
