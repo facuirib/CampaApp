@@ -9104,6 +9104,7 @@ export type Database = {
       auth_rol: { Args: never; Returns: string }
       borrar_categoria: { Args: { p_categoria_id: string }; Returns: undefined }
       borrar_ficha: { Args: { p_equipo_torneo_id: string }; Returns: undefined }
+      borrar_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       borrar_linea_presupuesto: {
         Args: { p_linea_id: string }
         Returns: undefined
