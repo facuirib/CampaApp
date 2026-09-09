@@ -4,6 +4,8 @@ import { createClient } from '@/lib/db/server'
 import { formatDate, formatMoney } from '@/lib/format'
 import { estadoSponsor } from '@/lib/domain/sponsor'
 import { rolActual } from '@/lib/rol-actual'
+import AnularCobroSponsor from './AnularCobroSponsor'
+import NuevoContrato from './NuevoContrato'
 import { puede } from '@/lib/permisos'
 import { Badge, Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
@@ -117,6 +119,8 @@ export default async function SponsorPage({ params }: { params: Promise<{ sponso
   // entrar a mano tampoco alcanza.
   const rol = await rolActual()
   const puedeCobrar = puede(rol, 'sponsor.cobrar')
+  const puedeContrato = puede(rol, 'sponsor.contrato')
+  const puedeAnularCobro = puede(rol, 'sponsor.anular')
 
   const error = sponsorRes.error ?? contratosRes.error ?? cuotasRes.error ?? mensualRes.error
   const sponsor = sponsorRes.data
@@ -197,6 +201,27 @@ export default async function SponsorPage({ params }: { params: Promise<{ sponso
                 <Button icon="cobranza">Cobrar una cuota</Button>
               </Link>
             </div>
+          )}
+
+          {/* El contrato: la pieza que dejaba al módulo cojo — se podía crear
+              el sponsor y no su contrato, que es donde vive la plata. */}
+          {puedeContrato && (
+            <div className="mb-6">
+              <NuevoContrato sponsorId={sponsorId} />
+            </div>
+          )}
+
+          {puedeAnularCobro && (
+            <AnularCobroSponsor
+              cuotas={(cuotasRes.data ?? [])
+                .filter((c) => c.cuota_id && c.cobrado_at)
+                .map((c) => ({
+                  cuota_id: c.cuota_id!,
+                  numero: c.numero,
+                  monto: c.monto ?? 0,
+                  fecha_cobro: c.cobrado_at,
+                }))}
+            />
           )}
 
           {contratos.length === 0 && (

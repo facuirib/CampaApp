@@ -460,6 +460,22 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { guarda: 'crear_sponsor' },
   },
+  'sponsor.contrato': {
+    // El contrato y su cronograma. La firma asienta el compromiso completo
+    // (DEUDORES_SPONSORS / INGRESO_DIFERIDO); el ingreso se devenga por mes y
+    // la plata entra al cobrar cada cuota. cargar_cuotas exige que el
+    // cronograma cubra el total exacto — si no, el cashflow proyecta mal.
+    que: 'Crear un contrato de patrocinio y su cronograma de cobro',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_contrato_sponsor', 'cargar_cuotas_sponsor'] },
+  },
+  'sponsor.devengar': {
+    // Proceso mensual idempotente, espejo de socio.devengar: reconoce el
+    // ingreso del mes contra el diferido de la firma.
+    que: 'Devengar el ingreso mensual de los contratos de sponsors',
+    roles: CON_FINANZAS,
+    donde: { fns: ['devengar_sponsors'] },
+  },
   'sponsor.cobrar': {
     // Cobrar es del día a día, así que va con `operador` — la misma lista que
     // `cobro.registrar`. Nada que ver con anular o retirar, que son SENSIBLE.

@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/db/server'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
+import DevengarMes from '@/components/DevengarMes'
 import { estadoSocio } from '@/lib/domain/socio'
 import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
@@ -32,6 +35,13 @@ const COLUMNAS: ColumnDef<FilaSocio>[] = [
 export default async function SociosPage() {
   const supabase = await createClient()
 
+  const rol = await rolActual()
+  const { data: periodosAbiertos } = await supabase
+    .from('periodo')
+    .select('id, anio, mes')
+    .eq('estado', 'abierto')
+    .order('anio')
+    .order('mes')
   const [listaRes, kpiRes] = await Promise.all([
     supabase.from('v_socio_lista').select('*').order('socio'),
     // Una fila siempre, también sin socios: es una agregación sin group by.
@@ -140,6 +150,15 @@ export default async function SociosPage() {
         maxHeight={560}
         emptyMessage="No hay socios cargados."
       />
+
+      {puede(rol, 'socio.devengar') && (
+        <DevengarMes
+          fn="devengar_sueldos_socios"
+          titulo="Devengo mensual de sueldos"
+          descripcion="Asienta el sueldo acordado del mes de cada socio activo (gasto contra sueldos a pagar)."
+          periodos={periodosAbiertos ?? []}
+        />
+      )}
     </div>
   )
 }
