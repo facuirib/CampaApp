@@ -8805,6 +8805,33 @@ export type Database = {
           },
         ]
       }
+      v_transito_gasto: {
+        Row: {
+          gasto_id: string | null
+          devengado_at: string | null
+          pagado_at: string | null
+          detalle: string | null
+          total: number | null
+          repuesto: boolean | null
+        }
+        Relationships: []
+      }
+      v_transito_pago: {
+        Row: {
+          pago_id: string | null
+          fecha: string | null
+          equipo: string | null
+          monto: number | null
+          liquidado: boolean | null
+        }
+        Relationships: []
+      }
+      v_transito_saldo: {
+        Row: {
+          saldo: number | null
+        }
+        Relationships: []
+      }
       v_torneo_listo: {
         Row: {
           activo: boolean | null

@@ -351,6 +351,15 @@ export const PERMISOS = {
   },
 
   // ── Diario ───────────────────────────────────────────────────────────────
+  'caja.transito': {
+    // El circuito del efectivo que viaja: recibir un cobro fuera de un predio
+    // (EFECTIVO_EN_TRANSITO), liquidarlo cuando llega a una caja, y reponer el
+    // gasto que se pagó con esa plata. El estado vive en el diario y lo
+    // derivan las vistas v_transito_*.
+    que: 'Recibir, liquidar y reponer efectivo en tránsito',
+    roles: CON_FINANZAS,
+    donde: { fns: ['recibir_efectivo_en_transito', 'liquidar_efectivo_transito', 'reponer_efectivo_transito'] },
+  },
   'asiento.anular': {
     // Anular por circuito (gasto, bar, arqueo, cheque) lo hace cada función con
     // `p_via_circuito`. Esto es la llamada SUELTA, que no tiene pantalla y es

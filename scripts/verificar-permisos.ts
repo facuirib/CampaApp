@@ -283,9 +283,6 @@ const DEPRECADAS: Record<string, string> = {
  * el único momento en que se puede decidir bien quién puede tocarla.
  */
 const PUERTAS_SIN_UI: Record<string, string> = {
-  liquidar_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',
-  recibir_efectivo_en_transito: 'Circuito de efectivo en tránsito entre predios',
-  reponer_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',
 }
 
 /** Las tres juntas, para preguntar «¿está clasificada?» de una. */

@@ -18,6 +18,38 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 BUG DE TU MOTOR arreglado · gasto_medio_pago_check no conocía efectivo_transito · 09/09/2026 · para Horacio
+
+Al darle pantalla al circuito de tránsito apareció: `pagar_gasto` valida y
+acepta `efectivo_transito` —su propio mensaje lo lista entre los válidos— pero
+el CHECK de la tabla `gasto` quedó con los tres medios originales y rechazaba
+el insert. Consecuencia: `reponer_efectivo_transito` era **inalcanzable** —
+exige un gasto con ese medio, y ningún gasto podía tenerlo. El circuito
+completo estaba muerto en el check.
+
+Arreglado alineando el check con lo que tu puerta ya prometía (migración
+`gasto_medio_transito`). El circuito entero quedó probado de punta a punta en
+transacción revertida: recibir → liquidar deja el tránsito en 0; pagar con
+tránsito → reponer valida saldo de caja y cierra.
+
+**El paquete 3 completo, además**: sponsors (contrato + cronograma + devengo
+mensual + anular cobro), devengo de socios con botón, ABM de cat_gasto
+(/catalogos/gastos), gastos planificados (/calendario-pagos), playoffs
+(/calendario/nueva con toggle), eliminar día de cancha, y el circuito de
+tránsito entero (recibir como medio en cobrar, liquidar/reponer en /caja, con
+3 vistas nuevas v_transito_*). Vistas nuevas parcheadas a mano en
+database.types.ts — gen types sigue caído.
+
+🏁 **El verificador quedó en CERO puertas sin UI**: las 92 funciones que
+escriben están declaradas con pantalla, internas o deprecadas. El mapa que
+arrancó con 24 funciones sin botón está vacío.
+
+Pieza que le falta al motor, anotada: `gasto_planificado.estado='cancelado'`
+existe en el check y NO tiene puerta — un plan que no va a pasar no se puede
+cancelar desde la app.
+
+---
+
 ### 🔧 TOCAMOS 4 FUNCIONES TUYAS + 1 columna menos · ciclo de torneo completo en la app · 09/09/2026 · para Horacio
 
 Facu definió el modelo de torneo/tarifario/calendario en detalle y pidió
