@@ -439,6 +439,20 @@ etapa (al día / por vencer / vencido) y el worklist de avisos.
 ---
 
 ## Catálogos — Tarifario (`/catalogos/tarifario`)
+
+**[x] El botón "Crear" (`NuevaOpcion.tsx`) — verificado, no era un bug.**
+Se investigó un caso reportado: al crear una opción de pago nueva, el botón
+parecía no hacer nada al clickear. Revisado a fondo —`crear()`, el `onClick`,
+y la función SQL `crear_plan_tarifa`— sin encontrar ningún camino silencioso.
+La función crea la opción, pero **nace vacía a propósito** (documentado en el
+comentario del propio componente: "las líneas se cargan después con el editor
+que ya existía"). No había nada que ver en la tabla hasta cargarle una línea
+con "Editar precios" (fecha + montos) — es el flujo esperado, no un bug.
+**Confirmado por Horacio.**
+
+Los dos ítems de abajo son otros, sin relación con lo anterior — siguen sin
+probar:
+
 - [ ] `v_plan_tarifa_uso` filtrado por `torneoElegido ?? ''` — si NO hay
       torneo elegido, confirmar que no muestra el uso de otro torneo por
       error (la query con `''` debería dar cero filas, pero vale
