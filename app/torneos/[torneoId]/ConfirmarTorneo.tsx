@@ -41,22 +41,52 @@ export default function ConfirmarTorneo({
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [resultado, setResultado] = useState<string | null>(null)
 
   async function confirmar() {
     setOcupado(true)
     setError(null)
-    const { error: err } = await createClient().rpc('confirmar_torneo_clonado', {
+    setResultado(null)
+    const { data, error: err } = await createClient().rpc('confirmar_torneo_clonado', {
       p_torneo_id: torneoId,
     })
     setOcupado(false)
-    if (err) return setError(err.message)
-    setAbierto(false)
+
+    if (err) {
+      // 🔴 El loop de confirmar_torneo_clonado corre en UNA sola transacción:
+      // si una ficha cualquiera revienta, se revierten también las cuotas
+      // que ya se habían generado para las fichas anteriores del mismo
+      // click. El mensaje real de la excepción habla de una serie o una
+      // línea puntual, y sin este contexto se lee como "un problema en esa
+      // serie" en vez de "no se generó nada en absoluto todavía".
+      setError(`El torneo no se pudo confirmar (0 fichas procesadas, todo o nada): ${err.message}`)
+      return
+    }
+
+    const fila = data?.[0] as
+      | { fichas_procesadas: number; cuotas_generadas: number }
+      | undefined
+    const fichasProc = fila?.fichas_procesadas ?? 0
+    const cuotasGen = fila?.cuotas_generadas ?? 0
+
+    setResultado(
+      fichasProc === 0
+        ? 'No había fichas pendientes: este torneo ya tenía las cuotas generadas.'
+        : `${fichasProc} ficha${fichasProc === 1 ? '' : 's'} procesada${fichasProc === 1 ? '' : 's'}, ${cuotasGen} cuota${cuotasGen === 1 ? '' : 's'} generada${cuotasGen === 1 ? '' : 's'}.`,
+    )
     router.refresh()
   }
 
   if (!abierto) {
     return (
-      <Button icon="check" onClick={() => setAbierto(true)}>
+      <Button
+        icon="check"
+        onClick={() => {
+          setAbierto(true)
+          setResultado(null)
+          setError(null)
+        }}
+      >
         Confirmar torneo
       </Button>
     )
@@ -72,6 +102,12 @@ export default function ConfirmarTorneo({
         serie. <strong className="font-semibold text-ink">No se deshace solo</strong>: para
         revertirlo hay que anular las cuotas una por una.
       </p>
+
+      {resultado && (
+        <p className="mt-3 rounded-md bg-okbg px-3 py-2 text-[11px] leading-relaxed text-oktx">
+          {resultado}
+        </p>
+      )}
 
       {error && (
         <p className="mt-3 rounded-md bg-errbg px-3 py-2 text-[11px] leading-relaxed text-errtx">

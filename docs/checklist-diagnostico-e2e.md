@@ -242,6 +242,20 @@ ningún filtro raro de por medio, tal como se buscaba confirmar acá.
 **Qué debería verse**: quién debe, cuánto, hace cuánto — con las colas por
 etapa (al día / por vencer / vencido) y el worklist de avisos.
 
+**[x] La pestaña "Avisos" sin selector de torneo — verificado, es a
+propósito.** Se preguntó por qué "Cuenta corriente" e "Inscripciones" tienen
+selector de torneo y "Avisos" no. Revisado el código: `app/cobranza/page.tsx`
+lo dice en un comentario explícito arriba del branch de Avisos ("El filtro
+por torneo, por ejemplo, no aplica acá — el aviso se le manda al equipo con
+todo lo que arrastre, que es el concepto 5"), la consulta a `v_cobranza_cola`
+no lleva `.eq('torneo_id', ...)`, y `<ColasAviso>` ni siquiera recibe
+`torneoElegido` como prop —solo lo recibe `<Pestanas>`, para arrastrarlo al
+cambiar de pestaña, no para filtrar Avisos—. Coherente además con
+`v_cobranza_momento` (la vista de base): pone `torneo_id` en NULL a
+propósito cuando un equipo debe en más de un torneo, así que filtrar Avisos
+por uno específico excluiría justo a esos equipos de la cola de trabajo.
+**No es un bug — confirmado por Horacio.**
+
 - [ ] La cola completa (`v_cobranza_cola`) suma exactamente lo mismo que
       `v_cobranza_etapa` agrupada por etapa (ver punto 🔴4 de arriba).
 - [ ] Filtrar por torneo — el link "Ver cuentas" desde Inicio entra
