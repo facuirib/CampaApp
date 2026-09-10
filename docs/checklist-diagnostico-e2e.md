@@ -79,15 +79,20 @@ en pantalla:
 - [ ] `app/proyeccion/page.tsx:197` — "ingresos sin gasto" (el tamaño de la
       cola incompleta). No sale de ninguna vista a propósito.
 
-Una **sin comentario que la justifique** — mayor prioridad de revisión real:
-
-- [ ] `app/cobranza/ColasAviso.tsx:135` — el subtítulo de cada tarjeta de
-      etapa (`"$X"` bajo "Vencido"/"Por vencer"/etc.) suma `total_adeudado`
-      de las filas ya filtradas por esa etapa, en el cliente. Comparar ese
-      número contra `v_cobranza_etapa.adeudado` para la misma etapa (la
-      banda "Cobranza por vencimiento" de Inicio usa esa vista) — **deberían
-      coincidir siempre**; si no coinciden, alguna de las dos fuentes está
-      contando distinto.
+- [x] `app/cobranza/ColasAviso.tsx:135` — **revisado, no era un bug de acá.**
+      El `.reduce()` suma `total_adeudado` de TODAS las filas de la etapa, sin
+      filtrar por torneo — correcto, porque `filas` (la cola completa)
+      tampoco viene filtrada por torneo. **El agujero real estaba en cómo
+      Inicio consume `v_cobranza_etapa`** (`app/page.tsx:142`): esa vista
+      agrupa por `torneo_id`, y `v_cobranza_momento` deja `torneo_id` en
+      NULL a propósito cuando un equipo debe en más de un torneo (comentario
+      en `20260830190000_cobranza_momento.sql:151`: "la deuda es del equipo,
+      no del torneo"). El filtro `.eq('torneo_id', torneoElegido)` de Inicio
+      nunca matchea NULL, así que esos equipos quedaban afuera del gráfico
+      "Cobranza por vencimiento" — sin avisar. Arreglado con una nota (`pie`)
+      en ese panel explicando el hueco, más un comentario en `ColasAviso.tsx`
+      documentando por qué su número no tiene ese problema. Sin commitear
+      todavía — ver `app/page.tsx` y `app/cobranza/ColasAviso.tsx`.
 
 El resto de los `.reduce(` que aparecen (`activos/amortizar`,
 `calendario/nueva`, `equipos/[terceroId]/ArmarReclamo.tsx`,

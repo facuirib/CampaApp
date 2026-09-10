@@ -117,6 +117,16 @@ export default function ColasAviso({
           const activa = etapaFiltro === e.clave
           // La tarjeta ES el filtro: se lee el número y se entra a esa cola sin
           // buscar un control aparte. Volver a tocarla saca el filtro.
+          //
+          // 🔴 El `.reduce()` de acá abajo suma `total_adeudado` de TODAS las
+          // filas de la etapa, sin filtrar por torneo — porque `filas` (la
+          // cola completa) no viene filtrada por torneo tampoco. Es el mismo
+          // criterio que domina en todo /cobranza (concepto 5: la deuda es
+          // del equipo, no del torneo) y por eso NO coincide con
+          // `v_cobranza_etapa.adeudado` filtrado a un torneo puntual —esa
+          // vista agrupa por `torneo_id`, que es NULL para un equipo con
+          // deuda en más de uno, y un filtro `.eq('torneo_id', X)` los deja
+          // afuera. Acá no hay ese filtro, así que no hay ese agujero.
           return (
             <Link
               key={e.clave}

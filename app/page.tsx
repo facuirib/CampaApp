@@ -609,6 +609,16 @@ export default async function Home({
               titulo="Cobranza por vencimiento"
               href="/cobranza"
               verTexto="Ver cuentas"
+              // 🔴 `v_cobranza_etapa` agrupa por torneo_id, y ese campo es
+              // NULL a propósito cuando un equipo debe en más de un torneo
+              // (ver v_cobranza_momento: "Null significa «varios» ... la
+              // deuda es del equipo, no del torneo"). Filtrar acá por el
+              // torneo elegido (`.eq('torneo_id', torneoElegido)`, arriba)
+              // deja afuera esa fila NULL — no es un total incompleto por
+              // error, es lo que este corte por torneo puede mostrar. La
+              // cola completa de /cobranza no tiene ese agujero: no filtra
+              // por torneo.
+              pie="No suma a los equipos que deben en más de un torneo a la vez —esos no tienen un torneo único que los agrupe acá—. Para verlos a todos, entrá a Cobranza."
             >
               <ChartBarras
                 ejeX={ejeEtapas}
