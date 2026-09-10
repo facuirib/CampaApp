@@ -7,7 +7,7 @@ import type { Database } from '@/lib/db/database.types'
 type FilaCola = Database['public']['Views']['v_cobranza_cola']['Row']
 
 interface Fila {
-  tercero_id: string
+  tercero_id: string | null
   equipo: string
   total: number | null
   cuotas: number | null
@@ -155,7 +155,7 @@ export default function ColasAviso({
       {visibles.map((e) => {
         const suyas = filas.filter((f) => f.etapa === e.clave)
         const rows: Fila[] = suyas.map((f) => ({
-          tercero_id: f.tercero_id!,
+          tercero_id: f.tercero_id,
           equipo: f.equipo ?? '—',
           total: f.total_adeudado,
           cuotas: f.cuotas,
@@ -216,8 +216,8 @@ export default function ColasAviso({
             <DataTable
               columns={COLUMNAS}
               rows={rows}
-              rowKey="tercero_id"
-              rowHref={(f) => `/equipos/${f.tercero_id}`}
+              rowKey={(f, i) => f.tercero_id ?? i}
+              rowHref={(f) => (f.tercero_id ? `/equipos/${f.tercero_id}` : undefined)}
               densidad="compacta"
               maxHeight={340}
               emptyMessage={

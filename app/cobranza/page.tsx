@@ -10,7 +10,7 @@ type FilaDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
 type FilaDeudaTorneo = Database['public']['Views']['v_deuda_equipo_torneo']['Row']
 
 interface Deudor {
-  tercero_id: string
+  tercero_id: string | null
   equipo: string | null
   estado: CeldaBadge
   deuda_vencida: number | null
@@ -291,7 +291,7 @@ export default async function CobranzaPage({
     kpis.data?.find((k) => k.torneo_id === (torneoElegido ?? activo?.id)) ?? kpis.data?.[0] ?? null
 
   const filas: Deudor[] = (deudores.data ?? []).map((f: FilaDeuda | FilaDeudaTorneo) => ({
-    tercero_id: f.tercero_id!,
+    tercero_id: f.tercero_id,
     equipo: f.equipo,
     estado: estadoDeudor(f.deuda_vencida, f.saldo_a_favor),
     deuda_vencida: f.deuda_vencida,
@@ -441,8 +441,8 @@ export default async function CobranzaPage({
       <DataTable
         columns={columnas(Boolean(torneoElegido))}
         rows={filasVisibles}
-        rowKey="tercero_id"
-        rowHref={(f) => `/equipos/${f.tercero_id}`}
+        rowKey={(f, i) => f.tercero_id ?? i}
+        rowHref={(f) => (f.tercero_id ? `/equipos/${f.tercero_id}` : undefined)}
         maxHeight={560}
         emptyMessage="Ningún equipo tiene deuda pendiente."
       />
