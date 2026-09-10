@@ -285,10 +285,20 @@ export default async function CobranzaPage({
 
   const error = deudores.error ?? kpis.error ?? torneosRes.error
 
-  // `v_cobranza_kpi` da una fila por torneo. Se ELIGE la fila —la del torneo
-  // filtrado, o la del que está en curso—, no se suman las filas.
-  const kpi =
-    kpis.data?.find((k) => k.torneo_id === (torneoElegido ?? activo?.id)) ?? kpis.data?.[0] ?? null
+  // `v_cobranza_kpi` da una fila por torneo. Con un torneo elegido, es la
+  // SUYA o nada —un torneo sin cobranza cargada todavía no tiene fila, y
+  // mostrar la de otro sería peor que mostrar $0—. Sin torneo elegido, se
+  // elige el en curso o, a falta de ambos, cualquiera: no hay "el" torneo al
+  // que atribuirle el panorama.
+  const kpi = torneoElegido
+    ? (kpis.data?.find((k) => k.torneo_id === torneoElegido) ?? null)
+    : (kpis.data?.find((k) => k.torneo_id === activo?.id) ?? kpis.data?.[0] ?? null)
+
+  // El nombre real del torneo elegido, para el subtítulo cuando `kpi` es
+  // null —el torneo existe (está en `torneos`, que no depende de
+  // v_cobranza_kpi) pero todavía no tiene fila de cobranza—. Sin esto, el
+  // subtítulo mostraría "Torneo" a secas en vez del nombre real.
+  const nombreTorneoElegido = torneos.find((t) => t.id === torneoElegido)?.nombre
 
   const filas: Deudor[] = (deudores.data ?? []).map((f: FilaDeuda | FilaDeudaTorneo) => ({
     tercero_id: f.tercero_id,
@@ -373,7 +383,7 @@ export default async function CobranzaPage({
             que decirlo, no elegir uno. */}
         <p className="mt-1 text-[12px] text-muted">
           {torneoElegido
-            ? `${kpi?.nombre ?? 'Torneo'} — sólo la deuda de este torneo, ordenada por urgencia de reclamo.`
+            ? `${kpi?.nombre ?? nombreTorneoElegido ?? 'Torneo'} — sólo la deuda de este torneo, ordenada por urgencia de reclamo.`
             : 'Todos los torneos que cada equipo arrastre, ordenados por urgencia de reclamo.'}
           {!torneoElegido && kpi?.nombre && <> Los indicadores de abajo son de {kpi.nombre}.</>}
         </p>
