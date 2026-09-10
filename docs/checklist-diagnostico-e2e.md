@@ -162,8 +162,26 @@ curso, resultado del año — con seis KPIs y una decena de gráficos chicos.
 
 ## Torneos
 
-### `/torneos`
-- [ ] Lista todos los torneos con su estado (badge) correcto: PLANIFICADO,
+### `/torneos` — [x] verificado
+
+Se investigó un caso concreto: la tabla mostraba solo "Clausura 2026" y no
+"Apertura 2027" ni "Prueba Clon Clausura 2027". Revisado a fondo —
+`app/torneos/page.tsx` (sin `.eq`/`.limit`, trae todo), `v_torneo_lista`
+(sin WHERE, el propio comentario de la vista dice "sin filtro de activo: los
+muestra todos") y la policy RLS de `torneo` (`torneo_select_autenticado`,
+`using (true)`, sin restricción) — **ninguno de los tres filtra nada**. De
+paso apareció algo real en `20260909100000_borrado_torneo_policies.sql`:
+hasta el día anterior, borrar un torneo devolvía "borrado" sin haber policy
+de DELETE —el borrado no pasaba, pero la UI decía que sí— y quedó arreglado
+ahí mismo; el propio comentario de esa migración nombra a "Prueba Clon" como
+el caso que lo destapó.
+
+**Confirmado por Horacio**: los dos torneos que faltan eran de
+prueba/desarrollo — la base real hoy tiene solo "Clausura 2026", y la tabla
+está mostrando exactamente eso. No es un bug: la pantalla lee la base sin
+ningún filtro raro de por medio, tal como se buscaba confirmar acá.
+
+- [x] Lista todos los torneos con su estado (badge) correcto: PLANIFICADO,
       EN CURSO, CERRADO — el badge lee `estado`, no `activo` (`activo` es
       borrado lógico, los tres estados lo tienen en true — regla ya
       documentada arriba del archivo).
