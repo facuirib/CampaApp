@@ -2,7 +2,10 @@ import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
 import { MESES_LARGO } from '@/lib/domain/pl'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { KpiCard } from '@/components/ui'
+import { Badge, KpiCard } from '@/components/ui'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
+import CerrarPeriodo from './CerrarPeriodo'
 import MatrizPL, { type FilaCuenta, type FilaTotal } from './MatrizPL'
 import type { Database } from '@/lib/db/database.types'
 
@@ -46,11 +49,14 @@ export default async function ResultadosPage({
   const anios = (aniosRes.data ?? []).map((a) => a.anio).filter((a): a is number => a != null)
   const anio = anioParam ? Number(anioParam) : (anios[0] ?? new Date().getFullYear())
 
-  const [matrizRes, itemsRes, totalesRes, kpiRes] = await Promise.all([
+  const [matrizRes, itemsRes, totalesRes, kpiRes, periodosRes, rol] = await Promise.all([
     supabase.from('v_pl_mensual').select('*').eq('anio', anio).order('codigo'),
     supabase.from('v_pl_mensual_item').select('*').eq('anio', anio).order('item'),
     supabase.from('v_pl_mensual_total').select('*').eq('anio', anio).order('mes'),
     supabase.from('v_pl_kpi').select('*').eq('anio', anio).maybeSingle(),
+    // Los períodos del año, para la sección de cierre.
+    supabase.from('periodo').select('id, anio, mes, estado').eq('anio', anio).order('mes'),
+    rolActual(),
   ])
 
   const error =
@@ -244,6 +250,47 @@ export default async function ResultadosPage({
         un mes flojo es un dato.
         {kpi?.mejor_mes != null && <> El mejor mes fue {MESES_LARGO[kpi.mejor_mes - 1]}.</>}
       </p>
+
+      {/* ── Cierre de períodos ─────────────────────────────────────────────
+          Vive acá porque el cierre es el acto contable del mes que esta
+          pantalla muestra: cerrar el período es decir «este resultado ya es
+          definitivo». Solo se listan los períodos que EXISTEN — un mes sin
+          período es un mes donde nunca se operó, y crear períodos vacíos para
+          cerrarlos no dice nada. */}
+      {(periodosRes.data ?? []).length > 0 && (
+        <section className="mt-8 border-t border-line pt-6">
+          <h2 className="mb-1 text-[13px] font-extrabold tracking-[-.2px] text-ink">
+            Cierre de períodos · {anio}
+          </h2>
+          <p className="mb-3 max-w-[82ch] text-[11px] leading-snug text-muted">
+            Un período cerrado no acepta más asientos con fecha de ese mes, y{' '}
+            <strong className="font-semibold text-ink">no se reabre</strong>. Las correcciones
+            posteriores entran como ajuste en el período abierto.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(periodosRes.data ?? []).map((per) => (
+              <span key={per.id} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-[11px]">
+                <span className="font-semibold text-ink">
+                  {MESES_LARGO[per.mes - 1]}
+                </span>
+                <Badge estado={per.estado === 'cerrado' ? 'neutro' : 'ok'}>
+                  {per.estado === 'cerrado' ? 'Cerrado' : 'Abierto'}
+                </Badge>
+              </span>
+            ))}
+          </div>
+          {puede(rol, 'periodo.cerrar') && (
+            <CerrarPeriodo
+              periodos={(periodosRes.data ?? []).map((per) => ({
+                id: per.id,
+                anio: per.anio,
+                mes: per.mes,
+                estado: per.estado,
+              }))}
+            />
+          )}
+        </section>
+      )}
     </div>
   )
 }

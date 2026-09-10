@@ -12,7 +12,7 @@ import type { Database } from '@/lib/db/database.types'
 type GastoDetalle = Database['public']['Views']['v_gasto_detalle']['Row']
 type Predio = Pick<Database['public']['Tables']['predio']['Row'], 'id' | 'nombre'>
 
-type Medio = 'efectivo' | 'transferencia' | 'cheque'
+type Medio = 'efectivo' | 'transferencia' | 'cheque' | 'efectivo_transito'
 
 function hoyEnCordoba(): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -368,6 +368,7 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
                       <option value="efectivo">Efectivo</option>
                       <option value="transferencia">Transferencia</option>
                       <option value="cheque">Cheque</option>
+                      <option value="efectivo_transito">Efectivo en tránsito</option>
                     </Select>
                   </Field>
 
@@ -378,6 +379,14 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
                       onChange={(e) => setPagadoAt(e.target.value)}
                     />
                   </Field>
+
+                  {medio === 'efectivo_transito' && (
+                    <p className="rounded-md bg-warnbg px-3 py-2 text-[11px] leading-snug text-warntx sm:col-span-2">
+                      Se paga con la plata en tránsito (o del bolsillo de quien la tiene). No sale
+                      de ninguna caja de predio ahora: después se <strong className="font-bold">repone</strong>{' '}
+                      desde Caja → Efectivo en tránsito, contra la caja que corresponda.
+                    </p>
+                  )}
 
                   {medio === 'efectivo' && (
                     <Field

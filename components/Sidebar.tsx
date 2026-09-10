@@ -199,8 +199,7 @@ export const GRUPOS: GrupoNav[] = [
         icon: 'configuracion',
         hijos: [
           { href: '/configuracion/plantillas', label: 'Plantillas' },
-          { href: '/configuracion/categorias', label: 'Categorías de gasto', pronto: true },
-          { href: '/configuracion/cierres', label: 'Cierres de período', pronto: true },
+          { href: '/configuracion/categorias', label: 'Categorías de gasto' },
           // La única regla del menú que además es un permiso de verdad: la
           // pantalla lee el padrón con service_role y el middleware la corta.
           { href: '/configuracion/usuarios', label: 'Usuarios', roles: ['admin'] },

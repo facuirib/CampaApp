@@ -4,6 +4,8 @@ import { formatMoney } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import Trasladar from './Trasladar'
+import TransitoAcciones from './TransitoAcciones'
+import { formatDate } from '@/lib/format'
 import { Icon, KpiHero, type NombreIcono } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
@@ -70,11 +72,22 @@ const FAMILIAS: { clave: string; titulo: string; bajada: string }[] = [
 export default async function CajaPage() {
   const supabase = await createClient()
 
-  const [{ data: cajas, error: errorCajas }, { data: total, error: errorTotal }] =
-    await Promise.all([
-      supabase.from('v_saldo_caja').select('*').order('saldo', { ascending: false }),
-      supabase.from('v_saldo_caja_total').select('*').maybeSingle(),
-    ])
+  const [
+    { data: cajas, error: errorCajas },
+    { data: total, error: errorTotal },
+    { data: transitoSaldo },
+    { data: transitoPagos },
+    { data: transitoGastos },
+    { data: predios },
+  ] = await Promise.all([
+    supabase.from('v_saldo_caja').select('*').order('saldo', { ascending: false }),
+    supabase.from('v_saldo_caja_total').select('*').maybeSingle(),
+    // El circuito del efectivo en tránsito, de sus tres vistas (regla 1).
+    supabase.from('v_transito_saldo').select('*').maybeSingle(),
+    supabase.from('v_transito_pago').select('*').eq('liquidado', false),
+    supabase.from('v_transito_gasto').select('*').eq('repuesto', false),
+    supabase.from('predio').select('id, nombre').order('nombre'),
+  ])
 
   const error = errorCajas ?? errorTotal
   const puedeTrasladar = puede(await rolActual(), 'caja.trasladar')
@@ -208,6 +221,40 @@ export default async function CajaPage() {
               </section>
             )
           })}
+          {/* ── Efectivo en tránsito ─────────────────────────────────────
+              Sólo aparece cuando el circuito tiene algo que decir: saldo
+              distinto de cero o pendientes. Un circuito sin uso no ocupa
+              pantalla. */}
+          {(Number(transitoSaldo?.saldo ?? 0) !== 0 ||
+            (transitoPagos ?? []).length > 0 ||
+            (transitoGastos ?? []).length > 0) && (
+            <section className="mb-7">
+              <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                <h2 className="text-[13px] font-extrabold tracking-[-.2px] text-ink">
+                  Efectivo en tránsito
+                </h2>
+                <span className="cifra text-[13px] font-extrabold text-ink">
+                  {formatMoney(Number(transitoSaldo?.saldo ?? 0))}
+                </span>
+                <span className="text-[11px] text-muted">
+                  · plata cobrada que todavía no entró a ninguna caja de predio
+                </span>
+              </div>
+              {puedeTrasladar && (
+                <TransitoAcciones
+                  pagosPendientes={(transitoPagos ?? []).map((p) => ({
+                    id: p.pago_id!,
+                    etiqueta: `${p.equipo ?? '—'} · ${formatMoney(p.monto ?? 0)} · ${formatDate(p.fecha)}`,
+                  }))}
+                  gastosPendientes={(transitoGastos ?? []).map((g) => ({
+                    id: g.gasto_id!,
+                    etiqueta: `${g.detalle ?? 'Gasto'} · ${formatMoney(g.total ?? 0)} · ${formatDate(g.pagado_at)}`,
+                  }))}
+                  predios={(predios ?? []).map((p) => ({ id: p.id, nombre: p.nombre ?? '—' }))}
+                />
+              )}
+            </section>
+          )}
         </>
       )}
     </div>

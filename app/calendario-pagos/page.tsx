@@ -5,6 +5,9 @@ import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import { ChartBarras, type SerieBarras } from '@/components/ui'
 import { Badge, DataTable, KpiCard, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import MatrizMes, { type DiaCalendario } from './MatrizMes'
+import GastosPlanificados from './GastosPlanificados'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 import type { Database } from '@/lib/db/database.types'
 
 type Vencimiento = Database['public']['Views']['v_cashflow_comprometido']['Row']
@@ -189,7 +192,7 @@ export default async function CalendarioPagosPage({
   if (params.flujo === 'entra') listaQuery = listaQuery.gt('monto', 0)
   if (params.flujo === 'sale') listaQuery = listaQuery.lt('monto', 0)
 
-  const [kpiRes, mesesRes, diasRes, detalleRes, listaRes] = await Promise.all([
+  const [kpiRes, mesesRes, diasRes, detalleRes, listaRes, planificadosRes, catsRes, torneosRes, gastosLibresRes, rol] = await Promise.all([
     supabase.from('v_calendario_kpi').select('*').maybeSingle(),
     supabase.from('v_calendario_mes').select('*').order('mes'),
     supabase
@@ -206,6 +209,14 @@ export default async function CalendarioPagosPage({
           .order('monto', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     vista === 'lista' ? listaQuery : Promise.resolve({ data: [], error: null }),
+    // Los planificados: la rama manual del estimado.
+    supabase.from('gasto_planificado').select('*').order('fecha_esperada'),
+    supabase.from('cat_gasto').select('id, nombre').eq('activo', true).order('nombre'),
+    supabase.from('torneo').select('id, nombre').eq('activo', true).order('anio', { ascending: false }),
+    // Candidatos a «gasto real»: sin plan ya atado. El filtro por categoría lo
+    // hace el componente sobre esta lista.
+    supabase.from('gasto').select('id, cat_gasto_id, concepto_libre, total, devengado_at').order('devengado_at', { ascending: false }).limit(200),
+    rolActual(),
   ])
 
   const error = kpiRes.error ?? mesesRes.error ?? diasRes.error ?? detalleRes.error ?? listaRes.error
@@ -636,6 +647,33 @@ export default async function CalendarioPagosPage({
             </>
           )}
         </>
+      )}
+      {puede(rol, 'gasto.planificar') && (
+        <GastosPlanificados
+          planificados={(planificadosRes.data ?? []).map((g) => {
+            const cat = (catsRes.data ?? []).find((c) => c.id === g.cat_gasto_id)
+            const tor = (torneosRes.data ?? []).find((t) => t.id === g.torneo_id)
+            return {
+              id: g.id,
+              descripcion: g.descripcion,
+              monto: g.monto,
+              fecha_esperada: g.fecha_esperada,
+              estado: g.estado,
+              categoria: cat?.nombre ?? '—',
+              cat_gasto_id: g.cat_gasto_id,
+              torneo: tor?.nombre ?? null,
+            }
+          })}
+          categorias={(catsRes.data ?? []).map((c) => ({ id: c.id, nombre: c.nombre }))}
+          torneos={(torneosRes.data ?? []).map((t) => ({ id: t.id, nombre: t.nombre ?? '—' }))}
+          gastosReales={(gastosLibresRes.data ?? [])
+            .filter((g) => !(planificadosRes.data ?? []).some((p) => p.gasto_id === g.id))
+            .map((g) => ({
+              id: g.id,
+              cat_gasto_id: g.cat_gasto_id,
+              etiqueta: `${g.concepto_libre ?? 'Gasto'} · ${formatMoney(g.total ?? 0)} · ${formatDate(g.devengado_at)}`,
+            }))}
+        />
       )}
     </div>
   )

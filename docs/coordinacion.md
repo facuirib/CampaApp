@@ -18,6 +18,7 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+<<<<<<< HEAD
 ### 🟢 Sesión de UX en Inicio · varias rondas de ajuste visual · para Facu
 
 Trabajo de Horacio de hoy, varios commits (76036d5 en adelante hasta 55f062e), todo en /inicio:
@@ -42,6 +43,83 @@ Trabajo de Horacio de hoy, varios commits (76036d5 en adelante hasta 55f062e), t
 
 Todo verificado con tsc + build en cada paso. verificar:permisos no corrió
 (sin DATABASE_URL en este entorno) — no aplica, ningún cambio tocó SQL.
+=======
+### 🔴 BUG DE TU MOTOR arreglado · gasto_medio_pago_check no conocía efectivo_transito · 09/09/2026 · para Horacio
+
+Al darle pantalla al circuito de tránsito apareció: `pagar_gasto` valida y
+acepta `efectivo_transito` —su propio mensaje lo lista entre los válidos— pero
+el CHECK de la tabla `gasto` quedó con los tres medios originales y rechazaba
+el insert. Consecuencia: `reponer_efectivo_transito` era **inalcanzable** —
+exige un gasto con ese medio, y ningún gasto podía tenerlo. El circuito
+completo estaba muerto en el check.
+
+Arreglado alineando el check con lo que tu puerta ya prometía (migración
+`gasto_medio_transito`). El circuito entero quedó probado de punta a punta en
+transacción revertida: recibir → liquidar deja el tránsito en 0; pagar con
+tránsito → reponer valida saldo de caja y cierra.
+
+**El paquete 3 completo, además**: sponsors (contrato + cronograma + devengo
+mensual + anular cobro), devengo de socios con botón, ABM de cat_gasto
+(/catalogos/gastos), gastos planificados (/calendario-pagos), playoffs
+(/calendario/nueva con toggle), eliminar día de cancha, y el circuito de
+tránsito entero (recibir como medio en cobrar, liquidar/reponer en /caja, con
+3 vistas nuevas v_transito_*). Vistas nuevas parcheadas a mano en
+database.types.ts — gen types sigue caído.
+
+🏁 **El verificador quedó en CERO puertas sin UI**: las 92 funciones que
+escriben están declaradas con pantalla, internas o deprecadas. El mapa que
+arrancó con 24 funciones sin botón está vacío.
+
+Pieza que le falta al motor, anotada: `gasto_planificado.estado='cancelado'`
+existe en el check y NO tiene puerta — un plan que no va a pasar no se puede
+cancelar desde la app.
+
+---
+
+### 🔧 TOCAMOS 4 FUNCIONES TUYAS + 1 columna menos · ciclo de torneo completo en la app · 09/09/2026 · para Horacio
+
+Facu definió el modelo de torneo/tarifario/calendario en detalle y pidió
+construir todo lo que faltaba. Nueve commits. **Cuatro funciones de tu motor
+cambiaron** — todo probado como usuario real (rol authenticated + JWT) en
+transacciones revertidas, y los tres verdes en cada commit:
+
+1. **`borrar_torneo`** — estaba ROTO para todos: `torneo` y `equipo_torneo` no
+   tenían policy de DELETE, RLS denegaba en silencio y la función devolvía
+   «borrado» sin borrar (nunca verificaba row_count). Ahora: policies DELETE
+   con rol (admin) + cinturón de row_count que explota si el delete no borró.
+
+2. **`mover_jornada`** — ahora ARRASTRA los vencimientos de las cuotas impagas
+   de su jornada y devuelve un resumen jsonb (era void → drop+create). Las
+   pagadas no se tocan. Decisión de Facu. Ojo si algo tuyo llama
+   `mover_jornada` esperando void: el único caller era la pantalla de mover,
+   ya adaptada.
+
+3. **`crear_equipo_torneo`** — candados nuevos: los planes elegidos deben ser
+   del torneo de la serie, del género de su categoría, del concepto correcto
+   (inscripción vs partidos) y estar activos. Antes aceptaba cualquier cruce.
+   `arrastrar_fichas` no se tocó (mapea por construcción).
+
+4. **`clonar_torneo`** — recreada sin `hito_jornada_id`, porque…
+
+**`plan_tarifa_linea.hito_jornada_id` MURIÓ** (decisión de Facu): nunca se
+implementó su promesa —la generación de cuotas solo lee `fecha_referencia`— y
+la necesidad real la cubre ahora la cascada de `mover_jornada` a nivel cuota.
+Si tenés algo local que la referencie, va a fallar al mergear.
+
+**Funciones nuevas** (catalogadas, verificador en 63 ops · 22 guardas · cero
+desacuerdos): `editar_torneo` (nombre/año/temporada/ejercicio — con esto Facu
+puede asignar el `ejercicio_id` de los dos torneos reales desde la app, tu
+pendiente) y `reactivar_torneo` (la baja no tenía vuelta atrás).
+
+**UI nueva**: crear opción del tarifario (`crear_plan_tarifa` salió de la
+allowlist de puertas sin UI — quedan 13), inscribir equipo debutante
+(`crear_equipo_torneo` por fin tiene pantalla), pestaña Tarifario en el
+torneo, detalle del torneo que ve la baja, calendario navegable por click.
+
+⚠️ `supabase gen types` estuvo caído hoy (API cuelga; --db-url exige Docker):
+`database.types.ts` lleva un puñado de entradas parcheadas a mano, exactas al
+formato del generador. La próxima regeneración las pisa con lo mismo.
+>>>>>>> 4c5f291e08669c2b7e98d1f8ac764f1bcc9868d5
 
 ---
 
@@ -450,7 +528,15 @@ No apliqué nada a medias — el motor (borrar_ficha, editar_medio_previsto) est
 
 Confirmá con: grep -n "Sacar.*Medio previsto.*en fichas no reaccionan" docs/coordinacion.md
 
-### 🔴 Hallazgo · torneo.ejercicio_id sin completar para los torneos reales · para los dos
+### ✅ RESUELTO (10/09) · torneo.ejercicio_id sin completar para los torneos reales · para los dos
+
+**Cerrado**: Facu asignó el ejercicio 2026 al Clausura 2026 desde `editar_torneo`
+(la puerta nueva del 09/09), verificado contra la base. «Apertura 2027» ya no
+existe —se borró con la limpieza de torneos de prueba—, así que no queda ningún
+torneo con `ejercicio_id` NULL. El freno de `clonar_torneo` por este campo no
+va a saltar más. Lo de abajo queda como registro del hallazgo original.
+
+#### El hallazgo original (04/09)
 
 Probando el botón de clonar_torneo (ya construido y funcionando), la validación se frenó correctamente: "Clausura 2026" y "Apertura 2027" (los dos torneos reales) tienen ejercicio_id = NULL. Solo el torneo de prueba de hoy lo tiene (porque lo pasamos explícito).
 

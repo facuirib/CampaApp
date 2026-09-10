@@ -283,20 +283,6 @@ const DEPRECADAS: Record<string, string> = {
  * el único momento en que se puede decidir bien quién puede tocarla.
  */
 const PUERTAS_SIN_UI: Record<string, string> = {
-  crear_cat_gasto: 'ABM de categorías de gasto',
-  editar_cat_gasto: 'ABM de categorías de gasto',
-  desactivar_cat_gasto: 'ABM de categorías de gasto',
-  crear_plan_tarifa: 'Alta de un plan de tarifas (hoy sólo se editan los existentes)',
-  crear_playoff: 'Alta de instancia de playoff — la puerta existe, la pantalla no',
-  crear_gasto_planificado: 'Planificación de gastos',
-  marcar_gasto_planificado_ejecutado: 'Planificación de gastos',
-  eliminar_dia_cancha: 'Borrar un día de cancha del bar',
-  devengar_sponsors: 'Devengo mensual de sponsors (idempotente), sin pantalla que lo dispare',
-  crear_contrato_sponsor: 'Alta de contrato de patrocinio',
-  cargar_cuotas_sponsor: 'Cronograma de cuotas de un contrato de patrocinio',
-  liquidar_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',
-  recibir_efectivo_en_transito: 'Circuito de efectivo en tránsito entre predios',
-  reponer_efectivo_transito: 'Circuito de efectivo en tránsito entre predios',
 }
 
 /** Las tres juntas, para preguntar «¿está clasificada?» de una. */

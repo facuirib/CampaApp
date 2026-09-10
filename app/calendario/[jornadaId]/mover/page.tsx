@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, useRouter } from 'next/navigation'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/db/client'
 import { formatDate } from '@/lib/format'
@@ -44,6 +44,7 @@ export default function MoverJornadaPage({
   params: Promise<{ jornadaId: string }>
 }) {
   const { jornadaId } = use(params)
+  const router = useRouter()
 
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
@@ -53,6 +54,8 @@ export default function MoverJornadaPage({
   const [nuevaFecha, setNuevaFecha] = useState('')
 
   const [registrando, setRegistrando] = useState(false)
+  const [borrando, setBorrando] = useState(false)
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null)
   const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
   const [resultadoExito, setResultadoExito] = useState<string | null>(null)
 
@@ -99,6 +102,21 @@ export default function MoverJornadaPage({
 
   const puedeConfirmar = !registrando && !!nuevaFecha && !sinCambio
 
+  async function borrar() {
+    setBorrando(true)
+    setErrorBorrado(null)
+    const { error } = await createClient().rpc('borrar_jornada', {
+      p_jornada_id: jornadaId,
+    })
+    setBorrando(false)
+    if (error) {
+      setErrorBorrado(error.message)
+      return
+    }
+    // La jornada ya no existe: quedarse acá daría un 404.
+    router.push('/calendario')
+  }
+
   async function confirmar() {
     setRegistrando(true)
     setErrorRegistro(null)
@@ -106,7 +124,7 @@ export default function MoverJornadaPage({
 
     const supabase = createClient()
 
-    const { error } = await supabase.rpc('mover_jornada', {
+    const { data, error } = await supabase.rpc('mover_jornada', {
       p_jornada_id: jornadaId,
       p_nueva_fecha: nuevaFecha,
     })
@@ -118,10 +136,24 @@ export default function MoverJornadaPage({
       return
     }
 
+    // El mensaje sale de lo que la función HIZO, no de lo que se esperaba.
+    // Este texto ya decía «N cuotas actualizadas» antes de que mover_jornada
+    // tocara ninguna cuota — era la descripción de un comportamiento que no
+    // existía. Ahora la función arrastra los vencimientos y devuelve el
+    // resumen real: movidas e intactas vienen de ahí.
+    const r = data as unknown as {
+      cuotas_movidas: number
+      cuotas_pagadas_intactas: number
+      reprogramada: boolean
+    } | null
+    const movidas = r?.cuotas_movidas ?? 0
+    const pagadas = r?.cuotas_pagadas_intactas ?? 0
     setResultadoExito(
-      `Jornada movida al ${formatDate(nuevaFecha)}. ${cuotasAtadas} cuota${
-        cuotasAtadas === 1 ? '' : 's'
-      } actualizada${cuotasAtadas === 1 ? '' : 's'}.`,
+      `Jornada movida al ${formatDate(nuevaFecha)}. ` +
+        (movidas > 0
+          ? `${movidas} cuota${movidas === 1 ? '' : 's'} impaga${movidas === 1 ? '' : 's'} ahora vence${movidas === 1 ? '' : 'n'} ese día.`
+          : 'Sin cuotas impagas que mover.') +
+        (pagadas > 0 ? ` Las ${pagadas} ya pagadas no se tocaron.` : ''),
     )
   }
 
@@ -189,7 +221,8 @@ export default function MoverJornadaPage({
               <>
                 Mover esta jornada cambiará el vencimiento de <strong>{cuotasAtadas}</strong> cuota
                 {cuotasAtadas === 1 ? '' : 's'} de liga de los equipos de{' '}
-                {jornada.serie_completa ?? jornada.serie ?? 'esta serie'}.
+                {jornada.serie_completa ?? jornada.serie ?? 'esta serie'}: las impagas pasan a
+                vencer la fecha nueva. Las ya pagadas no se tocan.
               </>
             ) : (
               'No hay cuotas atadas a esta jornada todavía.'
@@ -246,6 +279,37 @@ export default function MoverJornadaPage({
               >
                 ¿No se jugó? Suspender esta jornada
               </Link>
+            </div>
+          )}
+
+          {/* ── Borrar, sólo para el error de carga ─────────────────────────
+              La línea entre borrar y suspender es qué tocó el mundo: con
+              cuotas atadas el botón NI APARECE — esa jornada es parte del
+              compromiso de pago y su camino es suspender. Sin cuotas, es una
+              fila que nada referencia, y la función igual re-verifica todo
+              (asientos, pagos, gastos, reprogramaciones) antes de borrar. */}
+          {cuotasAtadas === 0 && (
+            <div className="mt-8 border-t border-line pt-4">
+              <p className="mb-2 max-w-prose text-[11px] leading-snug text-muted">
+                Esta jornada no tiene cuotas atadas. Si se creó por error —un número de más, la
+                serie equivocada— se puede borrar: desaparece del calendario como si nunca hubiera
+                existido. Para la jornada real que no se jugó, el camino es suspender.
+              </p>
+              {errorBorrado && (
+                <p className="mb-3 whitespace-pre-wrap rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
+                  {errorBorrado}
+                </p>
+              )}
+              <Button
+                size="pill"
+                variant="tertiary"
+                icon="borrar"
+                loading={borrando}
+                disabled={borrando || registrando}
+                onClick={borrar}
+              >
+                Borrar esta jornada
+              </Button>
             </div>
           )}
         </>

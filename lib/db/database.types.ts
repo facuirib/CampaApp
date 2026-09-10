@@ -4054,7 +4054,6 @@ export type Database = {
           fecha_desde: number | null
           fecha_hasta: number | null
           fecha_referencia: string | null
-          hito_jornada_id: string | null
           id: string
           linea_orden: number
           observacion: string | null
@@ -4071,7 +4070,6 @@ export type Database = {
           fecha_desde?: number | null
           fecha_hasta?: number | null
           fecha_referencia?: string | null
-          hito_jornada_id?: string | null
           id?: string
           linea_orden: number
           observacion?: string | null
@@ -4088,7 +4086,6 @@ export type Database = {
           fecha_desde?: number | null
           fecha_hasta?: number | null
           fecha_referencia?: string | null
-          hito_jornada_id?: string | null
           id?: string
           linea_orden?: number
           observacion?: string | null
@@ -4098,20 +4095,6 @@ export type Database = {
           regla?: Database["public"]["Enums"]["regla_vencimiento"]
         }
         Relationships: [
-          {
-            foreignKeyName: "plan_tarifa_linea_hito_jornada_id_fkey"
-            columns: ["hito_jornada_id"]
-            isOneToOne: false
-            referencedRelation: "jornada"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "plan_tarifa_linea_hito_jornada_id_fkey"
-            columns: ["hito_jornada_id"]
-            isOneToOne: false
-            referencedRelation: "v_calendario_jornadas"
-            referencedColumns: ["jornada_id"]
-          },
           {
             foreignKeyName: "plan_tarifa_linea_plan_tarifa_id_fkey"
             columns: ["plan_tarifa_id"]
@@ -8822,8 +8805,36 @@ export type Database = {
           },
         ]
       }
+      v_transito_gasto: {
+        Row: {
+          gasto_id: string | null
+          devengado_at: string | null
+          pagado_at: string | null
+          detalle: string | null
+          total: number | null
+          repuesto: boolean | null
+        }
+        Relationships: []
+      }
+      v_transito_pago: {
+        Row: {
+          pago_id: string | null
+          fecha: string | null
+          equipo: string | null
+          monto: number | null
+          liquidado: boolean | null
+        }
+        Relationships: []
+      }
+      v_transito_saldo: {
+        Row: {
+          saldo: number | null
+        }
+        Relationships: []
+      }
       v_torneo_listo: {
         Row: {
+          activo: boolean | null
           categorias: number | null
           confirmado: boolean | null
           cuotas: number | null
@@ -9093,6 +9104,7 @@ export type Database = {
       auth_rol: { Args: never; Returns: string }
       borrar_categoria: { Args: { p_categoria_id: string }; Returns: undefined }
       borrar_ficha: { Args: { p_equipo_torneo_id: string }; Returns: undefined }
+      borrar_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       borrar_linea_presupuesto: {
         Args: { p_linea_id: string }
         Returns: undefined
@@ -9486,10 +9498,7 @@ export type Database = {
         Args: { p_ficha_id: string; p_nueva_serie_id: string }
         Returns: undefined
       }
-      mover_jornada: {
-        Args: { p_jornada_id: string; p_nueva_fecha: string }
-        Returns: undefined
-      }
+      mover_jornada: { Args: { p_jornada_id: string; p_nueva_fecha: string }; Returns: Json }
       pagar_gasto: {
         Args: {
           p_cheque_banco?: string
@@ -9687,6 +9696,17 @@ export type Database = {
         Returns: number
       }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
+      editar_torneo: {
+        Args: {
+          p_anio?: number
+          p_ejercicio_id?: string
+          p_nombre?: string
+          p_temporada?: Database["public"]["Enums"]["temporada"]
+          p_torneo_id: string
+        }
+        Returns: undefined
+      }
+      reactivar_torneo: { Args: { p_torneo_id: string }; Returns: undefined }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       trasladar_entre_cajas: {
         Args: {

@@ -97,6 +97,15 @@ export const PERMISOS = {
     roles: TODOS_MENOS_LECTURA,
     donde: { fns: ['crear_torneo'] },
   },
+  'torneo.editar': {
+    // Lo DESCRIPTIVO: nombre, año, temporada, ejercicio. El estado va por el
+    // ciclo y la baja por su par borrar/reactivar. Va por guarda porque la
+    // policy de UPDATE de torneo es `_autenticado` y la función es más
+    // estricta que ella.
+    que: 'Editar nombre, año, temporada o ejercicio de un torneo',
+    roles: TODOS_MENOS_LECTURA,
+    donde: { guarda: 'editar_torneo' },
+  },
   'torneo.ciclo': {
     // Iniciar, cerrar y reabrir un torneo.
     //
@@ -157,6 +166,15 @@ export const PERMISOS = {
     roles: SOLO_ADMIN,
     donde: { guarda: 'borrar_torneo' },
   },
+  'torneo.reactivar': {
+    // El espejo de la baja, con el mismo rol: quien puede bajar puede
+    // devolver. La función exige que el torneo esté efectivamente de baja —
+    // reactivar lo activo no es idempotencia inocua, es señal de estar
+    // operando sobre el torneo equivocado.
+    que: 'Reactivar un torneo dado de baja',
+    roles: SOLO_ADMIN,
+    donde: { guarda: 'reactivar_torneo' },
+  },
   'torneo.estructura': {
     que: 'Clonar, crear, editar o borrar categorías y series',
     roles: TODOS_MENOS_LECTURA,
@@ -205,13 +223,13 @@ export const PERMISOS = {
     que: 'Editar el tarifario: el plan y sus líneas',
     roles: TODOS_MENOS_LECTURA,
     donde: {
-      fns: ['editar_plan_tarifa', 'crear_linea_tarifa', 'editar_linea_tarifa', 'borrar_linea_tarifa'],
+      fns: ['crear_plan_tarifa', 'editar_plan_tarifa', 'crear_linea_tarifa', 'editar_linea_tarifa', 'borrar_linea_tarifa'],
     },
   },
   'calendario.editar': {
-    que: 'Crear, mover o suspender una jornada',
+    que: 'Crear, mover, suspender o borrar una jornada',
     roles: TODOS_MENOS_LECTURA,
-    donde: { fns: ['crear_jornada', 'mover_jornada', 'suspender_jornada'] },
+    donde: { fns: ['crear_jornada', 'crear_playoff', 'mover_jornada', 'suspender_jornada', 'borrar_jornada'] },
   },
 
   // ── Cobranza ─────────────────────────────────────────────────────────────
@@ -272,6 +290,21 @@ export const PERMISOS = {
   },
 
   // ── Gastos ───────────────────────────────────────────────────────────────
+  'gasto.planificar': {
+    // La rama manual del estimado: plata que se sabe que va a salir, antes de
+    // ser gasto. Pendiente proyecta en /proyeccion; al cargarse el gasto real
+    // se marca ejecutado y deja de proyectar — sin la marca se cuenta doble.
+    que: 'Planificar un gasto futuro y marcarlo ejecutado',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_gasto_planificado', 'marcar_gasto_planificado_ejecutado'] },
+  },
+  'gasto.catalogo': {
+    // El ABM de los dos ejes del gasto. La coherencia naturaleza × anclaje la
+    // valida trg_gasto_coherente al cargar cada gasto — esto arma el catálogo.
+    que: 'Crear, editar o desactivar categorías de gasto',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_cat_gasto', 'editar_cat_gasto', 'desactivar_cat_gasto'] },
+  },
   'gasto.registrar': {
     que: 'Cargar un gasto (devengo)',
     roles: CON_FINANZAS,
@@ -318,6 +351,15 @@ export const PERMISOS = {
   },
 
   // ── Diario ───────────────────────────────────────────────────────────────
+  'caja.transito': {
+    // El circuito del efectivo que viaja: recibir un cobro fuera de un predio
+    // (EFECTIVO_EN_TRANSITO), liquidarlo cuando llega a una caja, y reponer el
+    // gasto que se pagó con esa plata. El estado vive en el diario y lo
+    // derivan las vistas v_transito_*.
+    que: 'Recibir, liquidar y reponer efectivo en tránsito',
+    roles: CON_FINANZAS,
+    donde: { fns: ['recibir_efectivo_en_transito', 'liquidar_efectivo_transito', 'reponer_efectivo_transito'] },
+  },
   'asiento.anular': {
     // Anular por circuito (gasto, bar, arqueo, cheque) lo hace cada función con
     // `p_via_circuito`. Esto es la llamada SUELTA, que no tiene pantalla y es
@@ -348,6 +390,15 @@ export const PERMISOS = {
     que: 'Anular un arqueo y sus asientos',
     roles: ARQUEO,
     donde: { fns: ['anular_arqueo'] },
+  },
+  'bar.eliminar_dia': {
+    // El día creado por error, antes de que tenga movimiento: si ya tiene
+    // ventas o arqueo, los FK de la base bloquean el borrado. La policy de
+    // DELETE es más angosta que la de crear (el rol bar crea días, no los
+    // borra) y la matriz lo refleja.
+    que: 'Eliminar un día de cancha creado por error',
+    roles: TODOS_MENOS_LECTURA,
+    donde: { fns: ['eliminar_dia_cancha'] },
   },
   'bar.cierre': {
     que: 'Cerrar la caja del bar de un día',
@@ -441,6 +492,22 @@ export const PERMISOS = {
     que: 'Dar de alta un sponsor',
     roles: CON_FINANZAS,
     donde: { guarda: 'crear_sponsor' },
+  },
+  'sponsor.contrato': {
+    // El contrato y su cronograma. La firma asienta el compromiso completo
+    // (DEUDORES_SPONSORS / INGRESO_DIFERIDO); el ingreso se devenga por mes y
+    // la plata entra al cobrar cada cuota. cargar_cuotas exige que el
+    // cronograma cubra el total exacto — si no, el cashflow proyecta mal.
+    que: 'Crear un contrato de patrocinio y su cronograma de cobro',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_contrato_sponsor', 'cargar_cuotas_sponsor'] },
+  },
+  'sponsor.devengar': {
+    // Proceso mensual idempotente, espejo de socio.devengar: reconoce el
+    // ingreso del mes contra el diferido de la firma.
+    que: 'Devengar el ingreso mensual de los contratos de sponsors',
+    roles: CON_FINANZAS,
+    donde: { fns: ['devengar_sponsors'] },
   },
   'sponsor.cobrar': {
     // Cobrar es del día a día, así que va con `operador` — la misma lista que

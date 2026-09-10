@@ -19,7 +19,7 @@ import type { Database, Json } from '@/lib/db/database.types'
 type CuotaDeuda = Database['public']['Views']['v_deuda_detalle']['Row']
 type Predio = Database['public']['Tables']['predio']['Row']
 
-type Medio = 'efectivo' | 'transferencia' | 'cheque'
+type Medio = 'efectivo' | 'transferencia' | 'cheque' | 'efectivo_transito'
 
 interface Imputacion {
   cuota_id: string
@@ -248,20 +248,33 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
       return
     }
 
-    const { error } = await supabase.rpc('registrar_cobro', {
-      p_tercero_id: terceroId,
-      p_monto: monto,
-      p_medio: medio,
-      p_fecha: fecha,
-      p_imputaciones: imputaciones.filter((i) => i.monto > 0) as unknown as Json,
-      p_predio_id: medio === 'efectivo' ? (predioId ?? undefined) : undefined,
-      p_responsable_id: user.id,
-      // Sólo cuando corresponde: mandarlos con otro medio haría que la fila de
-      // `cheque` naciera para un cobro que no es un cheque.
-      p_cheque_numero: medio === 'cheque' ? chequeNumero.trim() : undefined,
-      p_cheque_banco: medio === 'cheque' ? chequeBanco.trim() : undefined,
-      p_cheque_fecha_cobro: medio === 'cheque' ? chequeFechaCobro : undefined,
-    })
+    // El tránsito es OTRA puerta: la plata no entra a ninguna caja de predio
+    // sino a EFECTIVO_EN_TRANSITO — el responsable la tiene encima y la
+    // liquida en un predio después, desde /caja. La selección de cuotas y las
+    // imputaciones son exactamente las mismas.
+    const { error } =
+      medio === 'efectivo_transito'
+        ? await supabase.rpc('recibir_efectivo_en_transito', {
+            p_tercero_id: terceroId,
+            p_monto: monto,
+            p_fecha: fecha,
+            p_imputaciones: imputaciones.filter((i) => i.monto > 0) as unknown as Json,
+            p_responsable_id: user.id,
+          })
+        : await supabase.rpc('registrar_cobro', {
+            p_tercero_id: terceroId,
+            p_monto: monto,
+            p_medio: medio,
+            p_fecha: fecha,
+            p_imputaciones: imputaciones.filter((i) => i.monto > 0) as unknown as Json,
+            p_predio_id: medio === 'efectivo' ? (predioId ?? undefined) : undefined,
+            p_responsable_id: user.id,
+            // Sólo cuando corresponde: mandarlos con otro medio haría que la fila
+            // de `cheque` naciera para un cobro que no es un cheque.
+            p_cheque_numero: medio === 'cheque' ? chequeNumero.trim() : undefined,
+            p_cheque_banco: medio === 'cheque' ? chequeBanco.trim() : undefined,
+            p_cheque_fecha_cobro: medio === 'cheque' ? chequeFechaCobro : undefined,
+          })
 
     setRegistrando(false)
 
@@ -365,6 +378,7 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
                       <option value="efectivo">Efectivo</option>
                       <option value="transferencia">Transferencia</option>
                       <option value="cheque">Cheque</option>
+                      <option value="efectivo_transito">Efectivo en tránsito</option>
                     </Select>
                   </Field>
 
@@ -445,7 +459,9 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
                 />
               </div>
 
-              {monto > 0 && imputacionCompleta && (
+              {/* El preview es de registrar_cobro; el tránsito es otra puerta
+                  y su asiento es fijo — se dice derecho, sin previsualizar. */}
+              {monto > 0 && imputacionCompleta && medio !== 'efectivo_transito' && (
                 <div className="mb-4">
                   <PreviewCobro
                     terceroId={terceroId}
@@ -454,6 +470,16 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
                     imputaciones={imputaciones}
                   />
                 </div>
+              )}
+
+              {medio === 'efectivo_transito' && (
+                <p className="mb-4 rounded-md bg-warnbg px-4 py-3 text-[11px] leading-snug text-warntx">
+                  <strong className="font-bold">La plata no entra a ninguna caja todavía:</strong>{' '}
+                  queda como efectivo en tránsito, a nombre de quien la recibió. Cuando llegue
+                  físicamente a un predio, se liquida desde{' '}
+                  <strong className="font-bold">Caja → Efectivo en tránsito</strong> — recién ahí
+                  aparece en la caja del predio.
+                </p>
               )}
 
               {errorRegistro && (

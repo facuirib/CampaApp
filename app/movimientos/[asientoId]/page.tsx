@@ -4,7 +4,33 @@ import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
 import { formatPeriodo, rotuloOrigen } from '@/lib/domain/asiento'
 import { Badge, DataTable, type ColumnDef } from '@/components/ui'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
+import AnularAsiento from './AnularAsiento'
 import type { Database } from '@/lib/db/database.types'
+
+/**
+ * Qué orígenes se anulan desde SU circuito y no acá.
+ *
+ * `anular_asiento` es la llamada suelta; los circuitos tienen su propia
+ * anulación, que además revierte lo NO contable (el pago y sus imputaciones,
+ * el stock del bar, el estado del arqueo). Anular acá un asiento de cobro
+ * dejaría el pago vivo apuntando a un asiento muerto. Por eso el botón no se
+ * ofrece para estos orígenes: se ofrece el camino correcto.
+ *
+ * `usd` está acá aunque no tenga anulación de circuito todavía: revertir una
+ * compra por contraasiento corre el promedio ponderado en silencio, que es
+ * exactamente lo que la regla del módulo USD prohíbe.
+ */
+const SE_ANULA_EN_SU_CIRCUITO: Record<string, { donde: string; href: string }> = {
+  cobro: { donde: 'la ficha del equipo (anular el pago)', href: '/cobranza' },
+  gasto: { donde: 'Gastos', href: '/gastos' },
+  bar: { donde: 'el Bar', href: '/bar' },
+  arqueo: { donde: 'Arqueo', href: '/arqueo' },
+  socio: { donde: 'Socios', href: '/socios' },
+  sponsor: { donde: 'Sponsors', href: '/sponsors' },
+  usd: { donde: 'el circuito USD — revertirlo por contraasiento correría el promedio ponderado', href: '/usd' },
+}
 
 type LineaRow = Database['public']['Views']['v_asiento_detalle']['Row']
 
@@ -35,9 +61,10 @@ export default async function AsientoPage({ params }: { params: Promise<{ asient
   if (!UUID.test(asientoId)) notFound()
 
   const supabase = await createClient()
-  const [cabeceraRes, lineasRes] = await Promise.all([
+  const [cabeceraRes, lineasRes, rol] = await Promise.all([
     supabase.from('v_libro_diario').select('*').eq('asiento_id', asientoId).maybeSingle(),
     supabase.from('v_asiento_detalle').select('*').eq('asiento_id', asientoId),
+    rolActual(),
   ])
 
   const error = cabeceraRes.error ?? lineasRes.error
@@ -112,6 +139,27 @@ export default async function AsientoPage({ params }: { params: Promise<{ asient
             }}
             emptyMessage="Este asiento no tiene líneas."
           />
+
+          {/* La anulación. Sólo sobre asientos vivos, sólo para quien puede,
+              y sólo para orígenes sin circuito propio — para los demás se
+              muestra el camino correcto en vez del botón equivocado. */}
+          {!asiento.anulado && puede(rol, 'asiento.anular') && (
+            SE_ANULA_EN_SU_CIRCUITO[asiento.origen ?? ''] ? (
+              <p className="mt-6 border-t border-line pt-4 text-[11px] leading-snug text-muted">
+                Este asiento es de un circuito: se anula desde{' '}
+                <Link
+                  href={SE_ANULA_EN_SU_CIRCUITO[asiento.origen ?? ''].href}
+                  className="font-semibold text-blue-d hover:underline"
+                >
+                  {SE_ANULA_EN_SU_CIRCUITO[asiento.origen ?? ''].donde}
+                </Link>
+                , que además revierte lo que el diario no ve — el pago y sus imputaciones, el
+                estado del circuito. Anularlo suelto dejaría esa mitad viva.
+              </p>
+            ) : (
+              <AnularAsiento asientoId={asientoId} />
+            )
+          )}
         </>
       )}
     </div>

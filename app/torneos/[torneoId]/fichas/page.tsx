@@ -4,6 +4,9 @@ import { createClient } from '@/lib/db/server'
 import PestanasTorneo from '../PestanasTorneo'
 import { Card } from '@/components/ui'
 import FichasEditor from './FichasEditor'
+import InscribirEquipo from './InscribirEquipo'
+import { puede } from '@/lib/permisos'
+import { rolActual } from '@/lib/rol-actual'
 
 export default async function FichasPage({
   params,
@@ -18,6 +21,9 @@ export default async function FichasPage({
     { data: fichas, error: errorFichas },
     { data: series },
     { data: origenes },
+    { data: equiposTodos },
+    { data: planes },
+    rol,
   ] = await Promise.all([
       supabase.from('v_torneo_lista').select('*').eq('torneo_id', torneoId).maybeSingle(),
       supabase.from('v_ficha_torneo').select('*').eq('torneo_id', torneoId),
@@ -25,6 +31,15 @@ export default async function FichasPage({
       // Candidatos a origen: cualquier otro torneo que TENGA fichas. Uno sin
       // fichas no sirve de origen, y ofrecerlo sería ofrecer un error.
       supabase.from('v_torneo_lista').select('*').neq('torneo_id', torneoId).gt('equipos', 0),
+      // Para inscribir uno a uno: los equipos cargados y los planes elegibles.
+      supabase.from('tercero').select('id, nombre').eq('tipo', 'equipo').order('nombre'),
+      supabase
+        .from('plan_tarifa')
+        .select('id, genero, concepto, opcion_nombre')
+        .eq('torneo_id', torneoId)
+        .eq('activo', true)
+        .order('opcion_orden'),
+      rolActual(),
     ])
 
   if (!torneo) notFound()
@@ -78,6 +93,33 @@ export default async function FichasPage({
           series={series ?? []}
           origenes={origenes ?? []}
         />
+
+        {/* El alta individual, debajo del editor masivo. Es un CONTEO de
+            pertenencia sobre listas ya traídas, no un número de plata: los
+            equipos ofrecidos son los que todavía no tienen ficha acá. */}
+        {puede(rol, 'ficha.alta') && (
+          <div className="mt-5">
+            <InscribirEquipo
+              torneoId={torneoId}
+              series={(series ?? [])
+                .filter((s) => s.serie_id)
+                .map((s) => ({
+                  serie_id: s.serie_id!,
+                  label: `${s.categoria ?? ''} · ${s.serie ?? ''}`,
+                  genero: s.genero ?? '',
+                }))}
+              planes={(planes ?? []).map((p) => ({
+                id: p.id,
+                genero: p.genero,
+                concepto: p.concepto,
+                nombre: p.opcion_nombre,
+              }))}
+              equipos={(equiposTodos ?? [])
+                .filter((e) => !(fichas ?? []).some((f) => f.tercero_id === e.id))
+                .map((e) => ({ id: e.id, nombre: e.nombre ?? '—' }))}
+            />
+          </div>
+        )}
       </Card>
     </div>
   )

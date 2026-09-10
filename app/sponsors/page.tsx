@@ -4,6 +4,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { estadoSponsor } from '@/lib/domain/sponsor'
 import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import DevengarMes from '@/components/DevengarMes'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaLista = Database['public']['Views']['v_sponsor_lista']['Row']
@@ -43,6 +44,12 @@ export default async function SponsorsPage() {
   const supabase = await createClient()
 
   const rol = await rolActual()
+  const { data: periodosAbiertos } = await supabase
+    .from('periodo')
+    .select('id, anio, mes')
+    .eq('estado', 'abierto')
+    .order('anio')
+    .order('mes')
   const puedeCrear = puede(rol, 'sponsor.crear')
 
   const [listaRes, kpiRes] = await Promise.all([
@@ -142,6 +149,15 @@ export default async function SponsorsPage() {
         maxHeight={560}
         emptyMessage="No hay sponsors cargados."
       />
+
+      {puede(rol, 'sponsor.devengar') && (
+        <DevengarMes
+          fn="devengar_sponsors"
+          titulo="Devengo mensual de sponsors"
+          descripcion="Reconoce como ingreso del mes la parte de cada contrato vigente, contra el diferido de la firma."
+          periodos={periodosAbiertos ?? []}
+        />
+      )}
     </div>
   )
 }
