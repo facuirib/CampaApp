@@ -102,19 +102,31 @@ tildé, antes de submitear) — no números que deban salir de una vista. Cuando
 se llega a esas pantallas más abajo en este checklist, se marca igual, pero
 no son sospecha de bug.
 
-### 5. Rutas legacy — confirmar que redirigen y no rompen
+### 5. Rutas legacy — [x] verificado en código, las 8 apuntan a destino real
 
-Seis rutas son sólo `redirect()`, para links viejos guardados en favoritos o
-mails. Confirmar que cada una llega a destino y no a un 404:
+Ocho rutas son sólo `redirect()`, para links viejos guardados en favoritos o
+mails. Verificado contra el código (no sólo que el archivo exista — que el
+query param de cada destino sea uno que esa pantalla efectivamente reconoce,
+no uno viejo que caería en el default en silencio):
 
-- [ ] `/clientes` → `/equipos`
-- [ ] `/clientes/[id]` → `/equipos/[id]?tab=datos`
-- [ ] `/reclamos` → `/cobranza`
-- [ ] `/reclamos/[id]` → `/equipos/[id]`
-- [ ] `/cobranza/[id]` → `/equipos/[id]`
-- [ ] `/cobranza/[id]/cobrar` → `/equipos/[id]/cobrar`
-- [ ] `/movimientos` → `/auditoria?vista=diario`
-- [ ] `/inscripciones` → `/cobranza?vista=inscripciones`
+- [x] `/clientes` → `/equipos` — existe `app/equipos/page.tsx`
+- [x] `/clientes/[id]` → `/equipos/[id]?tab=datos` — existe
+      `app/equipos/[terceroId]/page.tsx`, y `tab==='datos'` es un valor que
+      esa pantalla reconoce (línea 169)
+- [x] `/reclamos` → `/cobranza` — existe `app/cobranza/page.tsx`
+- [x] `/reclamos/[id]` → `/equipos/[id]` — existe
+      `app/equipos/[terceroId]/page.tsx`
+- [x] `/cobranza/[id]` → `/equipos/[id]` — ídem
+- [x] `/cobranza/[id]/cobrar` → `/equipos/[id]/cobrar` — existe
+      `app/equipos/[terceroId]/cobrar/page.tsx`
+- [x] `/movimientos` → `/auditoria?vista=diario` — existe
+      `app/auditoria/page.tsx`, y `vista==='diario'` es reconocido (línea 123)
+- [x] `/inscripciones` → `/cobranza?vista=inscripciones` — existe
+      `app/cobranza/page.tsx`, y `vista==='inscripciones'` es reconocido
+      (línea 140)
+
+Falta la prueba con sesión real (que el redirect efectivamente navegue y no
+quede un flash/loop) — el chequeo de código está cerrado.
 
 ---
 
