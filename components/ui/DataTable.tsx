@@ -251,6 +251,21 @@ export default function DataTable<T extends object>({
                             padding,
                             alineacionDe(col) === 'right' ? 'text-right' : 'text-left',
                             col.format === 'money' ? 'font-bold text-ink' : 'text-ink/90',
+                            // 🔴 Sin esto, un botón o Link propio dentro de una
+                            // columna que no es la primera queda DEBAJO del
+                            // `::after` estirado (ver más abajo): un elemento
+                            // posicionado siempre pinta encima de uno estático,
+                            // sea cual sea el orden en el HTML, así que el click
+                            // nunca llega al control — lo agarra el `::after` y
+                            // navega al detalle en su lugar. `relative` sin
+                            // desplazamiento no mueve nada; solo mete a esta
+                            // celda en el mismo grupo de apilado que el
+                            // `::after`, y como viene DESPUÉS en el HTML, gana
+                            // ella. La celda 0 se excluye a propósito: si
+                            // también fuera `relative`, pasaría a ser el
+                            // contenedor de posición del `::after` en vez del
+                            // `<tr>`, y el estirado dejaría de cubrir la fila.
+                            j !== 0 ? 'relative' : '',
                           ].join(' ')}
                         >
                           {/* El link va en la primera celda y se estira sobre
