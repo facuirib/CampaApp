@@ -23,6 +23,9 @@ export default function NuevaJornadaPage() {
 
   const [serieId, setSerieId] = useState<string | null>(null)
   const [serieDesdeQuery, setSerieDesdeQuery] = useState(false)
+  // Solo para reconstruir el «Volver al calendario» con el filtro puesto —
+  // esta pantalla no usa el torneo para nada más, `crear_jornada` no lo pide.
+  const [torneoId, setTorneoId] = useState<string | null>(null)
   const [numero, setNumero] = useState(0)
   const [fecha, setFecha] = useState('')
   // Liga o playoff: dos puertas distintas en la base —crear_jornada exige
@@ -60,9 +63,9 @@ export default function NuevaJornadaPage() {
 
       setJornadas(data ?? [])
 
-      // ?serie=<uuid>, desde el calendario. Se lee del location y no con
-      // useSearchParams, para no forzar un boundary de Suspense en una
-      // página que no necesita nada del servidor — mismo patrón que
+      // ?serie=<uuid>&torneo=<uuid>, desde el calendario. Se lee del location
+      // y no con useSearchParams, para no forzar un boundary de Suspense en
+      // una página que no necesita nada del servidor — mismo patrón que
       // /arqueo/nuevo.
       const { data: formatosData } = await supabase
         .from('formato_instancia')
@@ -70,11 +73,13 @@ export default function NuevaJornadaPage() {
         .order('orden')
       if (!cancelado) setFormatos(formatosData ?? [])
 
-      const preseleccionada = new URLSearchParams(window.location.search).get('serie')
+      const qs = new URLSearchParams(window.location.search)
+      const preseleccionada = qs.get('serie')
       if (preseleccionada) {
         setSerieId(preseleccionada)
         setSerieDesdeQuery(true)
       }
+      setTorneoId(qs.get('torneo'))
 
       setCargando(false)
     }
@@ -94,6 +99,15 @@ export default function NuevaJornadaPage() {
   const serieElegida = series.find((s) => s.valor === serieId)
   const jornadasDeLaSerie = serieId ? jornadas.filter((j) => j.serie_id === serieId) : []
   const numeroSugerido = jornadasDeLaSerie.reduce((max, j) => Math.max(max, j.numero ?? 0), 0) + 1
+
+  // «Volver al calendario» con el mismo filtro puesto, no a la vista sin
+  // filtrar — usa la serie ACTUAL (la de la URL, o la que se haya elegido a
+  // mano si se llegó sin una), no solo la que vino por query.
+  const paramsVolver = new URLSearchParams()
+  if (torneoId) paramsVolver.set('torneo', torneoId)
+  if (serieId) paramsVolver.set('serie', serieId)
+  const qsVolver = paramsVolver.toString()
+  const volverHref = qsVolver ? `/calendario?${qsVolver}` : '/calendario'
 
   // Sugiere el próximo número libre al elegir/llegar con una serie. El
   // operador lo puede pisar a mano después: es solo el default del input.
@@ -144,7 +158,7 @@ export default function NuevaJornadaPage() {
 
   return (
     <div className="pb-10">
-      <Link href="/calendario" className="text-[11px] font-semibold text-blue-d hover:underline">
+      <Link href={volverHref} className="text-[11px] font-semibold text-blue-d hover:underline">
         ← Volver al calendario
       </Link>
 
@@ -251,7 +265,7 @@ export default function NuevaJornadaPage() {
           {resultadoExito && (
             <p className="mb-4 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">
               {resultadoExito}{' '}
-              <Link href="/calendario" className="font-bold underline">
+              <Link href={volverHref} className="font-bold underline">
                 Volver al calendario
               </Link>
             </p>

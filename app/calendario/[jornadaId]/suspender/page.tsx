@@ -41,9 +41,23 @@ export default function SuspenderJornadaPage({
   const [jornada, setJornada] = useState<JornadaCalendarioRow | null>(null)
   const [cuotasAtadas, setCuotasAtadas] = useState(0)
 
+  // Solo para reconstruir el «Volver al calendario» con el filtro puesto —
+  // vienen de la URL (mover/page.tsx los pasa al linkear acá).
+  const [torneoId, setTorneoId] = useState<string | null>(null)
+  const [serieId, setSerieId] = useState<string | null>(null)
+
   const [registrando, setRegistrando] = useState(false)
   const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
   const [resultadoExito, setResultadoExito] = useState<string | null>(null)
+
+  useEffect(() => {
+    // ?serie=<uuid>&torneo=<uuid>, desde /mover. Se lee del location y no con
+    // useSearchParams, mismo motivo que /calendario/nueva y /mover: no forzar
+    // un boundary de Suspense en una página que no necesita nada del servidor.
+    const qs = new URLSearchParams(window.location.search)
+    setTorneoId(qs.get('torneo'))
+    setSerieId(qs.get('serie'))
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -85,6 +99,13 @@ export default function SuspenderJornadaPage({
   const puedeSuspender = jornada?.estado !== 'suspendida'
   const puedeConfirmar = !registrando && puedeSuspender
 
+  // «Volver al calendario» con el mismo filtro puesto, no a la vista sin filtrar.
+  const paramsVolver = new URLSearchParams()
+  if (torneoId) paramsVolver.set('torneo', torneoId)
+  if (serieId) paramsVolver.set('serie', serieId)
+  const qsVolver = paramsVolver.toString()
+  const volverHref = qsVolver ? `/calendario?${qsVolver}` : '/calendario'
+
   async function confirmar() {
     setRegistrando(true)
     setErrorRegistro(null)
@@ -118,7 +139,7 @@ export default function SuspenderJornadaPage({
 
   return (
     <div className="pb-10">
-      <Link href="/calendario" className="text-[11px] font-semibold text-blue-d hover:underline">
+      <Link href={volverHref} className="text-[11px] font-semibold text-blue-d hover:underline">
         ← Volver al calendario
       </Link>
 
@@ -169,7 +190,7 @@ export default function SuspenderJornadaPage({
             <div className="rounded-md border border-line bg-white px-4 py-8 text-center text-[11px] text-muted">
               Esta jornada ya está suspendida. Para reactivarla, movela a una fecha nueva desde el
               calendario (queda reprogramada).{' '}
-              <Link href="/calendario" className="font-bold text-blue-d underline">
+              <Link href={volverHref} className="font-bold text-blue-d underline">
                 Volver al calendario
               </Link>
             </div>
@@ -204,7 +225,7 @@ export default function SuspenderJornadaPage({
               {resultadoExito && (
                 <p className="mb-4 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">
                   {resultadoExito}{' '}
-                  <Link href="/calendario" className="font-bold underline">
+                  <Link href={volverHref} className="font-bold underline">
                     Volver al calendario
                   </Link>
                 </p>

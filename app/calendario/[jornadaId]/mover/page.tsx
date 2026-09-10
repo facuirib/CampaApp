@@ -51,6 +51,12 @@ export default function MoverJornadaPage({
   const [jornada, setJornada] = useState<JornadaCalendarioRow | null>(null)
   const [cuotasAtadas, setCuotasAtadas] = useState(0)
 
+  // Solo para reconstruir el «Volver al calendario» con el filtro puesto —
+  // vienen de la URL (`page.tsx` los pasa en el rowHref), no de la jornada:
+  // `serie` acá abajo es el NOMBRE de la serie, no su id.
+  const [torneoId, setTorneoId] = useState<string | null>(null)
+  const [serieId, setSerieId] = useState<string | null>(null)
+
   const [nuevaFecha, setNuevaFecha] = useState('')
 
   const [registrando, setRegistrando] = useState(false)
@@ -58,6 +64,16 @@ export default function MoverJornadaPage({
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null)
   const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
   const [resultadoExito, setResultadoExito] = useState<string | null>(null)
+
+  useEffect(() => {
+    // ?serie=<uuid>&torneo=<uuid>, desde /calendario (ver su rowHref). Se lee
+    // del location y no con useSearchParams, mismo motivo que /calendario/nueva:
+    // no forzar un boundary de Suspense en una página que no necesita nada
+    // del servidor.
+    const qs = new URLSearchParams(window.location.search)
+    setTorneoId(qs.get('torneo'))
+    setSerieId(qs.get('serie'))
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -102,6 +118,15 @@ export default function MoverJornadaPage({
 
   const puedeConfirmar = !registrando && !!nuevaFecha && !sinCambio
 
+  // «Volver al calendario» con el mismo filtro puesto, no a la vista sin
+  // filtrar — y de paso a /suspender, para que ESA pantalla lo tenga también.
+  const paramsVolver = new URLSearchParams()
+  if (torneoId) paramsVolver.set('torneo', torneoId)
+  if (serieId) paramsVolver.set('serie', serieId)
+  const qsVolver = paramsVolver.toString()
+  const volverHref = qsVolver ? `/calendario?${qsVolver}` : '/calendario'
+  const suspenderHref = `/calendario/${jornadaId}/suspender${qsVolver ? `?${qsVolver}` : ''}`
+
   async function borrar() {
     setBorrando(true)
     setErrorBorrado(null)
@@ -114,7 +139,7 @@ export default function MoverJornadaPage({
       return
     }
     // La jornada ya no existe: quedarse acá daría un 404.
-    router.push('/calendario')
+    router.push(volverHref)
   }
 
   async function confirmar() {
@@ -165,7 +190,7 @@ export default function MoverJornadaPage({
 
   return (
     <div className="pb-10">
-      <Link href="/calendario" className="text-[11px] font-semibold text-blue-d hover:underline">
+      <Link href={volverHref} className="text-[11px] font-semibold text-blue-d hover:underline">
         ← Volver al calendario
       </Link>
 
@@ -256,7 +281,7 @@ export default function MoverJornadaPage({
           {resultadoExito && (
             <p className="mb-4 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">
               {resultadoExito}{' '}
-              <Link href="/calendario" className="font-bold underline">
+              <Link href={volverHref} className="font-bold underline">
                 Volver al calendario
               </Link>
             </p>
@@ -274,7 +299,7 @@ export default function MoverJornadaPage({
           {jornada.estado !== 'suspendida' && (
             <div className="mt-3">
               <Link
-                href={`/calendario/${jornadaId}/suspender`}
+                href={suspenderHref}
                 className="text-[11px] font-semibold text-muted underline hover:text-ink"
               >
                 ¿No se jugó? Suspender esta jornada

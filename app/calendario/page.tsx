@@ -247,7 +247,7 @@ export default async function CalendarioPage({
                   </p>
                   {puedeEditar && (
                     <Link
-                      href={`/calendario/nueva?serie=${serie}`}
+                      href={`/calendario/nueva?serie=${serie}${torneo ? `&torneo=${torneo}` : ''}`}
                       className="text-[11px] font-semibold text-blue-d hover:underline"
                     >
                       + Agregar jornada
@@ -256,11 +256,20 @@ export default async function CalendarioPage({
                 </div>
               )}
 
+              {/* `?serie=&torneo=` acá también: es lo único que le permite a
+                  /mover (y de ahí a /suspender) reconstruir el «Volver al
+                  calendario» con el filtro puesto, en vez de mandar siempre a
+                  la vista sin filtrar. */}
               <DataTable
                 columns={COL_CALENDARIO}
                 rows={filas}
                 rowKey="jornada_id"
-                rowHref={puedeEditar ? (row) => `/calendario/${row.jornada_id}/mover` : undefined}
+                rowHref={
+                  puedeEditar
+                    ? (row) =>
+                        `/calendario/${row.jornada_id}/mover?serie=${serie}${torneo ? `&torneo=${torneo}` : ''}`
+                    : undefined
+                }
                 maxHeight={600}
                 emptyMessage="Esta serie no tiene jornadas."
               />
