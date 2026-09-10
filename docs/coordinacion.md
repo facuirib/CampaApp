@@ -18,6 +18,33 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Sesión de UX en Inicio · varias rondas de ajuste visual · para Facu
+
+Trabajo de Horacio de hoy, varios commits (76036d5 en adelante hasta 55f062e), todo en /inicio:
+
+- Layout: alturas simétricas entre pares de gráficos (fix en Bloque, flex
+  h-full), "Evolución de caja" convertido en Bloque propio con banda "Caja",
+  "Ver flujo" reubicado.
+- Tipografía: props nuevos masLetra/masLetraValor/masLetraLeyenda en
+  ChartArea/ChartBarras/ChartBarrasH/Waterfall/ChartTorta (opt-in, no afecta
+  otras pantallas), varias rondas de ajuste fino por pedido directo.
+- Nuevo componente app/IngresosGastosSemana.tsx (barras de progreso, mismo
+  estilo que "Cómo cobran los equipos").
+- Colores: ChartBarrasH con colorPorSigno (verde/rojo según signo),
+  ChartBarras con mostrarValor.
+- **Fix real (afecta ~24 pantallas, no solo Inicio)**: KpiCard coloreaba solo
+  el borde de 4px según `tono`, pero el número grande estaba hardcodeado en
+  text-ink — el bug real detrás de "no veo el color". Agregado
+  NUMERO: Record<TonoKpi, string> aplicado al número. Cualquier pantalla que
+  ya pasaba tono a KpiCard (Cobranza, Resultados, Sponsors, Activos, etc.)
+  debería verse mejor ahora, sin cambios de código de nuestro lado en esas
+  pantallas — no las revisamos una por una, avisen si algo se ve raro.
+
+Todo verificado con tsc + build en cada paso. verificar:permisos no corrió
+(sin DATABASE_URL en este entorno) — no aplica, ningún cambio tocó SQL.
+
+---
+
 ### 🟢 Ajustes de UX en Inicio · gráficos más chicos y prolijos · para Facu
 
 Cambios de Horacio en app/page.tsx, ya commiteados (6c798fc):
