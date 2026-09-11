@@ -384,6 +384,8 @@ Separarlos permite que el P&L y la caja cuenten cosas distintas sin contradecirs
 | `v_gasto_kpi` | año · año×mes | Los KPIs y el filtro de período de `/gastos` |
 | `v_gasto_naturaleza_mes` | año×mes×naturaleza | Las cuatro tarjetas y el gráfico por tipo |
 | `v_gasto_categoria_mes` | + categoría | El gráfico por categoría |
+| `v_gasto_naturaleza_anio` | año×naturaleza | El año entero YA sumado: las barras de `/gastos` sin filtro de mes (antes se juntaban los doce meses en el cliente) |
+| `v_gasto_categoria_anio` | año×categoría | Ídem por categoría; también la torta de gastos del inicio |
 
 **`v_gasto_kpi` devuelve la fila del año Y la de cada mes**, con `grouping sets`: `mes is null` es el año entero. La pantalla **elige** la fila según el filtro, en vez de sumar meses en el cliente.
 
@@ -604,6 +606,8 @@ circuito, no una lista de trabajo pendiente.
 Se prefiere la FK a copiar el enum dentro de `cuota`: mantiene fuente única y da acceso también al precio y a la regla, no solo al concepto.
 
 **2 · `registrar_cobro()` atómica.** Una sola función registra el pago, imputa y asienta, en una transacción. El asiento **no** se cablea dentro de `imputar_pago()`, que hoy recibe un pago ya insertado: eso dejaría el registro y el asiento en dos pasos separables, y si el segundo falla queda plata registrada sin movimiento en el diario. `registrar_cobro()` reutiliza `imputar_pago()` tal como está, sin modificarla.
+
+**2b · `proponer_imputacion(tercero, monto, [torneo])` — la propuesta ANTES del pago.** `sugerir_imputacion(pago_id)` exige un pago existente, y como `registrar_cobro` es atómica, la pantalla de cobro no tenía propuesta que mostrar — así que durante un tiempo la calculó en TypeScript con criterio propio (dos criterios para el mismo dominio, regla 10 violada; hallazgo del diagnóstico 11/09). `proponer_imputacion` es la misma propuesta con el pago todavía inexistente: mismo criterio que `sugerir_imputacion` (torneo en curso primero, después antigüedad), acotable al torneo que el operador eligió. **No escribe.** Devuelve también los totales de la pantalla (`total`, `deuda_alcance`, `sobrante`) para que no se sumen en el cliente (regla 1). La pantalla la muestra cuota por cuota, editable, y recién la confirmación llama a `registrar_cobro`. La cola de avisos, además, lee su KPI de monto por etapa de `v_cobranza_etapa_total` (todos los torneos; la per-torneo ya existía como `v_cobranza_etapa`).
 
 **3 · El asiento se deriva de la imputación**, no del pago en bruto. Cada imputación aporta una línea al haber, ruteada por el concepto de su cuota:
 
@@ -3312,7 +3316,7 @@ Se registran acá con su razonamiento. Una decisión derogada sin explicación e
 
 - Nivel de automatización de reclamos: `manual` / `mixto` / `automatico` — a definir con la dirección.
 - Proveedor de mail (Resend / Postmark) y dominio de envío.
-- ~~Formato fiscal del recibo~~ — **resuelto**. El recibo es un comprobante interno (`comprobante.tipo_comprobante = 0`, punto de venta 0, sin CAE) con numeración propia por `comprobante_recibo_numero_seq`; admite huecos porque el número es nuestro. La factura fiscal es el otro camino y numera contra ARCA, con las puertas `reservar_numero_comprobante` → `cerrar_comprobante` (migraciones `20260826120000_comprobante_seguro.sql` y `20260827130000_puertas_emision.sql`).
+- ~~Formato fiscal del recibo~~ — **resuelto**. El recibo es un comprobante interno (`comprobante.tipo_comprobante = 0`, punto de venta 0, sin CAE) con numeración propia por `comprobante_recibo_numero_seq`; admite huecos porque el número es nuestro. La factura fiscal es el otro camino y numera contra ARCA, con las puertas `reservar_numero_comprobante` → `cerrar_comprobante` (migraciones `20260826120000_comprobante_seguro.sql` y `20260827130000_puertas_emision.sql`). El desglose neto/IVA de la factura lo resuelve **`desglose_iva(bruto, [alicuota=21])`** en `numeric` exacto (`neto + iva = bruto` siempre; migración `desglose_iva`, hallazgo del diagnóstico 11/09) — antes se calculaba con float en `lib/arca-fecaesolicitar.ts`. Del mismo diagnóstico: `v_pl_anual_total` (año×tipo) alimenta los centros de las tortas del inicio, que el componente ya no inventa.
 - Comparaciones C3 (torneo vs torneo), C4 (diferencias de caja por responsable) y C5 (inscripción como cobertura de costo fijo): siguen de interés, no priorizadas.
 
 

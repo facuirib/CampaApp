@@ -87,6 +87,7 @@ export default function ColasAviso({
   ventanas,
   avisos = [],
   reclamos = [],
+  etapas = [],
   etapaFiltro = null,
 }: {
   filas: FilaCola[]
@@ -95,9 +96,12 @@ export default function ColasAviso({
   avisos?: AvisoEquipo[]
   /** Los reclamos, para el desplegable. De `reclamo`. */
   reclamos?: ReclamoBreve[]
+  /** El monto por etapa, ya sumado. De `v_cobranza_etapa_total` (regla 1). */
+  etapas?: Database['public']['Views']['v_cobranza_etapa_total']['Row'][]
   /** La etapa que se está mirando sola, o null para ver las tres. */
   etapaFiltro?: string | null
 }) {
+  const montoDeEtapa = new Map(etapas.map((e) => [e.etapa, e.adeudado ?? 0]))
   const avisoDe = new Map(avisos.map((a) => [a.tercero_id, a]))
   const reclamosDe = new Map<string, ReclamoBreve[]>()
   for (const r of reclamos) {
@@ -142,7 +146,7 @@ export default function ColasAviso({
                 subtitulo={
                   suyas.length === 0
                     ? 'Nada pendiente'
-                    : formatMoney(suyas.reduce((t, f) => t + (f.total_adeudado ?? 0), 0))
+                    : formatMoney(montoDeEtapa.get(e.clave) ?? 0)
                 }
               />
             </Link>

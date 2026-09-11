@@ -47,7 +47,7 @@ interface FilaImputacion {
   vence_at: string | null
   saldo: number | null
   estado: CeldaBadge
-  a_imputar: number | null
+  a_imputar: React.ReactNode
 }
 
 const COLUMNAS: ColumnDef<FilaImputacion>[] = [
@@ -55,7 +55,8 @@ const COLUMNAS: ColumnDef<FilaImputacion>[] = [
   { key: 'vence_at', label: 'Vence', format: 'date', width: 110 },
   { key: 'saldo', label: 'Saldo', format: 'money', width: 130 },
   { key: 'estado', label: 'Estado', format: 'badge' },
-  { key: 'a_imputar', label: 'A imputar', format: 'money', width: 130 },
+  // Editable: la propuesta de la base precarga, el operador ajusta (regla 10).
+  { key: 'a_imputar', label: 'A imputar', align: 'right', width: 130, interactiva: true },
 ]
 
 function hoyEnCordoba(): string {
@@ -67,28 +68,21 @@ function hoyEnCordoba(): string {
   }).format(new Date())
 }
 
-/** Imputa el monto a las cuotas más antiguas primero, hasta agotarlo o cubrirlas todas. */
-function calcularImputacionAutomatica(cuotas: CuotaDeuda[], monto: number): Imputacion[] {
-  if (monto <= 0) return []
-
-  const ordenadas = [...cuotas].sort((a, b) => (a.vence_at ?? '').localeCompare(b.vence_at ?? ''))
-
-  let restanteCentavos = Math.round(monto * 100)
-  const imputaciones: Imputacion[] = []
-
-  for (const cuota of ordenadas) {
-    if (restanteCentavos <= 0) break
-    if (!cuota.cuota_id) continue
-
-    const saldoCentavos = Math.round((cuota.saldo ?? 0) * 100)
-    if (saldoCentavos <= 0) continue
-
-    const aplicarCentavos = Math.min(saldoCentavos, restanteCentavos)
-    imputaciones.push({ cuota_id: cuota.cuota_id, monto: aplicarCentavos / 100 })
-    restanteCentavos -= aplicarCentavos
-  }
-
-  return imputaciones
+/**
+ * La propuesta viene de `proponer_imputacion` — LA BASE, no esta pantalla.
+ *
+ * Acá vivía `calcularImputacionAutomatica`: antigüedad a secas, aritmética de
+ * centavos a mano, y un criterio DISTINTO del de `sugerir_imputacion`. El
+ * mismo dominio con dos criterios era exactamente lo que la regla 10 prohíbe.
+ * Ahora la base propone (mismo criterio que sugerir_imputacion, acotado al
+ * torneo elegido), la tabla la muestra cuota por cuota, el operador puede
+ * ajustar cada renglón, y recién su confirmación registra.
+ */
+interface Propuesta {
+  imputaciones: (Imputacion & { saldo: number })[]
+  total: number
+  deuda_alcance: number
+  sobrante: number
 }
 
 export default function CobrarPage({ params }: { params: Promise<{ terceroId: string }> }) {
@@ -102,6 +96,11 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
 
   const [torneoSeleccionado, setTorneoSeleccionado] = useState<string | null>(null)
   const [monto, setMonto] = useState(0)
+  const [propuesta, setPropuesta] = useState<Propuesta | null>(null)
+  const [proponiendo, setProponiendo] = useState(false)
+  // Ajustes del operador sobre la propuesta, por cuota. Se limpian cuando
+  // cambia lo que la origina (monto o torneo).
+  const [ajustes, setAjustes] = useState<Record<string, number>>({})
   const [medio, setMedio] = useState<Medio>('efectivo')
   const [fecha, setFecha] = useState(hoyEnCordoba())
   const [predioId, setPredioId] = useState<string | null>(null)
@@ -191,33 +190,77 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
     }
   }, [torneosConDeuda, torneoSeleccionado])
 
+  // La propuesta se pide a la base cada vez que cambia su origen. Con un
+  // debounce corto: el monto se tipea de a un dígito.
+  useEffect(() => {
+    setAjustes({})
+    if (!torneoSeleccionado || monto <= 0) {
+      setPropuesta(null)
+      return
+    }
+    let cancelado = false
+    setProponiendo(true)
+    const timer = setTimeout(async () => {
+      const { data, error } = await createClient().rpc('proponer_imputacion', {
+        p_tercero_id: terceroId,
+        p_monto: monto,
+        p_torneo_id: torneoSeleccionado,
+      })
+      if (cancelado) return
+      setProponiendo(false)
+      if (error) {
+        setErrorCarga(error.message)
+        setPropuesta(null)
+        return
+      }
+      setPropuesta(data as unknown as Propuesta)
+    }, 300)
+    return () => {
+      cancelado = true
+      clearTimeout(timer)
+    }
+  }, [terceroId, torneoSeleccionado, monto, recarga])
+
   const cuotasTorneo = useMemo(
     () => torneosConDeuda.find((t) => t.torneoId === torneoSeleccionado)?.cuotas ?? [],
     [torneosConDeuda, torneoSeleccionado],
   )
 
-  const imputaciones = useMemo(
-    () => calcularImputacionAutomatica(cuotasTorneo, monto),
-    [cuotasTorneo, monto],
-  )
+  const imputaciones = useMemo<Imputacion[]>(() => {
+    if (!propuesta) return []
+    const base = new Map(propuesta.imputaciones.map((i) => [i.cuota_id, i.monto]))
+    // El operador puede ajustar cualquier cuota del torneo, esté o no en la
+    // propuesta: mover plata de una vieja a una nueva es exactamente el ajuste
+    // que la regla 10 le reserva.
+    const resultado: Imputacion[] = []
+    for (const c of cuotasTorneo) {
+      if (!c.cuota_id) continue
+      const monto = ajustes[c.cuota_id] ?? base.get(c.cuota_id) ?? 0
+      if (monto > 0) resultado.push({ cuota_id: c.cuota_id, monto })
+    }
+    return resultado
+  }, [propuesta, ajustes, cuotasTorneo])
 
+  // Validación de coherencia, NO un total de pantalla: lo que se muestra sale
+  // de la propuesta de la base; esto sólo decide si el botón se habilita, y
+  // la base lo re-valida entera en registrar_cobro / imputar_pago.
   const sumaImputaciones = useMemo(
     () => Math.round(imputaciones.reduce((acc, i) => acc + i.monto, 0) * 100) / 100,
     [imputaciones],
   )
 
-  const totalDeudaTorneo = useMemo(
-    () => cuotasTorneo.reduce((acc, c) => acc + (c.saldo ?? 0), 0),
-    [cuotasTorneo],
-  )
+  // La deuda del torneo la dice la base (regla 1), junto con la propuesta.
+  const totalDeudaTorneo = propuesta?.deuda_alcance ?? 0
 
-  const excedeDeuda = monto > totalDeudaTorneo + TOLERANCIA
+  const excedeDeuda = propuesta !== null && monto > totalDeudaTorneo + TOLERANCIA
   const imputacionCompleta = Math.abs(sumaImputaciones - monto) <= TOLERANCIA
 
   const nombreEquipo = cuotas[0]?.equipo ?? 'Equipo'
 
   const puedeConfirmar =
     !registrando &&
+    !proponiendo &&
+    propuesta !== null &&
     !!torneoSeleccionado &&
     monto > 0 &&
     imputaciones.length > 0 &&
@@ -296,16 +339,38 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
     setRecarga((n) => n + 1)
   }
 
-  // Solo presentación: la imputación ya está calculada arriba, acá se la busca
-  // para mostrarla. Ningún número sale de este map.
-  const filasImputacion: FilaImputacion[] = cuotasTorneo.map((c) => ({
-    cuota_id: c.cuota_id!,
-    cuota_numero: c.cuota_numero,
-    vence_at: c.vence_at,
-    saldo: c.saldo,
-    estado: estadoCuota(c.estado),
-    a_imputar: imputaciones.find((i) => i.cuota_id === c.cuota_id)?.monto ?? null,
-  }))
+  // Solo presentación: la propuesta ya vino de la base, acá se la busca para
+  // mostrarla — con un input por fila para que el operador la ajuste.
+  const filasImputacion: FilaImputacion[] = cuotasTorneo.map((c) => {
+    const propuesto = imputaciones.find((i) => i.cuota_id === c.cuota_id)?.monto ?? 0
+    return {
+      cuota_id: c.cuota_id!,
+      cuota_numero: c.cuota_numero,
+      vence_at: c.vence_at,
+      saldo: c.saldo,
+      estado: estadoCuota(c.estado),
+      a_imputar:
+        propuesta === null ? (
+          '—'
+        ) : (
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            aria-label={`A imputar en la cuota ${c.cuota_numero ?? ''}`}
+            className="w-28 text-right"
+            value={propuesto || ''}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value)
+              setAjustes((prev) => ({
+                ...prev,
+                [c.cuota_id!]: Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : 0,
+              }))
+            }}
+          />
+        ),
+    }
+  })
 
   return (
     <div className="pb-10">
@@ -321,7 +386,8 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
           Registrar cobro — {nombreEquipo}
         </h1>
         <p className="mt-1 text-[12px] text-muted">
-          El monto se imputa a las cuotas más viejas primero.
+          El sistema propone la imputación (torneo en curso primero, después antigüedad) y se
+          puede ajustar cuota por cuota antes de confirmar.
         </p>
       </header>
 

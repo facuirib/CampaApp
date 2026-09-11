@@ -1,4 +1,4 @@
-import { formatMoney, formatMoneyCorto, formatPorcentaje } from '@/lib/format'
+import { formatMoney, formatPorcentaje } from '@/lib/format'
 
 /** Un gajo. El `valor` manda el ángulo; nunca se calcula acá. */
 export interface GajoTorta {
@@ -186,26 +186,33 @@ export default function ChartTorta({
         ))}
 
         {/* El centro: el total, que es sobre lo que se reparte todo lo demás */}
-        <text
-          x={cx}
-          y={cy - 2}
-          textAnchor="middle"
-          fontSize={f(compacto ? 17 : 21)}
-          fontWeight={800}
-          fill="var(--ink)"
-          style={{ fontVariantNumeric: 'tabular-nums' }}
-        >
-          {centro?.valor ?? formatMoneyCorto(total)}
-        </text>
-        <text
-          x={cx}
-          y={cy + (compacto ? 14 : 17)}
-          textAnchor="middle"
-          fontSize={f(compacto ? 9.5 : 10.5)}
-          fill="var(--muted)"
-        >
-          {centro?.nota ?? 'total'}
-        </text>
+        {/* El centro sólo si el llamador lo trae DE SU VISTA (regla 1): este
+            componente no inventa totales de plata. `total` de acá arriba es
+            geometría —las proporciones de los arcos—, no un número visible. */}
+        {centro && (
+          <>
+            <text
+              x={cx}
+              y={cy - 2}
+              textAnchor="middle"
+              fontSize={f(compacto ? 17 : 21)}
+              fontWeight={800}
+              fill="var(--ink)"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {centro.valor}
+            </text>
+            <text
+              x={cx}
+              y={cy + (compacto ? 14 : 17)}
+              textAnchor="middle"
+              fontSize={f(compacto ? 9.5 : 10.5)}
+              fill="var(--muted)"
+            >
+              {centro.nota ?? 'total'}
+            </text>
+          </>
+        )}
 
         {/* La leyenda va DENTRO del svg y no en HTML al lado: así el gráfico
             entero es una sola pieza que se puede llevar a un PDF sin rearmar

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { rolActual } from '@/lib/rol-actual'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatMoneyCorto } from '@/lib/format'
 import { etapaCobranza, etiquetaEtapa } from '@/lib/domain/cobranza'
 import Exportar from './Exportar'
 import IngresosGastosSemana from './IngresosGastosSemana'
@@ -163,7 +163,7 @@ export default async function Home({
 
   const mesEnCurso = new Date().toISOString().slice(0, 7)
 
-  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola, gastosCat, gastosDia, cajas] =
+  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola, gastosCat, gastosDia, cajas, plTotal, gastoKpi] =
     await Promise.all([
     torneoElegido
       ? supabase.from('v_dashboard').select('*').eq('torneo_id', torneoElegido).maybeSingle()
@@ -196,7 +196,7 @@ export default async function Home({
           .order('dias_atraso_maximo', { ascending: false, nullsFirst: false })
       : Promise.resolve({ data: [], error: null }),
     // Composición de gastos: la vista ya existía, sólo faltaba el bloque.
-    supabase.from('v_gasto_categoria_mes').select('*').eq('anio', anio),
+    supabase.from('v_gasto_categoria_anio').select('*').eq('anio', anio),
     // Cuándo sale la plata, día por día del mes en curso.
     supabase
       .from('v_gasto_dia_mes')
@@ -207,6 +207,10 @@ export default async function Home({
     // Cuánta plata hay en cada caja. La MISMA vista que /caja, así que los dos
     // números son el mismo número (A2).
     supabase.from('v_saldo_caja').select('nombre, saldo').order('saldo', { ascending: false }),
+    // Los centros de las tortas, ya sumados (regla 1): antes los inventaba
+    // el componente con un reduce.
+    supabase.from('v_pl_anual_total').select('total').eq('anio', anio).eq('tipo', 'ingreso').maybeSingle(),
+    supabase.from('v_gasto_kpi').select('total').eq('anio', anio).is('mes', null).maybeSingle(),
   ])
 
   const d = dash.data
@@ -845,6 +849,7 @@ export default async function Home({
               masLetra={3}
               className="h-full"
               titulo={`Composición de los ingresos ${anio}`}
+              centro={{ valor: formatMoneyCorto(Number(plTotal.data?.total ?? 0)) }}
             />
           </Bloque>
 
@@ -863,6 +868,7 @@ export default async function Home({
               masLetra={3}
               className="h-full"
               titulo={`Composición de los gastos ${anio}`}
+              centro={{ valor: formatMoneyCorto(Number(gastoKpi.data?.total ?? 0)) }}
             />
           </Bloque>
         </div>

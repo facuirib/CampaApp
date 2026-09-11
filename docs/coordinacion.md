@@ -18,6 +18,31 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 TU CARRIL: 2 funciones + 4 vistas nuevas (diagnóstico, ronda motor) · 11/09/2026 · para Horacio
+
+Aplicadas con confirmación de Facu (regla 11), todas aditivas:
+
+- **`proponer_imputacion(tercero, monto, [torneo])`** — la propuesta de
+  imputación ANTES de que exista el pago. Mismo criterio que tu
+  `sugerir_imputacion` (en curso primero, después antigüedad), acotable al
+  torneo. No escribe. Motivo: la pantalla de cobro no podía usar la tuya
+  (exige pago existente, y `registrar_cobro` es atómica) y calculaba en TS
+  con criterio propio — regla 10 violada, hallazgo del diagnóstico. La
+  pantalla ahora muestra tu propuesta cuota por cuota, editable, y confirma.
+- **`desglose_iva(bruto, [alicuota=21])`** — neto/IVA en numeric exacto
+  (neto+iva=bruto siempre). Sacó el float de `lib/arca-fecaesolicitar.ts:93`
+  — tu motor de facturación ahora recibe el desglose de la base.
+- **Vistas**: `v_cobranza_etapa_total` (etapas sin corte por torneo, para el
+  KPI de las colas), `v_gasto_naturaleza_anio` + `v_gasto_categoria_anio`
+  (el año ya sumado; /gastos y la torta del inicio dejaron de plegar meses
+  en el cliente), `v_pl_anual_total` (centros de las tortas del inicio).
+
+Todo documentado en arquitectura.md (§3.4 2b, §3.3 vistas, §9) y con paridad
+verificada contra lo que el front calculaba (56 filas de deuda por torneo,
+0 diferencias). `database.types.ts` parcheado a mano — gen types sigue caído.
+
+---
+
 ### 🧪 SUITE DE TESTS NUEVA: `npm run test` · 11/09/2026 · para los dos
 
 Tres capas, todas contra la base hosted **en transacciones revertidas** (cero

@@ -184,7 +184,7 @@ export default async function CuentaCorrientePage({
   // props a lo que la necesite.
   const [
     fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, momentoRes, actualRes,
-    clienteRes, condicionesRes, pagosRes, anticipoSaldoRes, anticiposRes,
+    clienteRes, condicionesRes, pagosRes, anticipoSaldoRes, anticiposRes, deudaTorneoRes,
   ] =
     await Promise.all([
       supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
@@ -232,6 +232,7 @@ export default async function CuentaCorrientePage({
       // componen, para saber a qué pago llamar sugerir_imputacion.
       supabase.from('v_anticipo_saldo').select('saldo_disponible').eq('tercero_id', terceroId).maybeSingle(),
       supabase.from('anticipo').select('pago_id, fecha, monto').eq('tercero_id', terceroId).order('fecha'),
+      supabase.from('v_deuda_equipo_torneo').select('torneo_id, deuda_total').eq('tercero_id', terceroId),
     ])
 
   const error = fichasRes.error ?? cuotasRes.error
@@ -283,12 +284,13 @@ export default async function CuentaCorrientePage({
   }
 
   // El saldo de cada torneo, para poder mostrarlo en el selector: la deuda
-  // vieja se ve SIN abrirla.
-  const saldoPorTorneo = new Map<string, number>()
-  for (const c of cuotas) {
-    if (!c.torneo_id) continue
-    saldoPorTorneo.set(c.torneo_id, (saldoPorTorneo.get(c.torneo_id) ?? 0) + (c.saldo ?? 0))
-  }
+  // vieja se ve SIN abrirla. Sale de `v_deuda_equipo_torneo`, ya sumado
+  // (regla 1) — acá antes se acumulaban las cuotas a mano.
+  const saldoPorTorneo = new Map<string, number>(
+    (deudaTorneoRes.data ?? [])
+      .filter((d) => d.torneo_id)
+      .map((d) => [d.torneo_id!, d.deuda_total ?? 0]),
+  )
 
   const torneosDelEquipo = [...porTorneo.entries()].map(([id, fs]) => ({
     id,

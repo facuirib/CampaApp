@@ -90,8 +90,17 @@ export async function emitirFactura(
     ? TIPO_COMPROBANTE_FACTURA_A
     : TIPO_COMPROBANTE_FACTURA_B
 
-  const impNeto = Math.round((datos.montoConIva / 1.21) * 100) / 100
-  const impIva = Math.round((datos.montoConIva - impNeto) * 100) / 100
+  // El desglose lo hace la base en numeric exacto (regla 2): acá vivía un
+  // `Math.round((monto / 1.21) * 100) / 100` — float en el cálculo de dinero
+  // más sensible del repo, el que va a la base Y a ARCA. `desglose_iva`
+  // garantiza neto + iva = bruto siempre.
+  const { data: desglose, error: errorDesglose } = await admin.rpc('desglose_iva', {
+    p_bruto: datos.montoConIva,
+  })
+  if (errorDesglose || !desglose || desglose.length === 0) {
+    throw new Error(`No se pudo desglosar el IVA: ${errorDesglose?.message ?? 'sin filas'}`)
+  }
+  const { neto: impNeto, iva: impIva } = desglose[0]
 
   const { data: reserva, error: errorReserva } = await admin.rpc(
     'reservar_numero_comprobante',

@@ -179,7 +179,7 @@ export default async function CobranzaPage({
   // El filtro por torneo, por ejemplo, no aplica acá — el aviso se le manda al
   // equipo con todo lo que arrastre, que es el concepto 5.
   if (activa === 'avisos') {
-    const [colaRes, cfgRes, avisosRes, reclamosRes] = await Promise.all([
+    const [colaRes, cfgRes, avisosRes, reclamosRes, etapasRes] = await Promise.all([
       supabase.from('v_cobranza_cola').select('*').order('total_adeudado', { ascending: false }),
       supabase.from('config_cobranza').select('*').eq('id', true).maybeSingle(),
       // Qué se le avisó ya a cada equipo. La cola esconde a quien recibió el
@@ -190,6 +190,8 @@ export default async function CobranzaPage({
         .from('reclamo')
         .select('id, tercero_id, fecha, canal, monto_reclamado, etapa')
         .order('fecha', { ascending: false }),
+      // El monto por etapa, YA sumado (regla 1): antes el KpiCard lo reducía.
+      supabase.from('v_cobranza_etapa_total').select('*'),
     ])
 
     return (
@@ -219,6 +221,7 @@ export default async function CobranzaPage({
 
         <ColasAviso
           filas={colaRes.data ?? []}
+          etapas={etapasRes.data ?? []}
           ventanas={cfgRes.data ?? null}
           avisos={avisosRes.data ?? []}
           reclamos={reclamosRes.data ?? []}

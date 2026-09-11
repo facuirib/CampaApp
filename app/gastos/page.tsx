@@ -164,14 +164,17 @@ export default async function GastosPage({
       const q = supabase.from('v_gasto_kpi').select('*').eq('anio', anio)
       return mes == null ? q.is('mes', null).maybeSingle() : q.eq('mes', mes).maybeSingle()
     })(),
-    (() => {
-      const q = supabase.from('v_gasto_naturaleza_mes').select('*').eq('anio', anio)
-      return mes == null ? q : q.eq('mes', mes)
-    })(),
-    (() => {
-      const q = supabase.from('v_gasto_categoria_mes').select('*').eq('anio', anio)
-      return mes == null ? q : q.eq('mes', mes)
-    })(),
+    // Sin filtro de mes, el año entero viene YA sumado de las vistas _anio
+    // (regla 1) — antes se juntaban los doce meses acá. Con mes elegido, la
+    // fila de la vista _mes ya ES el total de ese mes.
+    (() =>
+      mes == null
+        ? supabase.from('v_gasto_naturaleza_anio').select('*').eq('anio', anio)
+        : supabase.from('v_gasto_naturaleza_mes').select('*').eq('anio', anio).eq('mes', mes))(),
+    (() =>
+      mes == null
+        ? supabase.from('v_gasto_categoria_anio').select('*').eq('anio', anio)
+        : supabase.from('v_gasto_categoria_mes').select('*').eq('anio', anio).eq('mes', mes))(),
     // ── La tabla ───────────────────────────────────────────────────────
     // Por defecto acompaña al período, igual que los KpiCards, las tarjetas y
     // los gráficos: si el filtro dice agosto, la tabla muestra agosto. Que una
@@ -208,9 +211,10 @@ export default async function GastosPage({
   const kpi = kpiRes.data
 
   // ── Las tarjetas ─────────────────────────────────────────────────────────
-  // `v_gasto_naturaleza_mes` viene por mes; sin filtro de mes hay que juntar
-  // los meses del año. Es la única agregación de la pantalla y es sobre filas
-  // que ya vienen totalizadas por la vista — no recorre gastos.
+  // Sin mes: filas de la vista _anio, una por naturaleza/categoría, ya
+  // totalizadas — el fold de abajo pliega una sola fila por clave. Con mes:
+  // naturaleza viene en una fila; categoría trae una por torneo y se pliegan
+  // acá — filas que ya vienen totalizadas por la vista, no recorre gastos.
   // El tipo vivía en TarjetasNaturaleza, que se fue con las tarjetas. Los
   // totales por naturaleza siguen haciendo falta para las barras.
   const porNaturaleza = new Map<
