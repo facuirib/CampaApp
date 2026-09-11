@@ -207,7 +207,7 @@ export default function FichasEditor({
     <div className="space-y-6">
       {error && <div className="rounded-md bg-errbg px-4 py-3 text-sm text-errtx">{error}</div>}
       {resultado && (
-        <div className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-md bg-okbg px-4 py-3 text-sm text-oktx">
           {resultado}
         </div>
       )}
@@ -217,16 +217,16 @@ export default function FichasEditor({
         <div
           className={
             destacado
-              ? 'rounded-lg border border-blue-200 bg-blue-50 p-5'
-              : 'rounded-lg border border-slate-200 p-4'
+              ? 'rounded-lg border border-regale bg-blue-tint p-5'
+              : 'rounded-lg border border-line p-4'
           }
         >
           {destacado && (
             <>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-ink">
                 Este torneo todavía no tiene inscriptos
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-muted">
                 El torneo nuevo suele ser continuidad del anterior: los mismos equipos, en
                 las mismas series. Traerlos genera sus cuotas con el tarifario de{' '}
                 <strong>este</strong> torneo, no con los precios viejos. Después se mueven
@@ -266,8 +266,8 @@ export default function FichasEditor({
               aparte: el número que promete es el que después ocurre porque
               lo calcula el mismo emparejamiento. */}
           {previo && (
-            <div className="mt-4 rounded-md border border-slate-200 bg-white p-4">
-              <p className="text-sm text-slate-800">
+            <div className="mt-4 rounded-md border border-line bg-white p-4">
+              <p className="text-sm text-ink">
                 Se van a crear <strong>{previo.fichas_creadas} ficha
                 {previo.fichas_creadas === 1 ? '' : 's'}</strong>, cada una con sus cuotas.
                 {previo.ya_existian > 0 && (
@@ -282,7 +282,7 @@ export default function FichasEditor({
                   </p>
                   <ul className="mt-1 space-y-0.5">
                     {previo.salteadas.map((s, i) => (
-                      <li key={i} className="text-[12px] text-slate-600">
+                      <li key={i} className="text-[12px] text-muted">
                         <strong>{s.equipo}</strong> — {s.motivo}
                       </li>
                     ))}
@@ -439,11 +439,11 @@ export default function FichasEditor({
           Mismo estilo destacado que el bloque de arrastre cuando corresponde
           actuar: acá "corresponde" es que haya algo sin confirmar. */}
       {sinConfirmar > 0 && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-5">
-          <h2 className="text-base font-semibold text-slate-900">
+        <div className="rounded-lg border border-regale bg-blue-tint p-5">
+          <h2 className="text-base font-semibold text-ink">
             {sinConfirmar} ficha{sinConfirmar === 1 ? '' : 's'} sin confirmar
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-muted">
             Todavía no tienen cuotas — es el estado normal después de clonar un torneo.
             Revisá series, medio previsto y bajas antes de confirmar: una vez generadas las
             cuotas, esta pantalla ya no deja tocar esos datos para las fichas afectadas.

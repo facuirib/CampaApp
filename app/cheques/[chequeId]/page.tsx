@@ -138,45 +138,47 @@ export default async function ChequeDetallePage({
           {/* ── Los asientos ─────────────────────────────────────────────── */}
           <h2 className="mb-2 text-[13px] font-bold text-ink">Asientos</h2>
           <div className="mb-6 overflow-hidden rounded-md border border-line bg-white">
-            <table className="w-full text-[12px]">
-              <tbody>
-                <tr className="border-b border-line">
-                  <td className="px-4 py-3 text-muted">Alta</td>
-                  <td className="px-4 py-3 text-right">
-                    {ch.asiento_alta_id ? (
-                      <Link
-                        href={`/movimientos/${ch.asiento_alta_id}`}
-                        className="font-semibold text-blue-d hover:underline"
-                      >
-                        Ver el asiento
-                      </Link>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-muted">
-                    Cierre
-                    <span className="ml-1 text-[10px]">
-                      ({esRecibido ? 'acreditación o rechazo' : 'débito'})
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {ch.asiento_cierre_id ? (
-                      <Link
-                        href={`/movimientos/${ch.asiento_cierre_id}`}
-                        className="font-semibold text-blue-d hover:underline"
-                      >
-                        Ver el asiento
-                      </Link>
-                    ) : (
-                      <span className="text-muted">todavía no se resolvió</span>
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <tbody>
+                  <tr className="border-b border-line">
+                    <td className="px-4 py-3 text-muted">Alta</td>
+                    <td className="px-4 py-3 text-right">
+                      {ch.asiento_alta_id ? (
+                        <Link
+                          href={`/movimientos/${ch.asiento_alta_id}`}
+                          className="font-semibold text-blue-d hover:underline"
+                        >
+                          Ver el asiento
+                        </Link>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-muted">
+                      Cierre
+                      <span className="ml-1 text-[10px]">
+                        ({esRecibido ? 'acreditación o rechazo' : 'débito'})
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {ch.asiento_cierre_id ? (
+                        <Link
+                          href={`/movimientos/${ch.asiento_cierre_id}`}
+                          className="font-semibold text-blue-d hover:underline"
+                        >
+                          Ver el asiento
+                        </Link>
+                      ) : (
+                        <span className="text-muted">todavía no se resolvió</span>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* ── Las acciones ─────────────────────────────────────────────────

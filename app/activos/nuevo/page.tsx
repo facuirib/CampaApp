@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
 import SelectorProveedor from '@/app/proveedores/SelectorProveedor'
 import { formatMoney } from '@/lib/format'
-import { Button, Field, Input, Select } from '@/components/ui'
+import { Button, Field, Input, Select, LinkButton } from '@/components/ui'
 
 const CATEGORIAS = [
   { valor: 'herramientas', label: 'Herramientas' },
@@ -179,12 +179,8 @@ export default function ActivoNuevoPage() {
             categoría de naturaleza inversión y eligiendo este activo.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/gastos/nuevo">
-              <Button>Registrar la compra</Button>
-            </Link>
-            <Link href={`/activos/${creado.id}`}>
-              <Button variant="secondary">Ver el activo</Button>
-            </Link>
+            <LinkButton href="/gastos/nuevo">Registrar la compra</LinkButton>
+            <LinkButton href={`/activos/${creado.id}`} variant="secondary">Ver el activo</LinkButton>
             <Button
               variant="secondary"
               onClick={() => {

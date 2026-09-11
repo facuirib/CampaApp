@@ -294,7 +294,7 @@ export default function NuevoArqueoPage() {
                         key={d.dia_cancha_id}
                         type="button"
                         onClick={() => setFecha(d.fecha ?? '')}
-                        className="font-semibold underline"
+                        className="inline-block min-h-[32px] px-1.5 py-1 font-semibold underline"
                       >
                         {i > 0 && ' · '}
                         {formatDate(d.fecha)}
@@ -357,7 +357,7 @@ export default function NuevoArqueoPage() {
             </p>
           )}
 
-          <Button icon="check" loading={registrando} disabled={!puedeConfirmar} onClick={confirmar}>
+          <Button icon="check" size="touch" loading={registrando} disabled={!puedeConfirmar} onClick={confirmar}>
             Registrar arqueo
           </Button>
         </>

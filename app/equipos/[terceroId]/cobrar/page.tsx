@@ -556,6 +556,7 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
 
               <Button
                 icon="check"
+                size="touch"
                 loading={registrando}
                 disabled={!puedeConfirmar}
                 onClick={confirmar}

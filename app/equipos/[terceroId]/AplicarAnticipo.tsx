@@ -115,30 +115,32 @@ export default function AplicarAnticipo({
           <p className="mb-2 text-[11px] font-bold text-ink">
             La propuesta — torneo en curso primero, después el vencimiento más viejo:
           </p>
-          <table className="w-full text-[11.5px]">
-            <thead className="text-[9px] uppercase tracking-[.06em] text-muted">
-              <tr>
-                <th className="py-1 text-left font-bold">Cuota</th>
-                <th className="py-1 text-left font-bold">Vence</th>
-                <th className="py-1 text-right font-bold">Saldo de la cuota</th>
-                <th className="py-1 text-right font-bold">Se aplica</th>
-              </tr>
-            </thead>
-            <tbody>
-              {propuesta.imputaciones.map((i) => (
-                <tr key={i.cuota_id} className="border-t border-line2">
-                  <td className="py-1.5 text-ink">
-                    {i.torneo} · cuota {i.cuota}
-                  </td>
-                  <td className="py-1.5 text-muted">{formatDate(i.vence_at)}</td>
-                  <td className="cifra py-1.5 text-right text-muted">{formatMoney(i.saldo)}</td>
-                  <td className="cifra py-1.5 text-right font-bold text-ink">
-                    {formatMoney(i.monto)}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11.5px]">
+              <thead className="text-[9px] uppercase tracking-[.06em] text-muted">
+                <tr>
+                  <th className="py-1 text-left font-bold">Cuota</th>
+                  <th className="py-1 text-left font-bold">Vence</th>
+                  <th className="py-1 text-right font-bold">Saldo de la cuota</th>
+                  <th className="py-1 text-right font-bold">Se aplica</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {propuesta.imputaciones.map((i) => (
+                  <tr key={i.cuota_id} className="border-t border-line2">
+                    <td className="py-1.5 text-ink">
+                      {i.torneo} · cuota {i.cuota}
+                    </td>
+                    <td className="py-1.5 text-muted">{formatDate(i.vence_at)}</td>
+                    <td className="cifra py-1.5 text-right text-muted">{formatMoney(i.saldo)}</td>
+                    <td className="cifra py-1.5 text-right font-bold text-ink">
+                      {formatMoney(i.monto)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {propuesta.sobrante > 0 && (
             <p className="mt-2 text-[10.5px] text-muted">
               Quedan {formatMoney(propuesta.sobrante)} sin aplicar: siguen como saldo a favor.

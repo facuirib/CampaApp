@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { estadoSponsor } from '@/lib/domain/sponsor'
-import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import DevengarMes from '@/components/DevengarMes'
 import type { Database } from '@/lib/db/database.types'
 
@@ -90,9 +90,7 @@ export default async function SponsorsPage() {
             sponsor sólo podía nacer por SQL, y por eso los tres que hay se
             cargaron a mano. */}
         {puedeCrear && (
-          <Link href="/sponsors/nuevo">
-            <Button icon="plus">Nuevo sponsor</Button>
-          </Link>
+          <LinkButton href="/sponsors/nuevo" icon="plus">Nuevo sponsor</LinkButton>
         )}
       </header>
 

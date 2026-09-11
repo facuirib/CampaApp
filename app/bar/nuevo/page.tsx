@@ -327,7 +327,7 @@ export default function NuevoCierreBarPage() {
                               setFechaExistente(d.fecha ?? '')
                               setDiaCanchaId(d.dia_cancha_id ?? null)
                             }}
-                            className="font-semibold underline"
+                            className="inline-block min-h-[32px] px-1.5 py-1 font-semibold underline"
                           >
                             {i > 0 && ' · '}
                             {formatDate(d.fecha)}

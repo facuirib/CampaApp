@@ -47,13 +47,13 @@ export default async function FichasPage({
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/torneos" className="text-sm text-slate-500 hover:text-slate-700">
+        <Link href="/torneos" className="text-sm text-muted hover:text-ink">
           ← Torneos
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">
+        <h1 className="mt-2 text-2xl font-semibold text-ink">
           Inscriptos en {torneo.nombre}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted">
           Cada ficha es la inscripción de un equipo en este torneo, con su serie y sus
           opciones de pago. El equipo persiste entre torneos; la ficha no.
         </p>
@@ -79,7 +79,7 @@ export default async function FichasPage({
           equivocado. Pasó al construir esta pantalla. */}
       {errorFichas && (
         <Card>
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-err">
             No se pudieron cargar las fichas: {errorFichas.message}
           </p>
         </Card>

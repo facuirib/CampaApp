@@ -7,7 +7,7 @@ import { rolActual } from '@/lib/rol-actual'
 import AnularCobroSponsor from './AnularCobroSponsor'
 import NuevoContrato from './NuevoContrato'
 import { puede } from '@/lib/permisos'
-import { Badge, Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Badge, DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 /**
@@ -187,9 +187,7 @@ export default async function SponsorPage({ params }: { params: Promise<{ sponso
               invita a un formulario que no tiene ninguna cuota para ofrecer. */}
           {puedeCobrar && pendienteCobrar > 0 && (
             <div className="mb-6">
-              <Link href={`/sponsors/${sponsorId}/cobrar`}>
-                <Button icon="cobranza">Cobrar una cuota</Button>
-              </Link>
+              <LinkButton href={`/sponsors/${sponsorId}/cobrar`} icon="cobranza">Cobrar una cuota</LinkButton>
             </div>
           )}
 

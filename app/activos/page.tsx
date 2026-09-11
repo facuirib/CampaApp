@@ -4,7 +4,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { formatPorcentaje } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaActivo = Database['public']['Views']['v_activo']['Row']
@@ -143,14 +143,10 @@ export default async function ActivosPage({
         </div>
         <div className="flex flex-wrap gap-2">
           {puedeAmortizar && (
-            <Link href="/activos/amortizar">
-              <Button variant="secondary">Asentar amortización</Button>
-            </Link>
+            <LinkButton href="/activos/amortizar" variant="secondary">Asentar amortización</LinkButton>
           )}
           {puedeAlta && (
-            <Link href="/activos/nuevo">
-              <Button>Dar de alta un activo</Button>
-            </Link>
+            <LinkButton href="/activos/nuevo">Dar de alta un activo</LinkButton>
           )}
         </div>
       </header>
@@ -226,9 +222,7 @@ export default async function ActivosPage({
           </p>
           {puedeAlta && (
             <div className="mt-5 flex justify-center">
-              <Link href="/activos/nuevo">
-                <Button>Registrá el primer activo</Button>
-              </Link>
+              <LinkButton href="/activos/nuevo">Registrá el primer activo</LinkButton>
             </div>
           )}
         </div>

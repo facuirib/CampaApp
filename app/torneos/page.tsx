@@ -3,7 +3,7 @@ import AccionesCiclo from './AccionesCiclo'
 import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Card, DataTable, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import { formatDate } from '@/lib/format'
 import { estadoTorneo } from '@/lib/domain/torneo'
 
@@ -143,7 +143,7 @@ export default async function TorneosPage() {
     equipos: puedeFichas ? (
       <Link
         href={`/torneos/${t.torneo_id}/fichas`}
-        className="text-blue-600 hover:underline"
+        className="text-blue-d hover:underline"
       >
         {t.equipos ?? 0}
       </Link>
@@ -156,7 +156,7 @@ export default async function TorneosPage() {
     molde: puedeEstructura ? (
       <Link
         href={`/torneos/${t.torneo_id}/estructura`}
-        className="text-blue-600 hover:underline"
+        className="text-blue-d hover:underline"
       >
         {t.categorias ?? 0} cat · {t.series ?? 0} series · {t.planes ?? 0} planes
       </Link>
@@ -170,22 +170,20 @@ export default async function TorneosPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Torneos</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-ink">Torneos</h1>
+          <p className="mt-1 text-sm text-muted">
             Cada torneo tiene su propia estructura —categorías, series y tarifario— y su
             propia contabilidad. Lo que no cuelga de ninguno es estructura permanente.
           </p>
         </div>
         {puedeCrear && (
-          <Link href="/torneos/nuevo">
-            <Button icon="plus">Nuevo torneo</Button>
-          </Link>
+          <LinkButton href="/torneos/nuevo" icon="plus">Nuevo torneo</LinkButton>
         )}
       </div>
 
       {error && (
         <Card>
-          <p className="text-sm text-red-600">No se pudieron cargar los torneos: {error.message}</p>
+          <p className="text-sm text-err">No se pudieron cargar los torneos: {error.message}</p>
         </Card>
       )}
 

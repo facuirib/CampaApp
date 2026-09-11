@@ -548,7 +548,7 @@ export default async function CalendarioPagosPage({
                 // Un día puede tener 34 vencimientos: sin techo, el detalle
                 // empuja la matriz fuera de la pantalla y hay que scrollear
                 // hasta abajo para volver a ella.
-                <div className="max-h-[400px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
                 <table className="w-full text-[12px]">
                   <tbody>
                     {detalle.map((v, i) => {

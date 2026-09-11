@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { rolActual } from '@/lib/rol-actual'
 import { puede } from '@/lib/permisos'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Card, DataTable, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 
 export const dynamic = 'force-dynamic'
 
@@ -141,9 +141,7 @@ export default async function EquiposPage({
         {/* El único padrón que quedaba sin alta: un equipo nuevo sólo podía
             nacer por SQL (mismo hueco que sponsors cerró antes). */}
         {puedeCrear && (
-          <Link href="/equipos/nuevo">
-            <Button icon="plus">Nuevo equipo</Button>
-          </Link>
+          <LinkButton href="/equipos/nuevo" icon="plus">Nuevo equipo</LinkButton>
         )}
       </header>
 

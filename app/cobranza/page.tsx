@@ -3,7 +3,7 @@ import ColasAviso from './ColasAviso'
 import Inscripciones from './Inscripciones'
 import { createClient } from '@/lib/db/server'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
@@ -314,11 +314,7 @@ export default async function CobranzaPage({
     saldo_a_favor: f.saldo_a_favor,
     email: f.email,
     accion: f.tercero_id ? (
-      <Link href={`/equipos/${f.tercero_id}/cobrar`}>
-        <Button size="pill" variant="secondary">
-          Cobrar
-        </Button>
-      </Link>
+      <LinkButton href={`/equipos/${f.tercero_id}/cobrar`} size="pill" variant="secondary">Cobrar</LinkButton>
     ) : null,
   }))
 

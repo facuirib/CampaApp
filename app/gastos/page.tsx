@@ -8,7 +8,6 @@ import { areaLabel, estadoGasto, naturalezaLabel, NATURALEZAS_DE_GASTO } from '@
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
 import {
   BarrasComposicion,
-  Button,
   ChartBarras,
   ChartTorta,
   DataTable,
@@ -17,8 +16,7 @@ import {
   type ColumnDef,
   type ItemComposicion,
   type GajoTorta,
-  type SerieBarras,
-} from '@/components/ui'
+  type SerieBarras, LinkButton } from '@/components/ui'
 import { hrefGastos, rangoPeriodo, type ParamsGastos } from './filtros'
 import type { Database } from '@/lib/db/database.types'
 
@@ -139,8 +137,6 @@ export default async function GastosPage({
   const supabase = await createClient()
   const rol = await rolActual()
   const puedeRegistrar = puede(rol, 'gasto.registrar')
-  // El detalle del gasto ES la pantalla de pago, y esa ruta la corta el
-  // middleware: para quien no puede pagar, la fila no es un link.
   const puedePagar = puede(rol, 'gasto.pagar')
   const puedeAdjuntar = puede(rol, 'gasto.adjuntar')
   const puedeVerComprobante = !!rol && VE_COMPROBANTE.includes(rol)
@@ -382,9 +378,7 @@ export default async function GastosPage({
             escribiendo la URL. Es de otro carril, así que de acá sale un link
             y nada más. */}
         {puedeRegistrar && (
-          <Link href="/gastos/nuevo">
-            <Button icon="plus">Registrar gasto</Button>
-          </Link>
+          <LinkButton href="/gastos/nuevo" icon="plus">Registrar gasto</LinkButton>
         )}
       </header>
 
@@ -528,7 +522,7 @@ export default async function GastosPage({
         columns={COLUMNAS}
         rows={filas}
         rowKey="gasto_id"
-        rowHref={puedePagar ? (f) => `/gastos/${f.gasto_id}/pagar` : undefined}
+        rowHref={(f) => `/gastos/${f.gasto_id}`}
         maxHeight={560}
         emptyMessage={
           soloImpagos

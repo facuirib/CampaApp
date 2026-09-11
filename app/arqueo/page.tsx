@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { Button, Card, DataTable, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Card, DataTable, Money, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import AnularArqueo from './AnularArqueo'
 import EliminarDiaCancha from './EliminarDiaCancha'
 import AsentarDiferencia from './AsentarDiferencia'
@@ -197,9 +197,7 @@ export default async function ArqueoPage() {
             cajón del TORNEO, así que sin este botón el arqueo del bar no
             tendría por dónde entrar. */}
         {puedeArquear && (
-          <Link href="/arqueo/nuevo">
-            <Button icon="plus">Registrar arqueo</Button>
-          </Link>
+          <LinkButton href="/arqueo/nuevo" icon="plus">Registrar arqueo</LinkButton>
         )}
       </header>
 

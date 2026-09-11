@@ -75,13 +75,9 @@ export default function AsentarDiferencia({
 
   if (!abierto) {
     return (
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className="text-[11px] font-bold text-blue-d hover:underline"
-      >
+      <Button size="pill" variant="tertiary" onClick={() => setAbierto(true)}>
         Asentar ajuste
-      </button>
+      </Button>
     )
   }
 

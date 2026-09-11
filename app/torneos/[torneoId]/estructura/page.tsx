@@ -27,13 +27,13 @@ export default async function EstructuraPage({
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/torneos" className="text-sm text-slate-500 hover:text-slate-700">
+        <Link href="/torneos" className="text-sm text-muted hover:text-ink">
           ← Torneos
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">
+        <h1 className="mt-2 text-2xl font-semibold text-ink">
           Estructura de {torneo.nombre}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted">
           Las categorías y series de este torneo. Son propias: las de un torneo no se
           comparten con otro, aunque se llamen igual.
         </p>
