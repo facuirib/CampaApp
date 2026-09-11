@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
-import { formatMoney } from '@/lib/format'
+import { rolActual } from '@/lib/rol-actual'
+import { formatMoney, formatMoneyCorto } from '@/lib/format'
 import { etapaCobranza, etiquetaEtapa } from '@/lib/domain/cobranza'
 import Exportar from './Exportar'
 import IngresosGastosSemana from './IngresosGastosSemana'
@@ -107,6 +108,42 @@ export default async function Home({
   searchParams: Promise<{ torneo?: string; anio?: string }>
 }) {
   const { torneo: torneoParam, anio: anioParam } = await searchParams
+
+  // El inicio respeta los mismos límites que el Sidebar. Al bar, el menú le
+  // muestra Inicio · Arqueo · Bar — y esta pantalla le servía links a
+  // cobranza, caja, resultados y proyección: el filtro de la nav se evadía
+  // con un click desde la puerta de entrada. Su inicio son sus dos pantallas,
+  // y de paso no se corren las once consultas de un tablero que no ve.
+  const rol = await rolActual()
+  if (rol === 'bar') {
+    return (
+      <div className="pb-10">
+        <header className="mb-6">
+          <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Inicio</h1>
+          <p className="mt-1 text-[12px] text-muted">Lo tuyo: el bar y el arqueo del día.</p>
+        </header>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/bar"
+            className="rounded-lg border border-line bg-white p-5 hover:border-ink/30"
+          >
+            <Icon name="bar" size={20} className="mb-2 text-muted" />
+            <h2 className="text-[13px] font-extrabold text-ink">Bar</h2>
+            <p className="mt-1 text-[11px] text-muted">Cargar la venta y el costo del día.</p>
+          </Link>
+          <Link
+            href="/arqueo"
+            className="rounded-lg border border-line bg-white p-5 hover:border-ink/30"
+          >
+            <Icon name="arqueo" size={20} className="mb-2 text-muted" />
+            <h2 className="text-[13px] font-extrabold text-ink">Arqueo</h2>
+            <p className="mt-1 text-[11px] text-muted">Contar la caja y dejarla cuadrada.</p>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
 
   // El torneo actual, de la ÚNICA definición. Antes esta pantalla hacía
@@ -126,7 +163,7 @@ export default async function Home({
 
   const mesEnCurso = new Date().toISOString().slice(0, 7)
 
-  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola, gastosCat, gastosDia, cajas] =
+  const [dash, caja, flujo, etapas, plAnual, plMes, medios, cola, gastosCat, gastosDia, cajas, plTotal, gastoKpi] =
     await Promise.all([
     torneoElegido
       ? supabase.from('v_dashboard').select('*').eq('torneo_id', torneoElegido).maybeSingle()
@@ -159,7 +196,7 @@ export default async function Home({
           .order('dias_atraso_maximo', { ascending: false, nullsFirst: false })
       : Promise.resolve({ data: [], error: null }),
     // Composición de gastos: la vista ya existía, sólo faltaba el bloque.
-    supabase.from('v_gasto_categoria_mes').select('*').eq('anio', anio),
+    supabase.from('v_gasto_categoria_anio').select('*').eq('anio', anio),
     // Cuándo sale la plata, día por día del mes en curso.
     supabase
       .from('v_gasto_dia_mes')
@@ -170,6 +207,10 @@ export default async function Home({
     // Cuánta plata hay en cada caja. La MISMA vista que /caja, así que los dos
     // números son el mismo número (A2).
     supabase.from('v_saldo_caja').select('nombre, saldo').order('saldo', { ascending: false }),
+    // Los centros de las tortas, ya sumados (regla 1): antes los inventaba
+    // el componente con un reduce.
+    supabase.from('v_pl_anual_total').select('total').eq('anio', anio).eq('tipo', 'ingreso').maybeSingle(),
+    supabase.from('v_gasto_kpi').select('total').eq('anio', anio).is('mes', null).maybeSingle(),
   ])
 
   const d = dash.data
@@ -808,6 +849,7 @@ export default async function Home({
               masLetra={3}
               className="h-full"
               titulo={`Composición de los ingresos ${anio}`}
+              centro={{ valor: formatMoneyCorto(Number(plTotal.data?.total ?? 0)) }}
             />
           </Bloque>
 
@@ -826,6 +868,7 @@ export default async function Home({
               masLetra={3}
               className="h-full"
               titulo={`Composición de los gastos ${anio}`}
+              centro={{ valor: formatMoneyCorto(Number(gastoKpi.data?.total ?? 0)) }}
             />
           </Bloque>
         </div>

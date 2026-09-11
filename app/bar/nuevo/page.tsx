@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
-import { formatDate } from '@/lib/format'
+import { formatDate, parsearMonto } from '@/lib/format'
 import { Button, Card, Field, Input, Money, Select } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
@@ -327,7 +327,7 @@ export default function NuevoCierreBarPage() {
                               setFechaExistente(d.fecha ?? '')
                               setDiaCanchaId(d.dia_cancha_id ?? null)
                             }}
-                            className="font-semibold underline"
+                            className="inline-block min-h-[32px] px-1.5 py-1 font-semibold underline"
                           >
                             {i > 0 && ' · '}
                             {formatDate(d.fecha)}
@@ -401,7 +401,7 @@ export default function NuevoCierreBarPage() {
                   min="0"
                   step="0.01"
                   value={efectivo || ''}
-                  onChange={(e) => setEfectivo(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setEfectivo(parsearMonto(e.target.value) ?? 0)}
                 />
               </Field>
               <Field label="Tarjeta">
@@ -410,7 +410,7 @@ export default function NuevoCierreBarPage() {
                   min="0"
                   step="0.01"
                   value={tarjeta || ''}
-                  onChange={(e) => setTarjeta(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setTarjeta(parsearMonto(e.target.value) ?? 0)}
                 />
               </Field>
               <Field label="Mercado Pago">
@@ -419,7 +419,7 @@ export default function NuevoCierreBarPage() {
                   min="0"
                   step="0.01"
                   value={mp || ''}
-                  onChange={(e) => setMp(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setMp(parsearMonto(e.target.value) ?? 0)}
                 />
               </Field>
             </div>

@@ -1,7 +1,7 @@
 import Icon, { type NombreIcono } from './Icon'
 
 export type VarianteBoton = 'primary' | 'secondary' | 'tertiary'
-export type TamanoBoton = 'default' | 'pill'
+export type TamanoBoton = 'default' | 'pill' | 'touch'
 
 /**
  * Los tres niveles de jerarquía. Ninguno lleva borde gris.
@@ -38,6 +38,9 @@ const DESHABILITADO = 'bg-bg text-disabled'
 const TAMANOS: Record<TamanoBoton, string> = {
   default: 'text-[11px] px-4 py-2 rounded-md',
   pill: 'text-[10.5px] px-[15px] py-[7px] rounded-pill',
+  // ≥44px de alto: el mínimo táctil. Para las acciones que el operador
+  // ejecuta desde el celular en la cancha — confirmar un cobro, arquear.
+  touch: 'text-[13px] px-5 py-3 rounded-md min-h-[44px]',
 }
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

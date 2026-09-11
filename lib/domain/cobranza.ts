@@ -1,4 +1,5 @@
 import type { EstadoBadge } from '@/components/ui/Badge'
+import type { CeldaBadge } from '@/components/ui'
 import type { TonoKpi } from '@/components/ui/KpiCard'
 
 /**
@@ -86,4 +87,22 @@ export function etapaCobranza(clave: string | null | undefined): EtapaCobranza |
  */
 export function etiquetaEtapa(clave: string | null | undefined): string {
   return POR_CLAVE.get(clave ?? '')?.etiqueta ?? clave ?? '—'
+}
+
+/**
+ * El estado de una CUOTA de equipo, con su color. Lo comparten la cuenta
+ * corriente y la pantalla de cobro — estaba copiado literal en las dos
+ * (el propio comentario de la copia lo confesaba).
+ */
+export const ESTADOS_CUOTA: Record<string, CeldaBadge> = {
+  al_dia: { estado: 'alDia', label: 'Al día' },
+  pagada: { estado: 'ok', label: 'Pagada' },
+  por_vencer: { estado: 'porVencer', label: 'Por vencer' },
+  vencida: { estado: 'mora', label: 'Vencida' },
+  parcial_vencida: { estado: 'mora', label: 'Parcial vencida' },
+}
+
+export function estadoCuota(codigo: string | null): CeldaBadge {
+  // Clave desconocida → la clave cruda, que delata el faltante.
+  return ESTADOS_CUOTA[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
 }

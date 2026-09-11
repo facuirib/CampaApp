@@ -266,7 +266,9 @@ export default function DataTable<T extends object>({
                             // contenedor de posición del `::after` en vez del
                             // `<tr>`, y el estirado dejaría de cubrir la fila.
                             j !== 0 ? 'relative' : '',
-                          ].join(' ')}
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
                         >
                           {/* El link va en la primera celda y se estira sobre
                               toda la fila. Si el estirado fallara, sigue

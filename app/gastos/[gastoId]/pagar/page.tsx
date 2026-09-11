@@ -8,6 +8,7 @@ import { formatMoney } from '@/lib/format'
 import { AsientoPreview, Button, Card, Field, Input, Select } from '@/components/ui'
 import { ERROR_PREVIEW_INESPERADO, leerPreviewAsiento, type PreviewAsiento } from '@/lib/db/preview'
 import type { Database } from '@/lib/db/database.types'
+import { mediosPago } from '@/lib/domain/medio-pago'
 
 type GastoDetalle = Database['public']['Views']['v_gasto_detalle']['Row']
 type Predio = Pick<Database['public']['Tables']['predio']['Row'], 'id' | 'nombre'>
@@ -365,10 +366,11 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
                       value={medio}
                       onChange={(e) => setMedio(e.target.value as Medio)}
                     >
-                      <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="efectivo_transito">Efectivo en tránsito</option>
+{mediosPago(['efectivo', 'transferencia', 'cheque', 'efectivo_transito']).map((m) => (
+                        <option key={m.clave} value={m.clave}>
+                          {m.label}
+                        </option>
+                      ))}
                     </Select>
                   </Field>
 

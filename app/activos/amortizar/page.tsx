@@ -239,28 +239,30 @@ export default function AmortizarPage() {
               </h2>
 
               <div className="mb-4 overflow-hidden rounded-md border border-line bg-white">
-                <table className="w-full text-[12px]">
-                  <thead className="bg-panel text-[10px] uppercase tracking-wide text-muted">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-semibold">Activo</th>
-                      <th className="px-4 py-2 text-left font-semibold">Cuota</th>
-                      <th className="px-4 py-2 text-right font-semibold">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {propuestas.map((p) => (
-                      <tr key={p.activo_id} className="border-t border-line">
-                        <td className="px-4 py-2.5 font-semibold text-ink">{p.nombre}</td>
-                        <td className="px-4 py-2.5 text-muted">
-                          {p.cuota}/{p.cuotas_total}
-                        </td>
-                        <td className="cifra px-4 py-2.5 text-right font-bold text-ink">
-                          {formatMoney(p.monto)}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead className="bg-panel text-[10px] uppercase tracking-wide text-muted">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-semibold">Activo</th>
+                        <th className="px-4 py-2 text-left font-semibold">Cuota</th>
+                        <th className="px-4 py-2 text-right font-semibold">Monto</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {propuestas.map((p) => (
+                        <tr key={p.activo_id} className="border-t border-line">
+                          <td className="px-4 py-2.5 font-semibold text-ink">{p.nombre}</td>
+                          <td className="px-4 py-2.5 text-muted">
+                            {p.cuota}/{p.cuotas_total}
+                          </td>
+                          <td className="cifra px-4 py-2.5 text-right font-bold text-ink">
+                            {formatMoney(p.monto)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* ── Un asiento POR ACTIVO, no uno agregado ────────────────

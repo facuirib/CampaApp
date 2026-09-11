@@ -99,7 +99,13 @@ export default async function ConfiguracionPage() {
                   <h2 className="text-[12.5px] font-extrabold text-ink">{s.titulo}</h2>
                 </div>
                 <p className="text-[11px] leading-snug text-muted">{s.descripcion}</p>
-                <p className="mt-2 text-[10.5px] text-muted">{count ?? 0} plantillas · 1 en uso</p>
+                {/* El dato en vivo es DE plantillas: en las demás tarjetas no
+                    corresponde (acá decía «3 plantillas» hasta en Usuarios). */}
+                {s.href === '/configuracion/plantillas' && (
+                  <p className="mt-2 text-[10.5px] text-muted">
+                    {count ?? 0} plantilla{count === 1 ? '' : 's'}
+                  </p>
+                )}
               </Card>
             </Link>
           ),

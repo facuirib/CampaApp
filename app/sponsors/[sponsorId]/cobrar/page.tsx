@@ -7,6 +7,7 @@ import { createClient } from '@/lib/db/client'
 import { formatDate, formatMoney } from '@/lib/format'
 import { Badge, Button, DataTable, Field, Input, Select, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
+import { mediosPago } from '@/lib/domain/medio-pago'
 
 type CuotaSponsor = Database['public']['Views']['v_cuotas_sponsor']['Row']
 type Predio = Database['public']['Tables']['predio']['Row']
@@ -40,13 +41,11 @@ type Predio = Database['public']['Tables']['predio']['Row']
  * misma que ya usan el retiro del bar y el cobro de cheques.
  */
 
-const MEDIOS = [
-  { value: 'transferencia', label: 'Transferencia' },
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'central', label: 'Caja central' },
-] as const
+// El vocabulario vive en lib/domain/medio-pago; acá sólo se elige el
+// subconjunto de esta pantalla (orden canónico de la tabla).
+const MEDIOS = mediosPago(['transferencia', 'efectivo', 'central'])
 
-type Medio = (typeof MEDIOS)[number]['value']
+type Medio = (typeof MEDIOS)[number]['clave']
 
 interface FilaCuota {
   cuota_id: string
@@ -222,7 +221,7 @@ export default function CobrarSponsorPage({
       ) : (
         <>
           <div className="mb-4">
-            <DataTable columns={COLUMNAS} rows={filas} rowKey="cuota_id" maxHeight={280} />
+            <DataTable columns={COLUMNAS} rows={filas} rowKey="cuota_id" maxHeight={280} emptyMessage="Este contrato no tiene cuotas pendientes de cobro." />
           </div>
 
           <div className="mb-4 rounded-md border border-line bg-white p-4">
@@ -241,7 +240,7 @@ export default function CobrarSponsorPage({
               <Field label="Medio" required>
                 <Select value={medio} onChange={(e) => setMedio(e.target.value as Medio)}>
                   {MEDIOS.map((m) => (
-                    <option key={m.value} value={m.value}>
+                    <option key={m.clave} value={m.clave}>
                       {m.label}
                     </option>
                   ))}
@@ -280,7 +279,7 @@ export default function CobrarSponsorPage({
                 <Badge estado="info">Cuota {elegida.numero}</Badge>
                 <span>
                   Se va a cobrar <strong className="font-bold">{formatMoney(elegida.monto ?? 0)}</strong>
-                  {' '}por {MEDIOS.find((m) => m.value === medio)?.label.toLowerCase()}, con fecha{' '}
+                  {' '}por {MEDIOS.find((m) => m.clave === medio)?.label.toLowerCase()}, con fecha{' '}
                   {formatDate(fecha)}.
                 </span>
               </p>

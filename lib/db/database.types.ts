@@ -6087,6 +6087,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cobranza_etapa_total: {
+        Row: {
+          etapa: string | null
+          equipos: number | null
+          adeudado: number | null
+          vencido: number | null
+          por_vencer: number | null
+        }
+        Relationships: []
+      }
       v_cobranza_kpi: {
         Row: {
           cobrado: number | null
@@ -7225,6 +7235,20 @@ export type Database = {
           },
         ]
       }
+      v_gasto_categoria_anio: {
+        Row: {
+          anio: number | null
+          cat_gasto_id: string | null
+          categoria: string | null
+          naturaleza: string | null
+          area: string | null
+          gastos: number | null
+          total: number | null
+          pagado: number | null
+          adeudado: number | null
+        }
+        Relationships: []
+      }
       v_gasto_categoria_mes: {
         Row: {
           adeudado: number | null
@@ -7516,6 +7540,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_gasto_naturaleza_anio: {
+        Row: {
+          anio: number | null
+          naturaleza: string | null
+          gastos: number | null
+          total: number | null
+          pagado: number | null
+          adeudado: number | null
+          gastos_impagos: number | null
+        }
+        Relationships: []
+      }
       v_gasto_naturaleza_mes: {
         Row: {
           adeudado: number | null
@@ -7767,6 +7803,14 @@ export type Database = {
           monto: number | null
           nombre: string | null
           tipo: string | null
+        }
+        Relationships: []
+      }
+      v_pl_anual_total: {
+        Row: {
+          anio: number | null
+          tipo: string | null
+          total: number | null
         }
         Relationships: []
       }
@@ -9427,6 +9471,10 @@ export type Database = {
         Args: { p_created_by?: string; p_periodo_id: string }
         Returns: number
       }
+      desglose_iva: {
+        Args: { p_bruto: number; p_alicuota?: number }
+        Returns: { neto: number; iva: number }[]
+      }
       editar_cat_gasto: {
         Args: {
           p_area?: string
@@ -9590,6 +9638,10 @@ export type Database = {
       }
       preview_pago_gasto: {
         Args: { p_gasto_id: string; p_medio: string }
+        Returns: Json
+      }
+      proponer_imputacion: {
+        Args: { p_tercero_id: string; p_monto: number; p_torneo_id?: string }
         Returns: Json
       }
       proponer_amortizaciones: {

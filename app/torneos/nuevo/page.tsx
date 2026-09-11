@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
-import { Button, Card, Field, Input, Select } from '@/components/ui'
+import { Button, Card, Field, Input, Select, Tabs, LinkButton } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type Temporada = Database['public']['Enums']['temporada']
@@ -193,36 +193,25 @@ export default function NuevoTorneoPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <Link href="/torneos" className="text-sm text-slate-500 hover:text-slate-700">
+        <Link href="/torneos" className="text-sm text-muted hover:text-ink">
           ← Torneos
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Nuevo torneo</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="mt-2 text-2xl font-semibold text-ink">Nuevo torneo</h1>
+        <p className="mt-1 text-sm text-muted">
           {modo === 'vacio'
             ? 'El torneo nace vacío y en estado planificado. Después hay que cargarle categorías, series y tarifario para poder inscribir equipos.'
             : 'Copia categorías, series, tarifario (con precios) y equipos del torneo elegido. Nace en estado planificado, sin cuotas: se editan los equipos y recién después se confirma.'}
         </p>
       </div>
 
-      <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
-        {(
-          [
-            ['vacio', 'Vacío'],
-            ['clonar', 'Clonar de...'],
-          ] as const
-        ).map(([m, label]) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setModo(m)}
-            className={`rounded-[5px] px-4 py-1.5 text-[11px] font-bold transition ${
-              modo === m ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        pestanas={[
+          { clave: 'vacio', label: 'Vacío' },
+          { clave: 'clonar', label: 'Clonar de...' },
+        ]}
+        activa={modo}
+        onSelect={(m) => setModo(m as typeof modo)}
+      />
 
       <Card>
         <div className="space-y-4">
@@ -294,12 +283,10 @@ export default function NuevoTorneoPage() {
             </Field>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-err">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Link href="/torneos">
-              <Button variant="tertiary">Cancelar</Button>
-            </Link>
+            <LinkButton href="/torneos" variant="tertiary">Cancelar</LinkButton>
             {modo === 'vacio' ? (
               <Button onClick={crear} disabled={!puedeCrear} loading={creando} icon="plus">
                 Crear torneo

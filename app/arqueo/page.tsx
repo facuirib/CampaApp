@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { formatDate } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { Button, Card, DataTable, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Card, DataTable, Money, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import AnularArqueo from './AnularArqueo'
 import EliminarDiaCancha from './EliminarDiaCancha'
 import AsentarDiferencia from './AsentarDiferencia'
@@ -31,6 +31,8 @@ interface FilaHistorial {
   saldo_contado: number | null
   diferencia: number | null
   estado: CeldaBadge
+  /** El estado crudo, para decidir si la fila ofrece la entrega. */
+  estado_crudo: string | null
   ambito: CeldaBadge
 }
 
@@ -172,6 +174,7 @@ export default async function ArqueoPage() {
     saldo_contado: f.saldo_contado,
     diferencia: f.diferencia,
     estado: estadoArqueoABadge(f.estado),
+    estado_crudo: f.estado,
     ambito: ambitoABadge(f.ambito),
   }))
 
@@ -197,9 +200,7 @@ export default async function ArqueoPage() {
             cajón del TORNEO, así que sin este botón el arqueo del bar no
             tendría por dónde entrar. */}
         {puedeArquear && (
-          <Link href="/arqueo/nuevo">
-            <Button icon="plus">Registrar arqueo</Button>
-          </Link>
+          <LinkButton href="/arqueo/nuevo" icon="plus">Registrar arqueo</LinkButton>
         )}
       </header>
 
@@ -302,7 +303,7 @@ export default async function ArqueoPage() {
                rechaza — mandarlo a esa pantalla sería ofrecer una acción que la
                base no va a aceptar. */
             rowHref={(row) =>
-              row.ambito.label === 'Torneo' && puedeEntregar
+              row.ambito.label === 'Torneo' && puedeEntregar && row.estado_crudo !== 'entregado'
                 ? `/arqueo/${row.arqueo_id}/entregar`
                 : undefined
             }

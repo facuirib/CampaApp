@@ -4,7 +4,6 @@ import { formatDate } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import {
-  Button,
   ChartBarras,
   ChartTorta,
   DataTable,
@@ -12,8 +11,7 @@ import {
   Money,
   type ColumnDef,
   type GajoTorta,
-  type SerieBarras,
-} from '@/components/ui'
+  type SerieBarras, LinkButton } from '@/components/ui'
 import AnularCierre from './AnularCierre'
 
 export const dynamic = 'force-dynamic'
@@ -268,9 +266,7 @@ export default async function BarPage({
             </p>
           </div>
           {puedeCargarCosto && (
-            <Link href="/bar/costo">
-              <Button icon="plus">Cargar costo</Button>
-            </Link>
+            <LinkButton href="/bar/costo" icon="plus">Cargar costo</LinkButton>
           )}
         </header>
 
@@ -291,14 +287,13 @@ export default async function BarPage({
             </p>
             {puedeCargarCosto && (
               <div className="mt-4 flex justify-center">
-                <Link href="/bar/costo">
-                  <Button icon="plus">Cargar el primero</Button>
-                </Link>
+                <LinkButton href="/bar/costo" icon="plus">Cargar el primero</LinkButton>
               </div>
             )}
           </div>
         ) : (
           <DataTable
+            emptyMessage="Sin días de bar en el período."
             columns={[
               { key: 'fecha', label: 'Fecha', format: 'date', width: 112 },
               { key: 'categoria', label: 'Categoría', width: 180 },
@@ -403,16 +398,12 @@ export default async function BarPage({
           {/* Retiro como acción secundaria: el cierre de ventas es lo de todos
               los días, el retiro pasa cuando alguien se lleva la plata. */}
           {puedeRetirar && (
-            <Link href="/bar/retiro">
-              <Button variant="secondary" icon="monedas">
+            <LinkButton href="/bar/retiro" variant="secondary" icon="monedas">
                 Retirar efectivo
-              </Button>
-            </Link>
+              </LinkButton>
           )}
           {puedeCerrar && (
-            <Link href="/bar/nuevo">
-              <Button icon="plus">Registrar cierre</Button>
-            </Link>
+            <LinkButton href="/bar/nuevo" icon="plus">Registrar cierre</LinkButton>
           )}
         </div>
       </header>
@@ -431,14 +422,12 @@ export default async function BarPage({
               pantalla siguiente le va a negar. */}
           {puedeCerrar && (
             <div className="mt-4 flex justify-center">
-              <Link href="/bar/nuevo">
-                <Button icon="plus">Registrar el primero</Button>
-              </Link>
+              <LinkButton href="/bar/nuevo" icon="plus">Registrar el primero</LinkButton>
             </div>
           )}
         </div>
       ) : (
-        <DataTable columns={columnas} rows={filas} rowKey="venta_bar_id" />
+        <DataTable columns={columnas} rows={filas} rowKey="venta_bar_id" emptyMessage="Ninguna venta del bar cargada todavía." />
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import TransitoAcciones from './TransitoAcciones'
 import { formatDate } from '@/lib/format'
 import { Icon, KpiHero, type NombreIcono } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
+import MovimientoFondo from './MovimientoFondo'
 
 type FilaCaja = Database['public']['Views']['v_saldo_caja']['Row']
 
@@ -79,6 +80,8 @@ export default async function CajaPage() {
     { data: transitoPagos },
     { data: transitoGastos },
     { data: predios },
+    { data: cajasFondo },
+    { data: movimientosFondo },
   ] = await Promise.all([
     supabase.from('v_saldo_caja').select('*').order('saldo', { ascending: false }),
     supabase.from('v_saldo_caja_total').select('*').maybeSingle(),
@@ -87,10 +90,19 @@ export default async function CajaPage() {
     supabase.from('v_transito_pago').select('*').eq('liquidado', false),
     supabase.from('v_transito_gasto').select('*').eq('repuesto', false),
     supabase.from('predio').select('id, nombre').order('nombre'),
+    // El fondo: cajas sin predio para operarlo, y los últimos movimientos.
+    supabase.from('caja').select('id, nombre').is('predio_id', null).order('nombre'),
+    supabase
+      .from('movimiento_fondo')
+      .select('id, fecha, tipo, monto, motivo')
+      .order('fecha', { ascending: false })
+      .limit(8),
   ])
 
   const error = errorCajas ?? errorTotal
-  const puedeTrasladar = puede(await rolActual(), 'caja.trasladar')
+  const rol = await rolActual()
+  const puedeTrasladar = puede(rol, 'caja.trasladar')
+  const puedeFondo = puede(rol, 'fondo.movimiento')
 
   const filas = (cajas ?? []) as FilaCaja[]
   // Una caja de un tipo que el front todavía no conoce cae igual en «digital»
@@ -256,6 +268,19 @@ export default async function CajaPage() {
             </section>
           )}
         </>
+      )}
+
+      {puedeFondo && (
+        <MovimientoFondo
+          cajas={(cajasFondo ?? []).map((c) => ({ id: c.id, nombre: c.nombre }))}
+          previos={(movimientosFondo ?? []).map((m) => ({
+            id: m.id,
+            fecha: m.fecha,
+            tipo: m.tipo,
+            monto: m.monto,
+            motivo: m.motivo,
+          }))}
+        />
       )}
     </div>
   )

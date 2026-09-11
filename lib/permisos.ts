@@ -276,6 +276,19 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { tabla: 'tercero', cmd: 'UPDATE' },
   },
+  'equipo.crear': {
+    // Alta de la ficha de un equipo en `tercero` (el padrón; la inscripción a
+    // un torneo es otra puerta, `crear_equipo_torneo`). Cierra el circuito que
+    // sponsors ya cerró: sin esto, un equipo nuevo sólo nacía por SQL.
+    //
+    // `accion` y no `tabla`: la policy de INSERT de `tercero` es de
+    // `authenticated` sin distinción de rol, así que —igual que en
+    // `usuario.gestionar`— el `exigirRol` de la Server Action es la defensa
+    // real, y es lo que este mapa tiene que reflejar.
+    que: 'Dar de alta un equipo en el padrón',
+    roles: CON_FINANZAS,
+    donde: { accion: 'crearEquipo' },
+  },
   'reclamo.registrar': {
     que: 'Dejar registrado un reclamo hecho por WhatsApp o a mano',
     roles: CON_FINANZAS,
@@ -752,9 +765,13 @@ export const RUTAS_PROTEGIDAS: ReadonlyArray<{ patron: RegExp; op: Op; padre: st
   { patron: /^\/torneos\/[^/]+\/estructura/, op: 'torneo.estructura', padre: '/torneos' },
   { patron: /^\/torneos\/[^/]+\/fichas/, op: 'torneo.fichas', padre: '/torneos' },
   { patron: /^\/gastos\/nuevo/, op: 'gasto.registrar', padre: '/gastos' },
+  // /bar/costo es FormularioGasto con soloArea="bar": misma operación.
+  { patron: /^\/bar\/costo/, op: 'gasto.registrar', padre: '/bar' },
   { patron: /^\/gastos\/[^/]+\/pagar/, op: 'gasto.pagar', padre: '/gastos' },
   { patron: /^\/gastos\/[^/]+\/comprobante/, op: 'gasto.adjuntar', padre: '/gastos' },
+  { patron: /^\/equipos\/nuevo/, op: 'equipo.crear', padre: '/equipos' },
   { patron: /^\/equipos\/[^/]+\/cobrar/, op: 'cobro.registrar', padre: '/equipos' },
+  { patron: /^\/sponsors\/nuevo/, op: 'sponsor.crear', padre: '/sponsors' },
   { patron: /^\/sponsors\/[^/]+\/cobrar/, op: 'sponsor.cobrar', padre: '/sponsors' },
   { patron: /^\/activos\/nuevo/, op: 'activo.comprar', padre: '/activos' },
   { patron: /^\/activos\/amortizar/, op: 'activo.amortizar', padre: '/activos' },

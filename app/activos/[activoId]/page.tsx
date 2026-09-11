@@ -4,7 +4,7 @@ import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { formatDate, formatMoney, formatPorcentaje } from '@/lib/format'
-import { Badge, Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Badge, DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -226,9 +226,7 @@ export default async function ActivoDetallePage({
               />
               {propuesta && puedeAmortizar && (
                 <div className="mt-4">
-                  <Link href="/activos/amortizar">
-                    <Button>Asentar la amortización de {propuesta.periodo}</Button>
-                  </Link>
+                  <LinkButton href="/activos/amortizar">Asentar la amortización de {propuesta.periodo}</LinkButton>
                 </div>
               )}
 

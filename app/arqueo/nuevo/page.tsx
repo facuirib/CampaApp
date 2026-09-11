@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
-import { formatDate } from '@/lib/format'
+import { formatDate, parsearMonto } from '@/lib/format'
 import { Button, Card, Field, Input, Money, Select } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
@@ -273,7 +273,7 @@ export default function NuevoArqueoPage() {
                   min="0"
                   step="0.01"
                   value={saldoContado || ''}
-                  onChange={(e) => setSaldoContado(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setSaldoContado(parsearMonto(e.target.value) ?? 0)}
                 />
               </Field>
             </div>
@@ -294,7 +294,7 @@ export default function NuevoArqueoPage() {
                         key={d.dia_cancha_id}
                         type="button"
                         onClick={() => setFecha(d.fecha ?? '')}
-                        className="font-semibold underline"
+                        className="inline-block min-h-[32px] px-1.5 py-1 font-semibold underline"
                       >
                         {i > 0 && ' · '}
                         {formatDate(d.fecha)}
@@ -357,7 +357,7 @@ export default function NuevoArqueoPage() {
             </p>
           )}
 
-          <Button icon="check" loading={registrando} disabled={!puedeConfirmar} onClick={confirmar}>
+          <Button icon="check" size="touch" loading={registrando} disabled={!puedeConfirmar} onClick={confirmar}>
             Registrar arqueo
           </Button>
         </>

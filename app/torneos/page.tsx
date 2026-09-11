@@ -3,7 +3,9 @@ import AccionesCiclo from './AccionesCiclo'
 import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Card, DataTable, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
+import { formatDate } from '@/lib/format'
+import { estadoTorneo } from '@/lib/domain/torneo'
 
 interface Fila {
   torneo_id: string | null
@@ -42,13 +44,7 @@ const TEMPORADA: Record<string, CeldaBadge> = {
  * `activo` dice sólo si está dado de baja. La baja sigue primero porque un
  * torneo dado de baja es eso antes que nada.
  */
-function estadoABadge(estado: string | null, activo: boolean | null): CeldaBadge {
-  if (activo === false) return { estado: 'vencido', label: 'Dado de baja' }
-  if (estado === 'en_curso') return { estado: 'ok', label: 'En curso' }
-  if (estado === 'cerrado') return { estado: 'neutro', label: 'Cerrado' }
-  if (estado === 'planificado') return { estado: 'porVencer', label: 'Planificado' }
-  return { estado: 'neutro', label: estado ?? '—' }
-}
+// El vocabulario vive en lib/domain/torneo — lo comparten lista y detalle.
 
 /**
  * Si el torneo puede recibir una ficha.
@@ -67,9 +63,8 @@ function estructuraABadge(tiene: boolean | null): CeldaBadge {
 /** El período del torneo. Las dos fechas son opcionales, y suelen faltar. */
 function periodoDeTorneo(desde: string | null, hasta: string | null): string {
   if (!desde && !hasta) return '—'
-  const fmt = (f: string) => new Date(`${f}T00:00:00`).toLocaleDateString('es-AR')
-  if (desde && hasta) return `${fmt(desde)} – ${fmt(hasta)}`
-  return desde ? `desde ${fmt(desde)}` : `hasta ${fmt(hasta!)}`
+  if (desde && hasta) return `${formatDate(desde)} – ${formatDate(hasta)}`
+  return desde ? `desde ${formatDate(desde)}` : `hasta ${formatDate(hasta!)}`
 }
 
 const COLUMNAS: ColumnDef<Fila>[] = [
@@ -127,7 +122,7 @@ export default async function TorneosPage() {
     temporada: TEMPORADA[t.temporada ?? ''] ?? { estado: 'neutro', label: t.temporada ?? '—' },
     anio: t.anio,
     periodo: periodoDeTorneo(t.fecha_desde, t.fecha_hasta),
-    estado: estadoABadge(t.estado, t.activo),
+    estado: estadoTorneo(t.estado, t.activo),
     ciclo:
       puedeCiclo && t.activo !== false && t.torneo_id ? (
         <AccionesCiclo
@@ -148,7 +143,7 @@ export default async function TorneosPage() {
     equipos: puedeFichas ? (
       <Link
         href={`/torneos/${t.torneo_id}/fichas`}
-        className="text-blue-600 hover:underline"
+        className="text-blue-d hover:underline"
       >
         {t.equipos ?? 0}
       </Link>
@@ -161,7 +156,7 @@ export default async function TorneosPage() {
     molde: puedeEstructura ? (
       <Link
         href={`/torneos/${t.torneo_id}/estructura`}
-        className="text-blue-600 hover:underline"
+        className="text-blue-d hover:underline"
       >
         {t.categorias ?? 0} cat · {t.series ?? 0} series · {t.planes ?? 0} planes
       </Link>
@@ -175,22 +170,20 @@ export default async function TorneosPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Torneos</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-ink">Torneos</h1>
+          <p className="mt-1 text-sm text-muted">
             Cada torneo tiene su propia estructura —categorías, series y tarifario— y su
             propia contabilidad. Lo que no cuelga de ninguno es estructura permanente.
           </p>
         </div>
         {puedeCrear && (
-          <Link href="/torneos/nuevo">
-            <Button icon="plus">Nuevo torneo</Button>
-          </Link>
+          <LinkButton href="/torneos/nuevo" icon="plus">Nuevo torneo</LinkButton>
         )}
       </div>
 
       {error && (
         <Card>
-          <p className="text-sm text-red-600">No se pudieron cargar los torneos: {error.message}</p>
+          <p className="text-sm text-err">No se pudieron cargar los torneos: {error.message}</p>
         </Card>
       )}
 
@@ -200,6 +193,7 @@ export default async function TorneosPage() {
             había forma de verlo entero: ni su calendario, ni si estaba listo
             para confirmar. */}
         <DataTable
+          emptyMessage="Todavía no hay torneos. El primero se crea con el botón «Nuevo torneo»."
           columns={COLUMNAS}
           rows={filas}
           rowKey={(f, i) => f.torneo_id ?? i}

@@ -4,13 +4,14 @@ import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import ArmarReclamo from './ArmarReclamo'
 import FichaCliente from './FichaCliente'
 import AplicarAnticipo from './AplicarAnticipo'
 import PagosEquipo from './PagosEquipo'
 import { PLANTILLA_POR_ETAPA, type EtapaCobranza } from '@/lib/reclamo/plantilla'
 import type { Database } from '@/lib/db/database.types'
+import { estadoCuota } from '@/lib/domain/cobranza'
 
 type Ficha = Database['public']['Views']['v_cuenta_corriente_equipo']['Row']
 type CuotaRow = Database['public']['Views']['v_deuda_detalle']['Row']
@@ -23,29 +24,7 @@ type CuotaRow = Database['public']['Views']['v_deuda_detalle']['Row']
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/**
- * Los estados de cuota, con rótulo legible.
- *
- * Acá SÍ corresponde este mapa: estas filas son cuotas, y `v_deuda_detalle`
- * trae la columna `estado`. En la lista de deudores no aplicaba porque
- * `v_deuda_equipo` lista importes por equipo, no situaciones de cuota.
- *
- * `vencida` y `parcial_vencida` comparten el rojo: las dos son plata que ya
- * tendría que estar. Se distinguen por el rótulo, que dice cuál es cuál.
- */
-const ESTADOS: Record<string, CeldaBadge> = {
-  al_dia: { estado: 'alDia', label: 'Al día' },
-  pagada: { estado: 'ok', label: 'Pagada' },
-  por_vencer: { estado: 'porVencer', label: 'Por vencer' },
-  vencida: { estado: 'mora', label: 'Vencida' },
-  parcial_vencida: { estado: 'mora', label: 'Parcial vencida' },
-}
-
-function estadoCuota(codigo: string | null): CeldaBadge {
-  // Un estado que la vista agregue mañana cae en gris con su código, en vez
-  // de romper o de mentir con un color que no le toca.
-  return ESTADOS[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
-}
+// El vocabulario de estados de cuota vive en lib/domain/cobranza.
 
 interface FilaCuota {
   cuota_id: string
@@ -186,7 +165,7 @@ export default async function CuentaCorrientePage({
   // props a lo que la necesite.
   const [
     fichasRes, cuotasRes, resumenRes, terceroRes, historialRes, momentoRes, actualRes,
-    clienteRes, condicionesRes, pagosRes, anticipoSaldoRes, anticiposRes,
+    clienteRes, condicionesRes, pagosRes, anticipoSaldoRes, anticiposRes, deudaTorneoRes,
   ] =
     await Promise.all([
       supabase.from('v_cuenta_corriente_equipo').select('*').eq('tercero_id', terceroId),
@@ -234,6 +213,7 @@ export default async function CuentaCorrientePage({
       // componen, para saber a qué pago llamar sugerir_imputacion.
       supabase.from('v_anticipo_saldo').select('saldo_disponible').eq('tercero_id', terceroId).maybeSingle(),
       supabase.from('anticipo').select('pago_id, fecha, monto').eq('tercero_id', terceroId).order('fecha'),
+      supabase.from('v_deuda_equipo_torneo').select('torneo_id, deuda_total').eq('tercero_id', terceroId),
     ])
 
   const error = fichasRes.error ?? cuotasRes.error
@@ -285,12 +265,13 @@ export default async function CuentaCorrientePage({
   }
 
   // El saldo de cada torneo, para poder mostrarlo en el selector: la deuda
-  // vieja se ve SIN abrirla.
-  const saldoPorTorneo = new Map<string, number>()
-  for (const c of cuotas) {
-    if (!c.torneo_id) continue
-    saldoPorTorneo.set(c.torneo_id, (saldoPorTorneo.get(c.torneo_id) ?? 0) + (c.saldo ?? 0))
-  }
+  // vieja se ve SIN abrirla. Sale de `v_deuda_equipo_torneo`, ya sumado
+  // (regla 1) — acá antes se acumulaban las cuotas a mano.
+  const saldoPorTorneo = new Map<string, number>(
+    (deudaTorneoRes.data ?? [])
+      .filter((d) => d.torneo_id)
+      .map((d) => [d.torneo_id!, d.deuda_total ?? 0]),
+  )
 
   const torneosDelEquipo = [...porTorneo.entries()].map(([id, fs]) => ({
     id,
@@ -394,9 +375,7 @@ export default async function CuentaCorrientePage({
           )}
         </div>
         {puedeCobrar && pestana === 'cuenta' && (
-          <Link href={`/equipos/${terceroId}/cobrar`}>
-            <Button icon="plus">Registrar cobro</Button>
-          </Link>
+          <LinkButton href={`/equipos/${terceroId}/cobrar`} icon="plus">Registrar cobro</LinkButton>
         )}
       </header>
 

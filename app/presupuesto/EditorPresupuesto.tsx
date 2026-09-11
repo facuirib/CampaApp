@@ -210,19 +210,14 @@ export default function EditorPresupuesto({
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-[.06em] text-muted">Año</span>
           {(['todos', ...anios] as const).map((a) => (
-            <button
+            <Button
               key={a}
-              type="button"
+              size="pill"
+              variant={anio === a ? 'primary' : 'secondary'}
               onClick={() => setAnio(a as number | 'todos')}
-              className={
-                'rounded-full border px-3 py-1 text-[11px] font-semibold transition ' +
-                (anio === a
-                  ? 'border-blue-d bg-blue-d text-white'
-                  : 'border-line bg-white text-muted hover:text-ink')
-              }
             >
               {a === 'todos' ? 'Todos' : a}
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -311,159 +306,161 @@ export default function EditorPresupuesto({
                   Sin líneas todavía. Agregá la primera abajo.
                 </p>
               ) : (
-                <table className="w-full text-[12px]">
-                  <thead className="bg-panel text-[9px] uppercase tracking-[.06em] text-muted">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-bold">Categoría</th>
-                      <th className="px-3 py-2 text-right font-bold">Base</th>
-                      <th className="px-3 py-2 text-right font-bold">Cant.</th>
-                      <th className="px-3 py-2 text-left font-bold">Factor</th>
-                      <th className="px-4 py-2 text-right font-bold">Total</th>
-                      <th className="px-4 py-2" style={{ width: 130 }} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {s.detalle.map((l) => {
-                      const enEdicion = editando === l.id
-                      return (
-                        <tr key={l.id} className="border-t border-line2">
-                          {/* La nota vive DEBAJO de la categoría y no en una
-                              columna propia: es una aclaración de esta línea,
-                              no un dato más que se compare entre filas. Una
-                              séptima columna además dejaría la tabla sin aire
-                              justo donde están los números. */}
-                          <td className="px-4 py-2.5 font-semibold text-ink">
-                            {l.categoria}
-                            {l.unidad_linea === null && (
-                              <span className="ml-1.5 text-[9px] uppercase tracking-wide text-muted">
-                                unidad heredada
-                              </span>
-                            )}
-                            {enEdicion ? (
-                              <Input
-                                className="mt-1.5"
-                                value={nota}
-                                placeholder="Aclaración (opcional)"
-                                onChange={(e) => setNota(e.target.value)}
-                              />
-                            ) : (
-                              l.nota && (
-                                <p className="mt-0.5 text-[10.5px] font-normal leading-snug text-muted">
-                                  {l.nota}
-                                </p>
-                              )
-                            )}
-                          </td>
-
-                          {enEdicion ? (
-                            <>
-                              <td className="px-3 py-1.5" style={{ width: 130 }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead className="bg-panel text-[9px] uppercase tracking-[.06em] text-muted">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-bold">Categoría</th>
+                        <th className="px-3 py-2 text-right font-bold">Base</th>
+                        <th className="px-3 py-2 text-right font-bold">Cant.</th>
+                        <th className="px-3 py-2 text-left font-bold">Factor</th>
+                        <th className="px-4 py-2 text-right font-bold">Total</th>
+                        <th className="px-4 py-2" style={{ width: 130 }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s.detalle.map((l) => {
+                        const enEdicion = editando === l.id
+                        return (
+                          <tr key={l.id} className="border-t border-line2">
+                            {/* La nota vive DEBAJO de la categoría y no en una
+                                columna propia: es una aclaración de esta línea,
+                                no un dato más que se compare entre filas. Una
+                                séptima columna además dejaría la tabla sin aire
+                                justo donde están los números. */}
+                            <td className="px-4 py-2.5 font-semibold text-ink">
+                              {l.categoria}
+                              {l.unidad_linea === null && (
+                                <span className="ml-1.5 text-[9px] uppercase tracking-wide text-muted">
+                                  unidad heredada
+                                </span>
+                              )}
+                              {enEdicion ? (
                                 <Input
-                                  type="number"
-                                  value={base}
-                                  onChange={(e) => setBase(Number(e.target.value))}
+                                  className="mt-1.5"
+                                  value={nota}
+                                  placeholder="Aclaración (opcional)"
+                                  onChange={(e) => setNota(e.target.value)}
                                 />
-                              </td>
-                              <td className="px-3 py-1.5" style={{ width: 90 }}>
-                                <Input
-                                  type="number"
-                                  value={cantidad}
-                                  onChange={(e) => setCantidad(Number(e.target.value))}
-                                />
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="cifra px-3 py-2.5 text-right text-ink">
-                                {formatMoney(l.base)}
-                              </td>
-                              <td className="cifra px-3 py-2.5 text-right text-muted">
-                                {l.cantidad}
-                              </td>
-                            </>
-                          )}
+                              ) : (
+                                l.nota && (
+                                  <p className="mt-0.5 text-[10.5px] font-normal leading-snug text-muted">
+                                    {l.nota}
+                                  </p>
+                                )
+                              )}
+                            </td>
 
-                          {/* El factor NO es input: sale del calendario. */}
-                          <td className="px-3 py-2.5 text-[11px] text-muted">
-                            {l.factor === 0 ? (
-                              <span className="text-warntx">sin calendario cargado</span>
-                            ) : (
-                              rotuloFactor(l.unidad, l.factor)
-                            )}
-                          </td>
-
-                          <td className="cifra px-4 py-2.5 text-right font-bold text-ink">
-                            {formatMoney(l.total)}
-                          </td>
-
-                          <td className="px-4 py-1.5 text-right">
                             {enEdicion ? (
-                              <div className="flex justify-end gap-1.5">
-                                <Button
-                                  size="pill"
-                                  loading={ocupado}
-                                  disabled={ocupado}
-                                  onClick={() =>
-                                    llamar(
-                                      'editar_linea_presupuesto',
-                                      {
-                                        p_linea_id: l.id,
-                                        p_base: base,
-                                        p_cantidad: cantidad,
-                                        // Se manda SIEMPRE, incluso vacía: la
-                                        // función distingue cadena vacía —borrar
-                                        // la nota— de null —no tocarla—, y si el
-                                        // campo se vaciara a propósito y no se
-                                        // mandara, la nota vieja quedaría.
-                                        p_concepto_libre: nota,
-                                      },
-                                      () => setEditando(null),
-                                    )
-                                  }
-                                >
-                                  Guardar
-                                </Button>
-                                <Button
-                                  size="pill"
-                                  variant="tertiary"
-                                  disabled={ocupado}
-                                  onClick={() => setEditando(null)}
-                                >
-                                  Cancelar
-                                </Button>
-                              </div>
-                            ) : !puedeEditar ? null : (
-                              <div className="flex justify-end gap-1.5">
-                                <Button
-                                  size="pill"
-                                  variant="secondary"
-                                  onClick={() => {
-                                    setEditando(l.id)
-                                    setBase(l.base)
-                                    setCantidad(l.cantidad)
-                                    setNota(l.nota ?? '')
-                                  }}
-                                >
-                                  Editar
-                                </Button>
-                                <Button
-                                  size="pill"
-                                  variant="tertiary"
-                                  onClick={() => {
-                                    setBorrando(l)
-                                    setBorrandoDe(s)
-                                  }}
-                                >
-                                  Borrar
-                                </Button>
-                              </div>
+                              <>
+                                <td className="px-3 py-1.5" style={{ width: 130 }}>
+                                  <Input
+                                    type="number"
+                                    value={base}
+                                    onChange={(e) => setBase(Number(e.target.value))}
+                                  />
+                                </td>
+                                <td className="px-3 py-1.5" style={{ width: 90 }}>
+                                  <Input
+                                    type="number"
+                                    value={cantidad}
+                                    onChange={(e) => setCantidad(Number(e.target.value))}
+                                  />
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="cifra px-3 py-2.5 text-right text-ink">
+                                  {formatMoney(l.base)}
+                                </td>
+                                <td className="cifra px-3 py-2.5 text-right text-muted">
+                                  {l.cantidad}
+                                </td>
+                              </>
                             )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+
+                            {/* El factor NO es input: sale del calendario. */}
+                            <td className="px-3 py-2.5 text-[11px] text-muted">
+                              {l.factor === 0 ? (
+                                <span className="text-warntx">sin calendario cargado</span>
+                              ) : (
+                                rotuloFactor(l.unidad, l.factor)
+                              )}
+                            </td>
+
+                            <td className="cifra px-4 py-2.5 text-right font-bold text-ink">
+                              {formatMoney(l.total)}
+                            </td>
+
+                            <td className="px-4 py-1.5 text-right">
+                              {enEdicion ? (
+                                <div className="flex justify-end gap-1.5">
+                                  <Button
+                                    size="pill"
+                                    loading={ocupado}
+                                    disabled={ocupado}
+                                    onClick={() =>
+                                      llamar(
+                                        'editar_linea_presupuesto',
+                                        {
+                                          p_linea_id: l.id,
+                                          p_base: base,
+                                          p_cantidad: cantidad,
+                                          // Se manda SIEMPRE, incluso vacía: la
+                                          // función distingue cadena vacía —borrar
+                                          // la nota— de null —no tocarla—, y si el
+                                          // campo se vaciara a propósito y no se
+                                          // mandara, la nota vieja quedaría.
+                                          p_concepto_libre: nota,
+                                        },
+                                        () => setEditando(null),
+                                      )
+                                    }
+                                  >
+                                    Guardar
+                                  </Button>
+                                  <Button
+                                    size="pill"
+                                    variant="tertiary"
+                                    disabled={ocupado}
+                                    onClick={() => setEditando(null)}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              ) : !puedeEditar ? null : (
+                                <div className="flex justify-end gap-1.5">
+                                  <Button
+                                    size="pill"
+                                    variant="secondary"
+                                    onClick={() => {
+                                      setEditando(l.id)
+                                      setBase(l.base)
+                                      setCantidad(l.cantidad)
+                                      setNota(l.nota ?? '')
+                                    }}
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    size="pill"
+                                    variant="tertiary"
+                                    onClick={() => {
+                                      setBorrando(l)
+                                      setBorrandoDe(s)
+                                    }}
+                                  >
+                                    Borrar
+                                  </Button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
 
               {/* ── Agregar línea ─────────────────────────────────────────── */}

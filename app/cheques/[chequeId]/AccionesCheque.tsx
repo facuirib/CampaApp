@@ -446,23 +446,25 @@ export default function AccionesCheque({
             <p className="border-b border-errtx/20 px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-errtx">
               Vuelve a deberse
             </p>
-            <table className="w-full text-[11px]">
-              <tbody>
-                {cuotas.map((c) => (
-                  <tr key={c.cuota_id} className="border-b border-errtx/10 last:border-0">
-                    <td className="px-3 py-2 text-ink">
-                      Cuota {c.numero ?? '—'}
-                      {c.vence_at && (
-                        <span className="ml-1 text-muted">· vencía {formatDate(c.vence_at)}</span>
-                      )}
-                    </td>
-                    <td className="cifra px-3 py-2 text-right font-bold text-errtx">
-                      {formatMoney(c.imputado)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <tbody>
+                  {cuotas.map((c) => (
+                    <tr key={c.cuota_id} className="border-b border-errtx/10 last:border-0">
+                      <td className="px-3 py-2 text-ink">
+                        Cuota {c.numero ?? '—'}
+                        {c.vence_at && (
+                          <span className="ml-1 text-muted">· vencía {formatDate(c.vence_at)}</span>
+                        )}
+                      </td>
+                      <td className="cifra px-3 py-2 text-right font-bold text-errtx">
+                        {formatMoney(c.imputado)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

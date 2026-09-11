@@ -130,97 +130,99 @@ export default function EditarPlan({
               </p>
             )}
 
-            <table className="w-full text-[11px]">
-              <tbody>
-                {suyas.map((l) => {
-                  const forma = FORMAS[formaDe(l.regla, l.es_playoff)]
-                  return (
-                    <tr key={l.id} className="border-b border-line last:border-0">
-                      <td className="py-2 pr-3 font-medium text-ink">
-                        {l.concepto_label}
-                        {l.es_playoff && (
-                          <>
-                            {' '}
-                            <Badge estado="info">Playoff</Badge>
-                          </>
-                        )}
-                        <span className="ml-2 text-muted">{forma?.label}</span>
-                      </td>
-                      <td className="py-2 pr-2">
-                        <Input
-                          type="number"
-                          defaultValue={l.precio_efectivo ?? 0}
-                          className="w-28"
-                          onBlur={(e) => {
-                            const v = Number(e.target.value)
-                            if (v === Number(l.precio_efectivo)) return
-                            correr(`l:${l.id}`, () =>
-                              sb().rpc('editar_linea_tarifa', {
-                                p_linea_id: l.id,
-                                p_precio_efectivo: v,
-                              }),
-                            )
-                          }}
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        <Input
-                          type="number"
-                          defaultValue={l.precio_transferencia ?? 0}
-                          className="w-28"
-                          onBlur={(e) => {
-                            const v = Number(e.target.value)
-                            if (v === Number(l.precio_transferencia)) return
-                            correr(`l:${l.id}`, () =>
-                              sb().rpc('editar_linea_tarifa', {
-                                p_linea_id: l.id,
-                                p_precio_transferencia: v,
-                              }),
-                            )
-                          }}
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        {forma?.ref && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <tbody>
+                  {suyas.map((l) => {
+                    const forma = FORMAS[formaDe(l.regla, l.es_playoff)]
+                    return (
+                      <tr key={l.id} className="border-b border-line last:border-0">
+                        <td className="py-2 pr-3 font-medium text-ink">
+                          {l.concepto_label}
+                          {l.es_playoff && (
+                            <>
+                              {' '}
+                              <Badge estado="info">Playoff</Badge>
+                            </>
+                          )}
+                          <span className="ml-2 text-muted">{forma?.label}</span>
+                        </td>
+                        <td className="py-2 pr-2">
                           <Input
-                            type="date"
-                            defaultValue={l.fecha_referencia ?? ''}
-                            className="w-36"
+                            type="number"
+                            defaultValue={l.precio_efectivo ?? 0}
+                            className="w-28"
                             onBlur={(e) => {
-                              if (e.target.value === (l.fecha_referencia ?? '')) return
+                              const v = Number(e.target.value)
+                              if (v === Number(l.precio_efectivo)) return
                               correr(`l:${l.id}`, () =>
                                 sb().rpc('editar_linea_tarifa', {
                                   p_linea_id: l.id,
-                                  p_fecha_referencia: e.target.value,
+                                  p_precio_efectivo: v,
                                 }),
                               )
                             }}
                           />
-                        )}
-                        {forma?.rango && (
-                          <span className="ml-1 text-muted">
-                            fechas {l.fecha_desde}–{l.fecha_hasta}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 text-right">
-                        <button
-                          className="text-muted hover:text-errtx"
-                          title="Borrar línea"
-                          onClick={() =>
-                            correr(`del:${l.id}`, () =>
-                              sb().rpc('borrar_linea_tarifa', { p_linea_id: l.id }),
-                            )
-                          }
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <Input
+                            type="number"
+                            defaultValue={l.precio_transferencia ?? 0}
+                            className="w-28"
+                            onBlur={(e) => {
+                              const v = Number(e.target.value)
+                              if (v === Number(l.precio_transferencia)) return
+                              correr(`l:${l.id}`, () =>
+                                sb().rpc('editar_linea_tarifa', {
+                                  p_linea_id: l.id,
+                                  p_precio_transferencia: v,
+                                }),
+                              )
+                            }}
+                          />
+                        </td>
+                        <td className="py-2 pr-2">
+                          {forma?.ref && (
+                            <Input
+                              type="date"
+                              defaultValue={l.fecha_referencia ?? ''}
+                              className="w-36"
+                              onBlur={(e) => {
+                                if (e.target.value === (l.fecha_referencia ?? '')) return
+                                correr(`l:${l.id}`, () =>
+                                  sb().rpc('editar_linea_tarifa', {
+                                    p_linea_id: l.id,
+                                    p_fecha_referencia: e.target.value,
+                                  }),
+                                )
+                              }}
+                            />
+                          )}
+                          {forma?.rango && (
+                            <span className="ml-1 text-muted">
+                              fechas {l.fecha_desde}–{l.fecha_hasta}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 text-right">
+                          <button
+                            className="text-muted hover:text-errtx"
+                            title="Borrar línea"
+                            onClick={() =>
+                              correr(`del:${l.id}`, () =>
+                                sb().rpc('borrar_linea_tarifa', { p_linea_id: l.id }),
+                              )
+                            }
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             {nuevaEn === p.id ? (
               <div className="mt-3 grid grid-cols-6 gap-2 rounded-md bg-slate-50 p-3">

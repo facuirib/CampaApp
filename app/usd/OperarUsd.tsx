@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney, formatUSD } from '@/lib/format'
 import { Badge, Button, Card, Field, Input, Select } from '@/components/ui'
+import { mediosPago } from '@/lib/domain/medio-pago'
 
 /**
  * Comprar y vender dólares.
@@ -27,13 +28,11 @@ import { Badge, Button, Card, Field, Input, Select } from '@/components/ui'
  * confirmar, con el número, porque es la parte que sorprende.
  */
 
-const MEDIOS = [
-  { value: 'transferencia', label: 'Transferencia' },
-  { value: 'central', label: 'Caja central' },
-  { value: 'efectivo', label: 'Efectivo' },
-] as const
+// El vocabulario vive en lib/domain/medio-pago; acá sólo se elige el
+// subconjunto de esta pantalla (orden canónico de la tabla).
+const MEDIOS = mediosPago(['transferencia', 'central', 'efectivo'])
 
-type Medio = (typeof MEDIOS)[number]['value']
+type Medio = (typeof MEDIOS)[number]['clave']
 type Operacion = 'comprar' | 'vender'
 
 function hoyEnCordoba(): string {
@@ -192,7 +191,7 @@ export default function OperarUsd({
             <Field label="Medio" required>
               <Select value={medio} onChange={(e) => setMedio(e.target.value as Medio)}>
                 {MEDIOS.map((m) => (
-                  <option key={m.value} value={m.value}>
+                  <option key={m.clave} value={m.clave}>
                     {m.label}
                   </option>
                 ))}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Badge, Button, Field, Input, Select, tonoDeId, type CeldaBadge } from '@/components/ui'
 import { ROLES, ROL_LABEL, type Rol } from '@/lib/roles'
 import { cambiarRol, editarUsuario, invitar } from './acciones'
+import { formatDateTime } from '@/lib/format'
 
 export interface FilaUsuario {
   id: string
@@ -28,9 +29,11 @@ const ROL_BADGE: Record<Rol, CeldaBadge['estado']> = {
   bar: 'porVencer',
 }
 
+// `formatDateTime` y no un toLocaleDateString local: estas columnas son
+// timestamptz y «último acceso» sin hora ni zona fija pierde justo el dato.
 function fecha(f: string | null): string {
   if (!f) return '—'
-  return new Date(f).toLocaleDateString('es-AR')
+  return formatDateTime(f)
 }
 
 /**

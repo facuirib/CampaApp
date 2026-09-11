@@ -10,16 +10,13 @@ import EditarTorneo from './EditarTorneo'
 import EliminarTorneo from './EliminarTorneo'
 import ReactivarTorneo from './ReactivarTorneo'
 import PestanasTorneo from './PestanasTorneo'
+import { estadoTorneo } from '@/lib/domain/torneo'
 
 export const dynamic = 'force-dynamic'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const ESTADO: Record<string, { estado: 'ok' | 'info' | 'neutro'; label: string }> = {
-  planificado: { estado: 'info', label: 'Planificado' },
-  en_curso: { estado: 'ok', label: 'En curso' },
-  cerrado: { estado: 'neutro', label: 'Cerrado' },
-}
+// El vocabulario vive en lib/domain/torneo — lo comparten lista y detalle.
 
 /** Una línea de la lista de control. */
 function Control({ ok, titulo, detalle }: { ok: boolean; titulo: string; detalle: string }) {
@@ -92,7 +89,7 @@ export default async function TorneoDetallePage({
   // exponía `activo` y el detalle ofrecía «Dar de baja» sobre un torneo que ya
   // estaba dado de baja, como si nada hubiera pasado.
   const deBaja = listo.activo === false
-  const estado = ESTADO[listo.estado ?? ''] ?? { estado: 'neutro' as const, label: listo.estado ?? '—' }
+  const estado = estadoTorneo(listo.estado, listo.activo ?? null)
 
   return (
     <div className="pb-10">

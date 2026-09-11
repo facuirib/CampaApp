@@ -18,7 +18,79 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
-<<<<<<< HEAD
+### 🔧 TU CARRIL: 2 funciones + 4 vistas nuevas (diagnóstico, ronda motor) · 11/09/2026 · para Horacio
+
+Aplicadas con confirmación de Facu (regla 11), todas aditivas:
+
+- **`proponer_imputacion(tercero, monto, [torneo])`** — la propuesta de
+  imputación ANTES de que exista el pago. Mismo criterio que tu
+  `sugerir_imputacion` (en curso primero, después antigüedad), acotable al
+  torneo. No escribe. Motivo: la pantalla de cobro no podía usar la tuya
+  (exige pago existente, y `registrar_cobro` es atómica) y calculaba en TS
+  con criterio propio — regla 10 violada, hallazgo del diagnóstico. La
+  pantalla ahora muestra tu propuesta cuota por cuota, editable, y confirma.
+- **`desglose_iva(bruto, [alicuota=21])`** — neto/IVA en numeric exacto
+  (neto+iva=bruto siempre). Sacó el float de `lib/arca-fecaesolicitar.ts:93`
+  — tu motor de facturación ahora recibe el desglose de la base.
+- **Vistas**: `v_cobranza_etapa_total` (etapas sin corte por torneo, para el
+  KPI de las colas), `v_gasto_naturaleza_anio` + `v_gasto_categoria_anio`
+  (el año ya sumado; /gastos y la torta del inicio dejaron de plegar meses
+  en el cliente), `v_pl_anual_total` (centros de las tortas del inicio).
+
+Todo documentado en arquitectura.md (§3.4 2b, §3.3 vistas, §9) y con paridad
+verificada contra lo que el front calculaba (56 filas de deuda por torneo,
+0 diferencias). `database.types.ts` parcheado a mano — gen types sigue caído.
+
+---
+
+### 🧪 SUITE DE TESTS NUEVA: `npm run test` · 11/09/2026 · para los dos
+
+Tres capas, todas contra la base hosted **en transacciones revertidas** (cero
+riesgo, cero DDL — regla 11 intacta):
+
+- `test:invariantes` — test_asientos.sql convertido en suite (19 casos):
+  motor de asientos, anulación, período, compensación de saldos, idempotencia
+  de devengos, imputación que no excede.
+- `test:permisos` — la matriz EJECUTADA, no comparada como texto: cada rol
+  suplantado por claims (`comoRol` en scripts/tests/comun.ts) intentando las
+  puertas caras. Incluye el caso del UPDATE denegado en silencio (la lección
+  de borrar_torneo). Dato que dejó la primera corrida: la policy de INSERT de
+  `asiento` incluye a `bar` — es el diseño de su circuito, quedó anotado en
+  el propio test.
+- `test:vistas` — smoke de las 101 vistas + diff de columnas contra
+  database.types.ts. **Ya atrapó uno**: `v_deuda_detalle.concepto_label`
+  estaba en la base y no en los tipos (parche a mano atrasado, corregido).
+
+Correlo antes de commitear si tocaste SQL o los tipos.
+
+---
+
+### 🆕 ALTA DE EQUIPO en la app + dato de policy · 11/09/2026 · para Horacio
+
+Del diagnóstico end-to-end (informe con todos los hallazgos:
+https://claude.ai/code/artifact/8c20c343-9803-4692-a1ab-e99985db2738) salió
+que un equipo nuevo sólo podía nacer por SQL — el mismo hueco que sponsors
+tenía antes de `/sponsors/nuevo`. Cerrado con `/equipos/nuevo` + Server Action
+`crearEquipo` (catalogada como `equipo.crear`, admin·operador·finanzas).
+
+**Dato para vos**: la policy de INSERT de `tercero` es `authenticated` sin
+distinción de rol (`tercero_insert_autenticado`), así que la defensa real es
+el `exigirRol` de la acción — mismo esquema que `usuario.gestionar`. Si
+preferís apretarla por rol como hiciste con `proveedor`, la acción y el
+catálogo ya están; sería sólo la migración de policy.
+
+También del diagnóstico, arreglado en front sin tocar tu carril: el overlay
+del link de fila de `DataTable` dejaba muertos los botones de otras columnas
+en desktop («Cobrar» de /cobranza incluido) — los dos carriles lo arreglamos
+en paralelo y quedó TU mecánica (`relative` en toda celda no-primera, commit
+3110d0a); el flag `interactiva` por columna que había hecho yo se eliminó
+para no tener dos mecanismos,
+`borrar_serie`/`borrar_categoria` ahora confirman antes de ejecutar, el
+inicio respeta los roles del Sidebar (el bar ve su propia home), y las
+tarjetas de /configuracion ya no dicen «3 plantillas» en Usuarios.
+
+---
+
 ### 🟢 Sesión de UX en Inicio · varias rondas de ajuste visual · para Facu
 
 Trabajo de Horacio de hoy, varios commits (76036d5 en adelante hasta 55f062e), todo en /inicio:
@@ -43,7 +115,9 @@ Trabajo de Horacio de hoy, varios commits (76036d5 en adelante hasta 55f062e), t
 
 Todo verificado con tsc + build en cada paso. verificar:permisos no corrió
 (sin DATABASE_URL en este entorno) — no aplica, ningún cambio tocó SQL.
-=======
+
+---
+
 ### 🔴 BUG DE TU MOTOR arreglado · gasto_medio_pago_check no conocía efectivo_transito · 09/09/2026 · para Horacio
 
 Al darle pantalla al circuito de tránsito apareció: `pagar_gasto` valida y
@@ -119,7 +193,6 @@ torneo, detalle del torneo que ve la baja, calendario navegable por click.
 ⚠️ `supabase gen types` estuvo caído hoy (API cuelga; --db-url exige Docker):
 `database.types.ts` lleva un puñado de entradas parcheadas a mano, exactas al
 formato del generador. La próxima regeneración las pisa con lo mismo.
->>>>>>> 4c5f291e08669c2b7e98d1f8ac764f1bcc9868d5
 
 ---
 

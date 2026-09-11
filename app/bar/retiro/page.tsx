@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
-import { formatDate } from '@/lib/format'
+import { formatDate, parsearMonto } from '@/lib/format'
 import { Button, Card, Field, Input, Money, Select } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 import AnularRetiro from '../AnularRetiro'
@@ -210,7 +210,7 @@ export default function RetiroBarPage() {
                   min="0"
                   step="0.01"
                   value={monto || ''}
-                  onChange={(e) => setMonto(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setMonto(parsearMonto(e.target.value) ?? 0)}
                 />
               </Field>
 

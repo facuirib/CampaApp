@@ -75,6 +75,9 @@ export default function EstructuraEditor({
 
   const [error, setError] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
+  // Borrado en dos pasos: el primer click arma la confirmación, el segundo
+  // ejecuta. Cualquier otra acción la desarma.
+  const [confirmando, setConfirmando] = useState<string | null>(null)
 
   // Clonado
   const [origenId, setOrigenId] = useState<string>(origenes[0]?.torneo_id ?? '')
@@ -151,10 +154,10 @@ export default function EstructuraEditor({
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-md bg-errbg px-4 py-3 text-sm text-errtx">{error}</div>
       )}
       {resultado && (
-        <div className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-md bg-okbg px-4 py-3 text-sm text-oktx">
           {resultado}
         </div>
       )}
@@ -164,16 +167,16 @@ export default function EstructuraEditor({
         <div
           className={
             vacio
-              ? 'rounded-lg border border-blue-200 bg-blue-50 p-5'
-              : 'rounded-lg border border-slate-200 p-4'
+              ? 'rounded-lg border border-regale bg-blue-tint p-5'
+              : 'rounded-lg border border-line p-4'
           }
         >
           {vacio && (
             <>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-ink">
                 Este torneo todavía no tiene estructura
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-muted">
                 Los nombres de categoría y serie se mantienen entre torneos, así que lo más
                 rápido es copiarlos del anterior y después ajustar. No se copia el tarifario
                 —sus precios y fechas cambian todos los torneos— ni los equipos inscriptos.
@@ -206,8 +209,8 @@ export default function EstructuraEditor({
       {/* ── El árbol ────────────────────────────────────────────────────── */}
       <div className="space-y-3">
         {categorias.map((c) => (
-          <div key={c.id} className="rounded-lg border border-slate-200">
-            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+          <div key={c.id} className="rounded-lg border border-line">
+            <div className="flex items-center gap-3 border-b border-line2 px-4 py-3">
               {editando === `cat:${c.id}` ? (
                 <>
                   <Input
@@ -236,11 +239,11 @@ export default function EstructuraEditor({
                 </>
               ) : (
                 <>
-                  <span className="font-medium text-slate-900">{c.nombre}</span>
+                  <span className="font-medium text-ink">{c.nombre}</span>
                   <Badge estado={c.genero === 'femenino' ? 'info' : 'neutro'}>
                     {c.genero === 'femenino' ? 'Femenino' : 'Masculino'}
                   </Badge>
-                  <span className="text-sm text-slate-500">
+                  <span className="text-sm text-muted">
                     {c.series.length} serie{c.series.length === 1 ? '' : 's'} · {c.equipos} equipo
                     {c.equipos === 1 ? '' : 's'}
                   </span>
@@ -256,19 +259,46 @@ export default function EstructuraEditor({
                     >
                       Renombrar
                     </Button>
-                    <Button
-                      size="pill"
-                      variant="tertiary"
-                      icon="borrar"
-                      loading={ocupado === `delcat:${c.id}`}
-                      onClick={() =>
-                        correr(`delcat:${c.id}`, () =>
-                          supabase().rpc('borrar_categoria', { p_categoria_id: c.id }),
-                        )
-                      }
-                    >
-                      Borrar
-                    </Button>
+                    {confirmando === `delcat:${c.id}` ? (
+                      <>
+                        <span className="text-sm font-semibold text-err">
+                          ¿Borrar «{c.nombre}»
+                          {c.series.length > 0
+                            ? ` y sus ${c.series.length} serie${c.series.length === 1 ? '' : 's'}`
+                            : ''}
+                          ?
+                        </span>
+                        <Button
+                          size="pill"
+                          icon="borrar"
+                          loading={ocupado === `delcat:${c.id}`}
+                          onClick={async () => {
+                            const ok = await correr(`delcat:${c.id}`, () =>
+                              supabase().rpc('borrar_categoria', { p_categoria_id: c.id }),
+                            )
+                            if (ok) setConfirmando(null)
+                          }}
+                        >
+                          Borrar
+                        </Button>
+                        <Button
+                          size="pill"
+                          variant="tertiary"
+                          onClick={() => setConfirmando(null)}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="pill"
+                        variant="tertiary"
+                        icon="borrar"
+                        onClick={() => setConfirmando(`delcat:${c.id}`)}
+                      >
+                        Borrar
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -305,31 +335,58 @@ export default function EstructuraEditor({
                 ) : (
                   <span
                     key={s.id}
-                    className="group inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm"
+                    className="group inline-flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm"
                   >
-                    <span className="font-medium text-slate-800">{s.nombre}</span>
-                    <span className="text-slate-400">{s.equipos}</span>
-                    <button
-                      className="text-slate-400 hover:text-slate-700"
-                      title="Renombrar"
-                      onClick={() => {
-                        setEditando(`ser:${s.id}`)
-                        setEditNombre(s.nombre)
-                      }}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      className="text-slate-400 hover:text-red-600"
-                      title="Borrar"
-                      onClick={() =>
-                        correr(`delser:${s.id}`, () =>
-                          supabase().rpc('borrar_serie', { p_serie_id: s.id }),
-                        )
-                      }
-                    >
-                      ✕
-                    </button>
+                    <span className="font-medium text-ink">{s.nombre}</span>
+                    <span className="text-muted">{s.equipos}</span>
+                    {confirmando === `delser:${s.id}` ? (
+                      <>
+                        <span className="text-xs font-semibold text-err">¿Borrar?</span>
+                        <Button
+                          size="pill"
+                          icon="borrar"
+                          loading={ocupado === `delser:${s.id}`}
+                          onClick={async () => {
+                            const ok = await correr(`delser:${s.id}`, () =>
+                              supabase().rpc('borrar_serie', { p_serie_id: s.id }),
+                            )
+                            if (ok) setConfirmando(null)
+                          }}
+                        >
+                          Sí
+                        </Button>
+                        <Button
+                          size="pill"
+                          variant="tertiary"
+                          onClick={() => setConfirmando(null)}
+                        >
+                          No
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="text-muted hover:text-ink"
+                          title="Renombrar"
+                          aria-label={`Renombrar serie ${s.nombre}`}
+                          onClick={() => {
+                            setEditando(`ser:${s.id}`)
+                            setEditNombre(s.nombre)
+                          }}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          className="text-muted hover:text-err"
+                          title="Borrar"
+                          aria-label={`Borrar serie ${s.nombre}`}
+                          disabled={ocupado !== null}
+                          onClick={() => setConfirmando(`delser:${s.id}`)}
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )}
                   </span>
                 ),
               )}
@@ -384,7 +441,7 @@ export default function EstructuraEditor({
 
       {/* ── Alta de categoría ───────────────────────────────────────────── */}
       {abriendoCat ? (
-        <div className="flex items-end gap-3 rounded-lg border border-slate-200 p-4">
+        <div className="flex items-end gap-3 rounded-lg border border-line p-4">
           <Field label="Nombre" className="flex-1">
             <Input
               value={catNombre}

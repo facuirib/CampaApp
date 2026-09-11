@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { rolActual } from '@/lib/rol-actual'
+import { puede } from '@/lib/permisos'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { Card, DataTable, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +89,9 @@ export default async function EquiposPage({
   const { estado, jugo, q } = await searchParams
   const supabase = await createClient()
 
+  const rol = await rolActual()
+  const puedeCrear = puede(rol, 'equipo.crear')
+
   // 🔴 `tipo='equipo'` es lo que separa esta pantalla de /sponsors. Sin esto
   // volvería a mezclar dos entidades que ya no comparten ni ficha ni módulo.
   let consulta = supabase.from('v_cliente').select('*').eq('tipo', 'equipo').order('nombre')
@@ -125,12 +130,19 @@ export default async function EquiposPage({
 
   return (
     <div className="pb-10">
-      <header className="mb-6">
-        <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Equipos</h1>
-        <p className="mt-1 text-[12px] text-muted">
-          El padrón. Cada equipo tiene su ficha: con quién se habla, qué debe y en qué torneos
-          jugó.
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Equipos</h1>
+          <p className="mt-1 text-[12px] text-muted">
+            El padrón. Cada equipo tiene su ficha: con quién se habla, qué debe y en qué torneos
+            jugó.
+          </p>
+        </div>
+        {/* El único padrón que quedaba sin alta: un equipo nuevo sólo podía
+            nacer por SQL (mismo hueco que sponsors cerró antes). */}
+        {puedeCrear && (
+          <LinkButton href="/equipos/nuevo" icon="plus">Nuevo equipo</LinkButton>
+        )}
       </header>
 
       {fallo && (

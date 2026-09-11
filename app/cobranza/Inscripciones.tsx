@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type InscripcionRow = Database['public']['Views']['v_inscripcion']['Row']
@@ -140,11 +140,7 @@ export default function Inscripciones({
         // tarifa—, así que no hay función nueva ni circuito paralelo.
         accion:
           i.estado_inscripcion !== 'paga' && i.tercero_id ? (
-            <Link href={`/equipos/${i.tercero_id}/cobrar`}>
-              <Button size="pill" variant="secondary">
-                Cobrar
-              </Button>
-            </Link>
+            <LinkButton href={`/equipos/${i.tercero_id}/cobrar`} size="pill" variant="secondary">Cobrar</LinkButton>
           ) : null,
       }
     })

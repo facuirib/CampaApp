@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { Button, Field, Select } from '@/components/ui'
+import { mediosPago } from '@/lib/domain/medio-pago'
 
 export interface SerieInscribible {
   serie_id: string
@@ -133,9 +134,9 @@ export default function InscribirEquipo({
       {equipos.length === 0 ? (
         <p className="rounded-md bg-panel px-4 py-3 text-[11px] text-muted">
           Todos los equipos cargados ya tienen ficha en este torneo. Un equipo nuevo se da de alta
-          primero como cliente, en{' '}
-          <Link href="/clientes" className="font-semibold text-blue-d hover:underline">
-            Clientes
+          primero en el padrón:{' '}
+          <Link href="/equipos/nuevo" className="font-semibold text-blue-d hover:underline">
+            Nuevo equipo
           </Link>
           .
         </p>
@@ -193,8 +194,11 @@ export default function InscribirEquipo({
                 value={medio}
                 onChange={(e) => setMedio(e.target.value as 'efectivo' | 'transferencia')}
               >
-                <option value="transferencia">Transferencia</option>
-                <option value="efectivo">Efectivo</option>
+{mediosPago(['efectivo', 'transferencia']).map((m) => (
+                  <option key={m.clave} value={m.clave}>
+                    {m.label}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>

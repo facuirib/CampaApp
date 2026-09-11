@@ -3,7 +3,7 @@ import ColasAviso from './ColasAviso'
 import Inscripciones from './Inscripciones'
 import { createClient } from '@/lib/db/server'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { Button, DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
@@ -179,7 +179,7 @@ export default async function CobranzaPage({
   // El filtro por torneo, por ejemplo, no aplica acá — el aviso se le manda al
   // equipo con todo lo que arrastre, que es el concepto 5.
   if (activa === 'avisos') {
-    const [colaRes, cfgRes, avisosRes, reclamosRes] = await Promise.all([
+    const [colaRes, cfgRes, avisosRes, reclamosRes, etapasRes] = await Promise.all([
       supabase.from('v_cobranza_cola').select('*').order('total_adeudado', { ascending: false }),
       supabase.from('config_cobranza').select('*').eq('id', true).maybeSingle(),
       // Qué se le avisó ya a cada equipo. La cola esconde a quien recibió el
@@ -190,6 +190,8 @@ export default async function CobranzaPage({
         .from('reclamo')
         .select('id, tercero_id, fecha, canal, monto_reclamado, etapa')
         .order('fecha', { ascending: false }),
+      // El monto por etapa, YA sumado (regla 1): antes el KpiCard lo reducía.
+      supabase.from('v_cobranza_etapa_total').select('*'),
     ])
 
     return (
@@ -219,6 +221,7 @@ export default async function CobranzaPage({
 
         <ColasAviso
           filas={colaRes.data ?? []}
+          etapas={etapasRes.data ?? []}
           ventanas={cfgRes.data ?? null}
           avisos={avisosRes.data ?? []}
           reclamos={reclamosRes.data ?? []}
@@ -311,11 +314,7 @@ export default async function CobranzaPage({
     saldo_a_favor: f.saldo_a_favor,
     email: f.email,
     accion: f.tercero_id ? (
-      <Link href={`/equipos/${f.tercero_id}/cobrar`}>
-        <Button size="pill" variant="secondary">
-          Cobrar
-        </Button>
-      </Link>
+      <LinkButton href={`/equipos/${f.tercero_id}/cobrar`} size="pill" variant="secondary">Cobrar</LinkButton>
     ) : null,
   }))
 
