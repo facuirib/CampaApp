@@ -6427,6 +6427,7 @@ export type Database = {
       v_deuda_detalle: {
         Row: {
           categoria: string | null
+          concepto_label: string | null
           cuota_id: string | null
           cuota_numero: number | null
           dias_atraso: number | null

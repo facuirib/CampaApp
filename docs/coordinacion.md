@@ -18,6 +18,28 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🧪 SUITE DE TESTS NUEVA: `npm run test` · 11/09/2026 · para los dos
+
+Tres capas, todas contra la base hosted **en transacciones revertidas** (cero
+riesgo, cero DDL — regla 11 intacta):
+
+- `test:invariantes` — test_asientos.sql convertido en suite (19 casos):
+  motor de asientos, anulación, período, compensación de saldos, idempotencia
+  de devengos, imputación que no excede.
+- `test:permisos` — la matriz EJECUTADA, no comparada como texto: cada rol
+  suplantado por claims (`comoRol` en scripts/tests/comun.ts) intentando las
+  puertas caras. Incluye el caso del UPDATE denegado en silencio (la lección
+  de borrar_torneo). Dato que dejó la primera corrida: la policy de INSERT de
+  `asiento` incluye a `bar` — es el diseño de su circuito, quedó anotado en
+  el propio test.
+- `test:vistas` — smoke de las 101 vistas + diff de columnas contra
+  database.types.ts. **Ya atrapó uno**: `v_deuda_detalle.concepto_label`
+  estaba en la base y no en los tipos (parche a mano atrasado, corregido).
+
+Correlo antes de commitear si tocaste SQL o los tipos.
+
+---
+
 ### 🆕 ALTA DE EQUIPO en la app + dato de policy · 11/09/2026 · para Horacio
 
 Del diagnóstico end-to-end (informe con todos los hallazgos:

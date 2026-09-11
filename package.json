@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "verificar:permisos": "node --experimental-strip-types scripts/verificar-permisos.ts",
+    "test:invariantes": "node --experimental-strip-types scripts/tests/invariantes.ts",
+    "test:permisos": "node --experimental-strip-types scripts/tests/permisos-vivos.ts",
+    "test:vistas": "node --experimental-strip-types scripts/tests/vistas.ts",
+    "test": "npm run test:invariantes && npm run test:permisos && npm run test:vistas",
     "probar:recibo": "node --experimental-strip-types scripts/probar-recibo-pdf.ts",
     "probar:qr": "node --experimental-strip-types scripts/probar-qr-arca.ts",
     "probar:factura": "node --experimental-strip-types scripts/probar-factura-pdf.ts"
