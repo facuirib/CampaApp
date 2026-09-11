@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       _prueba_marca: {
@@ -250,6 +225,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pago"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anticipo_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_pago"
+            referencedColumns: ["pago_id"]
           },
           {
             foreignKeyName: "anticipo_tercero_id_fkey"
@@ -1265,11 +1247,25 @@ export type Database = {
             referencedColumns: ["gasto_id"]
           },
           {
+            foreignKeyName: "cheque_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_gasto"
+            referencedColumns: ["gasto_id"]
+          },
+          {
             foreignKeyName: "cheque_pago_id_fkey"
             columns: ["pago_id"]
             isOneToOne: false
             referencedRelation: "pago"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_pago"
+            referencedColumns: ["pago_id"]
           },
           {
             foreignKeyName: "cheque_tercero_id_fkey"
@@ -1484,6 +1480,13 @@ export type Database = {
             referencedRelation: "pago"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "factura_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_pago"
+            referencedColumns: ["pago_id"]
+          },
         ]
       }
       compromiso: {
@@ -1586,6 +1589,13 @@ export type Database = {
             columns: ["gasto_id"]
             isOneToOne: false
             referencedRelation: "v_gasto_detalle"
+            referencedColumns: ["gasto_id"]
+          },
+          {
+            foreignKeyName: "compromiso_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_gasto"
             referencedColumns: ["gasto_id"]
           },
           {
@@ -3343,6 +3353,13 @@ export type Database = {
             referencedColumns: ["gasto_id"]
           },
           {
+            foreignKeyName: "gasto_planificado_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_gasto"
+            referencedColumns: ["gasto_id"]
+          },
+          {
             foreignKeyName: "gasto_planificado_torneo_id_fkey"
             columns: ["torneo_id"]
             isOneToOne: false
@@ -3871,6 +3888,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pago"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pago_imputacion_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_pago"
+            referencedColumns: ["pago_id"]
           },
         ]
       }
@@ -5948,11 +5972,25 @@ export type Database = {
             referencedColumns: ["gasto_id"]
           },
           {
+            foreignKeyName: "cheque_gasto_id_fkey"
+            columns: ["gasto_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_gasto"
+            referencedColumns: ["gasto_id"]
+          },
+          {
             foreignKeyName: "cheque_pago_id_fkey"
             columns: ["pago_id"]
             isOneToOne: false
             referencedRelation: "pago"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cheque_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_pago"
+            referencedColumns: ["pago_id"]
           },
         ]
       }
@@ -6167,6 +6205,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pago"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factura_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "v_transito_pago"
+            referencedColumns: ["pago_id"]
           },
         ]
       }
@@ -6427,6 +6472,7 @@ export type Database = {
       v_deuda_detalle: {
         Row: {
           categoria: string | null
+          concepto_label: string | null
           cuota_id: string | null
           cuota_numero: number | null
           dias_atraso: number | null
@@ -8805,33 +8851,6 @@ export type Database = {
           },
         ]
       }
-      v_transito_gasto: {
-        Row: {
-          gasto_id: string | null
-          devengado_at: string | null
-          pagado_at: string | null
-          detalle: string | null
-          total: number | null
-          repuesto: boolean | null
-        }
-        Relationships: []
-      }
-      v_transito_pago: {
-        Row: {
-          pago_id: string | null
-          fecha: string | null
-          equipo: string | null
-          monto: number | null
-          liquidado: boolean | null
-        }
-        Relationships: []
-      }
-      v_transito_saldo: {
-        Row: {
-          saldo: number | null
-        }
-        Relationships: []
-      }
       v_torneo_listo: {
         Row: {
           activo: boolean | null
@@ -8850,6 +8869,7 @@ export type Database = {
           torneo_id: string | null
         }
         Insert: {
+          activo?: boolean | null
           categorias?: never
           confirmado?: never
           cuotas?: never
@@ -8865,6 +8885,7 @@ export type Database = {
           torneo_id?: string | null
         }
         Update: {
+          activo?: boolean | null
           categorias?: never
           confirmado?: never
           cuotas?: never
@@ -8878,6 +8899,33 @@ export type Database = {
           planes?: never
           series?: never
           torneo_id?: string | null
+        }
+        Relationships: []
+      }
+      v_transito_gasto: {
+        Row: {
+          detalle: string | null
+          devengado_at: string | null
+          gasto_id: string | null
+          pagado_at: string | null
+          repuesto: boolean | null
+          total: number | null
+        }
+        Relationships: []
+      }
+      v_transito_pago: {
+        Row: {
+          equipo: string | null
+          fecha: string | null
+          liquidado: boolean | null
+          monto: number | null
+          pago_id: string | null
+        }
+        Relationships: []
+      }
+      v_transito_saldo: {
+        Row: {
+          saldo: number | null
         }
         Relationships: []
       }
@@ -9445,6 +9493,16 @@ export type Database = {
         Args: { p_nombre?: string; p_orden?: number; p_serie_id: string }
         Returns: undefined
       }
+      editar_torneo: {
+        Args: {
+          p_anio?: number
+          p_ejercicio_id?: string
+          p_nombre?: string
+          p_temporada?: Database["public"]["Enums"]["temporada"]
+          p_torneo_id: string
+        }
+        Returns: undefined
+      }
       eliminar_dia_cancha: {
         Args: { p_dia_cancha_id: string }
         Returns: undefined
@@ -9498,7 +9556,10 @@ export type Database = {
         Args: { p_ficha_id: string; p_nueva_serie_id: string }
         Returns: undefined
       }
-      mover_jornada: { Args: { p_jornada_id: string; p_nueva_fecha: string }; Returns: Json }
+      mover_jornada: {
+        Args: { p_jornada_id: string; p_nueva_fecha: string }
+        Returns: Json
+      }
       pagar_gasto: {
         Args: {
           p_cheque_banco?: string
@@ -9545,6 +9606,7 @@ export type Database = {
         Args: { p_motivo: string; p_torneo_id: string }
         Returns: undefined
       }
+      reactivar_torneo: { Args: { p_torneo_id: string }; Returns: undefined }
       recibir_efectivo_en_transito: {
         Args: {
           p_fecha?: string
@@ -9696,17 +9758,6 @@ export type Database = {
         Returns: number
       }
       sugerir_imputacion: { Args: { p_pago_id: string }; Returns: Json }
-      editar_torneo: {
-        Args: {
-          p_anio?: number
-          p_ejercicio_id?: string
-          p_nombre?: string
-          p_temporada?: Database["public"]["Enums"]["temporada"]
-          p_torneo_id: string
-        }
-        Returns: undefined
-      }
-      reactivar_torneo: { Args: { p_torneo_id: string }; Returns: undefined }
       suspender_jornada: { Args: { p_jornada_id: string }; Returns: undefined }
       trasladar_entre_cajas: {
         Args: {
@@ -9885,9 +9936,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       concepto_pago: ["inscripcion", "partidos"],
