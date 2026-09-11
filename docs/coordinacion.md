@@ -81,7 +81,10 @@ catálogo ya están; sería sólo la migración de policy.
 
 También del diagnóstico, arreglado en front sin tocar tu carril: el overlay
 del link de fila de `DataTable` dejaba muertos los botones de otras columnas
-en desktop («Cobrar» de /cobranza incluido — flag `interactiva` por columna),
+en desktop («Cobrar» de /cobranza incluido) — los dos carriles lo arreglamos
+en paralelo y quedó TU mecánica (`relative` en toda celda no-primera, commit
+3110d0a); el flag `interactiva` por columna que había hecho yo se eliminó
+para no tener dos mecanismos,
 `borrar_serie`/`borrar_categoria` ahora confirman antes de ejecutar, el
 inicio respeta los roles del Sidebar (el bar ve su propia home), y las
 tarjetas de /configuracion ya no dicen «3 plantillas» en Usuarios.
@@ -190,7 +193,6 @@ torneo, detalle del torneo que ve la baja, calendario navegable por click.
 ⚠️ `supabase gen types` estuvo caído hoy (API cuelga; --db-url exige Docker):
 `database.types.ts` lleva un puñado de entradas parcheadas a mano, exactas al
 formato del generador. La próxima regeneración las pisa con lo mismo.
->>>>>>> 4c5f291e08669c2b7e98d1f8ac764f1bcc9868d5
 
 ---
 

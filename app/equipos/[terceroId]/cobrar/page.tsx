@@ -47,7 +47,7 @@ const COLUMNAS: ColumnDef<FilaImputacion>[] = [
   { key: 'saldo', label: 'Saldo', format: 'money', width: 130 },
   { key: 'estado', label: 'Estado', format: 'badge' },
   // Editable: la propuesta de la base precarga, el operador ajusta (regla 10).
-  { key: 'a_imputar', label: 'A imputar', align: 'right', width: 130, interactiva: true },
+  { key: 'a_imputar', label: 'A imputar', align: 'right', width: 130 },
 ]
 
 function hoyEnCordoba(): string {

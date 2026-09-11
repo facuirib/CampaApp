@@ -55,8 +55,8 @@ const VE_COMPROBANTE = ['admin', 'operador', 'read-only', 'finanzas']
  * La celda de Comprobante.
  *
  * El link de la fila cubre la fila entera con un `::after`; que el clic acá
- * no caiga en el de la fila —que va a /pagar— lo resuelve la columna con
- * `interactiva: true` (ver ColumnDef en DataTable).
+ * no caiga en el de la fila lo resuelve DataTable, que hace `relative` a
+ * toda celda que no es la primera (ver el comentario en su `<td>`).
  */
 function celdaComprobante(
   gastoId: string,
@@ -99,7 +99,7 @@ const COLUMNAS: ColumnDef<FilaGasto>[] = [
   { key: 'total', label: 'Total', format: 'money', width: 128 },
   { key: 'pago', label: 'Pago', width: 190 },
   { key: 'estado', label: 'Estado', format: 'badge', width: 96 },
-  { key: 'comprobante', label: 'Comprobante', width: 118, interactiva: true },
+  { key: 'comprobante', label: 'Comprobante', width: 118 },
 ]
 
 /** «Fecha 1 · 01/08/2026» para los por fecha; la de devengo para el resto. */

@@ -27,17 +27,6 @@ export interface ColumnDef<T> {
    */
   tono?: TonoMoney
   width?: number | string
-  /**
-   * La celda trae sus propios controles (botones, links, un `<details>`).
-   *
-   * Con `rowHref`, el link de fila se estira con `after:absolute inset-0` y
-   * queda POR ENCIMA del contenido de las demás celdas: sin este flag, el
-   * click sobre un botón cae en el overlay y navega en vez de ejecutar.
-   * El flag pone la celda en su propio contexto de apilamiento
-   * (`relative z-10`), arriba del overlay. La rama mobile no lo necesita:
-   * su cuerpo ya va envuelto en `relative`.
-   */
-  interactiva?: boolean
 }
 
 export interface DataTableProps<T extends object> {
@@ -277,7 +266,6 @@ export default function DataTable<T extends object>({
                             // contenedor de posición del `::after` en vez del
                             // `<tr>`, y el estirado dejaría de cubrir la fila.
                             j !== 0 ? 'relative' : '',
-                            col.interactiva ? 'z-10' : '',
                           ]
                             .filter(Boolean)
                             .join(' ')}

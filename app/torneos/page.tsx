@@ -73,10 +73,10 @@ const COLUMNAS: ColumnDef<Fila>[] = [
   { key: 'anio', label: 'Año', width: 72 },
   { key: 'periodo', label: 'Período' },
   { key: 'estado', label: 'Estado', format: 'badge', width: 120 },
-  { key: 'equipos', label: 'Equipos', width: 96, interactiva: true },
-  { key: 'molde', label: 'Estructura', interactiva: true },
+  { key: 'equipos', label: 'Equipos', width: 96 },
+  { key: 'molde', label: 'Estructura' },
   { key: 'estructura', label: '', format: 'badge', width: 116 },
-  { key: 'ciclo', label: '', width: 168, interactiva: true },
+  { key: 'ciclo', label: '', width: 168 },
 ]
 
 export default async function TorneosPage() {
