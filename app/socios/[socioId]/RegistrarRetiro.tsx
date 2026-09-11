@@ -6,6 +6,7 @@ import { createClient } from '@/lib/db/client'
 import { formatMoney } from '@/lib/format'
 import { Button, Card, Field, Input, Select } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
+import { mediosPago } from '@/lib/domain/medio-pago'
 
 type Predio = Pick<Database['public']['Tables']['predio']['Row'], 'id' | 'nombre'>
 
@@ -32,13 +33,11 @@ type Predio = Pick<Database['public']['Tables']['predio']['Row'], 'id' | 'nombre
  * desde la base con su mensaje.
  */
 
-const MEDIOS = [
-  { value: 'transferencia', label: 'Transferencia' },
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'central', label: 'Caja central' },
-] as const
+// El vocabulario vive en lib/domain/medio-pago; acá sólo se elige el
+// subconjunto de esta pantalla (orden canónico de la tabla).
+const MEDIOS = mediosPago(['transferencia', 'efectivo', 'central'])
 
-type Medio = (typeof MEDIOS)[number]['value']
+type Medio = (typeof MEDIOS)[number]['clave']
 
 function hoyEnCordoba(): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -150,7 +149,7 @@ export default function RegistrarRetiro({
             <Field label="Medio" required>
               <Select value={medio} onChange={(e) => setMedio(e.target.value as Medio)}>
                 {MEDIOS.map((m) => (
-                  <option key={m.value} value={m.value}>
+                  <option key={m.clave} value={m.clave}>
                     {m.label}
                   </option>
                 ))}

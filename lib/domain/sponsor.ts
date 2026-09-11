@@ -24,3 +24,17 @@ export function estadoSponsor(codigo: string | null): CeldaBadge {
   // romper o de mentir con un color que no le toca.
   return ESTADOS[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
 }
+
+/**
+ * El estado de una cuota de cobro de sponsor. Vivía como mapa propio en la
+ * pantalla del sponsor; acá por la misma razón que `estadoSponsor`.
+ */
+const ESTADOS_CUOTA: Record<string, CeldaBadge> = {
+  cobrada: { estado: 'ok', label: 'Cobrada' },
+  vencida: { estado: 'mora', label: 'Vencida' },
+  por_vencer: { estado: 'porVencer', label: 'Por vencer' },
+}
+
+export function estadoCuotaSponsor(codigo: string | null): CeldaBadge {
+  return ESTADOS_CUOTA[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
+}

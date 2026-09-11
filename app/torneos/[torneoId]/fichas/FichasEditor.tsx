@@ -7,6 +7,7 @@ import { createClient } from '@/lib/db/client'
 import { Badge, Button, Field, Select } from '@/components/ui'
 import { formatMoney } from '@/lib/format'
 import type { Database } from '@/lib/db/database.types'
+import { mediosPago } from '@/lib/domain/medio-pago'
 
 type Ficha = Database['public']['Views']['v_ficha_torneo']['Row']
 type Estructura = Database['public']['Views']['v_estructura_torneo']['Row']
@@ -26,10 +27,8 @@ interface ResultadoConfirmar {
   cuotas_generadas: number
 }
 
-const MEDIOS: { value: MedioPrevisto; label: string }[] = [
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'transferencia', label: 'Transferencia' },
-]
+// El vocabulario vive en lib/domain/medio-pago; la ficha congela sólo estos dos.
+const MEDIOS = mediosPago(['efectivo', 'transferencia'])
 
 export default function FichasEditor({
   torneoId,
@@ -397,7 +396,7 @@ export default function FichasEditor({
                           className="w-36"
                         >
                           {MEDIOS.map((m) => (
-                            <option key={m.value} value={m.value}>
+                            <option key={m.clave} value={m.clave}>
                               {m.label}
                             </option>
                           ))}

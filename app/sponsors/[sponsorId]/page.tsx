@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { formatDate, formatMoney } from '@/lib/format'
-import { estadoSponsor } from '@/lib/domain/sponsor'
+import { estadoSponsor, estadoCuotaSponsor } from '@/lib/domain/sponsor'
 import { rolActual } from '@/lib/rol-actual'
 import AnularCobroSponsor from './AnularCobroSponsor'
 import NuevoContrato from './NuevoContrato'
@@ -28,17 +28,7 @@ type FilaMes = Database['public']['Views']['v_sponsor_detalle_mensual']['Row']
  * `v_cuotas_sponsor_futuras` filtra las vencidas— y por el que se escribió
  * `v_cuotas_sponsor`.
  */
-const ESTADOS: Record<string, CeldaBadge> = {
-  cobrada: { estado: 'ok', label: 'Cobrada' },
-  vencida: { estado: 'mora', label: 'Vencida' },
-  por_vencer: { estado: 'porVencer', label: 'Por vencer' },
-}
-
-function estadoCuota(codigo: string | null): CeldaBadge {
-  // Un estado que la vista agregue mañana cae en gris con su código, en vez de
-  // romper o de mentir con un color que no le toca.
-  return ESTADOS[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
-}
+// El vocabulario de estados de cuota de sponsor vive en lib/domain/sponsor.
 
 /**
  * El período va como TEXTO, no como `format: 'date'`: la vista da `anio` y
@@ -246,7 +236,7 @@ export default async function SponsorPage({ params }: { params: Promise<{ sponso
                 fecha_cobro: c.fecha_cobro,
                 monto: c.monto,
                 cobrado_at: c.cobrado_at,
-                estado: estadoCuota(c.estado),
+                estado: estadoCuotaSponsor(c.estado),
               }))
 
             const meses: FilaMensual[] = (mensualRes.data ?? [])

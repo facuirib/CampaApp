@@ -3,7 +3,7 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, parsearMonto } from '@/lib/format'
 import PreviewCobro from '@/components/PreviewCobro'
 import {
   Button,
@@ -15,6 +15,8 @@ import {
   type ColumnDef,
 } from '@/components/ui'
 import type { Database, Json } from '@/lib/db/database.types'
+import { mediosPago } from '@/lib/domain/medio-pago'
+import { estadoCuota } from '@/lib/domain/cobranza'
 
 type CuotaDeuda = Database['public']['Views']['v_deuda_detalle']['Row']
 type Predio = Database['public']['Tables']['predio']['Row']
@@ -28,18 +30,7 @@ interface Imputacion {
 
 const TOLERANCIA = 0.005
 
-/** Mismo mapa que la cuenta corriente: estas filas también son cuotas. */
-const ESTADOS: Record<string, CeldaBadge> = {
-  al_dia: { estado: 'alDia', label: 'Al día' },
-  pagada: { estado: 'ok', label: 'Pagada' },
-  por_vencer: { estado: 'porVencer', label: 'Por vencer' },
-  vencida: { estado: 'mora', label: 'Vencida' },
-  parcial_vencida: { estado: 'mora', label: 'Parcial vencida' },
-}
-
-function estadoCuota(codigo: string | null): CeldaBadge {
-  return ESTADOS[codigo ?? ''] ?? { estado: 'neutro', label: codigo ?? '—' }
-}
+// El vocabulario de estados de cuota vive en lib/domain/cobranza.
 
 interface FilaImputacion {
   cuota_id: string
@@ -361,10 +352,9 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
             className="w-28 text-right"
             value={propuesto || ''}
             onChange={(e) => {
-              const v = parseFloat(e.target.value)
               setAjustes((prev) => ({
                 ...prev,
-                [c.cuota_id!]: Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : 0,
+                [c.cuota_id!]: parsearMonto(e.target.value) ?? 0,
               }))
             }}
           />
@@ -435,16 +425,17 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
                       min="0"
                       step="0.01"
                       value={monto || ''}
-                      onChange={(e) => setMonto(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => setMonto(parsearMonto(e.target.value) ?? 0)}
                     />
                   </Field>
 
                   <Field label="Medio">
                     <Select value={medio} onChange={(e) => setMedio(e.target.value as Medio)}>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="efectivo_transito">Efectivo en tránsito</option>
+{mediosPago(['efectivo', 'transferencia', 'cheque', 'efectivo_transito']).map((m) => (
+                        <option key={m.clave} value={m.clave}>
+                          {m.label}
+                        </option>
+                      ))}
                     </Select>
                   </Field>
 

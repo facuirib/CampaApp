@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge, Button, Field, Input } from '@/components/ui'
 import { enviarComprobanteMail } from './acciones'
+import { formatDate } from '@/lib/format'
 
 export interface EnvioPrevio {
   destinatario: string
@@ -96,7 +97,7 @@ export default function BotonMail({
         {yaSeMando && (
           <span className="inline-flex items-center gap-1.5 text-[11px] text-muted">
             <Badge estado="ok">Enviado</Badge>
-            {new Date(ultimo.enviado_at).toLocaleDateString('es-AR')} a {ultimo.destinatario}
+            {formatDate(ultimo.enviado_at)} a {ultimo.destinatario}
             {envios.length > 1 && ` · ${envios.length} envíos`}
           </span>
         )}

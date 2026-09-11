@@ -189,3 +189,23 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 
   return FECHA_HORA.format(fecha)
 }
+
+/**
+ * El monto que tipeó el usuario, o `null` si no es un monto.
+ *
+ * Reemplaza a los `parseFloat(x) || 0` que había en los formularios de plata:
+ * ese patrón convertía «12,50» mal tipeado, «abc» o el campo vacío en $0 EN
+ * SILENCIO — y un cero silencioso en un formulario de cobro no es un default,
+ * es un error escondido. Acá lo inválido devuelve `null` y el formulario
+ * decide qué decir.
+ *
+ * Acepta coma o punto como separador decimal (el operador tipea en un teclado
+ * argentino) y redondea a los 2 decimales de `numeric(16,2)`.
+ */
+export function parsearMonto(texto: string): number | null {
+  const limpio = texto.trim().replace(',', '.')
+  if (limpio === '') return null
+  const n = Number(limpio)
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.round(n * 100) / 100
+}

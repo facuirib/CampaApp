@@ -765,10 +765,13 @@ export const RUTAS_PROTEGIDAS: ReadonlyArray<{ patron: RegExp; op: Op; padre: st
   { patron: /^\/torneos\/[^/]+\/estructura/, op: 'torneo.estructura', padre: '/torneos' },
   { patron: /^\/torneos\/[^/]+\/fichas/, op: 'torneo.fichas', padre: '/torneos' },
   { patron: /^\/gastos\/nuevo/, op: 'gasto.registrar', padre: '/gastos' },
+  // /bar/costo es FormularioGasto con soloArea="bar": misma operación.
+  { patron: /^\/bar\/costo/, op: 'gasto.registrar', padre: '/bar' },
   { patron: /^\/gastos\/[^/]+\/pagar/, op: 'gasto.pagar', padre: '/gastos' },
   { patron: /^\/gastos\/[^/]+\/comprobante/, op: 'gasto.adjuntar', padre: '/gastos' },
   { patron: /^\/equipos\/nuevo/, op: 'equipo.crear', padre: '/equipos' },
   { patron: /^\/equipos\/[^/]+\/cobrar/, op: 'cobro.registrar', padre: '/equipos' },
+  { patron: /^\/sponsors\/nuevo/, op: 'sponsor.crear', padre: '/sponsors' },
   { patron: /^\/sponsors\/[^/]+\/cobrar/, op: 'sponsor.cobrar', padre: '/sponsors' },
   { patron: /^\/activos\/nuevo/, op: 'activo.comprar', padre: '/activos' },
   { patron: /^\/activos\/amortizar/, op: 'activo.amortizar', padre: '/activos' },

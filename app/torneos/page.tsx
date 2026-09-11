@@ -4,6 +4,8 @@ import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { Button, Card, DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
+import { formatDate } from '@/lib/format'
+import { estadoTorneo } from '@/lib/domain/torneo'
 
 interface Fila {
   torneo_id: string | null
@@ -42,13 +44,7 @@ const TEMPORADA: Record<string, CeldaBadge> = {
  * `activo` dice sólo si está dado de baja. La baja sigue primero porque un
  * torneo dado de baja es eso antes que nada.
  */
-function estadoABadge(estado: string | null, activo: boolean | null): CeldaBadge {
-  if (activo === false) return { estado: 'vencido', label: 'Dado de baja' }
-  if (estado === 'en_curso') return { estado: 'ok', label: 'En curso' }
-  if (estado === 'cerrado') return { estado: 'neutro', label: 'Cerrado' }
-  if (estado === 'planificado') return { estado: 'porVencer', label: 'Planificado' }
-  return { estado: 'neutro', label: estado ?? '—' }
-}
+// El vocabulario vive en lib/domain/torneo — lo comparten lista y detalle.
 
 /**
  * Si el torneo puede recibir una ficha.
@@ -67,9 +63,8 @@ function estructuraABadge(tiene: boolean | null): CeldaBadge {
 /** El período del torneo. Las dos fechas son opcionales, y suelen faltar. */
 function periodoDeTorneo(desde: string | null, hasta: string | null): string {
   if (!desde && !hasta) return '—'
-  const fmt = (f: string) => new Date(`${f}T00:00:00`).toLocaleDateString('es-AR')
-  if (desde && hasta) return `${fmt(desde)} – ${fmt(hasta)}`
-  return desde ? `desde ${fmt(desde)}` : `hasta ${fmt(hasta!)}`
+  if (desde && hasta) return `${formatDate(desde)} – ${formatDate(hasta)}`
+  return desde ? `desde ${formatDate(desde)}` : `hasta ${formatDate(hasta!)}`
 }
 
 const COLUMNAS: ColumnDef<Fila>[] = [
@@ -127,7 +122,7 @@ export default async function TorneosPage() {
     temporada: TEMPORADA[t.temporada ?? ''] ?? { estado: 'neutro', label: t.temporada ?? '—' },
     anio: t.anio,
     periodo: periodoDeTorneo(t.fecha_desde, t.fecha_hasta),
-    estado: estadoABadge(t.estado, t.activo),
+    estado: estadoTorneo(t.estado, t.activo),
     ciclo:
       puedeCiclo && t.activo !== false && t.torneo_id ? (
         <AccionesCiclo
