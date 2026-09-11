@@ -193,6 +193,7 @@ export default async function TorneosPage() {
             había forma de verlo entero: ni su calendario, ni si estaba listo
             para confirmar. */}
         <DataTable
+          emptyMessage="Todavía no hay torneos. El primero se crea con el botón «Nuevo torneo»."
           columns={COLUMNAS}
           rows={filas}
           rowKey={(f, i) => f.torneo_id ?? i}

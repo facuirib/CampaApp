@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import EditorPlantillas from './EditorPlantillas'
@@ -29,6 +30,12 @@ export default async function PlantillasPage() {
 
   return (
     <>
+      <Link
+        href="/configuracion"
+        className="text-[11px] font-semibold text-blue-d hover:underline"
+      >
+        ← Configuración
+      </Link>
       <EditorPlantillas puedeEditar={puedeEditar} />
       {/* Aparte y no adentro del editor de reclamos: son otro mensaje, con otros
           placeholders y sin canal de WhatsApp. Meterlos en el mismo formulario

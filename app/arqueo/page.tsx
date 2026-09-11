@@ -31,6 +31,8 @@ interface FilaHistorial {
   saldo_contado: number | null
   diferencia: number | null
   estado: CeldaBadge
+  /** El estado crudo, para decidir si la fila ofrece la entrega. */
+  estado_crudo: string | null
   ambito: CeldaBadge
 }
 
@@ -172,6 +174,7 @@ export default async function ArqueoPage() {
     saldo_contado: f.saldo_contado,
     diferencia: f.diferencia,
     estado: estadoArqueoABadge(f.estado),
+    estado_crudo: f.estado,
     ambito: ambitoABadge(f.ambito),
   }))
 
@@ -300,7 +303,7 @@ export default async function ArqueoPage() {
                rechaza — mandarlo a esa pantalla sería ofrecer una acción que la
                base no va a aceptar. */
             rowHref={(row) =>
-              row.ambito.label === 'Torneo' && puedeEntregar
+              row.ambito.label === 'Torneo' && puedeEntregar && row.estado_crudo !== 'entregado'
                 ? `/arqueo/${row.arqueo_id}/entregar`
                 : undefined
             }

@@ -221,7 +221,7 @@ export default function CobrarSponsorPage({
       ) : (
         <>
           <div className="mb-4">
-            <DataTable columns={COLUMNAS} rows={filas} rowKey="cuota_id" maxHeight={280} />
+            <DataTable columns={COLUMNAS} rows={filas} rowKey="cuota_id" maxHeight={280} emptyMessage="Este contrato no tiene cuotas pendientes de cobro." />
           </div>
 
           <div className="mb-4 rounded-md border border-line bg-white p-4">

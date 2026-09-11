@@ -2,6 +2,7 @@ import { createClient } from '@/lib/db/server'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import EditorCatGasto from './EditorCatGasto'
+import Link from 'next/link'
 
 /**
  * El catálogo de categorías de gasto — los dos ejes del gasto, editables.
@@ -31,6 +32,9 @@ export default async function CatGastoPage() {
 
   return (
     <div className="pb-10">
+      <Link href="/configuracion" className="text-[11px] font-semibold text-blue-d hover:underline">
+        ← Configuración
+      </Link>
       <header className="mb-6">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Categorías de gasto</h1>
         <p className="mt-1 max-w-[82ch] text-[12px] text-muted">

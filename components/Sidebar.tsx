@@ -42,7 +42,7 @@ const OFICINA = ['admin', 'operador', 'read-only', 'finanzas'] as const
  * sí, porque es el rol que los opera.
  */
 const SIN_SOCIETARIO = ['admin', 'read-only', 'finanzas'] as const
-/** El bar y el arqueo. Finanzas arquea, así que también está. */
+/** El bar y sus pantallas: sin finanzas, que no carga el bar. */
 const CON_BAR = ['admin', 'operador', 'read-only', 'bar'] as const
 /** Igual que CON_BAR pero con finanzas: el arqueo es caja, no bar. */
 const CON_ARQUEO = ['admin', 'operador', 'read-only', 'bar', 'finanzas'] as const
@@ -118,7 +118,9 @@ export const GRUPOS: GrupoNav[] = [
     // series, y el tarifario editable— cuelgan de acá como hijos de Torneos.
     titulo: 'Torneo',
     items: [
-      { href: '/inscripciones', label: 'Inscripciones', icon: 'inscripciones' },
+      // Directo a la pestaña, sin pasar por el redirect de /inscripciones
+      // (que sigue vivo para las URLs viejas).
+      { href: '/cobranza?vista=inscripciones', label: 'Inscripciones', icon: 'inscripciones' },
       { href: '/calendario', label: 'Calendario', icon: 'calendario', roles: SIN_FINANZAS },
       { href: '/cobranza', label: 'Cobranza', icon: 'cobranza' },
       // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
@@ -199,6 +201,7 @@ export const GRUPOS: GrupoNav[] = [
         icon: 'configuracion',
         hijos: [
           { href: '/configuracion/plantillas', label: 'Plantillas' },
+          { href: '/configuracion/emisor', label: 'Emisor y puntos de venta' },
           { href: '/configuracion/categorias', label: 'Categorías de gasto' },
           // La única regla del menú que además es un permiso de verdad: la
           // pantalla lee el padrón con service_role y el middleware la corta.

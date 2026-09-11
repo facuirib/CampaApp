@@ -293,6 +293,7 @@ export default async function BarPage({
           </div>
         ) : (
           <DataTable
+            emptyMessage="Sin días de bar en el período."
             columns={[
               { key: 'fecha', label: 'Fecha', format: 'date', width: 112 },
               { key: 'categoria', label: 'Categoría', width: 180 },
@@ -426,7 +427,7 @@ export default async function BarPage({
           )}
         </div>
       ) : (
-        <DataTable columns={columnas} rows={filas} rowKey="venta_bar_id" />
+        <DataTable columns={columnas} rows={filas} rowKey="venta_bar_id" emptyMessage="Ninguna venta del bar cargada todavía." />
       )}
     </div>
   )
