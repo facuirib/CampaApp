@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
+import { rolActual } from '@/lib/rol-actual'
 import { formatMoney } from '@/lib/format'
 import { etapaCobranza, etiquetaEtapa } from '@/lib/domain/cobranza'
 import Exportar from './Exportar'
@@ -107,6 +108,42 @@ export default async function Home({
   searchParams: Promise<{ torneo?: string; anio?: string }>
 }) {
   const { torneo: torneoParam, anio: anioParam } = await searchParams
+
+  // El inicio respeta los mismos límites que el Sidebar. Al bar, el menú le
+  // muestra Inicio · Arqueo · Bar — y esta pantalla le servía links a
+  // cobranza, caja, resultados y proyección: el filtro de la nav se evadía
+  // con un click desde la puerta de entrada. Su inicio son sus dos pantallas,
+  // y de paso no se corren las once consultas de un tablero que no ve.
+  const rol = await rolActual()
+  if (rol === 'bar') {
+    return (
+      <div className="pb-10">
+        <header className="mb-6">
+          <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Inicio</h1>
+          <p className="mt-1 text-[12px] text-muted">Lo tuyo: el bar y el arqueo del día.</p>
+        </header>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/bar"
+            className="rounded-lg border border-line bg-white p-5 hover:border-ink/30"
+          >
+            <Icon name="bar" size={20} className="mb-2 text-muted" />
+            <h2 className="text-[13px] font-extrabold text-ink">Bar</h2>
+            <p className="mt-1 text-[11px] text-muted">Cargar la venta y el costo del día.</p>
+          </Link>
+          <Link
+            href="/arqueo"
+            className="rounded-lg border border-line bg-white p-5 hover:border-ink/30"
+          >
+            <Icon name="arqueo" size={20} className="mb-2 text-muted" />
+            <h2 className="text-[13px] font-extrabold text-ink">Arqueo</h2>
+            <p className="mt-1 text-[11px] text-muted">Contar la caja y dejarla cuadrada.</p>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
 
   // El torneo actual, de la ÚNICA definición. Antes esta pantalla hacía

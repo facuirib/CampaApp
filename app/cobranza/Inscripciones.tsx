@@ -32,7 +32,7 @@ const COLUMNAS: ColumnDef<FilaInscripcion>[] = [
   { key: 'total_plan', label: 'Total plan', format: 'money' },
   { key: 'progreso', label: 'Cuotas', width: 160 },
   { key: 'estado', label: 'Estado', format: 'badge', width: 104 },
-  { key: 'accion', label: '', width: 92 },
+  { key: 'accion', label: '', width: 92, interactiva: true },
 ]
 
 /**

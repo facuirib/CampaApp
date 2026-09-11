@@ -71,7 +71,7 @@ function columnas(filtrado: boolean): ColumnDef<Deudor>[] {
     // Va a la MISMA pantalla de cobro del equipo, que llama a registrar_cobro.
     // No hay un cobro «rápido» aparte: la imputación se elige, y elegirla es
     // justamente lo que no se puede hacer desde una lista (regla 10).
-    { key: 'accion', label: '', width: 92 },
+    { key: 'accion', label: '', width: 92, interactiva: true },
   ]
 }
 

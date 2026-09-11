@@ -18,7 +18,29 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
-<<<<<<< HEAD
+### 🆕 ALTA DE EQUIPO en la app + dato de policy · 11/09/2026 · para Horacio
+
+Del diagnóstico end-to-end (informe con todos los hallazgos:
+https://claude.ai/code/artifact/8c20c343-9803-4692-a1ab-e99985db2738) salió
+que un equipo nuevo sólo podía nacer por SQL — el mismo hueco que sponsors
+tenía antes de `/sponsors/nuevo`. Cerrado con `/equipos/nuevo` + Server Action
+`crearEquipo` (catalogada como `equipo.crear`, admin·operador·finanzas).
+
+**Dato para vos**: la policy de INSERT de `tercero` es `authenticated` sin
+distinción de rol (`tercero_insert_autenticado`), así que la defensa real es
+el `exigirRol` de la acción — mismo esquema que `usuario.gestionar`. Si
+preferís apretarla por rol como hiciste con `proveedor`, la acción y el
+catálogo ya están; sería sólo la migración de policy.
+
+También del diagnóstico, arreglado en front sin tocar tu carril: el overlay
+del link de fila de `DataTable` dejaba muertos los botones de otras columnas
+en desktop («Cobrar» de /cobranza incluido — flag `interactiva` por columna),
+`borrar_serie`/`borrar_categoria` ahora confirman antes de ejecutar, el
+inicio respeta los roles del Sidebar (el bar ve su propia home), y las
+tarjetas de /configuracion ya no dicen «3 plantillas» en Usuarios.
+
+---
+
 ### 🟢 Sesión de UX en Inicio · varias rondas de ajuste visual · para Facu
 
 Trabajo de Horacio de hoy, varios commits (76036d5 en adelante hasta 55f062e), todo en /inicio:
@@ -43,7 +65,9 @@ Trabajo de Horacio de hoy, varios commits (76036d5 en adelante hasta 55f062e), t
 
 Todo verificado con tsc + build en cada paso. verificar:permisos no corrió
 (sin DATABASE_URL en este entorno) — no aplica, ningún cambio tocó SQL.
-=======
+
+---
+
 ### 🔴 BUG DE TU MOTOR arreglado · gasto_medio_pago_check no conocía efectivo_transito · 09/09/2026 · para Horacio
 
 Al darle pantalla al circuito de tránsito apareció: `pagar_gasto` valida y

@@ -133,9 +133,9 @@ export default function InscribirEquipo({
       {equipos.length === 0 ? (
         <p className="rounded-md bg-panel px-4 py-3 text-[11px] text-muted">
           Todos los equipos cargados ya tienen ficha en este torneo. Un equipo nuevo se da de alta
-          primero como cliente, en{' '}
-          <Link href="/clientes" className="font-semibold text-blue-d hover:underline">
-            Clientes
+          primero en el padrón:{' '}
+          <Link href="/equipos/nuevo" className="font-semibold text-blue-d hover:underline">
+            Nuevo equipo
           </Link>
           .
         </p>

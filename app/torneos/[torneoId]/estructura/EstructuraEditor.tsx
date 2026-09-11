@@ -75,6 +75,9 @@ export default function EstructuraEditor({
 
   const [error, setError] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
+  // Borrado en dos pasos: el primer click arma la confirmación, el segundo
+  // ejecuta. Cualquier otra acción la desarma.
+  const [confirmando, setConfirmando] = useState<string | null>(null)
 
   // Clonado
   const [origenId, setOrigenId] = useState<string>(origenes[0]?.torneo_id ?? '')
@@ -256,19 +259,46 @@ export default function EstructuraEditor({
                     >
                       Renombrar
                     </Button>
-                    <Button
-                      size="pill"
-                      variant="tertiary"
-                      icon="borrar"
-                      loading={ocupado === `delcat:${c.id}`}
-                      onClick={() =>
-                        correr(`delcat:${c.id}`, () =>
-                          supabase().rpc('borrar_categoria', { p_categoria_id: c.id }),
-                        )
-                      }
-                    >
-                      Borrar
-                    </Button>
+                    {confirmando === `delcat:${c.id}` ? (
+                      <>
+                        <span className="text-sm font-semibold text-red-600">
+                          ¿Borrar «{c.nombre}»
+                          {c.series.length > 0
+                            ? ` y sus ${c.series.length} serie${c.series.length === 1 ? '' : 's'}`
+                            : ''}
+                          ?
+                        </span>
+                        <Button
+                          size="pill"
+                          icon="borrar"
+                          loading={ocupado === `delcat:${c.id}`}
+                          onClick={async () => {
+                            const ok = await correr(`delcat:${c.id}`, () =>
+                              supabase().rpc('borrar_categoria', { p_categoria_id: c.id }),
+                            )
+                            if (ok) setConfirmando(null)
+                          }}
+                        >
+                          Borrar
+                        </Button>
+                        <Button
+                          size="pill"
+                          variant="tertiary"
+                          onClick={() => setConfirmando(null)}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="pill"
+                        variant="tertiary"
+                        icon="borrar"
+                        onClick={() => setConfirmando(`delcat:${c.id}`)}
+                      >
+                        Borrar
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -309,27 +339,54 @@ export default function EstructuraEditor({
                   >
                     <span className="font-medium text-slate-800">{s.nombre}</span>
                     <span className="text-slate-400">{s.equipos}</span>
-                    <button
-                      className="text-slate-400 hover:text-slate-700"
-                      title="Renombrar"
-                      onClick={() => {
-                        setEditando(`ser:${s.id}`)
-                        setEditNombre(s.nombre)
-                      }}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      className="text-slate-400 hover:text-red-600"
-                      title="Borrar"
-                      onClick={() =>
-                        correr(`delser:${s.id}`, () =>
-                          supabase().rpc('borrar_serie', { p_serie_id: s.id }),
-                        )
-                      }
-                    >
-                      ✕
-                    </button>
+                    {confirmando === `delser:${s.id}` ? (
+                      <>
+                        <span className="text-xs font-semibold text-red-600">¿Borrar?</span>
+                        <Button
+                          size="pill"
+                          icon="borrar"
+                          loading={ocupado === `delser:${s.id}`}
+                          onClick={async () => {
+                            const ok = await correr(`delser:${s.id}`, () =>
+                              supabase().rpc('borrar_serie', { p_serie_id: s.id }),
+                            )
+                            if (ok) setConfirmando(null)
+                          }}
+                        >
+                          Sí
+                        </Button>
+                        <Button
+                          size="pill"
+                          variant="tertiary"
+                          onClick={() => setConfirmando(null)}
+                        >
+                          No
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="text-slate-400 hover:text-slate-700"
+                          title="Renombrar"
+                          aria-label={`Renombrar serie ${s.nombre}`}
+                          onClick={() => {
+                            setEditando(`ser:${s.id}`)
+                            setEditNombre(s.nombre)
+                          }}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          className="text-slate-400 hover:text-red-600"
+                          title="Borrar"
+                          aria-label={`Borrar serie ${s.nombre}`}
+                          disabled={ocupado !== null}
+                          onClick={() => setConfirmando(`delser:${s.id}`)}
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )}
                   </span>
                 ),
               )}

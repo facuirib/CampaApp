@@ -56,9 +56,9 @@ const VE_COMPROBANTE = ['admin', 'operador', 'read-only', 'finanzas']
 /**
  * La celda de Comprobante.
  *
- * El `relative z-10` no es decorativo: el link de la fila cubre la fila entera
- * con un `::after`, y sin esto el clic acá caería en el de la fila —que va a
- * /pagar— en vez de abrir el comprobante.
+ * El link de la fila cubre la fila entera con un `::after`; que el clic acá
+ * no caiga en el de la fila —que va a /pagar— lo resuelve la columna con
+ * `interactiva: true` (ver ColumnDef en DataTable).
  */
 function celdaComprobante(
   gastoId: string,
@@ -70,7 +70,7 @@ function celdaComprobante(
     return (
       <Link
         href={`/gastos/${gastoId}/comprobante`}
-        className="relative z-10 text-[11px] font-semibold text-blue hover:underline"
+        className="text-[11px] font-semibold text-blue hover:underline"
       >
         Ver
       </Link>
@@ -80,7 +80,7 @@ function celdaComprobante(
     return (
       <Link
         href={`/gastos/${gastoId}/comprobante`}
-        className="relative z-10 text-[11px] text-muted hover:text-ink hover:underline"
+        className="text-[11px] text-muted hover:text-ink hover:underline"
       >
         Adjuntar
       </Link>
@@ -101,7 +101,7 @@ const COLUMNAS: ColumnDef<FilaGasto>[] = [
   { key: 'total', label: 'Total', format: 'money', width: 128 },
   { key: 'pago', label: 'Pago', width: 190 },
   { key: 'estado', label: 'Estado', format: 'badge', width: 96 },
-  { key: 'comprobante', label: 'Comprobante', width: 118 },
+  { key: 'comprobante', label: 'Comprobante', width: 118, interactiva: true },
 ]
 
 /** «Fecha 1 · 01/08/2026» para los por fecha; la de devengo para el resto. */

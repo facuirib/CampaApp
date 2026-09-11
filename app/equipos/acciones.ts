@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
+import { exigirRol } from '@/lib/rol-actual'
 
 /**
  * Guardar los datos fiscales y de contacto de un cliente.
@@ -41,6 +42,7 @@ import { createClient } from '@/lib/db/server'
 interface Resultado {
   ok: boolean
   error?: string
+  id?: string
 }
 
 export interface DatosFiscales {
@@ -119,4 +121,62 @@ export async function guardarDatosFiscales(
   revalidatePath('/clientes')
   revalidatePath(`/clientes/${terceroId}`)
   return { ok: true }
+}
+
+/**
+ * Alta de equipo.
+ *
+ * Cierra el circuito que el alta de sponsor ya cerró para el suyo: hasta esta
+ * acción, un equipo nuevo sólo podía nacer por SQL — `crear_equipo_torneo`
+ * exige un tercero que ya exista, y `/equipos` era una lista sin puerta de
+ * entrada.
+ *
+ * Server Action y no función de Postgres, por lo mismo que documenta
+ * `guardarDatosFiscales` acá arriba. Con una diferencia que importa: la policy
+ * de INSERT de `tercero` es de `authenticated` sin distinción de rol, así que
+ * —igual que en `usuario.gestionar`— **el `exigirRol` de acá es la defensa
+ * real**, y así está declarado en el mapa (`equipo.crear`, por `accion`).
+ *
+ * Los datos fiscales NO se piden en el alta: un equipo recién creado se
+ * factura como Consumidor Final, y su ficha tiene el formulario fiscal
+ * (misma decisión, documentada, que el alta de sponsor).
+ */
+
+export interface DatosEquipo {
+  nombre: string
+  delegado: string | null
+  telefono: string | null
+  email: string | null
+}
+
+export async function crearEquipo(datos: DatosEquipo): Promise<Resultado> {
+  // La misma lista que `sponsor.crear`: quien cobra o inscribe tiene que poder
+  // crear la ficha sin pedirle a otro.
+  const permiso = await exigirRol(['admin', 'operador', 'finanzas'])
+  if (!permiso.ok) {
+    return {
+      ok: false,
+      error: `Crear equipos es de administrador, operador o finanzas. ${permiso.error}`,
+    }
+  }
+
+  if (!datos.nombre.trim()) return { ok: false, error: 'El equipo necesita un nombre.' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('tercero')
+    .insert({
+      tipo: 'equipo',
+      nombre: datos.nombre.trim(),
+      delegado: limpiar(datos.delegado),
+      telefono: limpiar(datos.telefono),
+      email: limpiar(datos.email),
+    })
+    .select('id')
+    .single()
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/equipos')
+  return { ok: true, id: data.id }
 }

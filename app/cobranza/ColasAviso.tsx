@@ -27,7 +27,7 @@ const COLUMNAS: ColumnDef<Fila>[] = [
   // —es el candado— pero un equipo puede estar acá con avisos viejos de una
   // etapa anterior, y eso cambia el tono del mensaje que corresponde mandar.
   { key: 'aviso', label: 'Último aviso', width: 150 },
-  { key: 'historial', label: '', width: 116 },
+  { key: 'historial', label: '', width: 116, interactiva: true },
 ]
 
 /** Lo que se sabe de los avisos que ya recibió un equipo. */
