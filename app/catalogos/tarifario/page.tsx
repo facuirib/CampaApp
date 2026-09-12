@@ -5,6 +5,8 @@ import { Badge, DataTable, type CeldaBadge, type ColumnDef } from '@/components/
 import type { Database } from '@/lib/db/database.types'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
+import Link from 'next/link'
+import PestanasTorneo from '@/app/torneos/[torneoId]/PestanasTorneo'
 import EditarPlan from './EditarPlan'
 import NuevaOpcion from './NuevaOpcion'
 
@@ -170,7 +172,17 @@ export default async function TarifarioPage({
 
   return (
     <div className="pb-10">
-      <header className="mb-6">
+      {/* Mismo criterio que /calendario: con ?torneo= explícito se llegó
+          desde la pestaña del torneo, y el viaje vuelve — link + pestañas.
+          Sin parámetro (el módulo suelto, con su default al torneo actual),
+          nada de esto aparece. */}
+      {torneoParam && (
+        <Link href={`/torneos/${torneoParam}`} className="text-[11px] font-semibold text-blue-d hover:underline">
+          ← {torneos.find((t) => t.id === torneoParam)?.nombre ?? 'Volver al torneo'}
+        </Link>
+      )}
+
+      <header className="mb-6 mt-2">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Tarifario</h1>
         <p className="mt-1 text-[12px] text-muted">
           {torneo ? `${torneo} — precios` : 'Precios'} por género y concepto. Cada equipo elige una
@@ -181,6 +193,8 @@ export default async function TarifarioPage({
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
+
+      {torneoParam && <PestanasTorneo activa="tarifario" torneoId={torneoParam} />}
 
       {/* Se muestra siempre, también con un solo torneo: es lo que dice de cuál
           es el tarifario que está abajo. Escondido hasta que haya dos, el día

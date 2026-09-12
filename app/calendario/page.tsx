@@ -5,6 +5,7 @@ import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import { formatDate } from '@/lib/format'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
+import PestanasTorneo from '@/app/torneos/[torneoId]/PestanasTorneo'
 import { DataTable, type CeldaBadge, type ColumnDef } from '@/components/ui'
 
 // v_calendario_jornadas todavía no está en database.types.ts (migración sin
@@ -151,7 +152,18 @@ export default async function CalendarioPage({
 
   return (
     <div className="pb-10">
-      <header className="mb-6">
+      {/* Con ?torneo= se llegó desde la pestaña Calendario del torneo. El
+          viaje tiene que poder volver: el link al detalle y LA MISMA barra de
+          pestañas — así nunca se salió del torneo, aunque la pantalla viva en
+          /calendario. Sin el parámetro, es el módulo suelto de siempre. Lo
+          encontró Facu: entraba por la pestaña y quedaba varado acá. */}
+      {torneo && (
+        <Link href={`/torneos/${torneo}`} className="text-[11px] font-semibold text-blue-d hover:underline">
+          ← {torneosMap.get(torneo) ?? 'Volver al torneo'}
+        </Link>
+      )}
+
+      <header className="mb-6 mt-2">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">Calendario</h1>
         <p className="mt-1 text-[12px] text-muted">
           Jornadas del torneo por serie. Las fechas determinan los vencimientos de las cuotas de
@@ -162,6 +174,8 @@ export default async function CalendarioPage({
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
+
+      {torneo && <PestanasTorneo activa="calendario" torneoId={torneo} />}
 
       {!error && (
         <>
