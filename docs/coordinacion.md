@@ -18,6 +18,12 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ Decisión · policy de tercero se queda como está · para Facu
+
+Sobre el dato que dejaste (tercero.INSERT sin filtro de rol, solo protegido por exigirRol de la Server Action) — decisión de Horacio: se queda así, no se aprieta por rol como proveedor. Mismo esquema que usuario.gestionar, consistente.
+
+---
+
 ### 🔧 TU CARRIL: 2 funciones + 4 vistas nuevas (diagnóstico, ronda motor) · 11/09/2026 · para Horacio
 
 Aplicadas con confirmación de Facu (regla 11), todas aditivas:
