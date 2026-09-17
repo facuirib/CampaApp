@@ -6,6 +6,7 @@ import { ChartBarras, type SerieBarras } from '@/components/ui'
 import { Badge, DataTable, KpiCard, Money, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import MatrizMes, { type DiaCalendario } from './MatrizMes'
 import GastosPlanificados from './GastosPlanificados'
+import PlanesPago, { type PlanPagoFila } from './PlanesPago'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import type { Database } from '@/lib/db/database.types'
@@ -192,7 +193,7 @@ export default async function CalendarioPagosPage({
   if (params.flujo === 'entra') listaQuery = listaQuery.gt('monto', 0)
   if (params.flujo === 'sale') listaQuery = listaQuery.lt('monto', 0)
 
-  const [kpiRes, mesesRes, diasRes, detalleRes, listaRes, planificadosRes, catsRes, torneosRes, gastosLibresRes, rol] = await Promise.all([
+  const [kpiRes, mesesRes, diasRes, detalleRes, listaRes, planificadosRes, catsRes, torneosRes, gastosLibresRes, planPagoRes, rol] = await Promise.all([
     supabase.from('v_calendario_kpi').select('*').maybeSingle(),
     supabase.from('v_calendario_mes').select('*').order('mes'),
     supabase
@@ -211,11 +212,19 @@ export default async function CalendarioPagosPage({
     vista === 'lista' ? listaQuery : Promise.resolve({ data: [], error: null }),
     // Los planificados: la rama manual del estimado.
     supabase.from('gasto_planificado').select('*').order('fecha_esperada'),
-    supabase.from('cat_gasto').select('id, nombre').eq('activo', true).order('nombre'),
+    // `naturaleza` de más: GastosPlanificados no la usa, PlanesPago sí —
+    // filtra qué categoría es compatible con `crear_plan_pago` según haya
+    // torneo o no (docs/arquitectura.md §3.14). Una sola consulta para las
+    // dos, mismo criterio que ya evitaba pedir v_deuda_detalle tres veces.
+    supabase.from('cat_gasto').select('id, nombre, naturaleza').eq('activo', true).order('nombre'),
     supabase.from('torneo').select('id, nombre').eq('activo', true).order('anio', { ascending: false }),
     // Candidatos a «gasto real»: sin plan ya atado. El filtro por categoría lo
     // hace el componente sobre esta lista.
     supabase.from('gasto').select('id, cat_gasto_id, concepto_libre, total, devengado_at').order('devengado_at', { ascending: false }).limit(200),
+    // Los planes de pago. Sin `created_at` en la tabla (nunca lo tuvo), así
+    // que se ordena por cuándo empieza a vencer — lo mismo que el orden de
+    // la tabla de planificados, del más próximo al más lejano.
+    supabase.from('plan_pago').select('*').order('fecha_inicio'),
     rolActual(),
   ])
 
@@ -330,6 +339,62 @@ export default async function CalendarioPagosPage({
   ]
 
   const detalle = (detalleRes.data ?? []) as Vencimiento[]
+
+  // ── Planes de pago: cuotas cumplidas y próxima pendiente ─────────────────
+  //
+  // `plan_pago` no tiene esto en ninguna columna ni vista propia — se arma acá
+  // sobre los `compromiso` de cada plan. Segunda consulta y no parte del
+  // Promise.all de arriba porque depende de los ids que ese Promise.all
+  // devuelve; no hay forma de pedirla en paralelo con lo que todavía no se
+  // tiene.
+  //
+  // Es la excepción a la regla 1 que PlanesPago.tsx documenta en su propio
+  // comentario: no es una suma de plata, es contar filas y encontrar la de
+  // fecha más próxima. Si esta pantalla crece, el camino correcto es una
+  // vista — anotado ahí, no acá.
+  type CompromisoRow = Database['public']['Tables']['compromiso']['Row']
+
+  const planPagoIds = (planPagoRes.data ?? []).map((p) => p.id)
+
+  const compromisosPlanRes = planPagoIds.length
+    ? await supabase.from('compromiso').select('*').in('plan_id', planPagoIds).order('vence_at')
+    : { data: [] as CompromisoRow[], error: null }
+
+  const compromisosPorPlan = new Map<string, CompromisoRow[]>()
+  for (const c of (compromisosPlanRes.data ?? []) as CompromisoRow[]) {
+    if (!c.plan_id) continue
+    const arr = compromisosPorPlan.get(c.plan_id) ?? []
+    arr.push(c)
+    compromisosPorPlan.set(c.plan_id, arr)
+  }
+
+  const planesFilas: PlanPagoFila[] = (planPagoRes.data ?? []).map((p) => {
+    const cuotas = compromisosPorPlan.get(p.id) ?? []
+    const cumplidas = cuotas.filter((c) => c.estado === 'cumplido').length
+    // Ya vienen ordenadas por vence_at (el order de la consulta): la primera
+    // pendiente es la próxima, sin volver a ordenar acá.
+    const proxima = cuotas.find((c) => c.estado === 'pendiente')
+    const cat = (catsRes.data ?? []).find((c) => c.id === p.cat_gasto_id)
+    // Todo compromiso de un plan comparte el mismo torneo_id —lo pone
+    // generar_cuotas_plan una sola vez, al generarlas todas—, así que alcanza
+    // con mirar el primero.
+    const tor = torneosRes.data?.find((t) => t.id === cuotas[0]?.torneo_id)
+
+    return {
+      id: p.id,
+      nombre: p.nombre,
+      organismo: p.organismo,
+      categoria: cat?.nombre ?? '—',
+      torneo: tor?.nombre ?? null,
+      cuotas_total: p.cuotas_total,
+      monto_cuota: p.monto_cuota,
+      cuotas_cumplidas: cumplidas,
+      estado: p.estado,
+      proxima_cuota: proxima
+        ? { compromiso_id: proxima.id, vence_at: proxima.vence_at, monto: proxima.monto }
+        : null,
+    }
+  })
 
   return (
     <div className="pb-10">
@@ -673,6 +738,17 @@ export default async function CalendarioPagosPage({
               cat_gasto_id: g.cat_gasto_id,
               etiqueta: `${g.concepto_libre ?? 'Gasto'} · ${formatMoney(g.total ?? 0)} · ${formatDate(g.devengado_at)}`,
             }))}
+        />
+      )}
+      {puede(rol, 'gasto.plan_pago') && (
+        <PlanesPago
+          planes={planesFilas}
+          categorias={(catsRes.data ?? []).map((c) => ({
+            id: c.id,
+            nombre: c.nombre,
+            naturaleza: c.naturaleza,
+          }))}
+          torneos={(torneosRes.data ?? []).map((t) => ({ id: t.id, nombre: t.nombre ?? '—' }))}
         />
       )}
     </div>
