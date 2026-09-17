@@ -311,6 +311,17 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['crear_gasto_planificado', 'marcar_gasto_planificado_ejecutado'] },
   },
+  'gasto.plan_pago': {
+    // El primo de gasto.planificar, para el caso "se sabe el total y la
+    // cantidad de cuotas de antemano" (moratoria, financiación en cuotas).
+    // El alta genera TODAS las cuotas como `compromiso` —entran al cashflow
+    // ya— pero ningún `gasto` todavía; el devengo mensual (patrón
+    // devengar_sueldos_socios: no propone, ejecuta directo) recién ahí carga
+    // el gasto real de esa cuota puntual.
+    que: 'Dar de alta un plan de pago en cuotas y devengar sus cuotas mes a mes',
+    roles: CON_FINANZAS,
+    donde: { fns: ['crear_plan_pago', 'devengar_cuota_plan'] },
+  },
   'gasto.catalogo': {
     // El ABM de los dos ejes del gasto. La coherencia naturaleza × anclaje la
     // valida trg_gasto_coherente al cargar cada gasto — esto arma el catálogo.

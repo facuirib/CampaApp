@@ -3938,6 +3938,7 @@ export type Database = {
       }
       plan_pago: {
         Row: {
+          cat_gasto_id: string
           cuotas_total: number
           dia_vencimiento: number
           estado: string
@@ -3949,6 +3950,7 @@ export type Database = {
           organismo: string | null
         }
         Insert: {
+          cat_gasto_id: string
           cuotas_total: number
           dia_vencimiento?: number
           estado?: string
@@ -3960,6 +3962,7 @@ export type Database = {
           organismo?: string | null
         }
         Update: {
+          cat_gasto_id?: string
           cuotas_total?: number
           dia_vencimiento?: number
           estado?: string
@@ -3970,7 +3973,15 @@ export type Database = {
           nombre?: string
           organismo?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "plan_pago_cat_gasto_id_fkey"
+            columns: ["cat_gasto_id"]
+            isOneToOne: false
+            referencedRelation: "cat_gasto"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_tarifa: {
         Row: {
@@ -6089,11 +6100,11 @@ export type Database = {
       }
       v_cobranza_etapa_total: {
         Row: {
-          etapa: string | null
-          equipos: number | null
           adeudado: number | null
-          vencido: number | null
+          equipos: number | null
+          etapa: string | null
           por_vencer: number | null
+          vencido: number | null
         }
         Relationships: []
       }
@@ -7237,17 +7248,25 @@ export type Database = {
       }
       v_gasto_categoria_anio: {
         Row: {
+          adeudado: number | null
           anio: number | null
+          area: string | null
           cat_gasto_id: string | null
           categoria: string | null
-          naturaleza: string | null
-          area: string | null
           gastos: number | null
-          total: number | null
+          naturaleza: string | null
           pagado: number | null
-          adeudado: number | null
+          total: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gasto_cat_gasto_id_fkey"
+            columns: ["cat_gasto_id"]
+            isOneToOne: false
+            referencedRelation: "cat_gasto"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_gasto_categoria_mes: {
         Row: {
@@ -7542,13 +7561,13 @@ export type Database = {
       }
       v_gasto_naturaleza_anio: {
         Row: {
-          anio: number | null
-          naturaleza: string | null
-          gastos: number | null
-          total: number | null
-          pagado: number | null
           adeudado: number | null
+          anio: number | null
+          gastos: number | null
           gastos_impagos: number | null
+          naturaleza: string | null
+          pagado: number | null
+          total: number | null
         }
         Relationships: []
       }
@@ -9385,6 +9404,19 @@ export type Database = {
         }
         Returns: string
       }
+      crear_plan_pago: {
+        Args: {
+          p_cat_gasto_id: string
+          p_cuotas_total: number
+          p_dia_vencimiento?: number
+          p_fecha_inicio: string
+          p_monto_cuota: number
+          p_nombre: string
+          p_organismo: string
+          p_torneo_id?: string
+        }
+        Returns: string
+      }
       crear_plan_tarifa: {
         Args: {
           p_concepto: Database["public"]["Enums"]["concepto_pago"]
@@ -9463,6 +9495,17 @@ export type Database = {
         Args: { p_cat_gasto_id: string }
         Returns: undefined
       }
+      desglose_iva: {
+        Args: { p_alicuota?: number; p_bruto: number }
+        Returns: {
+          iva: number
+          neto: number
+        }[]
+      }
+      devengar_cuota_plan: {
+        Args: { p_compromiso_id: string; p_created_by?: string }
+        Returns: string
+      }
       devengar_sponsors: {
         Args: { p_created_by?: string; p_periodo_id: string }
         Returns: number
@@ -9470,10 +9513,6 @@ export type Database = {
       devengar_sueldos_socios: {
         Args: { p_created_by?: string; p_periodo_id: string }
         Returns: number
-      }
-      desglose_iva: {
-        Args: { p_bruto: number; p_alicuota?: number }
-        Returns: { neto: number; iva: number }[]
       }
       editar_cat_gasto: {
         Args: {
@@ -9568,7 +9607,10 @@ export type Database = {
         Args: { p_jornada_playoff_id: string }
         Returns: number
       }
-      generar_cuotas_plan: { Args: { p_plan_id: string }; Returns: number }
+      generar_cuotas_plan: {
+        Args: { p_plan_id: string; p_torneo_id?: string }
+        Returns: number
+      }
       generar_grilla_liga: {
         Args: { p_cantidad_fechas: number; p_serie_id: string }
         Returns: number
@@ -9640,10 +9682,6 @@ export type Database = {
         Args: { p_gasto_id: string; p_medio: string }
         Returns: Json
       }
-      proponer_imputacion: {
-        Args: { p_tercero_id: string; p_monto: number; p_torneo_id?: string }
-        Returns: Json
-      }
       proponer_amortizaciones: {
         Args: { p_periodo_id: string }
         Returns: {
@@ -9653,6 +9691,10 @@ export type Database = {
           monto: number
           nombre: string
         }[]
+      }
+      proponer_imputacion: {
+        Args: { p_monto: number; p_tercero_id: string; p_torneo_id?: string }
+        Returns: Json
       }
       reabrir_torneo: {
         Args: { p_motivo: string; p_torneo_id: string }

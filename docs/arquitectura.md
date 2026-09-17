@@ -374,7 +374,7 @@ Ver `001_schema.sql` para el DDL de `cat_gasto`. El **contenido** del catálogo 
 
 Separarlos permite que el P&L y la caja cuenten cosas distintas sin contradecirse. **Esto vale para gastos y sigue vigente**: es la mitad devengada del modelo. Los ingresos van por el camino opuesto —se reconocen recién al cobrar (principio b)—, así que la distinción devengado/pagado aplica a esta tabla y no a los ingresos.
 
-**Coherencia forzada en base.** El trigger `check_gasto_coherente` valida que la naturaleza y el anclaje sean consistentes: un gasto `por_fecha` exige jornada, uno `recurrente` no puede tener torneo, uno `inversion` exige activo.
+**Coherencia forzada en base.** El trigger `check_gasto_coherente` valida que la naturaleza y el anclaje sean consistentes: un gasto `por_fecha` con `unidad_default='por_dia_cancha'` exige predio (ya no jornada — esa exigencia se sacó el 21/08: una fecha llegó a tener hasta 19 jornadas simultáneas, elegir una era inventar un dato), uno `recurrente` no puede tener torneo, uno `inversion` exige activo, y uno `eventual` exige al menos uno entre torneo, predio o activo.
 
 #### Lo que se lee
 
@@ -2336,9 +2336,21 @@ deuda y no se deshace.
 
 ### 3.14 Planes de pago
 
-Cuotas fijas, fechas conocidas: el compromiso más predecible que existe. Al dar de alta un plan, `generar_cuotas_plan()` crea todos sus compromisos.
+Cuotas fijas, fechas conocidas: el compromiso más predecible que existe. **Construido** (antes era schema sin escritor — `plan_pago`/`compromiso` existían desde `001_schema.sql` con `generar_cuotas_plan()` como único consumidor, y nada insertaba en `plan_pago`; quedó documentado como hallazgo de auditoría en §4, "Lo que falta · backend construido, sin pantalla").
 
-Si el plan cae por falta de pago, sus compromisos pendientes se anulan y se alerta: la consecuencia de una moratoria caída es mayor que la cuota impaga.
+No es solo la moratoria con un organismo externo del diseño original: sirve para cualquier "gasto en cuotas" donde el total y la cantidad de cuotas se conocen de antemano — una moratoria, una compra financiada, un arreglo pactado en pagos. `plan_pago` gana `cat_gasto_id`: la categoría con la que cada cuota se va a devengar como gasto real, más adelante.
+
+**Dos pasos, deliberadamente separados — alta y devengo no son el mismo acto.**
+
+**1 · El alta genera el plan entero, de una.** `crear_plan_pago(nombre, organismo, fecha_inicio, cuotas_total, monto_cuota, cat_gasto_id, dia_vencimiento, torneo_id?)` inserta el `plan_pago` y llama a `generar_cuotas_plan()`, que crea las N filas de `compromiso` (`tipo='cuota_plan'`, `sentido='pagar'`) en el mismo momento — **todo el plan visible en `v_cashflow_comprometido` desde el día del alta**, aunque ningún gasto exista todavía. `compromiso.gasto_id` queda `null` en las N filas: es lo que distingue "comprometido" de "ya devengado".
+
+`crear_plan_pago` valida la categoría contra lo que el devengo va a necesitar meses después: `devengar_cuota_plan` solo puede ofrecerle `torneo_id` a `registrar_gasto` (nunca `predio_id` ni `activo_id`), así que se rechaza al alta —no al devengar la cuota 5 con las cuatro anteriores ya pagadas— una categoría `por_fecha` con `unidad_default='por_dia_cancha'` (exige predio) o `inversión` (exige activo) siempre, `recurrente` si el plan tiene torneo, y `eventual` si el plan NO tiene torneo (es la única de sus tres anclas posibles que el devengo puede cubrir). El caso `eventual` se encontró probando con `begin`/`rollback` — el mismo problema que los otros dos, con una naturaleza que no se había considerado.
+
+**2 · El devengo es mensual, no automático — patrón `devengar_sueldos_socios`.** `devengar_cuota_plan(compromiso_id, created_by)` es el botón que alguien aprieta cuando corresponde procesar el mes: toma UN compromiso pendiente, llama `registrar_gasto()` con la categoría del plan, el monto y la fecha de esa cuota puntual, y cierra el círculo — `compromiso.gasto_id` apunta al gasto recién creado, `estado='cumplido'`. No hay cron ni generación automática del gasto real (§3.19, "no es un cron invisible: alguien lo corre al procesar el mes" — mismo principio que `devengar_sueldos_socios`): el sistema no sabe solo que llegó el mes, alguien se lo dice. Idempotente por `compromiso.gasto_id`: una cuota ya devengada se rechaza, no se reprocesa.
+
+**La transición en `v_cashflow_comprometido` es limpia sin tocar la vista.** Su rama de `compromiso` ya filtraba por `estado = 'pendiente'` desde que se escribió (para el caso hipotético de que algún día hubiera filas); en cuanto `devengar_cuota_plan` pasa el estado a `'cumplido'`, esa rama la deja de contar sola, y el `gasto` recién nacido (con `pagado_at` todavía `null`) entra por la rama `gasto_impago` de la misma vista. Comprometido → devengado-impago → (cuando alguien lo pague, vía `pagar_gasto` normal) fuera del cashflow comprometido — sin superposición ni agujero en ningún punto.
+
+**Pendiente, no construido:** el plan que cae por falta de pago. La idea original —anular los compromisos pendientes del plan y alertar, porque la consecuencia de una moratoria caída es mayor que la de una cuota impaga aislada— sigue sin función ni pantalla. Hoy un plan con cuotas vencidas y sin devengar simplemente se acumula como "arrastrada" en el cashflow, igual que cualquier otro comprometido vencido.
 
 ### 3.15 Fondo de inversión
 
