@@ -374,7 +374,11 @@ export default function PlanesPago({
                 ))}
               </Select>
             </Field>
-            <Field label="Fecha de inicio" required hint="Cuándo vence la primera cuota.">
+            <Field
+              label="Fecha de inicio"
+              required
+              hint="El mes de la primera cuota — el día lo define 'Día de vencimiento'."
+            >
               <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
             </Field>
             <Field label="Cantidad de cuotas" required>
