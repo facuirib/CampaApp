@@ -1,16 +1,27 @@
 "use client"
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatDate, formatMoney } from '@/lib/format'
-import { Badge, Button, Field, Input, Select, type EstadoBadge } from '@/components/ui'
+import { Badge, Button, Field, Icon, Input, Select, type EstadoBadge } from '@/components/ui'
 import type { TorneoOpcion } from './GastosPlanificados'
 
 export interface ProximaCuota {
   compromiso_id: string
   vence_at: string
   monto: number
+}
+
+export interface CuotaDetalle {
+  /** No viene de ninguna columna — `compromiso` no tiene "número de cuota",
+   *  sólo la fecha. Se deriva en page.tsx por orden de vence_at, que es
+   *  fiable porque generar_cuotas_plan las crea siempre en ese orden. */
+  numero: number
+  vence_at: string
+  monto: number
+  /** 'pendiente' | 'cumplido' — el estado de `compromiso`, no el del plan. */
+  estado: string
 }
 
 export interface PlanPagoFila {
@@ -26,6 +37,10 @@ export interface PlanPagoFila {
   cuotas_cumplidas: number
   estado: string
   proxima_cuota: ProximaCuota | null
+  /** Todas las cuotas del plan, para el detalle desplegable — no sólo la
+   *  próxima. Mismo origen que cuotas_cumplidas/proxima_cuota: los
+   *  compromiso ya traídos en page.tsx, ordenados por vence_at. */
+  cuotas: CuotaDetalle[]
   /** Si el monto de las cuotas puede ajustar mes a mes. Sin esto en `true`,
    *  devengar_cuota_plan rechaza cualquier monto distinto del pactado — así
    *  que también decide si esta pantalla ofrece editarlo al devengar. */
@@ -99,8 +114,20 @@ export default function PlanesPago({
   // se pisan entre sí. Arranca vacío: hasta que alguien lo toque, el valor
   // que se ve y el que se manda es el proyectado (proxima_cuota.monto).
   const [montosEditados, setMontosEditados] = useState<Record<string, number>>({})
+  // Qué planes tienen el detalle de cuotas desplegado. Por id de plan, no
+  // hay uno "activo" a la vez — varios pueden estar abiertos juntos.
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function toggleExpandido(planId: string) {
+    setExpandidos((prev) => {
+      const next = new Set(prev)
+      if (next.has(planId)) next.delete(planId)
+      else next.add(planId)
+      return next
+    })
+  }
 
   // Qué naturaleza acepta crear_plan_pago según haya torneo o no —
   // trg_gasto_coherente decide, la función lo valida, esto sólo evita
@@ -237,6 +264,7 @@ export default function PlanesPago({
           <table className="w-full text-[12px]">
             <thead className="bg-panel text-[9px] uppercase tracking-[.06em] text-muted">
               <tr>
+                <th className="px-3 py-2" />
                 <th className="px-4 py-2 text-left font-bold">Plan</th>
                 <th className="px-3 py-2 text-left font-bold">Categoría</th>
                 <th className="px-3 py-2 text-right font-bold">Cuotas</th>
@@ -249,86 +277,159 @@ export default function PlanesPago({
             <tbody>
               {planes.map((p) => {
                 const { estado, label } = estadoVisual(p)
+                const abierto = expandidos.has(p.id)
                 return (
-                  <tr
-                    key={p.id}
-                    className={`border-t border-line2 ${!p.proxima_cuota ? 'opacity-60' : ''}`}
-                  >
-                    <td className="px-4 py-2.5 font-semibold text-ink">
-                      {p.nombre}
-                      {p.organismo && (
-                        <span className="ml-1.5 text-[10.5px] font-normal text-muted">
-                          · {p.organismo}
-                        </span>
-                      )}
-                      {p.torneo && (
-                        <span className="ml-1.5 text-[10.5px] font-normal text-muted">
-                          · {p.torneo}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-muted">{p.categoria}</td>
-                    <td className="cifra px-3 py-2.5 text-right font-bold text-ink">
-                      {p.cuotas_cumplidas} / {p.cuotas_total}
-                    </td>
-                    <td className="cifra px-3 py-2.5 text-right text-muted">
-                      {formatMoney(p.monto_cuota)}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <Badge estado={estado}>{label}</Badge>
-                    </td>
-                    <td className="px-3 py-2.5 text-muted">
-                      {p.proxima_cuota ? (
-                        <>
-                          {formatDate(p.proxima_cuota.vence_at)}{' '}
-                          <span className="cifra font-semibold text-ink">
-                            {formatMoney(p.proxima_cuota.monto)}
+                  <Fragment key={p.id}>
+                    <tr className={`border-t border-line2 ${!p.proxima_cuota ? 'opacity-60' : ''}`}>
+                      <td className="px-3 py-2.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandido(p.id)}
+                          aria-expanded={abierto}
+                          aria-label={abierto ? 'Ocultar cuotas' : 'Ver todas las cuotas'}
+                          className="rounded-sm p-1 text-muted hover:bg-row-hover hover:text-ink"
+                        >
+                          <Icon
+                            name="chevronDerecha"
+                            size={11}
+                            className={`transition-transform ${abierto ? 'rotate-90' : ''}`}
+                          />
+                        </button>
+                      </td>
+                      <td className="px-4 py-2.5 font-semibold text-ink">
+                        {p.nombre}
+                        {p.organismo && (
+                          <span className="ml-1.5 text-[10.5px] font-normal text-muted">
+                            · {p.organismo}
                           </span>
-                        </>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-1.5">
-                      {p.proxima_cuota && (
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Editable sólo en planes indexados — en uno fijo,
-                              devengar_cuota_plan rechaza cualquier monto
-                              distinto del pactado, así que ofrecer el campo
-                              acá sería prometer algo que la base no cumple. */}
-                          {p.indexado && (
-                            <Input
-                              type="number"
-                              className="w-28"
-                              disabled={ocupado}
-                              value={montosEditados[p.proxima_cuota.compromiso_id] ?? p.proxima_cuota.monto}
-                              onChange={(e) => {
-                                const id = p.proxima_cuota!.compromiso_id
-                                const v = Number(e.target.value)
-                                setMontosEditados((m) => ({ ...m, [id]: v }))
-                              }}
-                            />
-                          )}
-                          <Button
-                            size="pill"
-                            variant="secondary"
-                            disabled={ocupado}
-                            loading={ocupado && devengando === p.proxima_cuota.compromiso_id}
-                            onClick={() =>
-                              devengar(
-                                p.proxima_cuota!.compromiso_id,
-                                p.indexado
-                                  ? (montosEditados[p.proxima_cuota!.compromiso_id] ?? p.proxima_cuota!.monto)
-                                  : undefined,
-                              )
-                            }
-                          >
-                            Devengar esta cuota
-                          </Button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                        )}
+                        {p.torneo && (
+                          <span className="ml-1.5 text-[10.5px] font-normal text-muted">
+                            · {p.torneo}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted">{p.categoria}</td>
+                      <td className="cifra px-3 py-2.5 text-right font-bold text-ink">
+                        {p.cuotas_cumplidas} / {p.cuotas_total}
+                      </td>
+                      <td className="cifra px-3 py-2.5 text-right text-muted">
+                        {formatMoney(p.monto_cuota)}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Badge estado={estado}>{label}</Badge>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {p.proxima_cuota ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] text-muted">
+                              {formatDate(p.proxima_cuota.vence_at)}
+                            </span>
+                            <span className="cifra font-bold text-ink">
+                              {formatMoney(p.proxima_cuota.monto)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-1.5">
+                        {p.proxima_cuota && (
+                          <div className="flex items-start justify-end gap-1.5">
+                            {/* Editable sólo en planes indexados — en uno fijo,
+                                devengar_cuota_plan rechaza cualquier monto
+                                distinto del pactado, así que ofrecer el campo
+                                acá sería prometer algo que la base no cumple. */}
+                            {p.indexado && (
+                              <Field
+                                label="Monto real de esta cuota"
+                                hint="Se propaga a las cuotas pendientes futuras."
+                                className="w-40"
+                              >
+                                <Input
+                                  type="number"
+                                  disabled={ocupado}
+                                  value={montosEditados[p.proxima_cuota.compromiso_id] ?? p.proxima_cuota.monto}
+                                  onChange={(e) => {
+                                    const id = p.proxima_cuota!.compromiso_id
+                                    const v = Number(e.target.value)
+                                    setMontosEditados((m) => ({ ...m, [id]: v }))
+                                  }}
+                                />
+                              </Field>
+                            )}
+                            {/* `items-start` en vez de `items-end`: con el hint
+                                visible, el hermano más alto es el Field entero
+                                (label + input + hint), así que `items-end`
+                                cuelga el botón del borde del HINT, no del
+                                input. Este `mt` compensa el bloque fijo del
+                                label de Field (h-4 + mb-1.5 = 22px) para que
+                                el botón quede a la altura del input mismo,
+                                haya o no haya hint — y en un plan sin indexar
+                                (sin Field al lado) el margen no se aplica. */}
+                            <div className={p.indexado ? 'mt-[22px]' : undefined}>
+                              <Button
+                                size="pill"
+                                variant="secondary"
+                                disabled={ocupado}
+                                loading={ocupado && devengando === p.proxima_cuota.compromiso_id}
+                                onClick={() =>
+                                  devengar(
+                                    p.proxima_cuota!.compromiso_id,
+                                    p.indexado
+                                      ? (montosEditados[p.proxima_cuota!.compromiso_id] ?? p.proxima_cuota!.monto)
+                                      : undefined,
+                                  )
+                                }
+                              >
+                                Devengar esta cuota
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                    {abierto && (
+                      <tr className="border-t border-line2 bg-panel">
+                        <td colSpan={8} className="px-4 py-3">
+                          {/* Sin `w-full`: con colSpan={8} el contenedor es
+                              tan ancho como la tabla de afuera, y una tabla
+                              interna forzada a llenarlo reparte el sobrante
+                              entre las columnas — eso era lo desparramado.
+                              Sin esa clase, se achica al contenido. */}
+                          <table className="text-[11px]">
+                            <thead className="text-[8.5px] uppercase tracking-[.06em] text-muted">
+                              <tr>
+                                <th className="px-2 pb-1.5 text-left font-bold">Cuota</th>
+                                <th className="px-2 pb-1.5 text-left font-bold">Vence</th>
+                                <th className="px-2 pb-1.5 text-right font-bold">Monto</th>
+                                <th className="px-2 pb-1.5 text-left font-bold">Estado</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {p.cuotas.map((c) => {
+                                const cuotaEstado = cuotaEstadoVisual(c.estado)
+                                return (
+                                  <tr key={c.numero} className="border-t border-line2/60">
+                                    <td className="px-2 py-1.5 text-muted">
+                                      {c.numero} / {p.cuotas_total}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-muted">{formatDate(c.vence_at)}</td>
+                                    <td className="cifra px-2 py-1.5 text-right text-ink">
+                                      {formatMoney(c.monto)}
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      <Badge estado={cuotaEstado.estado}>{cuotaEstado.label}</Badge>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 )
               })}
             </tbody>
@@ -449,4 +550,15 @@ function estadoVisual(p: PlanPagoFila): { estado: EstadoBadge; label: string } {
   if (p.estado === 'caido') return { estado: 'mora', label: 'Caído' }
   if (p.estado === 'finalizado') return { estado: 'ok', label: 'Completo' }
   return { estado: 'info', label: 'Vigente' }
+}
+
+/**
+ * El estado de UNA cuota (`compromiso.estado`), no el del plan —
+ * 'pendiente' | 'cumplido'. Mismo par que ya usa GastosPlanificados.tsx para
+ * su propio 'pendiente'/'ejecutado': ámbar mientras falta, verde una vez
+ * devengada.
+ */
+function cuotaEstadoVisual(estado: string): { estado: EstadoBadge; label: string } {
+  if (estado === 'cumplido') return { estado: 'ok', label: 'Cumplida' }
+  return { estado: 'porVencer', label: 'Pendiente' }
 }

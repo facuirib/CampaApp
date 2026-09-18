@@ -7,6 +7,11 @@ import { Badge, DataTable, KpiCard, Money, type CeldaBadge, type ColumnDef } fro
 import MatrizMes, { type DiaCalendario } from './MatrizMes'
 import GastosPlanificados from './GastosPlanificados'
 import PlanesPago, { type PlanPagoFila } from './PlanesPago'
+import {
+  etiquetaOrigen,
+  hrefOrigenComprometido,
+  ORIGENES_COMPROMETIDO_FILTRO,
+} from '@/lib/domain/cashflow'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
 import type { Database } from '@/lib/db/database.types'
@@ -31,53 +36,19 @@ type Vencimiento = Database['public']['Views']['v_cashflow_comprometido']['Row']
  * celda. El front sólo dibuja.
  */
 
-const ROTULO_ORIGEN: Record<string, string> = {
-  cuota_equipo: 'Cuota de equipo',
-  cuota_sponsor: 'Cuota de sponsor',
-  gasto_impago: 'Gasto impago',
-  cheque_recibido: 'Cheque recibido',
-  cheque_emitido: 'Cheque emitido',
-  compromiso_factura: 'Factura',
-  compromiso_cuota_plan: 'Cuota de plan',
-  compromiso_cheque_emitido: 'Cheque emitido',
-  compromiso_cheque_recibido: 'Cheque recibido',
-  compromiso_otro: 'Compromiso',
-  // Los sueldos de socios entraron al comprometido el 29/08 y esta pantalla no
-  // se enteró: sin rótulo salían con la clave cruda («sueldo_socio») en la
-  // columna Tipo, y sin href rompían la lista entera. Ver `hrefOrigen`.
-  sueldo_socio: 'Sueldo de socio',
-}
-
-function rotulo(origen: string | null): string {
-  if (!origen) return '—'
-  return ROTULO_ORIGEN[origen] ?? origen
-}
-
 /**
- * A dónde lleva cada vencimiento.
- *
- * El destino lo decide `origen`, no `tercero_id`: un NULL ahí no significa que
- * no se pueda enlazar, significa que no se enlaza por tercero. Los gastos y los
- * cheques se abren por su propio registro; las cuotas, por su contraparte.
- *
- * Enlaces y nada más: son pantallas de otro carril y se cruzan con un `<Link>`,
- * no se tocan por dentro.
+ * `rotulo` y `hrefOrigen` vivían acá enteros — se mudaron a
+ * `lib/domain/cashflow.ts` (regla del vocabulario: una sola tabla de
+ * presentación) porque `/proyeccion` necesita el mismo mapa, ampliado a los
+ * niveles real/estimado que esta pantalla nunca usó. Quedan estos dos wrappers
+ * finitos para no tocar cada `rotulo(...)`/`hrefOrigen(...)` de abajo.
  */
+function rotulo(origen: string | null): string {
+  return etiquetaOrigen(origen)
+}
+
 function hrefOrigen(v: Vencimiento): string | null {
-  const o = v.origen ?? ''
-  if (o === 'cuota_equipo') return v.tercero_id ? `/equipos/${v.tercero_id}` : '/equipos'
-  if (o === 'cuota_sponsor') return v.tercero_id ? `/sponsors/${v.tercero_id}` : '/sponsors'
-  if (o.startsWith('cheque_')) return v.origen_id ? `/cheques/${v.origen_id}` : '/cheques'
-  if (o === 'gasto_impago') return '/gastos'
-  // El origen que rompía la lista. `v_cashflow_comprometido` empezó a devolver
-  // `sueldo_socio` el 29/08 —dos fuentes: el sueldo proyectado de cada mes y el
-  // saldo a favor arrastrado— y acá caía en el `return null` de abajo.
-  //
-  // El calendario nunca lo notó porque no usa esta función; la LISTA sí, y con
-  // `href` en null la fila terminaba en un `<Link href="">`, que Next rechaza.
-  // Nueve filas alcanzaban para tumbar las 285.
-  if (o === 'sueldo_socio') return v.tercero_id ? `/socios/${v.tercero_id}` : '/socios'
-  return null
+  return hrefOrigenComprometido(v.origen, v.tercero_id, v.origen_id)
 }
 
 function mesLegible(iso: string): string {
@@ -332,9 +303,7 @@ export default async function CalendarioPagosPage({
       parametro: 'origen',
       label: 'Tipo',
       todos: 'Todos',
-      opciones: Object.entries(ROTULO_ORIGEN)
-        .filter(([k]) => !k.startsWith('compromiso_'))
-        .map(([valor, label]) => ({ valor, label })),
+      opciones: ORIGENES_COMPROMETIDO_FILTRO,
     },
   ]
 
@@ -394,6 +363,15 @@ export default async function CalendarioPagosPage({
       proxima_cuota: proxima
         ? { compromiso_id: proxima.id, vence_at: proxima.vence_at, monto: proxima.monto }
         : null,
+      // El detalle completo para el desplegable de PlanesPago.tsx. `numero`
+      // no sale de ninguna columna —`compromiso` no tiene una—, se deriva
+      // del orden por vence_at, ya garantizado arriba.
+      cuotas: cuotas.map((c, i) => ({
+        numero: i + 1,
+        vence_at: c.vence_at,
+        monto: c.monto,
+        estado: c.estado,
+      })),
     }
   })
 

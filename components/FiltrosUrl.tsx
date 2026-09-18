@@ -42,9 +42,29 @@ export interface BusquedaUrl {
   ancho?: string
 }
 
+/**
+ * Dos fechas en la misma barra, opcional.
+ *
+ * `FiltroUrl` no alcanza para esto: sus opciones son una lista fija de
+ * `<option>`, y una fecha es un rango abierto. Dos `<input type="date">`
+ * aparte, mismo mecanismo de URL que el resto —`cambiar()` ya es genérico,
+ * no le importa si el valor es un id o una fecha—.
+ */
+export interface RangoFechaUrl {
+  /** Parámetro de la fecha desde, inclusive. */
+  desdeParametro: string
+  /** Parámetro de la fecha hasta, inclusive. */
+  hastaParametro: string
+  labelDesde?: string
+  labelHasta?: string
+}
+
 export interface FiltrosUrlProps {
   filtros: FiltroUrl[]
   busqueda?: BusquedaUrl
+  /** Sin esto, cero cambio: las pantallas que ya usan este componente —
+   *  `/calendario-pagos`— no se enteran. */
+  rangoFecha?: RangoFechaUrl
 }
 
 /**
@@ -64,7 +84,7 @@ export interface FiltrosUrlProps {
  * agrega un paso que nadie espera. `scroll: false` evita el salto al tope
  * cuando alguien filtra con la tabla ya scrolleada.
  */
-export default function FiltrosUrl({ filtros, busqueda }: FiltrosUrlProps) {
+export default function FiltrosUrl({ filtros, busqueda, rangoFecha }: FiltrosUrlProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -127,6 +147,24 @@ export default function FiltrosUrl({ filtros, busqueda }: FiltrosUrlProps) {
           </Select>
         </Field>
       ))}
+      {rangoFecha && (
+        <>
+          <Field label={rangoFecha.labelDesde ?? 'Desde'} className="w-[150px]">
+            <Input
+              type="date"
+              value={searchParams.get(rangoFecha.desdeParametro) ?? ''}
+              onChange={(e) => cambiar(rangoFecha.desdeParametro, e.target.value)}
+            />
+          </Field>
+          <Field label={rangoFecha.labelHasta ?? 'Hasta'} className="w-[150px]">
+            <Input
+              type="date"
+              value={searchParams.get(rangoFecha.hastaParametro) ?? ''}
+              onChange={(e) => cambiar(rangoFecha.hastaParametro, e.target.value)}
+            />
+          </Field>
+        </>
+      )}
     </div>
   )
 }
