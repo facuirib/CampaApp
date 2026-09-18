@@ -26,6 +26,10 @@ export interface PlanPagoFila {
   cuotas_cumplidas: number
   estado: string
   proxima_cuota: ProximaCuota | null
+  /** Si el monto de las cuotas puede ajustar mes a mes. Sin esto en `true`,
+   *  devengar_cuota_plan rechaza cualquier monto distinto del pactado — así
+   *  que también decide si esta pantalla ofrece editarlo al devengar. */
+  indexado: boolean
 }
 
 export interface CategoriaPlanOpcion {
@@ -88,7 +92,13 @@ export default function PlanesPago({
   const [diaVencimiento, setDiaVencimiento] = useState(15)
   const [cat, setCat] = useState(catPlanesDePago ?? '')
   const [torneo, setTorneo] = useState('')
+  const [indexado, setIndexado] = useState(false)
   const [devengando, setDevengando] = useState<string | null>(null)
+  // El monto editado por fila, mientras se lo toca. Clave = compromiso_id de
+  // la próxima cuota, así que dos planes indexados con acción pendiente no
+  // se pisan entre sí. Arranca vacío: hasta que alguien lo toque, el valor
+  // que se ve y el que se manda es el proyectado (proxima_cuota.monto).
+  const [montosEditados, setMontosEditados] = useState<Record<string, number>>({})
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -119,6 +129,7 @@ export default function PlanesPago({
     setDiaVencimiento(15)
     setCat(catPlanesDePago ?? '')
     setTorneo('')
+    setIndexado(false)
   }
 
   async function crear() {
@@ -135,6 +146,7 @@ export default function PlanesPago({
       p_monto_cuota: montoCuota,
       p_cat_gasto_id: cat,
       p_dia_vencimiento: diaVencimiento,
+      p_indexado: indexado,
       ...(torneo ? { p_torneo_id: torneo } : {}),
     })
     setOcupado(false)
@@ -143,7 +155,7 @@ export default function PlanesPago({
     router.refresh()
   }
 
-  async function devengar(compromisoId: string) {
+  async function devengar(compromisoId: string, montoReal?: number) {
     setOcupado(true)
     setDevengando(compromisoId)
     setError(null)
@@ -166,11 +178,23 @@ export default function PlanesPago({
     const { error: err } = await supabase.rpc('devengar_cuota_plan', {
       p_compromiso_id: compromisoId,
       p_created_by: user.id,
+      // Sólo se manda si el plan es indexado y hay un valor tocado — un plan
+      // fijo nunca pasa por acá con esta clave, así que devengar_cuota_plan
+      // ni se entera de que existió la posibilidad de mandarlo.
+      ...(montoReal !== undefined ? { p_monto_real: montoReal } : {}),
     })
 
     setOcupado(false)
     setDevengando(null)
     if (err) return setError(err.message)
+    // El editado de ESTA fila ya cumplió su función — la próxima vez que el
+    // plan tenga una cuota pendiente va a ser OTRO compromiso_id, con su
+    // propio proyectado.
+    setMontosEditados((m) => {
+      const copia = { ...m }
+      delete copia[compromisoId]
+      return copia
+    })
     router.refresh()
   }
 
@@ -196,7 +220,10 @@ export default function PlanesPago({
         cada una recién se carga al devengarla, un mes a la vez — no hay generación
         automática: alguien aprieta{' '}
         <strong className="font-semibold text-ink">«Devengar esta cuota»</strong> cuando
-        corresponde procesar ese mes.
+        corresponde procesar ese mes. En un plan{' '}
+        <strong className="font-semibold text-ink">indexado</strong>, el monto de esa cuota
+        se puede corregir al devengarla — la corrección queda como referencia en las cuotas
+        pendientes que vencen después, no en las que ya se devengaron.
       </p>
 
       {error && (
@@ -262,17 +289,43 @@ export default function PlanesPago({
                         '—'
                       )}
                     </td>
-                    <td className="px-4 py-1.5 text-right">
+                    <td className="px-4 py-1.5">
                       {p.proxima_cuota && (
-                        <Button
-                          size="pill"
-                          variant="secondary"
-                          disabled={ocupado}
-                          loading={ocupado && devengando === p.proxima_cuota.compromiso_id}
-                          onClick={() => devengar(p.proxima_cuota!.compromiso_id)}
-                        >
-                          Devengar esta cuota
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Editable sólo en planes indexados — en uno fijo,
+                              devengar_cuota_plan rechaza cualquier monto
+                              distinto del pactado, así que ofrecer el campo
+                              acá sería prometer algo que la base no cumple. */}
+                          {p.indexado && (
+                            <Input
+                              type="number"
+                              className="w-28"
+                              disabled={ocupado}
+                              value={montosEditados[p.proxima_cuota.compromiso_id] ?? p.proxima_cuota.monto}
+                              onChange={(e) => {
+                                const id = p.proxima_cuota!.compromiso_id
+                                const v = Number(e.target.value)
+                                setMontosEditados((m) => ({ ...m, [id]: v }))
+                              }}
+                            />
+                          )}
+                          <Button
+                            size="pill"
+                            variant="secondary"
+                            disabled={ocupado}
+                            loading={ocupado && devengando === p.proxima_cuota.compromiso_id}
+                            onClick={() =>
+                              devengar(
+                                p.proxima_cuota!.compromiso_id,
+                                p.indexado
+                                  ? (montosEditados[p.proxima_cuota!.compromiso_id] ?? p.proxima_cuota!.monto)
+                                  : undefined,
+                              )
+                            }
+                          >
+                            Devengar esta cuota
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -349,6 +402,17 @@ export default function PlanesPago({
               />
             </Field>
           </div>
+
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-[11px] text-ink">
+            <input
+              type="checkbox"
+              checked={indexado}
+              onChange={(e) => setIndexado(e.target.checked)}
+              className="size-3.5 accent-blue"
+            />
+            Este plan se indexa (el monto puede cambiar mes a mes)
+          </label>
+
           <div className="mt-4 flex gap-2">
             <Button icon="check" loading={ocupado} disabled={!puedeCrear} onClick={crear}>
               Crear plan

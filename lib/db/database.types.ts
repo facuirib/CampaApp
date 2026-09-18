@@ -9410,6 +9410,7 @@ export type Database = {
           p_cuotas_total: number
           p_dia_vencimiento?: number
           p_fecha_inicio: string
+          p_indexado?: boolean
           p_monto_cuota: number
           p_nombre: string
           p_organismo: string
@@ -9503,7 +9504,11 @@ export type Database = {
         }[]
       }
       devengar_cuota_plan: {
-        Args: { p_compromiso_id: string; p_created_by?: string }
+        Args: {
+          p_compromiso_id: string
+          p_created_by?: string
+          p_monto_real?: number
+        }
         Returns: string
       }
       devengar_sponsors: {

@@ -390,6 +390,7 @@ export default async function CalendarioPagosPage({
       monto_cuota: p.monto_cuota,
       cuotas_cumplidas: cumplidas,
       estado: p.estado,
+      indexado: p.indexado,
       proxima_cuota: proxima
         ? { compromiso_id: proxima.id, vence_at: proxima.vence_at, monto: proxima.monto }
         : null,
