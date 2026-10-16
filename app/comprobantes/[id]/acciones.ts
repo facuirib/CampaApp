@@ -329,6 +329,121 @@ export async function enviarComprobanteMail(
  * Mismo rol que el envío: es el mismo acto —comunicarle el comprobante a un
  * tercero— por otro medio.
  */
+/**
+ * El envío automático post-cobro y post-emisión.
+ *
+ * Pedido de Facu (16/10): registrado el cobro, el recibo tiene que salir solo
+ * al mail del equipo — sin el viaje a Comprobantes a buscar el botón. Lo mismo
+ * al emitir una factura.
+ *
+ * ── La regla que manda: el mail NUNCA rompe el cobro ──────────────────────
+ *
+ * Esto corre DESPUÉS de que el cobro o la emisión ya están firmes en la base.
+ * Devuelve siempre un resultado —enviado, o el aviso de por qué no— y jamás
+ * tira: un Resend caído no puede convertir un cobro exitoso en un error. La
+ * pantalla muestra lo que pasó con el mail al lado del éxito del cobro.
+ *
+ * El destinatario se resuelve por el ORIGEN del comprobante: pago → equipo, o
+ * cuota de sponsor → contrato → sponsor. Sin mail cargado no es un error: es
+ * un aviso («cargale el mail en su ficha»).
+ */
+export async function enviarAutomaticoComprobante(
+  comprobanteId: string,
+): Promise<{ enviado: boolean; destino?: string; aviso?: string }> {
+  try {
+    const supabase = await createClient()
+
+    const { data: comp } = await supabase
+      .from('comprobante')
+      .select('pago_id, cuota_cobro_sponsor_id')
+      .eq('id', comprobanteId)
+      .maybeSingle()
+    if (!comp) return { enviado: false, aviso: 'no se encontró el comprobante' }
+
+    let terceroId: string | null = null
+    if (comp.pago_id) {
+      const { data: pago } = await supabase
+        .from('pago')
+        .select('tercero_id')
+        .eq('id', comp.pago_id)
+        .maybeSingle()
+      terceroId = pago?.tercero_id ?? null
+    } else if (comp.cuota_cobro_sponsor_id) {
+      const { data: cuota } = await supabase
+        .from('cuota_cobro_sponsor')
+        .select('contrato_id')
+        .eq('id', comp.cuota_cobro_sponsor_id)
+        .maybeSingle()
+      if (cuota?.contrato_id) {
+        const { data: contrato } = await supabase
+          .from('contrato_sponsor')
+          .select('sponsor_id')
+          .eq('id', cuota.contrato_id)
+          .maybeSingle()
+        terceroId = contrato?.sponsor_id ?? null
+      }
+    }
+    if (!terceroId) return { enviado: false, aviso: 'sin destinatario asociado' }
+
+    const { data: tercero } = await supabase
+      .from('tercero')
+      .select('email')
+      .eq('id', terceroId)
+      .maybeSingle()
+    const email = tercero?.email?.trim()
+    if (!email) return { enviado: false, aviso: 'no tiene mail cargado en su ficha' }
+
+    const r = await enviarComprobanteMail(comprobanteId, email, false)
+    if (!r.ok) return { enviado: false, destino: email, aviso: r.error ?? 'el envío falló' }
+    if (r.dryRun) return { enviado: false, destino: email, aviso: 'el mail no está configurado en este entorno' }
+    return { enviado: true, destino: email }
+  } catch (e) {
+    return { enviado: false, aviso: e instanceof Error ? e.message : 'el envío falló' }
+  }
+}
+
+/** La variante por cuota de sponsor: su recibo cuelga de la cuota, no de un pago. */
+export async function enviarReciboDeCuotaSponsor(
+  cuotaId: string,
+): Promise<{ enviado: boolean; destino?: string; aviso?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('comprobante')
+      .select('id')
+      .eq('cuota_cobro_sponsor_id', cuotaId)
+      .eq('tipo_comprobante', 0)
+      .order('numero', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!data) return { enviado: false, aviso: 'el cobro no generó recibo' }
+    return enviarAutomaticoComprobante(data.id)
+  } catch (e) {
+    return { enviado: false, aviso: e instanceof Error ? e.message : 'el envío falló' }
+  }
+}
+
+/** La variante por pago, para el final del cobro: encuentra SU recibo y delega. */
+export async function enviarReciboDePago(
+  pagoId: string,
+): Promise<{ enviado: boolean; destino?: string; aviso?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('comprobante')
+      .select('id')
+      .eq('pago_id', pagoId)
+      .eq('tipo_comprobante', 0)
+      .order('numero', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!data) return { enviado: false, aviso: 'el cobro no generó recibo' }
+    return enviarAutomaticoComprobante(data.id)
+  } catch (e) {
+    return { enviado: false, aviso: e instanceof Error ? e.message : 'el envío falló' }
+  }
+}
+
 export async function guardarTelefonoTercero(
   terceroId: string,
   telefono: string,

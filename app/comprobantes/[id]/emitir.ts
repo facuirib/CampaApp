@@ -35,8 +35,12 @@ const DOC_SIN_IDENTIFICAR = { tipo: 99, nro: '0' }
  */
 const esProduccion = () => process.env.ARCA_PRODUCCION === 'true'
 
+import { enviarAutomaticoComprobante } from './acciones'
+
 export interface ResultadoEmision {
   ok: boolean
+  /** Qué pasó con el mail automático post-emisión. Solo en éxito. */
+  mail?: { enviado: boolean; destino?: string; aviso?: string }
   /** Falló antes de tocar ARCA: no se emitió nada y no se consumió número. */
   error?: string
   /** ARCA contestó que no. El número queda liberado para el reintento. */
@@ -150,8 +154,13 @@ export async function emitirFacturaDeCobro(
       }
     }
 
+    // La factura quedó firme con su CAE: el mail sale solo, y si falla no
+    // mancha la emisión — se informa al lado del éxito (pedido de Facu).
+    const mail = r.comprobanteId ? await enviarAutomaticoComprobante(r.comprobanteId) : undefined
+
     return {
       ok: true,
+      mail,
       comprobanteId: r.comprobanteId,
       numero: r.numero,
       puntoVenta,

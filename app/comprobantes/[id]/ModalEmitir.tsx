@@ -74,6 +74,11 @@ export default function ModalEmitir({
                 CAE {resultado.cae}
                 {resultado.caeVencimiento ? ` · vence ${resultado.caeVencimiento}` : ''}
               </p>
+              <p className="mt-1 text-[11px] text-muted">
+                {resultado.mail?.enviado
+                  ? `Enviada por mail a ${resultado.mail.destino}.`
+                  : `No se envió por mail: ${resultado.mail?.aviso ?? 'sin datos de envío'}.`}
+              </p>
             </div>
             {!resultado.produccion && (
               <p className="mt-3 rounded-md bg-warnbg px-3 py-2 text-[11px] text-warntx">

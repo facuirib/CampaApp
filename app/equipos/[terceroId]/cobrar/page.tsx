@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
+import { enviarReciboDePago } from '@/app/comprobantes/[id]/acciones'
 import { formatMoney, parsearMonto } from '@/lib/format'
 import PreviewCobro from '@/components/PreviewCobro'
 import {
@@ -286,7 +287,7 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
     // sino a EFECTIVO_EN_TRANSITO — el responsable la tiene encima y la
     // liquida en un predio después, desde /caja. La selección de cuotas y las
     // imputaciones son exactamente las mismas.
-    const { error } =
+    const { data: pagoId, error } =
       medio === 'efectivo_transito'
         ? await supabase.rpc('recibir_efectivo_en_transito', {
             p_tercero_id: terceroId,
@@ -310,17 +311,30 @@ export default function CobrarPage({ params }: { params: Promise<{ terceroId: st
             p_cheque_fecha_cobro: medio === 'cheque' ? chequeFechaCobro : undefined,
           })
 
-    setRegistrando(false)
-
     if (error) {
+      setRegistrando(false)
       setErrorRegistro(error.message)
       return
     }
 
+    // ── El recibo sale solo (pedido de Facu, 16/10) ─────────────────────
+    // DESPUÉS de que el cobro quedó firme, y sin poder romperlo: la acción
+    // nunca tira — devuelve enviado o el motivo, y acá solo se cuenta.
+    // El tránsito no genera recibo (la plata entra al liquidarse): no se
+    // intenta, para no mostrar un aviso confuso.
+    let mail = ''
+    if (medio !== 'efectivo_transito' && typeof pagoId === 'string') {
+      const envio = await enviarReciboDePago(pagoId)
+      mail = envio.enviado
+        ? ` Recibo enviado a ${envio.destino}.`
+        : ` Recibo generado — no se envió por mail: ${envio.aviso}.`
+    }
+    setRegistrando(false)
+
     setResultadoExito(
-      medio === 'cheque'
+      (medio === 'cheque'
         ? `Pago de ${formatMoney(monto)} registrado. El cheque ${chequeNumero.trim()} queda pendiente hasta que se acredite.`
-        : `Pago de ${formatMoney(monto)} registrado correctamente.`,
+        : `Pago de ${formatMoney(monto)} registrado correctamente.`) + mail,
     )
     setMonto(0)
     setPredioId(null)

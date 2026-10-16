@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
+import { enviarReciboDeCuotaSponsor } from '@/app/comprobantes/[id]/acciones'
 import { formatDate, formatMoney } from '@/lib/format'
 import { Badge, Button, DataTable, Field, Input, Select, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
@@ -173,8 +174,14 @@ export default function CobrarSponsorPage({
       return
     }
 
+    // El recibo sale solo al mail del sponsor (pedido de Facu, 16/10). La
+    // acción nunca tira: si falla, el cobro quedó bien y acá solo se cuenta.
+    const envio = await enviarReciboDeCuotaSponsor(elegida.cuota_id!)
     setExito(
-      `Cobro de ${formatMoney(elegida.monto ?? 0)} registrado. Se generó el recibo — podés verlo en Comprobantes.`,
+      `Cobro de ${formatMoney(elegida.monto ?? 0)} registrado.` +
+        (envio.enviado
+          ? ` Recibo enviado a ${envio.destino}.`
+          : ` Recibo generado — no se envió por mail: ${envio.aviso}.`),
     )
     setPredioId(null)
     setRecarga((n) => n + 1)
