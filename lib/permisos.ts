@@ -570,6 +570,18 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['registrar_movimiento_fondo'] },
   },
+  'ingreso_extraordinario.registrar': {
+    // PROPUESTA — las migraciones todavía no están aplicadas (ver
+    // docs/coordinacion.md). Esta entrada ya cataloga las dos funciones para
+    // que verificar:permisos no quede en rojo el día que se apliquen.
+    //
+    // SENSIBLE y no CON_FINANZAS: es un cobro que no pasa por ninguna cuota
+    // ni circuito con su propia guarda — la única barrera es ésta, así que
+    // va con el mismo peso que anular un asiento suelto.
+    que: 'Registrar o anular un ingreso que no es cuota, sponsor ni bar',
+    roles: SENSIBLE,
+    donde: { fns: ['registrar_ingreso_extraordinario', 'anular_ingreso_extraordinario'] },
+  },
   // ── Societario ───────────────────────────────────────────────────────────
   //
   // Los tres van a SENSIBLE —admin y finanzas— porque son la plata de los

@@ -18,6 +18,90 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔴 REVISAR ANTES DE APLICAR · ingreso extraordinario · para Facu
+
+**Las migraciones de esto NO ESTÁN APLICADAS.** Son tres archivos en
+`supabase/migrations/` (20260918110000, 20260918120000 y 20260918130000),
+cada uno con un header que dice "PROPUESTA, NO APLICAR — pendiente de
+revisión de Facu y de confirmar cuentas con el contador del cliente". No se
+tocó la base hosted para nada de esto.
+
+**Qué es.** Un cobro que no nace de ninguna `cuota` — una donación, la venta
+de un bien, cualquier otro ingreso suelto. Hoy no hay dónde meterlo:
+`registrar_cobro` exige una cuota de por medio, y no existe una cuenta de
+ingreso genérica para algo que no sea inscripción, partido, sponsor o bar.
+
+**Decisiones tomadas:**
+- Tabla propia `ingreso_extraordinario`, no `pago`: `pago.tercero_id` es NOT
+  NULL y bastantes vistas de cobranza asumen que un pago tiene un tercero
+  que debe algo — no siempre es el caso acá.
+- Sólo efectivo y transferencia por ahora: cheque necesita alta en la tabla
+  `cheque` (número, banco, fecha de cobro) y esa parte no está construida.
+- Anulación desde el día uno, por contraasiento — igual que cualquier
+  asiento (regla 4): nunca se edita, nunca se borra.
+- Permisos sólo admin y finanzas (`ingreso_extraordinario.registrar` en
+  `lib/permisos.ts`, ya catalogada).
+- Resultados lo muestra como fila propia sin tocar ninguna vista: `v_pl_mensual`
+  es genérica por `cuenta.id`/`cuenta.tipo`, así que una cuenta nueva aparece
+  sola. Verificado contra la prueba: 12 filas para `ING_DONACIONES`, con el
+  monto en el mes correcto.
+
+**Pruebas hechas**, con `begin`/`rollback` y roles reales (`set_config` +
+`set local role authenticated`, el mismo patrón que `comoRol()` en
+`scripts/tests/comun.ts`):
+- admin registra y la fila queda con `asiento_id` completo, 2 líneas
+  balanceadas (50.000 / 50.000);
+- aparece en `v_pl_mensual` (12 filas para la cuenta, el mes de hoy con el
+  monto correcto);
+- operador rechazado al registrar;
+- operador ve 0 filas, en la tabla y en la vista;
+- finanzas anula, y la segunda anulación sobre el mismo ingreso se rechaza;
+- cuenta protegida (`ING_SPONSORS`, por ejemplo) rechazada;
+- cheque rechazado.
+
+El script completo —autocontenido, con su propio `begin`/`rollback`— está en
+`scripts/tests/ingreso_extraordinario.sql`.
+
+**Lo que descubrimos en el camino:**
+- (a) Insertar la fila sin `asiento_id` y actualizarla después NO funciona:
+  no hay policy de UPDATE sobre `ingreso_extraordinario`, y RLS deniega el
+  UPDATE en silencio —0 filas afectadas, sin error—, dejando `asiento_id` en
+  null para siempre. Por eso el id se genera con `gen_random_uuid()` ANTES
+  de llamar a `crear_asiento`, y el insert es uno solo, con `asiento_id` ya
+  completo (y la columna es NOT NULL, porque nunca hay un estado intermedio
+  sin él).
+- (b) Una vista sin `security_invoker=true` NO respeta la RLS de la tabla de
+  abajo — Postgres la evalúa con los privilegios de quien CREÓ la vista, no
+  de quien la consulta. Ninguna vista de este proyecto usa ese flag hoy
+  (`grep -rn security_invoker supabase/migrations/*.sql` no encuentra nada),
+  y hay un comentario viejo que afirma lo contrario:
+  `20260901290000_usuario_y_diario_autor.sql:29` ("Es SECURITY INVOKER como
+  cualquier vista"). Queda anotado para la próxima auditoría de seguridad —
+  **no se toca hoy**, es un hallazgo aparte de este trabajo.
+
+**Checklist para Facu antes de aplicar:**
+1. Volver a correr `pg_get_constraintdef` sobre `asiento_origen_check` contra
+   la base real y confirmar que la lista no cambió desde el archivo 3.
+2. Correr `scripts/tests/ingreso_extraordinario.sql` completo y verificar que
+   los 7 casos devuelven OK.
+3. Confirmar que `CAJA_EFECTIVO` y `CAJA_TRANSFERENCIA` existen como cuentas.
+4. Revisar el catálogo en `lib/permisos.ts` (entrada
+   `ingreso_extraordinario.registrar`) y correr `npm run verificar:permisos`
+   recién DESPUÉS de aplicar — antes va a estar en rojo porque las funciones
+   todavía no existen.
+5. Regenerar `database.types.ts` (regla 11: toca la base, se avisa antes).
+
+**Pendientes, fuera de esta tanda:**
+- Horacio confirma con el contador del cliente los nombres de las tres
+  cuentas (`ING_DONACIONES`, `ING_VENTA_BIENES`, `ING_OTROS` son
+  provisorios) y si "Venta de bienes" va como ingreso o por baja de activo.
+- Falta la pantalla `/ingresos-extraordinarios` y su ítem de menú (rol
+  admin/finanzas).
+- Falta la migración opcional de `v_pl_mensual_item` (el detalle expandible
+  de Resultados) — queda afuera de esta tanda a propósito.
+
+---
+
 ### 🟢 Sesión larga · gasto en cuotas + rediseño de Proyección · para Facu
 
 Trabajo de Horacio de hoy, varios commits:
