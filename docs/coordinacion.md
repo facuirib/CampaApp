@@ -89,8 +89,9 @@ carril; un `onClick` que llama a una función, no.
 
 1. **Ingreso extraordinario**: revisar la entrada de abajo, correr el script
    y aplicar las 3 migraciones, SOLO después de que Horacio confirme con el
-   contador los nombres de las cuentas y si "Venta de bienes" es ingreso o
-   baja de activo.
+   contador (a) los nombres de las tres cuentas, (b) si la venta de un
+   activo fijo va por baja de activo y no como ingreso, y (c) si el
+   estacionamiento es puntual o recurrente.
 2. **Auditoría de seguridad de vistas**: ninguna vista usa
    `security_invoker=true`. Una vista sin ese flag evalúa RLS con los
    privilegios de su creador. Decidir si se revisa el conjunto (empezar por
@@ -216,11 +217,16 @@ El script completo —autocontenido, con su propio `begin`/`rollback`— está e
    verificada todavía.
 
 **Pendientes, fuera de esta tanda:**
-- Horacio confirma con el contador del cliente los nombres de las tres
-  cuentas (`ING_DONACIONES`, `ING_VENTA_BIENES`, `ING_OTROS` son
-  provisorios) y si "Venta de bienes" va como ingreso o por baja de activo.
+- Horacio confirma con el contador del cliente: (a) los nombres de las tres
+  cuentas (`ING_DONACIONES`, `ING_SERVICIOS`, `ING_OTROS` son provisorios),
+  (b) si la venta de un activo fijo va por baja de activo y no como
+  ingreso, y (c) si el estacionamiento es puntual o recurrente.
 - Falta la pantalla `/ingresos-extraordinarios` y su ítem de menú (rol
-  admin/finanzas).
+  admin/finanzas). Mejora a anotar para cuando se construya: listar ahí las
+  cuentas de ingreso imputables que no sean las 4 protegidas
+  (`ING_INSCRIPCIONES`, `ING_PARTIDOS`, `ING_SPONSORS`, `ING_BAR`), en vez
+  de las 3 fijas de esta migración — así una cuenta nueva que el contador
+  pida más adelante aparece sola, sin tocar código.
 - Falta la migración opcional de `v_pl_mensual_item` (el detalle expandible
   de Resultados) — queda afuera de esta tanda a propósito.
 

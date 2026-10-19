@@ -23,9 +23,9 @@ begin;
 -- ═══ Archivo 1 · cuentas ═══════════════════════════════════════════════════
 insert into cuenta (id, codigo, nombre, tipo, imputable, padre_id)
 values
-  (gen_random_uuid(), 'ING_DONACIONES',   'Donaciones',      'ingreso', true, null),
-  (gen_random_uuid(), 'ING_VENTA_BIENES', 'Venta de bienes', 'ingreso', true, null),
-  (gen_random_uuid(), 'ING_OTROS',        'Otros ingresos',  'ingreso', true, null)
+  (gen_random_uuid(), 'ING_DONACIONES', 'Donaciones',           'ingreso', true, null),
+  (gen_random_uuid(), 'ING_SERVICIOS',  'Servicios a terceros', 'ingreso', true, null),
+  (gen_random_uuid(), 'ING_OTROS',      'Otros ingresos',       'ingreso', true, null)
 on conflict (codigo) do nothing;
 
 -- ═══ Archivo 2 · tabla + RLS + vista ═══════════════════════════════════════
