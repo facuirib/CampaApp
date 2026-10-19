@@ -1,6 +1,7 @@
 import Link from 'next/link'
+import BotonCobrar from '@/components/BotonCobrar'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type InscripcionRow = Database['public']['Views']['v_inscripcion']['Row']
@@ -140,7 +141,14 @@ export default function Inscripciones({
         // tarifa—, así que no hay función nueva ni circuito paralelo.
         accion:
           i.estado_inscripcion !== 'paga' && i.tercero_id ? (
-            <LinkButton href={`/equipos/${i.tercero_id}/cobrar`} size="pill" variant="secondary">Cobrar</LinkButton>
+            <BotonCobrar
+              terceroId={i.tercero_id}
+              torneoId={torneoElegido}
+              size="pill"
+              variant="secondary"
+            >
+              Cobrar
+            </BotonCobrar>
           ) : null,
       }
     })

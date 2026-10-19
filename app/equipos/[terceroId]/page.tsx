@@ -4,7 +4,8 @@ import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
-import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
+import BotonCobrar from '@/components/BotonCobrar'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import ArmarReclamo from './ArmarReclamo'
 import FichaCliente from './FichaCliente'
 import AplicarAnticipo from './AplicarAnticipo'
@@ -375,7 +376,9 @@ export default async function CuentaCorrientePage({
           )}
         </div>
         {puedeCobrar && pestana === 'cuenta' && (
-          <LinkButton href={`/equipos/${terceroId}/cobrar`} icon="plus">Registrar cobro</LinkButton>
+          <BotonCobrar terceroId={terceroId} torneoId={torneoMostrado} icon="plus">
+            Registrar cobro
+          </BotonCobrar>
         )}
       </header>
 

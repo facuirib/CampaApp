@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Asap } from 'next/font/google'
 import AvisoSinPermiso from '@/components/AvisoSinPermiso'
+import CobroProvider from '@/components/CobroProvider'
 import Sidebar from '@/components/Sidebar'
 import { rolActual } from '@/lib/rol-actual'
 import { createClient } from '@/lib/db/server'
@@ -58,21 +59,34 @@ export default async function RootLayout({
           // En mobile el sidebar es una franja arriba y el contenido va debajo;
           // desde md pasan a ser dos columnas. El `min-w-0` del main es lo que
           // impide que una tabla ancha empuje el ancho de todo el layout.
-          <div className="md:flex md:items-start">
-            <Sidebar email={user.email} rol={rol} />
-            <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
-              <div className="mx-auto max-w-6xl">
-                {/* El motivo del rebote del middleware, arriba de cualquier
-                    pantalla: el redirect puede caer en cualquiera de las 12
-                    pantallas padre y ninguna tiene por qué saber de esto.
-                    `useSearchParams` necesita el Suspense. */}
-                <Suspense>
-                  <AvisoSinPermiso />
-                </Suspense>
-                {children}
-              </div>
-            </main>
-          </div>
+          //
+          // `CobroProvider` envuelve TODO el chrome, no sólo el Sidebar:
+          // `BotonCobrar` se usa desde Cobranza, Inscripciones y la ficha del
+          // equipo —cualquier `children`—, y el modal que `CobroProvider`
+          // monta por `createPortal` necesita un único ancestro común para
+          // que no importe desde cuál de esas pantallas se abra.
+          <CobroProvider>
+            <div className="md:flex md:items-start">
+              {/* `Sidebar` ahora lee `useSearchParams()` también (para resaltar
+                  la pestaña activa de Cobranza por query) — mismo motivo que
+                  `AvisoSinPermiso` más abajo necesita el Suspense. */}
+              <Suspense>
+                <Sidebar email={user.email} rol={rol} />
+              </Suspense>
+              <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
+                <div className="mx-auto max-w-6xl">
+                  {/* El motivo del rebote del middleware, arriba de cualquier
+                      pantalla: el redirect puede caer en cualquiera de las 12
+                      pantallas padre y ninguna tiene por qué saber de esto.
+                      `useSearchParams` necesita el Suspense. */}
+                  <Suspense>
+                    <AvisoSinPermiso />
+                  </Suspense>
+                  {children}
+                </div>
+              </main>
+            </div>
+          </CobroProvider>
         ) : (
           children
         )}

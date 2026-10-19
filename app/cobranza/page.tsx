@@ -2,8 +2,9 @@ import Link from 'next/link'
 import ColasAviso from './ColasAviso'
 import Inscripciones from './Inscripciones'
 import { createClient } from '@/lib/db/server'
+import BotonCobrar from '@/components/BotonCobrar'
 import FiltrosUrl, { type FiltroUrl } from '@/components/FiltrosUrl'
-import { DataTable, KpiCard, type CeldaBadge, type ColumnDef, LinkButton } from '@/components/ui'
+import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type FilaDeuda = Database['public']['Views']['v_deuda_equipo']['Row']
@@ -314,7 +315,12 @@ export default async function CobranzaPage({
     saldo_a_favor: f.saldo_a_favor,
     email: f.email,
     accion: f.tercero_id ? (
-      <LinkButton href={`/equipos/${f.tercero_id}/cobrar`} size="pill" variant="secondary">Cobrar</LinkButton>
+      // Abre el modal global, no navega. El torneo elegido acá es el default
+      // dentro del formulario: si el equipo no debe ahí, cae en su propia
+      // prioridad (torneo en curso, después el único que tenga).
+      <BotonCobrar terceroId={f.tercero_id} torneoId={torneoElegido} size="pill" variant="secondary">
+        Cobrar
+      </BotonCobrar>
     ) : null,
   }))
 

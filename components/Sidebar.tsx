@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { ROL_LABEL, type Rol } from '@/lib/roles'
 import { createClient } from '@/lib/db/client'
+import { puede } from '@/lib/permisos'
 import { Icon, type NombreIcono } from '@/components/ui'
+import BotonCobroRapido from './BotonCobroRapido'
 
 /**
  * Quiénes ven un ítem. `undefined` = todos los que tienen sesión.
@@ -68,6 +70,17 @@ export interface ItemNav {
    * ya existe el patrón.
    */
   hijos?: SubItemNav[]
+  /**
+   * Con `hijos`, si además se puede contraer a mano con un chevron.
+   *
+   * Sin esto (como Configuración) los hijos se muestran siempre: son pocos
+   * y la idea es que no haya que abrirlos para encontrar lo que se busca.
+   * Cobranza tiene el mismo caso salvo que, al vivir en el nivel de arriba
+   * del menú —no un sub-apartado—, puede convenir achicarlo igual que un
+   * grupo. Por eso es una bandera aparte y no el comportamiento nuevo de
+   * cualquier `hijos`.
+   */
+  colapsable?: boolean
 }
 
 export interface SubItemNav {
@@ -118,11 +131,25 @@ export const GRUPOS: GrupoNav[] = [
     // series, y el tarifario editable— cuelgan de acá como hijos de Torneos.
     titulo: 'Torneo',
     items: [
-      // Directo a la pestaña, sin pasar por el redirect de /inscripciones
-      // (que sigue vivo para las URLs viejas).
-      { href: '/cobranza?vista=inscripciones', label: 'Inscripciones', icon: 'inscripciones' },
       { href: '/calendario', label: 'Calendario', icon: 'calendario', roles: SIN_FINANZAS },
-      { href: '/cobranza', label: 'Cobranza', icon: 'cobranza' },
+      // Inscripciones deja de ser un ítem suelto: es una pestaña de Cobranza,
+      // y ahora el menú lo dice. El redirect de /inscripciones sigue vivo
+      // para las URLs viejas — no cambia nada de esto.
+      {
+        href: '/cobranza',
+        label: 'Cobranza',
+        icon: 'cobranza',
+        // A diferencia de Configuración, colapsable: vive en el primer
+        // nivel del menú —no adentro de un grupo ya contraíble— y con
+        // Calendario y Equipos al lado, sus tres hijos pueden pesar más de
+        // lo que hace falta ver todo el tiempo.
+        colapsable: true,
+        hijos: [
+          { href: '/cobranza', label: 'Cuenta corriente' },
+          { href: '/cobranza?vista=avisos', label: 'Avisos' },
+          { href: '/cobranza?vista=inscripciones', label: 'Inscripciones' },
+        ],
+      },
       // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
       // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
       { href: '/equipos', label: 'Equipos', icon: 'equipos' },
@@ -155,6 +182,9 @@ export const GRUPOS: GrupoNav[] = [
       { href: '/bar', label: 'Bar', icon: 'bar', roles: CON_BAR },
       { href: '/cheques', label: 'Cheques', icon: 'banco' },
       { href: '/activos', label: 'Activos', icon: 'activos' },
+      // Se mudó de Societario: conserva sus mismos roles (SIN_SOCIETARIO) —
+      // sólo cambia DÓNDE vive en el menú, no quién lo ve.
+      { href: '/sponsors', label: 'Sponsors', icon: 'sponsors', roles: SIN_SOCIETARIO },
     ],
   },
   {
@@ -179,10 +209,11 @@ export const GRUPOS: GrupoNav[] = [
   {
     titulo: 'Societario',
     items: [
-      // Societario sin operador (decisión A): son sueldos de los dueños y
-      // contratos de sponsors. La base lo deja leer; el menú no lo ofrece.
+      // Societario sin operador (decisión A): son sueldos de los dueños. La
+      // base lo deja leer; el menú no lo ofrece. Sponsors se mudó a
+      // Operación — sigue siendo SIN_SOCIETARIO, pero vive al lado de Gastos
+      // y Caja, no de Socios.
       { href: '/socios', label: 'Socios', icon: 'socios', roles: SIN_SOCIETARIO },
-      { href: '/sponsors', label: 'Sponsors', icon: 'sponsors', roles: SIN_SOCIETARIO },
       { href: '/usd', label: 'USD', icon: 'usd', roles: SIN_SOCIETARIO },
     ],
   },
@@ -239,14 +270,43 @@ export function gruposDe(rol: Rol | null, grupos: GrupoNav[] = GRUPOS): GrupoNav
     .filter((g) => g.items.length > 0)
 }
 
-export function hrefActivo(pathname: string, grupos: GrupoNav[] = GRUPOS): string | null {
+function coincidePath(path: string, pathname: string): boolean {
+  return path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`)
+}
+
+/**
+ * Si un `href` corresponde a la URL actual — path Y query.
+ *
+ * `pathname` (de `usePathname()`) NUNCA incluye el query string, así que
+ * hasta ahora un hijo como `/cobranza?vista=avisos` no se podía distinguir
+ * de su padre `/cobranza`: los dos "pasaban" el chequeo de sólo-path. El
+ * candidato sin query SIGUE pasando siempre que el path coincida —eso no
+ * cambia, y es lo que hace que "sin `?vista=`" cuente como la pestaña por
+ * default—; lo que se agrega es que un candidato CON query sólo pasa si
+ * cada par que declara está presente en la URL real con ese mismo valor.
+ * El desempate entre los dos que "podrían" matchear a la vez lo sigue
+ * resolviendo el `sort` por longitud de más abajo, sin tocarlo.
+ */
+function coincide(href: string, pathname: string, searchParams: URLSearchParams): boolean {
+  const [path, query] = href.split('?')
+  if (!coincidePath(path, pathname)) return false
+  if (!query) return true
+  for (const [clave, valor] of new URLSearchParams(query)) {
+    if (searchParams.get(clave) !== valor) return false
+  }
+  return true
+}
+
+export function hrefActivo(
+  pathname: string,
+  searchParams: URLSearchParams,
+  grupos: GrupoNav[] = GRUPOS,
+): string | null {
   const candidatos = grupos
     // Los hijos entran en la comparación: estando en /configuracion/plantillas,
     // el que gana por más largo es el hijo, no el padre.
     .flatMap((g) => g.items.flatMap((i) => [i.href, ...(i.hijos ?? []).map((h) => h.href)]))
-    .filter((href) =>
-      href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`),
-    )
+    .filter((href) => coincide(href, pathname, searchParams))
     .sort((a, b) => b.length - a.length)
 
   return candidatos[0] ?? null
@@ -327,19 +387,23 @@ function PieSesion({ email, rol }: { email: string; rol?: Rol | null }) {
 
 export default function Sidebar({ email, rol }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [abierto, setAbierto] = useState(false)
   const itemActivo = useRef<HTMLLIElement | null>(null)
 
-  // Qué grupos están colapsados, por título. Nunca contiene `null` —el de
-  // Inicio no tiene título y no se ofrece para colapsar— así que sus ítems
-  // siempre quedan visibles sin necesitar un caso aparte.
+  // Qué está colapsado: títulos de grupo (Torneo, Operación…) e hrefs de
+  // ítems `colapsable` (Cobranza) comparten el mismo Set — un título nunca
+  // empieza con "/", así que no hay colisión posible entre las dos claves.
+  // Es el mismo mecanismo en los dos niveles: nace vacío (todo abierto),
+  // toggleColapso lo prende o apaga, y el efecto de más abajo reabre lo que
+  // haga falta al navegar, sin impedir que después se vuelva a cerrar a mano.
   const [colapsados, setColapsados] = useState<Set<string>>(new Set())
 
-  function toggleGrupo(titulo: string) {
+  function toggleColapso(clave: string) {
     setColapsados((prev) => {
       const next = new Set(prev)
-      if (next.has(titulo)) next.delete(titulo)
-      else next.add(titulo)
+      if (next.has(clave)) next.delete(clave)
+      else next.add(clave)
       return next
     })
   }
@@ -348,7 +412,7 @@ export default function Sidebar({ email, rol }: SidebarProps) {
   // contra el árbol completo, una pantalla que el rol no ve por menú —pero
   // alcanza por link— resaltaría un ítem que no está dibujado.
   const grupos = gruposDe(rol ?? null)
-  const activo = hrefActivo(pathname, grupos)
+  const activo = hrefActivo(pathname, searchParams, grupos)
 
   // Traer a la vista el ítem de la pantalla en la que estás, y reabrir su
   // grupo si estaba colapsado.
@@ -371,18 +435,28 @@ export default function Sidebar({ email, rol }: SidebarProps) {
     itemActivo.current?.scrollIntoView({ block: 'nearest' })
 
     if (!activo) return
+
+    // Las claves a reabrir si estaban colapsadas: el título del grupo que
+    // contiene la ruta activa, y el href del ítem `colapsable` (si la ruta
+    // activa es uno de sus hijos) — las dos son del mismo Set.
+    const claves: string[] = []
     const grupoActivo = grupos.find((g) =>
       g.items.some((i) => i.href === activo || (i.hijos ?? []).some((h) => h.href === activo)),
     )
-    if (grupoActivo?.titulo) {
-      const titulo = grupoActivo.titulo
-      setColapsados((prev) => {
-        if (!prev.has(titulo)) return prev
-        const next = new Set(prev)
-        next.delete(titulo)
-        return next
-      })
-    }
+    if (grupoActivo?.titulo) claves.push(grupoActivo.titulo)
+
+    const itemActivoConHijos = grupos
+      .flatMap((g) => g.items)
+      .find((i) => i.colapsable && (i.hijos ?? []).some((h) => h.href === activo))
+    if (itemActivoConHijos) claves.push(itemActivoConHijos.href)
+
+    if (claves.length === 0) return
+    setColapsados((prev) => {
+      if (!claves.some((c) => prev.has(c))) return prev
+      const next = new Set(prev)
+      for (const c of claves) next.delete(c)
+      return next
+    })
   }, [activo, grupos])
 
   // /design/mobile se embebe en un iframe angosto dentro de /design para
@@ -420,6 +494,16 @@ export default function Sidebar({ email, rol }: SidebarProps) {
         </button>
       </div>
 
+      {/* Arriba, debajo del logo — no en el pie, que es donde vivía antes
+          (`CobroRapido`). Mismo candado que la pantalla de cobro: quien no
+          puede `registrar_cobro` tampoco ve el atajo para hacerlo desde
+          cualquier lado. */}
+      {rol && puede(rol, 'cobro.registrar') && (
+        <div className="px-4 pb-3">
+          <BotonCobroRapido />
+        </div>
+      )}
+
       {/* La zona que scrollea es ESTA, no el <aside>.
           Con veinte ítems la nav no entra en una laptop de 900px, y si
           scrolleara el sidebar entero el pie de sesión —o sea "Cerrar
@@ -439,7 +523,7 @@ export default function Sidebar({ email, rol }: SidebarProps) {
             {grupo.titulo && (
               <button
                 type="button"
-                onClick={() => toggleGrupo(grupo.titulo!)}
+                onClick={() => toggleColapso(grupo.titulo!)}
                 aria-expanded={!colapsado}
                 className="flex w-full items-center justify-between px-2.5 pb-1.5 text-[8.5px] font-bold uppercase tracking-[.07em] text-muted hover:text-ink"
               >
@@ -459,38 +543,67 @@ export default function Sidebar({ email, rol }: SidebarProps) {
                 // Un padre con hijos se marca cuando la ruta cae en cualquiera
                 // de ellos: al estar en Plantillas, Configuración sigue activa.
                 const enLaRama = esActivo || (item.hijos ?? []).some((h) => h.href === activo)
+                const colapsadoItem = !!item.colapsable && colapsados.has(item.href)
 
                 return (
                   <li key={item.href} ref={enLaRama ? itemActivo : undefined}>
-                    <Link
-                      href={item.href}
-                      aria-current={esActivo ? 'page' : undefined}
-                      onClick={() => setAbierto(false)}
+                    <div
                       className={[
-                        'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-[12.5px]',
-                        'transition-colors',
-                        enLaRama
-                          ? 'bg-blue-tint font-bold text-blue-d'
-                          : // El inactivo va en --ink a 80%, no en gris lavado:
-                            // la mejora de la decisión 7a era justamente que se
-                            // leyeran bien.
-                            'font-semibold text-ink/80 hover:bg-row-hover hover:text-ink',
+                        'flex items-center gap-1 rounded-sm transition-colors',
+                        enLaRama ? 'bg-blue-tint' : '',
                       ].join(' ')}
                     >
-                      <Icon
-                        name={item.icon}
-                        size={16}
-                        className={enLaRama ? 'shrink-0 text-blue' : 'shrink-0 text-muted'}
-                      />
-                      {item.label}
-                    </Link>
+                      <Link
+                        href={item.href}
+                        aria-current={esActivo ? 'page' : undefined}
+                        onClick={() => setAbierto(false)}
+                        className={[
+                          'flex flex-1 items-center gap-2.5 px-2.5 py-2 text-[12.5px]',
+                          'transition-colors',
+                          enLaRama
+                            ? 'font-bold text-blue-d'
+                            : // El inactivo va en --ink a 80%, no en gris lavado:
+                              // la mejora de la decisión 7a era justamente que se
+                              // leyeran bien.
+                              'rounded-sm font-semibold text-ink/80 hover:bg-row-hover hover:text-ink',
+                        ].join(' ')}
+                      >
+                        <Icon
+                          name={item.icon}
+                          size={16}
+                          className={enLaRama ? 'shrink-0 text-blue' : 'shrink-0 text-muted'}
+                        />
+                        {item.label}
+                      </Link>
 
-                    {/* Las sub-secciones se muestran SIEMPRE, no al hacer clic.
-                        Con cuatro ítems y uno solo activo, un desplegable que
-                        haya que abrir esconde justamente lo que se está
-                        buscando. El sangrado y la línea alcanzan para que se
-                        lean como dependientes. */}
-                    {item.hijos && (
+                      {/* Botón aparte del Link: un click acá contrae/expande
+                          sin navegar — a diferencia del chevron de un grupo,
+                          que vive en un `<button>` solo porque el título no es
+                          un link. Acá «Cobranza» sí navega a /cobranza, así
+                          que el toggle necesita su propio control. */}
+                      {item.colapsable && item.hijos && (
+                        <button
+                          type="button"
+                          onClick={() => toggleColapso(item.href)}
+                          aria-expanded={!colapsadoItem}
+                          aria-label={colapsadoItem ? `Expandir ${item.label}` : `Contraer ${item.label}`}
+                          className="shrink-0 rounded-sm p-1.5 text-muted hover:text-ink"
+                        >
+                          <Icon
+                            name="chevronDerecha"
+                            size={11}
+                            className={`transition-transform ${colapsadoItem ? '' : 'rotate-90'}`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Sin `colapsable` (como Configuración) los hijos se
+                        muestran SIEMPRE, no al hacer clic — son pocos y
+                        abrirlos esconde justo lo que se busca. Con
+                        `colapsable` (Cobranza), en cambio, el chevron de
+                        arriba decide. */}
+                    {item.hijos && !colapsadoItem && (
                       <ul className="ml-[26px] mt-0.5 grid gap-0.5 border-l border-line pl-2">
                         {item.hijos.map((hijo) =>
                           hijo.pronto ? (
