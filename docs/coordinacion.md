@@ -18,6 +18,22 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 Sesión larga · gasto en cuotas + rediseño de Proyección · para Facu
+
+Trabajo de Horacio de hoy, varios commits:
+
+1. **Gasto en cuotas (plan_pago/compromiso reflotados)**: crear_plan_pago, generar_cuotas_plan (rediseñada), devengar_cuota_plan. Patrón "botón mensual" (como devengar_sueldos_socios) — al alta se generan todas las cuotas como compromiso, pero el gasto real nace mes a mes al devengar. El plan se finaliza solo (plan_pago.estado) cuando se devenga la última cuota. Soporta planes indexados: devengar_cuota_plan acepta p_monto_real distinto del pactado si plan_pago.indexado=true, y propaga el nuevo monto a las cuotas pendientes futuras (por fecha, no reescribe el pasado). Front en /calendario-pagos (PlanesPago.tsx), con desplegable de detalle de cuotas por plan.
+
+2. **Fixes reales encontrados en el diagnóstico e2e**: href a /equipos/null en cobranza cuando tercero_id es nulo (tipo local mentía con `!`); KPIs de Cobranza mostrando datos de otro torneo cuando el elegido no tenía fila en v_cobranza_kpi; DataTable no pasaba clicks a botones/links en columnas no-primera (afecta múltiples tablas); mensaje de "Confirmar torneo" ahora muestra el resultado real (fichas/cuotas procesadas) en vez de silencio.
+
+3. **Rediseño de /proyeccion**: gráfico con leyenda visible (antes solo aria-label) + composición entradas/salidas por semana; desplegable de detalle por semana (reemplaza /proyeccion/[periodo], que ahora redirige); filtros de rango de fecha, origen y tipo. Se extrajo lib/domain/cashflow.ts como tabla única de presentación del vocabulario "origen" (antes duplicado en calendario-pagos).
+
+Pendiente, anotado sin construir: investigar la API de SOS Contador (el estudio contable de un cliente la usa obligatoriamente) para una posible integración futura — quedó solo como idea, sin diseño ni código.
+
+Todo verificado con tsc + build + begin/rollback en cada pieza de motor. Migraciones aplicadas: 20260917100000 a 20260918100000.
+
+---
+
 ### ✅ Decisión · policy de tercero se queda como está · para Facu
 
 Sobre el dato que dejaste (tercero.INSERT sin filtro de rol, solo protegido por exigirRol de la Server Action) — decisión de Horacio: se queda así, no se aprieta por rol como proveedor. Mismo esquema que usuario.gestionar, consistente.
