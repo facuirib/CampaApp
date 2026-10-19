@@ -18,6 +18,124 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟢 CIERRE 19/10 · cobro, menú e ingreso extraordinario · QUÉ SE HIZO, QUÉ FALTA y DECISIONES PARA FACU
+
+#### A. Hecho y subido (commit `d74fa9c`, main)
+
+- **Menú**: se quitó Inscripciones como ítem suelto. Cobranza es desplegable
+  (chevron) con tres subitems (Cuenta corriente, Avisos, Inscripciones) que
+  se resaltan por separado: `hrefActivo` ahora recibe `searchParams` y el
+  Sidebar va dentro de `<Suspense>` en `app/layout.tsx`. Sponsors pasó de
+  Societario a Operación, con sus roles `SIN_SOCIETARIO`.
+- **Cobro**: `CobroProvider` (modal global, montado una vez en `layout.tsx`)
+  con `abrir({terceroId?, torneoId?})`. `BotonCobrar` reemplaza los
+  `LinkButton` "Cobrar" de `/cobranza`, Inscripciones y la ficha del equipo:
+  ahora abren el modal en vez de navegar. `BotonCobroRapido` arriba del
+  Sidebar, visible sólo con `cobro.registrar`. Flujo sin equipo: torneo
+  (default el actual) → equipos con deuda en ese torneo
+  (`v_deuda_equipo_torneo`) con buscador → formulario.
+- `FormularioCobro` se extrajo de la página y la usan la página y el modal.
+  `/equipos/[id]/cobrar` sigue funcionando para links directos.
+- **Torneo por defecto**: se lee `v_torneo_actual` (NO la columna `activo`).
+  Prioridad: torneo explícito → torneo actual si el equipo debe ahí → único
+  disponible. El selector de torneo queda siempre visible.
+- **Pulido del modal**: tras un cobro exitoso se muestra sólo el éxito, con
+  "Cobrar otra cuota" y "Cerrar"; dentro del modal "Cerrar" reemplaza a "←
+  Volver a la cuenta corriente". Se borró `components/CobroRapido.tsx`
+  (reemplazado) — nunca llegó a estar commiteado, así que no queda rastro en
+  el historial.
+- **Ingreso extraordinario**: 3 migraciones + script de prueba + catálogo en
+  `lib/permisos.ts`, TODO SIN APLICAR (ver entrada de abajo).
+
+#### B. Qué NO se verificó
+
+- `npm run test` y `npm run verificar:permisos` NO se corrieron (no hay
+  `DATABASE_URL` utilizable: el host directo no resuelve por DNS/IPv6; falta
+  la cadena del pooler).
+- El script `scripts/tests/ingreso_extraordinario.sql` NO se corrió desde el
+  archivo. Lo que sí se probó con `begin`/`rollback` fue un script
+  equivalente pegado en el SQL Editor, todo verde — con una salvedad real,
+  ver el punto 1 corregido en la entrada de abajo: esa prueba manual fue
+  contra una versión con `asiento_id` nullable, y la migración que quedó
+  escrita lo exige NOT NULL. No es la misma prueba.
+- Un ingreso por transferencia no se probó con éxito (la prueba usó
+  efectivo).
+- Rol sin `cobro.registrar`: no se probó que el botón "Cobrar" no aparezca
+  (por ejemplo con rol lectura).
+- **El modal con `createPortal`: CONFIRMADO en el código** —
+  `components/CobroProvider.tsx:139`, `{modal && createPortal(modal,
+  document.body)}` — a diferencia de lo que decía el borrador de este aviso.
+  Se corrige acá porque es un hecho verificable, no una opinión.
+
+#### C. Incidentes
+
+- Al cobrar apareció "Runtime Error: An unexpected response was received
+  from the server". El cobro SÍ se guardó. Tras `rm -rf .next` y reiniciar,
+  el cobro anduvo limpio. Causa MÁS PROBABLE, no confirmada: correr `npm run
+  build` con `npm run dev` abierto, que pisa la carpeta `.next` compartida.
+  Regla práctica: no correr `build` con el dev server abierto.
+- Hipótesis alternativa de Claude Code, NO descartada: el middleware
+  (`RUTAS_PROTEGIDAS` en `lib/permisos.ts`) puede redirigir un Server Action
+  disparado desde el modal si la URL de fondo está protegida. Si el error
+  reaparece con caché limpia, mirar la pestaña Network (request con header
+  `Next-Action`: 307/302 vs 200).
+- Pagos de prueba a anular, si siguen vigentes: Acme $50.000 (pago
+  `8e4fc2dd-be16-4e9d-8346-619bde7ac2b7`) y el pago
+  `57637c96-20a6-4db3-b023-bfff8c43c508` (asiento `9927b6cc`). NO anular los
+  de agosto de Acme: el de $1 tiene factura ARCA emitida y `anular_pago` lo
+  rechaza.
+
+#### D. Decisiones que le tocan a Facu
+
+1. **Ingreso extraordinario**: revisar la entrada de abajo, correr el script
+   y aplicar las 3 migraciones, SOLO después de que Horacio confirme con el
+   contador los nombres de las cuentas y si "Venta de bienes" es ingreso o
+   baja de activo.
+2. **Auditoría de seguridad de vistas**: ninguna vista usa
+   `security_invoker=true`. Una vista sin ese flag evalúa RLS con los
+   privilegios de su creador. Decidir si se revisa el conjunto (empezar por
+   las que cruzan `cuota`, `pago`, `gasto`) y corregir el comentario de
+   `20260901290000_usuario_y_diario_autor.sql:29` ("Es SECURITY INVOKER como
+   cualquier vista"), que es incorrecto. No se tocó.
+3. **Cobrar sin deuda o cobrar de más**: hoy es imposible, verificado
+   leyendo `registrar_cobro` (`20260828180000_recibo_en_cobro_e_indice_pago.sql`):
+   exige que la suma de imputaciones sea exactamente el monto (`v_suma_imp
+   <> p_monto` rechaza) y rechaza `p_monto > v_saldo_total`. `imputar_pago`
+   sí tiene una rama que crearía un anticipo con el sobrante, pero nunca se
+   alcanza por este camino porque `registrar_cobro` ya garantizó sobrante
+   cero antes de llamarlo. El cobro rápido sólo sirve para equipos con
+   deuda. Decidir si se construye el caso sin deuda (toca `registrar_cobro`,
+   que es motor).
+4. **Recibo por mail**: `enviarReciboDePago` ahora corre desde cualquier
+   pantalla donde esté el modal. Decidir si se agrega `try/catch` para que
+   un fallo del mail nunca rompa la pantalla después de guardar el cobro.
+   Cuidado en pruebas: un equipo con mail real recibe un recibo de prueba.
+5. **Sponsors en Operación**: conserva `SIN_SOCIETARIO`
+   (`['admin','read-only','finanzas']`), así que el operador no lo ve.
+   Confirmar que ese sea el comportamiento deseado.
+6. Warning de hidratación en `/cobranza` (pestaña Inscripciones, ids de
+   label distintos entre servidor y cliente): no rompe nada, sigue sin
+   arreglar.
+7. Búsqueda de equipo del cobro rápido: filtra en el cliente sobre
+   `v_deuda_equipo_torneo` (alcanza con ~28 equipos). Si el torneo crece,
+   pasar el filtro a la consulta.
+
+#### E. Pendientes sin dueño asignado
+
+- Pantalla `/ingresos-extraordinarios` y su ítem de menú (admin/finanzas).
+- Migración opcional de `v_pl_mensual_item` (detalle del ingreso
+  extraordinario en Resultados), afuera a propósito.
+- `gasto_planificado.estado='cancelado'` sin puerta; `plan_pago.estado='caido'`
+  sin función ni pantalla.
+- Tarifario de "Prueba Apertura 2027": una cuota con un cero de menos (dato
+  de prueba).
+- Integración con SOS Contador (API en Postman, `api.sos-contador.com`):
+  idea futura, no investigada a fondo, sin diseño.
+- Cada commit con migración debe regenerar `database.types.ts` con `supabase
+  gen types` (corre Horacio en su terminal).
+
+---
+
 ### 🔴 REVISAR ANTES DE APLICAR · ingreso extraordinario · para Facu
 
 **Las migraciones de esto NO ESTÁN APLICADAS.** Son tres archivos en
@@ -43,16 +161,15 @@ ingreso genérica para algo que no sea inscripción, partido, sponsor o bar.
   `lib/permisos.ts`, ya catalogada).
 - Resultados lo muestra como fila propia sin tocar ninguna vista: `v_pl_mensual`
   es genérica por `cuenta.id`/`cuenta.tipo`, así que una cuenta nueva aparece
-  sola. Verificado contra la prueba: 12 filas para `ING_DONACIONES`, con el
-  monto en el mes correcto.
+  sola. Verificado contra la prueba: 12 filas (una por mes) para
+  `ING_DONACIONES`.
 
 **Pruebas hechas**, con `begin`/`rollback` y roles reales (`set_config` +
 `set local role authenticated`, el mismo patrón que `comoRol()` en
 `scripts/tests/comun.ts`):
 - admin registra y la fila queda con `asiento_id` completo, 2 líneas
   balanceadas (50.000 / 50.000);
-- aparece en `v_pl_mensual` (12 filas para la cuenta, el mes de hoy con el
-  monto correcto);
+- aparece en `v_pl_mensual` (12 filas, una por mes, para la cuenta);
 - operador rechazado al registrar;
 - operador ve 0 filas, en la tabla y en la vista;
 - finanzas anula, y la segunda anulación sobre el mismo ingreso se rechaza;
@@ -69,7 +186,11 @@ El script completo —autocontenido, con su propio `begin`/`rollback`— está e
   null para siempre. Por eso el id se genera con `gen_random_uuid()` ANTES
   de llamar a `crear_asiento`, y el insert es uno solo, con `asiento_id` ya
   completo (y la columna es NOT NULL, porque nunca hay un estado intermedio
-  sin él).
+  sin él). **Esto es posterior a la prueba manual de Horacio en el SQL
+  Editor**: esa prueba corrió contra una versión con `asiento_id` nullable,
+  no contra la que quedó en la migración. No es la misma prueba — por eso el
+  checklist de abajo pide correr el script del archivo, no confiar en esa
+  corrida anterior.
 - (b) Una vista sin `security_invoker=true` NO respeta la RLS de la tabla de
   abajo — Postgres la evalúa con los privilegios de quien CREÓ la vista, no
   de quien la consulta. Ninguna vista de este proyecto usa ese flag hoy
@@ -90,6 +211,9 @@ El script completo —autocontenido, con su propio `begin`/`rollback`— está e
    recién DESPUÉS de aplicar — antes va a estar en rojo porque las funciones
    todavía no existen.
 5. Regenerar `database.types.ts` (regla 11: toca la base, se avisa antes).
+6. Probar un ingreso por transferencia: el script sólo probó efectivo — el
+   camino de `CAJA_TRANSFERENCIA` (sin predio) no tiene ninguna corrida
+   verificada todavía.
 
 **Pendientes, fuera de esta tanda:**
 - Horacio confirma con el contador del cliente los nombres de las tres
