@@ -12,7 +12,7 @@ import { useGasto } from './GastoProvider'
 export default function BotonGastoRapido() {
   const { abrir } = useGasto()
   return (
-    <Button icon="comprobante" variant="secondary" className="w-full" onClick={abrir}>
+    <Button icon="gasto" variant="secondary" className="w-full" onClick={abrir}>
       Agregar gasto
     </Button>
   )

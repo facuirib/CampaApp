@@ -39,10 +39,10 @@ type Visible = readonly Rol[] | undefined
  */
 const OFICINA = ['admin', 'operador', 'read-only', 'finanzas'] as const
 /**
- * Societario: sin operador, con finanzas.
- *
- * Sueldos de los dueños y contratos de sponsors. El operador no los ve; finanzas
- * sí, porque es el rol que los opera.
+ * Lo societario (sin operador, con finanzas): sueldos de los dueños,
+ * contratos de sponsors, el dólar. El grupo «Societario» del menú ya no
+ * existe —sus ítems viven en Finanzas y Tesorería— pero el candado es el
+ * mismo de siempre: el operador no los ve; finanzas sí, porque los opera.
  */
 const SIN_SOCIETARIO = ['admin', 'read-only', 'finanzas'] as const
 /** El bar y sus pantallas: sin finanzas, que no carga el bar. */
@@ -78,12 +78,10 @@ export interface ItemNav {
   /**
    * Con `hijos`, si además se puede contraer a mano con un chevron.
    *
-   * Sin esto (como Configuración) los hijos se muestran siempre: son pocos
-   * y la idea es que no haya que abrirlos para encontrar lo que se busca.
-   * Cobranza tiene el mismo caso salvo que, al vivir en el nivel de arriba
-   * del menú —no un sub-apartado—, puede convenir achicarlo igual que un
-   * grupo. Por eso es una bandera aparte y no el comportamiento nuevo de
-   * cualquier `hijos`.
+   * Sin esto los hijos se muestran siempre. Hoy los tres ítems con hijos
+   * (Cobranza y las dos configuraciones) son colapsables; la bandera sigue
+   * existiendo aparte porque mostrar-siempre es un default válido para un
+   * desplegable futuro de dos o tres hijos.
    */
   colapsable?: boolean
 }
@@ -122,32 +120,18 @@ export const GRUPOS: GrupoNav[] = [
     items: [{ href: '/', label: 'Inicio', icon: 'inicio', roles: CON_ARQUEO }],
   },
   {
-    // De lo más líquido a lo menos: el efectivo y su arqueo, después los
-    // valores que todavía no son plata (cheques), y al final los bienes.
-    //
-    // Bar va acá y no en un grupo propio, aunque el bar SEA un dominio aparte
-    // —área propia en cat_gasto, encargado propio, y un futuro de productos y
-    // stock que no se parece a nada de esto—. Dos razones, las dos de hoy y no
-    // de siempre: un grupo de un solo ítem se lee como algo a medio hacer, y lo
-    // que el bar tiene hoy es exactamente una pantalla. Y lo que esa pantalla
-    // hace —cerrar la caja de un día— es lo mismo que hace Arqueo dos líneas
-    // más arriba: por eso va pegado, no al final.
-    //
-    // Cuando el bar sume productos, stock o su propio arqueo, se muda a grupo
-    // propio: el árbol ya modela `hijos`, así que es mover un objeto de lugar.
+    // La gestión de TODOS los días: cobrar, cargar lo que se gastó, a quién
+    // se le compra, y el bar. Equipos al lado de Cobranza y Proveedores al
+    // lado de Gastos por la misma razón: son contracaras — acá QUIÉN, allá
+    // CUÁNTO.
     titulo: 'Operación',
     items: [
-      // Cobranza vivía en una sección «Torneo» junto con el calendario y el
-      // tarifario. Pero cobrar es gestión de TODOS los días, y armar un
-      // torneo pasa dos veces al año: lo diario se mudó acá arriba y el
-      // molde a «Configuración de torneo», abajo. Las rutas no se movieron.
       {
         href: '/cobranza',
         label: 'Cobranza',
         icon: 'cobranza',
-        // Colapsable: vive en el primer nivel del menú —no adentro de un
-        // grupo ya contraíble— y sus tres hijos pueden pesar más de lo que
-        // hace falta ver todo el tiempo.
+        // Colapsable: sus tres hijos pueden pesar más de lo que hace falta
+        // ver todo el tiempo.
         colapsable: true,
         hijos: [
           { href: '/cobranza', label: 'Cuenta corriente' },
@@ -156,92 +140,89 @@ export const GRUPOS: GrupoNav[] = [
           { href: '/cobranza?vista=inscripciones', label: 'Inscripciones' },
         ],
       },
-      // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
-      // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
       { href: '/equipos', label: 'Equipos', icon: 'equipos' },
-      { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
-      // Al lado de Gastos porque es su contracara, igual que Equipos al lado de
-      // Cobranza: acá está A QUIÉN se le compra, allá CUÁNTO se gastó.
-      { href: '/proveedores', label: 'Proveedores', icon: 'equipos' },
-      { href: '/caja', label: 'Caja', icon: 'caja' },
-      { href: '/arqueo', label: 'Arqueo', icon: 'arqueo', roles: CON_ARQUEO },
+      { href: '/gastos', label: 'Gastos', icon: 'gasto' },
+      { href: '/proveedores', label: 'Proveedores', icon: 'proveedores' },
       { href: '/bar', label: 'Bar', icon: 'bar', roles: CON_BAR },
-      { href: '/cheques', label: 'Cheques', icon: 'banco' },
-      { href: '/activos', label: 'Activos', icon: 'activos' },
-      // Se mudó de Societario: conserva sus mismos roles (SIN_SOCIETARIO) —
-      // sólo cambia DÓNDE vive en el menú, no quién lo ve.
-      { href: '/sponsors', label: 'Sponsors', icon: 'sponsors', roles: SIN_SOCIETARIO },
     ],
   },
   {
-    // Lo que va a pasar primero, lo que pasó después: la proyección y el
-    // calendario miran adelante; resultados y movimientos, atrás.
+    // Dónde está la plata y los valores, de lo más líquido a lo menos: el
+    // efectivo y su arqueo, los cheques, los dólares, y al final los bienes.
+    // Antes esto vivía mezclado adentro de Operación; es otra pregunta —
+    // «cuánto hay» no es «qué se hizo hoy»— y por eso es otro grupo.
+    titulo: 'Tesorería',
+    items: [
+      { href: '/caja', label: 'Caja', icon: 'caja' },
+      { href: '/arqueo', label: 'Arqueo', icon: 'arqueo', roles: CON_ARQUEO },
+      { href: '/cheques', label: 'Cheques', icon: 'banco' },
+      // Conserva SIN_SOCIETARIO de su época en Societario: el operador no
+      // opera el dólar. Cambió el lugar en el menú, no quién lo ve.
+      { href: '/usd', label: 'USD', icon: 'usd', roles: SIN_SOCIETARIO },
+      { href: '/activos', label: 'Activos', icon: 'activos' },
+    ],
+  },
+  {
+    // Lo que va a pasar primero, lo que pasó después: presupuesto alimenta a
+    // proyección, y recién después se mira lo que pasó. Sponsors y Socios
+    // cierran el grupo desde que Societario se disolvió: son contratos y
+    // sueldos — plata comprometida, no operación diaria. Conservan sus
+    // candados de siempre (SIN_SOCIETARIO: el operador no los ve).
     titulo: 'Finanzas',
     items: [
-      // Presupuesto va PRIMERO porque es lo que alimenta a Proyección: se
-      // planea, se proyecta, y recién después se mira lo que pasó.
       { href: '/presupuesto', label: 'Presupuesto', icon: 'monedas' },
       { href: '/proyeccion', label: 'Proyección', icon: 'proyeccion' },
       { href: '/calendario-pagos', label: 'Calendario de pagos', icon: 'reloj' },
       { href: '/resultados', label: 'Resultados', icon: 'resultados' },
-      // Entre Resultados y Movimientos porque es de la misma familia: lo que ya
-      // pasó en plata. Se llama «Comprobantes» y no «Facturación» porque tiene
-      // facturas Y recibos —«Facturación» prometería sólo lo primero— y porque
-      // ese nombre le va a quedar mejor a la pantalla de emisión cuando exista.
-      // Sin `roles`, o sea el default OFICINA: el bar no lo ve.
+      // «Comprobantes» y no «Facturación» porque tiene facturas Y recibos.
       { href: '/comprobantes', label: 'Comprobantes', icon: 'comprobante' },
-    ],
-  },
-  {
-    titulo: 'Societario',
-    items: [
-      // Societario sin operador (decisión A): son sueldos de los dueños. La
-      // base lo deja leer; el menú no lo ofrece. Sponsors se mudó a
-      // Operación — sigue siendo SIN_SOCIETARIO, pero vive al lado de Gastos
-      // y Caja, no de Socios.
+      { href: '/sponsors', label: 'Sponsors', icon: 'sponsors', roles: SIN_SOCIETARIO },
       { href: '/socios', label: 'Socios', icon: 'socios', roles: SIN_SOCIETARIO },
-      { href: '/usd', label: 'USD', icon: 'usd', roles: SIN_SOCIETARIO },
     ],
   },
   {
-    // Lo que se toca dos veces al año, al armar un torneo: el torneo mismo,
-    // su tarifario y su calendario. Vivían como la sección «Torneo», arriba
-    // de todo, pesando en el menú diario lo que se usa cada seis meses.
+    // Auditoría y las dos configuraciones. Son DOS desplegables con públicos
+    // distintos a propósito:
     //
-    // 🔴 Se movieron los ÍTEMS, no las rutas: /torneos, /catalogos/tarifario
-    // y /calendario siguen donde estaban, y los links internos —las pestañas
-    // del detalle de torneo, los «volver al torneo»— no se enteran. Cambió
-    // dónde aparecen en el menú, nada más.
+    //   · «Configuración del sistema» — plantillas, emisor, categorías,
+    //     usuarios. OFICINA, salvo Usuarios (solo admin, y ése es el único
+    //     candado del menú que además es un permiso de verdad: middleware).
+    //   · «Configuración de torneo» — el torneo, su tarifario y sus fechas.
+    //     CONFIGURA (admin·operador): read-only mira números y bar carga su
+    //     caja, armar torneos no es trabajo de ninguno de los dos.
     //
-    // En orden de construcción: primero existe el torneo, de él sale su
-    // tarifario, y del tarifario las fechas del calendario.
-    titulo: 'Configuración de torneo',
-    items: [
-      { href: '/torneos', label: 'Torneos', icon: 'equipos', roles: CONFIGURA },
-      { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario', roles: CONFIGURA },
-      { href: '/calendario', label: 'Calendario', icon: 'calendario', roles: CONFIGURA },
-    ],
-  },
-  {
+    // 🔴 Las RUTAS no se movieron nunca: /torneos, /catalogos/tarifario y
+    // /calendario siguen donde estaban; cambió dónde aparecen en el menú.
+    // «Fechas del torneo» es la MISMA /calendario de siempre, renombrada en
+    // el menú para no chocar con «Calendario de pagos».
     titulo: 'Sistema',
     items: [
-      // Auditoría estaba en Finanzas y no es plata: es quién tocó qué. Lo que
-      // audita son movimientos, sí, pero también altas de equipo, cambios de
-      // tarifario y ediciones de plantilla. Es del sistema.
-      // El libro diario vive acá adentro desde que /movimientos se mudó: es la
-      // misma pregunta que la auditoría —quién tocó qué— desde otro ángulo.
       { href: '/auditoria', label: 'Auditoría', icon: 'auditoria' },
       {
         href: '/configuracion',
-        label: 'Configuración',
+        label: 'Configuración del sistema',
         icon: 'configuracion',
+        colapsable: true,
         hijos: [
           { href: '/configuracion/plantillas', label: 'Plantillas' },
           { href: '/configuracion/emisor', label: 'Emisor y puntos de venta' },
           { href: '/configuracion/categorias', label: 'Categorías de gasto' },
-          // La única regla del menú que además es un permiso de verdad: la
-          // pantalla lee el padrón con service_role y el middleware la corta.
           { href: '/configuracion/usuarios', label: 'Usuarios', roles: ['admin'] },
+        ],
+      },
+      {
+        // Mismo patrón que Cobranza, duplicado de href incluido: el padre
+        // navega a /torneos y el primer hijo también — es el desempate por
+        // longitud de hrefActivo el que marca bien la rama.
+        href: '/torneos',
+        label: 'Configuración de torneo',
+        icon: 'torneo',
+        roles: CONFIGURA,
+        colapsable: true,
+        hijos: [
+          { href: '/torneos', label: 'Torneos', roles: CONFIGURA },
+          { href: '/catalogos/tarifario', label: 'Tarifario', roles: CONFIGURA },
+          { href: '/calendario', label: 'Fechas del torneo', roles: CONFIGURA },
         ],
       },
     ],
@@ -270,7 +251,12 @@ export function gruposDe(rol: Rol | null, grupos: GrupoNav[] = GRUPOS): GrupoNav
       ...g,
       items: g.items
         .filter((i) => ve(i.roles))
-        .map((i) => (i.hijos ? { ...i, hijos: i.hijos.filter((h) => ve(h.roles)) } : i)),
+        .map((i) => (i.hijos ? { ...i, hijos: i.hijos.filter((h) => ve(h.roles)) } : i))
+        // Un desplegable que quedó sin hijos para este rol no se muestra,
+        // igual que un grupo vacío: un chevron que abre la nada es peor que
+        // no estar. Hoy no pasa con ninguna combinación —los candados de los
+        // hijos acompañan al del padre— pero la regla queda puesta.
+        .filter((i) => !i.hijos || i.hijos.length > 0),
     }))
     .filter((g) => g.items.length > 0)
 }
@@ -605,11 +591,9 @@ export default function Sidebar({ email, rol }: SidebarProps) {
                       )}
                     </div>
 
-                    {/* Sin `colapsable` (como Configuración) los hijos se
-                        muestran SIEMPRE, no al hacer clic — son pocos y
-                        abrirlos esconde justo lo que se busca. Con
-                        `colapsable` (Cobranza), en cambio, el chevron de
-                        arriba decide. */}
+                    {/* Sin `colapsable` los hijos se muestran SIEMPRE, no al
+                        hacer clic. Con `colapsable` —hoy, los tres ítems con
+                        hijos— el chevron de arriba decide. */}
                     {item.hijos && !colapsadoItem && (
                       <ul className="ml-[26px] mt-0.5 grid gap-0.5 border-l border-line pl-2">
                         {item.hijos.map((hijo) =>
