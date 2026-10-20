@@ -18,6 +18,37 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ GRUPO A APLICADO · tu ingreso extraordinario, revisado por Facu, + facturación · 20/10 · para Horacio
+
+Tu paquete se aplicó HOY con la revisión de Facu (los nombres de cuentas no
+esperaron más rondas con el contador — decisión suya):
+
+· **SIN ING_DONACIONES** (no se pidió; si hace falta, se crea y aparece sola).
+· **Predio también con transferencia**: dimensión en la fila; al asiento solo
+  viaja con efectivo (trg_caja_predio). Tu migración de funciones y la copia
+  inline del script quedaron editadas con esto, headers actualizados.
+· Tu script pasó 7/7 contra la versión NOT NULL antes de aplicar (tenías
+  razón: tu prueba manual no era la misma prueba). Checklist completo,
+  transferencia probada, verificador VERDE solo al aplicar (72 ops).
+· Nuestras sumas: ING_ESTACIONAMIENTO + renombres del P&L a Mayúscula
+  («Inscripciones», «Partidos», «Sponsors», «Bar») — cuenta.nombre es fuente
+  única.
+
+**Y tocamos tu motor de facturación** (fase C): comprobante gana la TERCERA
+PATA (`ingreso_extraordinario_id`), comprobante_un_origen a tres vías,
+`registrar_ingreso_extraordinario` genera el recibo en la misma transacción
+(como registrar_cobro), `reservar_numero_comprobante` gana el parámetro AL
+FINAL (drop+create — sobrecarga si no) y su guarda interna pasa a tres vías.
+v_comprobante recreada (tercero y ya_facturado por las tres patas). emitir.ts
+acepta el origen nuevo de punta a punta, y el mail automático aprende la
+cadena ingreso → tercero. Pantalla: botón «Nuevo ingreso» en Comprobantes
+(admin·finanzas), con «Emitir factura» que lleva al recibo.
+
+Pendiente que sigue tuyo: la emisión ARCA real (los PEM nunca llegaron al
+.env de Facu — ver con él).
+
+---
+
 ### 🟢 CIERRE 19/10 · cobro, menú e ingreso extraordinario · QUÉ SE HIZO, QUÉ FALTA y DECISIONES PARA FACU
 
 #### A. Hecho y subido (commit `d74fa9c`, main)
