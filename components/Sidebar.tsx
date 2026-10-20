@@ -9,6 +9,7 @@ import { createClient } from '@/lib/db/client'
 import { puede } from '@/lib/permisos'
 import { Icon, type NombreIcono } from '@/components/ui'
 import BotonCobroRapido from './BotonCobroRapido'
+import BotonGastoRapido from './BotonGastoRapido'
 
 /**
  * Quiénes ven un ítem. `undefined` = todos los que tienen sesión.
@@ -502,9 +503,11 @@ export default function Sidebar({ email, rol }: SidebarProps) {
           (`CobroRapido`). Mismo candado que la pantalla de cobro: quien no
           puede `registrar_cobro` tampoco ve el atajo para hacerlo desde
           cualquier lado. */}
-      {rol && puede(rol, 'cobro.registrar') && (
-        <div className="px-4 pb-3">
-          <BotonCobroRapido />
+      {rol && (puede(rol, 'cobro.registrar') || puede(rol, 'gasto.registrar')) && (
+        <div className="grid gap-1.5 px-4 pb-3">
+          {puede(rol, 'cobro.registrar') && <BotonCobroRapido />}
+          {/* El espejo del cobro: mismo candado que /gastos/nuevo. */}
+          {puede(rol, 'gasto.registrar') && <BotonGastoRapido />}
         </div>
       )}
 

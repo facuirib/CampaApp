@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { Asap } from 'next/font/google'
 import AvisoSinPermiso from '@/components/AvisoSinPermiso'
 import CobroProvider from '@/components/CobroProvider'
+import GastoProvider from '@/components/GastoProvider'
 import Sidebar from '@/components/Sidebar'
 import { rolActual } from '@/lib/rol-actual'
 import { createClient } from '@/lib/db/server'
@@ -66,6 +67,9 @@ export default async function RootLayout({
           // monta por `createPortal` necesita un único ancestro común para
           // que no importe desde cuál de esas pantallas se abra.
           <CobroProvider>
+          {/* `GastoProvider` anidado por el mismo motivo: el atajo del
+              Sidebar y cualquier pantalla comparten un único modal. */}
+          <GastoProvider>
             <div className="md:flex md:items-start">
               {/* `Sidebar` ahora lee `useSearchParams()` también (para resaltar
                   la pestaña activa de Cobranza por query) — mismo motivo que
@@ -86,6 +90,7 @@ export default async function RootLayout({
                 </div>
               </main>
             </div>
+          </GastoProvider>
           </CobroProvider>
         ) : (
           children
