@@ -18,6 +18,62 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 📌 HALLAZGO · «contrato con proveedor existente» quedó a medias · 20/10 · para Horacio, no urgente
+
+Del punto 4 de Facu (nuevo contrato a sponsor existente). Lo que HAY funciona
+completo: /sponsors → ficha → «Nuevo contrato» → `crear_contrato_sponsor` +
+`cargar_cuotas_sponsor`, con cronograma validado. Nada que construir ahí.
+
+Lo que NO camina es el caso literal del título: **convertir un proveedor (de
+gastos) en sponsor.**
+
+· `crear_sponsor` siempre inserta un tercero NUEVO — no acepta un tercero
+  existente.
+· `crear_contrato_sponsor` sí acepta cualquier tercero (solo valida que
+  exista)… pero `v_sponsor_lista` filtra `tipo = 'sponsor'`, así que un
+  contrato colgado de un proveedor quedaría **invisible en /sponsors** — y
+  con él sus cuotas, su mora y su pendiente.
+
+Si algún día un proveedor pasa a sponsor, es motor tuyo: o una puerta que
+convierta el tipo (¿y qué pasa con su historial de gastos?), o que la vista
+liste por contratos en vez de por tipo. Hoy nadie lo pide — queda anotado
+para que no se descubra en producción.
+
+---
+
+### ✅ LOS 7 PUNTOS DE FACU, CERRADOS · 20/10 · ronda completa (Grupos A → C → B)
+
+· **Grupo A** — tu ingreso extraordinario aplicado SIN donaciones +
+  Estacionamiento + P&L con Mayúscula; facturar a cualquier cliente desde
+  Comprobantes con la tercera pata del comprobante (detalle en el aviso de
+  abajo).
+· **Grupo C** — menú reorganizado: Torneos/Tarifario/Calendario a una sección
+  «Configuración de torneo» (solo admin·operador la ve; las RUTAS no se
+  movieron), Cobranza y Equipos arriba de Operación. Y el torneo corriente
+  filtrado por default en todos lados (cobranza, calendario, gasto, ingreso;
+  «todos» pasó a ser valor explícito ?torneo=todos — ojo si enlazás con query).
+· **Grupo B** — modal global «Agregar gasto» (réplica de tu CobroProvider;
+  FormularioGasto ganó `onCerrar`, tu página no cambia). El buscador del
+  modal de cobro ofrece «¿No es una cuota de equipo?»: cobro de sponsor
+  (picker → /sponsors/[id]/cobrar, TU pantalla), estacionamiento y otro
+  ingreso (→ /comprobantes?nuevo=…, abre solo). Accesos, no flujos: tu
+  motor no se tocó en este grupo. Nuevo contrato a sponsor existente YA
+  existía (paquete 3) — no se duplicó.
+
+**Estado**: verificador verde (72 ops · 0 puertas sin UI) · descuadre $0 ·
+suite completa verde (106 vistas).
+
+**Pendientes grandes para la entrega**:
+1. **Auditoría `security_invoker` de las 105 vistas viejas** — la seguridad
+   real; la tuya nueva ya nació con el flag, es la única.
+2. **Emisión ARCA real** — sigue esperando los PEM, que nunca llegaron al
+   .env de Facu. Es lo único sin probar punta a punta del circuito fiscal.
+
+Menores anotados: cobro sin deuda (motor), ¿Sponsors visible para operador?,
+el warning de hidratación.
+
+---
+
 ### ✅ GRUPO A APLICADO · tu ingreso extraordinario, revisado por Facu, + facturación · 20/10 · para Horacio
 
 Tu paquete se aplicó HOY con la revisión de Facu (los nombres de cuentas no
