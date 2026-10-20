@@ -49,12 +49,16 @@ const CON_BAR = ['admin', 'operador', 'read-only', 'bar'] as const
 /** Igual que CON_BAR pero con finanzas: el arqueo es caja, no bar. */
 const CON_ARQUEO = ['admin', 'operador', 'read-only', 'bar', 'finanzas'] as const
 /**
- * La estructura de la competencia: torneos, series, tarifario, calendario.
+ * Configuración de torneo: solo quien configura (admin y operador).
  *
- * Finanzas queda afuera a propósito — no es su trabajo y no puede escribir esas
- * tablas, así que ofrecerle la pantalla sería ofrecerle botones que fallan.
+ * Reemplaza a SIN_FINANZAS (admin·operador·read-only), que era de la época en
+ * que estas pantallas vivían en la sección diaria: finanzas ya quedaba afuera
+ * porque no arma torneos, y read-only sale ahora por lo mismo — mira números,
+ * no configura. Bar, menos. Como siempre acá,
+ * esconder el ítem no impide LEER la ruta (ver la nota de arriba) — es
+ * producto, no seguridad.
  */
-const SIN_FINANZAS = ['admin', 'operador', 'read-only'] as const
+const CONFIGURA = ['admin', 'operador'] as const
 
 export interface ItemNav {
   href: string
@@ -117,47 +121,6 @@ export const GRUPOS: GrupoNav[] = [
     items: [{ href: '/', label: 'Inicio', icon: 'inicio', roles: CON_ARQUEO }],
   },
   {
-    // En el orden en que pasan las cosas: se anota el equipo, se arma el
-    // fixture, se le cobra, y al que no paga se le reclama. Después, los dos
-    // que NO son un paso sino el molde del que sale todo lo anterior: el
-    // tarifario y el torneo mismo.
-    //
-    // Torneos va último aunque sea lo primero que existe, por frecuencia: se
-    // crea un torneo dos veces al año, y se cobra todos los días. Ponerlo
-    // arriba empujaría lo cotidiano hacia abajo para hacerle lugar a algo que
-    // se toca dos veces por temporada.
-    //
-    // Cuando lleguen los pasos 2 y 3 del módulo de estructura —categorías y
-    // series, y el tarifario editable— cuelgan de acá como hijos de Torneos.
-    titulo: 'Torneo',
-    items: [
-      { href: '/calendario', label: 'Calendario', icon: 'calendario', roles: SIN_FINANZAS },
-      // Inscripciones deja de ser un ítem suelto: es una pestaña de Cobranza,
-      // y ahora el menú lo dice. El redirect de /inscripciones sigue vivo
-      // para las URLs viejas — no cambia nada de esto.
-      {
-        href: '/cobranza',
-        label: 'Cobranza',
-        icon: 'cobranza',
-        // A diferencia de Configuración, colapsable: vive en el primer
-        // nivel del menú —no adentro de un grupo ya contraíble— y con
-        // Calendario y Equipos al lado, sus tres hijos pueden pesar más de
-        // lo que hace falta ver todo el tiempo.
-        colapsable: true,
-        hijos: [
-          { href: '/cobranza', label: 'Cuenta corriente' },
-          { href: '/cobranza?vista=avisos', label: 'Avisos' },
-          { href: '/cobranza?vista=inscripciones', label: 'Inscripciones' },
-        ],
-      },
-      // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
-      // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
-      { href: '/equipos', label: 'Equipos', icon: 'equipos' },
-      { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario', roles: SIN_FINANZAS },
-      { href: '/torneos', label: 'Torneos', icon: 'equipos', roles: SIN_FINANZAS },
-    ],
-  },
-  {
     // De lo más líquido a lo menos: el efectivo y su arqueo, después los
     // valores que todavía no son plata (cheques), y al final los bienes.
     //
@@ -173,6 +136,28 @@ export const GRUPOS: GrupoNav[] = [
     // propio: el árbol ya modela `hijos`, así que es mover un objeto de lugar.
     titulo: 'Operación',
     items: [
+      // Cobranza vivía en una sección «Torneo» junto con el calendario y el
+      // tarifario. Pero cobrar es gestión de TODOS los días, y armar un
+      // torneo pasa dos veces al año: lo diario se mudó acá arriba y el
+      // molde a «Configuración de torneo», abajo. Las rutas no se movieron.
+      {
+        href: '/cobranza',
+        label: 'Cobranza',
+        icon: 'cobranza',
+        // Colapsable: vive en el primer nivel del menú —no adentro de un
+        // grupo ya contraíble— y sus tres hijos pueden pesar más de lo que
+        // hace falta ver todo el tiempo.
+        colapsable: true,
+        hijos: [
+          { href: '/cobranza', label: 'Cuenta corriente' },
+          { href: '/cobranza?vista=avisos', label: 'Avisos' },
+          // El redirect de /inscripciones sigue vivo para las URLs viejas.
+          { href: '/cobranza?vista=inscripciones', label: 'Inscripciones' },
+        ],
+      },
+      // Al lado de Cobranza porque es su contracara: acá está QUIÉN paga, allá
+      // CUÁNTO debe. Sin `roles`, o sea el default OFICINA: el bar no lo ve.
+      { href: '/equipos', label: 'Equipos', icon: 'equipos' },
       { href: '/gastos', label: 'Gastos', icon: 'comprobante' },
       // Al lado de Gastos porque es su contracara, igual que Equipos al lado de
       // Cobranza: acá está A QUIÉN se le compra, allá CUÁNTO se gastó.
@@ -215,6 +200,25 @@ export const GRUPOS: GrupoNav[] = [
       // y Caja, no de Socios.
       { href: '/socios', label: 'Socios', icon: 'socios', roles: SIN_SOCIETARIO },
       { href: '/usd', label: 'USD', icon: 'usd', roles: SIN_SOCIETARIO },
+    ],
+  },
+  {
+    // Lo que se toca dos veces al año, al armar un torneo: el torneo mismo,
+    // su tarifario y su calendario. Vivían como la sección «Torneo», arriba
+    // de todo, pesando en el menú diario lo que se usa cada seis meses.
+    //
+    // 🔴 Se movieron los ÍTEMS, no las rutas: /torneos, /catalogos/tarifario
+    // y /calendario siguen donde estaban, y los links internos —las pestañas
+    // del detalle de torneo, los «volver al torneo»— no se enteran. Cambió
+    // dónde aparecen en el menú, nada más.
+    //
+    // En orden de construcción: primero existe el torneo, de él sale su
+    // tarifario, y del tarifario las fechas del calendario.
+    titulo: 'Configuración de torneo',
+    items: [
+      { href: '/torneos', label: 'Torneos', icon: 'equipos', roles: CONFIGURA },
+      { href: '/catalogos/tarifario', label: 'Tarifario', icon: 'tarifario', roles: CONFIGURA },
+      { href: '/calendario', label: 'Calendario', icon: 'calendario', roles: CONFIGURA },
     ],
   },
   {
