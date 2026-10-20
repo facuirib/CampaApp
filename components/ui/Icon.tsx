@@ -37,6 +37,10 @@ import {
   IconTrash,
   IconUserHeart,
   IconUsers,
+  IconCashRegister,
+  IconShoppingCart,
+  IconTrophy,
+  IconTruck,
   IconX,
   type IconProps as TablerIconProps,
 } from '@tabler/icons-react'
@@ -75,7 +79,7 @@ const ICONOS = {
   abajoFlecha: IconArrowDown,
   banco: IconBuildingBank,
   calendario: IconCalendar,
-  caja: IconCash,
+  caja: IconCashRegister,
   activos: IconTool,
   check: IconCheck,
   chevronAbajo: IconChevronDown,
@@ -95,6 +99,9 @@ const ICONOS = {
   buscar: IconSearch,
   borrar: IconTrash,
   equipos: IconUsers,
+  gasto: IconShoppingCart,
+  proveedores: IconTruck,
+  torneo: IconTrophy,
   cerrar: IconX,
 } as const
 

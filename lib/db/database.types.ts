@@ -1355,6 +1355,7 @@ export type Database = {
       }
       comprobante: {
         Row: {
+          ingreso_extraordinario_id: string | null
           cae: string | null
           cae_vencimiento: string | null
           condicion_iva_receptor_id: number
@@ -1385,6 +1386,7 @@ export type Database = {
           tipo_comprobante: number
         }
         Insert: {
+          ingreso_extraordinario_id?: string | null
           cae?: string | null
           cae_vencimiento?: string | null
           condicion_iva_receptor_id: number
@@ -1415,6 +1417,7 @@ export type Database = {
           tipo_comprobante: number
         }
         Update: {
+          ingreso_extraordinario_id?: string | null
           cae?: string | null
           cae_vencimiento?: string | null
           condicion_iva_receptor_id?: number
@@ -3423,6 +3426,51 @@ export type Database = {
             referencedColumns: ["torneo_id"]
           },
         ]
+      }
+      ingreso_extraordinario: {
+        Row: {
+          asiento_id: string
+          concepto: string
+          created_at: string
+          created_by: string | null
+          cuenta_id: string
+          fecha: string
+          id: string
+          medio_pago: string
+          monto: number
+          predio_id: string | null
+          tercero_id: string | null
+          torneo_id: string | null
+        }
+        Insert: {
+          asiento_id: string
+          concepto: string
+          created_at?: string
+          created_by?: string | null
+          cuenta_id: string
+          fecha: string
+          id?: string
+          medio_pago: string
+          monto: number
+          predio_id?: string | null
+          tercero_id?: string | null
+          torneo_id?: string | null
+        }
+        Update: {
+          asiento_id?: string
+          concepto?: string
+          created_at?: string
+          created_by?: string | null
+          cuenta_id?: string
+          fecha?: string
+          id?: string
+          medio_pago?: string
+          monto?: number
+          predio_id?: string | null
+          tercero_id?: string | null
+          torneo_id?: string | null
+        }
+        Relationships: []
       }
       jornada: {
         Row: {
@@ -6160,6 +6208,7 @@ export type Database = {
       }
       v_comprobante: {
         Row: {
+          ingreso_extraordinario_id: string | null
           anio: number | null
           cae: string | null
           cae_vencimiento: string | null
@@ -7776,6 +7825,23 @@ export type Database = {
           },
         ]
       }
+      v_ingreso_extraordinario_detalle: {
+        Row: {
+          concepto: string | null
+          created_at: string | null
+          cuenta_codigo: string | null
+          cuenta_nombre: string | null
+          estado: string | null
+          fecha: string | null
+          id: string | null
+          medio_pago: string | null
+          monto: number | null
+          predio: string | null
+          tercero: string | null
+          torneo: string | null
+        }
+        Relationships: []
+      }
       v_libro_diario: {
         Row: {
           anio: number | null
@@ -9143,6 +9209,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      anular_ingreso_extraordinario: {
+        Args: { p_created_by?: string; p_ingreso_id: string; p_motivo: string }
+        Returns: string
+      }
       anular_pago: {
         Args: { p_created_by?: string; p_motivo: string; p_pago_id: string }
         Returns: string
@@ -9769,6 +9839,20 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_ingreso_extraordinario: {
+        Args: {
+          p_concepto: string
+          p_created_by?: string
+          p_cuenta_ingreso: string
+          p_fecha: string
+          p_medio: string
+          p_monto: number
+          p_predio_id?: string
+          p_tercero_id?: string
+          p_torneo_id?: string
+        }
+        Returns: string
+      }
       registrar_movimiento_fondo: {
         Args: {
           p_caja_id: string
@@ -9807,6 +9891,7 @@ export type Database = {
           p_cuota_cobro_sponsor_id?: string
           p_detalle?: string
           p_emitida_por?: string
+          p_ingreso_extraordinario_id?: string
           p_fecha_emision?: string
           p_iva?: number
           p_monto: number

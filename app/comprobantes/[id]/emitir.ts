@@ -90,7 +90,7 @@ export async function emitirFacturaDeCobro(
   // tiene `pago_id` en NULL porque el cobro de sponsor no pasa por `pago`—
   // rebotaba con «no cuelga de un cobro», que además de falso era desorientador:
   // el recibo colgaba perfectamente, sólo que del otro lado.
-  if (!recibo.pago_id && !recibo.cuota_cobro_sponsor_id) {
+  if (!recibo.pago_id && !recibo.cuota_cobro_sponsor_id && !recibo.ingreso_extraordinario_id) {
     return { ok: false, error: 'Este comprobante no cuelga de un cobro.' }
   }
   if (recibo.ya_facturado) return { ok: false, error: 'Este cobro ya tiene su factura.' }
@@ -133,6 +133,7 @@ export async function emitirFacturaDeCobro(
     // solo era este archivo.
     pagoId: recibo.pago_id ?? undefined,
     cuotaCobroSponsorId: recibo.cuota_cobro_sponsor_id ?? undefined,
+    ingresoExtraordinarioId: recibo.ingreso_extraordinario_id ?? undefined,
   }
 
   try {
@@ -196,7 +197,9 @@ export async function emitirFacturaDeCobro(
 
     const { data: reserva } = await (recibo.pago_id
       ? consulta.eq('pago_id', recibo.pago_id)
-      : consulta.eq('cuota_cobro_sponsor_id', recibo.cuota_cobro_sponsor_id!)
+      : recibo.cuota_cobro_sponsor_id
+        ? consulta.eq('cuota_cobro_sponsor_id', recibo.cuota_cobro_sponsor_id)
+        : consulta.eq('ingreso_extraordinario_id', recibo.ingreso_extraordinario_id!)
     ).maybeSingle()
 
     const mensaje = e instanceof Error ? e.message : 'Se cortó la comunicación con ARCA.'

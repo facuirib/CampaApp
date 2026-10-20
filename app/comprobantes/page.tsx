@@ -6,6 +6,8 @@ import { formatMoneyExacto } from '@/lib/format'
 import type { Database } from '@/lib/db/database.types'
 
 import AcumuladoPorDireccion from './AcumuladoPorDireccion'
+import NuevoIngreso from './NuevoIngreso'
+import { puede } from '@/lib/permisos'
 
 type FilaVista = Database['public']['Views']['v_comprobante']['Row']
 
@@ -79,6 +81,7 @@ export default async function ComprobantesPage({
   const params = await searchParams
   const supabase = await createClient()
   const rol = await rolActual()
+  const puedeIngreso = puede(rol, 'ingreso_extraordinario.registrar')
 
   if (!rol || !VE_LA_LISTA.includes(rol)) {
     return (
@@ -137,6 +140,26 @@ export default async function ComprobantesPage({
       .eq('mes', Number(mesEnCurso.slice(5, 7))),
     supabase.from('v_facturado_direccion_total').select('*'),
   ])
+
+  // Para el formulario de «Nuevo ingreso» (fase B del Grupo A): las categorías
+  // son las cuentas de ingreso imputables SIN circuito propio — dinámico, una
+  // cuenta nueva aparece sola. Solo si el rol puede registrar.
+  const [cuentasRes, tercerosRes, prediosRes, torneosRes2, actualRes] = puedeIngreso
+    ? await Promise.all([
+        supabase.from('cuenta').select('id, nombre, codigo').eq('tipo', 'ingreso').eq('imputable', true)
+          .not('codigo', 'in', '("ING_INSCRIPCIONES","ING_PARTIDOS","ING_SPONSORS","ING_BAR")')
+          .order('nombre'),
+        supabase.from('tercero').select('id, nombre').order('nombre'),
+        supabase.from('predio').select('id, nombre').order('nombre'),
+        supabase.from('torneo').select('id, nombre').eq('activo', true).order('anio', { ascending: false }),
+        supabase.from('v_torneo_actual').select('id').maybeSingle(),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: null }]
+  const cuentasIngreso = (cuentasRes.data ?? []).map((c) => ({ id: c.id, nombre: c.nombre, codigo: c.codigo }))
+  const tercerosOpc = (tercerosRes.data ?? []).map((t) => ({ id: t.id, nombre: t.nombre ?? '—' }))
+  const prediosOpc = (prediosRes.data ?? []).map((t) => ({ id: t.id, nombre: t.nombre ?? '—' }))
+  const torneosOpc = (torneosRes2.data ?? []).map((t) => ({ id: t.id, nombre: t.nombre ?? '—' }))
+  const torneoActualId = actualRes.data?.id ?? null
 
   const hayComprobantes = (kpi?.total ?? 0) > 0
 
@@ -247,6 +270,24 @@ export default async function ComprobantesPage({
               subtitulo={`${kpi!.pendientes} pendiente(s) · ${kpi!.con_error} con error`}
             />
           </div>
+
+          {puedeIngreso && (
+            <NuevoIngreso
+              cuentas={cuentasIngreso}
+              terceros={tercerosOpc}
+              predios={prediosOpc}
+              torneos={torneosOpc}
+              torneoActualId={torneoActualId}
+              // ?nuevo= viene del acceso del modal de cobro: el formulario
+              // abre solo, y «estacionamiento» trae su categoría puesta.
+              abiertoInicial={params.nuevo === '1' || params.nuevo === 'estacionamiento'}
+              cuentaInicial={
+                params.nuevo === 'estacionamiento'
+                  ? cuentasIngreso.find((c) => c.codigo === 'ING_ESTACIONAMIENTO')?.id
+                  : undefined
+              }
+            />
+          )}
 
           <FiltrosUrl
             filtros={filtros}

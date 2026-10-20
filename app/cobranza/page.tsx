@@ -136,16 +136,40 @@ export default async function CobranzaPage({
     etapa?: string
   }>
 }) {
-  const { torneo: torneoElegido, vista, serie, estado, etapa } = await searchParams
+  const { torneo: torneoParam, vista, serie, estado, etapa } = await searchParams
   const activa: Vista =
     vista === 'avisos' ? 'avisos' : vista === 'inscripciones' ? 'inscripciones' : 'cuenta'
   const supabase = await createClient()
+
+  // ── El torneo corriente, filtrado por default ─────────────────────────────
+  //
+  // Sin parámetro en la URL se filtra el torneo EN CURSO — `v_torneo_actual`,
+  // la única definición de «cuál es el actual»; la regla estaba copiada acá y
+  // en el tarifario y las copias envejecían por separado. «todos» es el escape
+  // explícito: FiltrosUrl borra de la URL el parámetro vacío, así que sin un
+  // valor propio "Todos los torneos" caería de vuelta en el default y sería
+  // inalcanzable. Sin ningún torneo en curso no se inventa uno: se cae a
+  // «todos», que acá además es lo natural (concepto 5: la deuda es del
+  // equipo). Ojo: el default del corriente ESCONDE la deuda arrastrada de
+  // torneos anteriores — está a un click en "Todos los torneos", y la vista
+  // Avisos no filtra por torneo, así que el reclamo nunca pierde el arrastre.
+  const { data: actual } = await supabase
+    .from('v_torneo_actual')
+    .select('id, nombre')
+    .maybeSingle()
+  const torneoElegido = torneoParam === 'todos' ? undefined : (torneoParam ?? actual?.id ?? undefined)
 
   // ── La pestaña Inscripciones ───────────────────────────────────────────
   if (activa === 'inscripciones') {
     let q = supabase.from('v_inscripcion').select('*')
     if (torneoElegido) q = q.eq('torneo_id', torneoElegido)
-    const { data, error } = await q
+    // Los torneos del filtro salen de la tabla, no de las filas ya filtradas:
+    // con el corriente por default, deducirlos de las inscripciones dejaría
+    // un desplegable con UN torneo — y sin salida hacia los demás.
+    const [{ data, error }, torneosRes] = await Promise.all([
+      q,
+      supabase.from('torneo').select('id, nombre, estado').order('anio', { ascending: false }),
+    ])
 
     return (
       <div className="pb-10">
@@ -157,7 +181,7 @@ export default async function CobranzaPage({
           </p>
         </header>
 
-        <Pestanas activa={activa} torneo={torneoElegido} />
+        <Pestanas activa={activa} torneo={torneoParam} />
 
         {error && (
           <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
@@ -169,6 +193,8 @@ export default async function CobranzaPage({
           inscripciones={data ?? []}
           filtros={{ serie, estado, torneo: torneoElegido }}
           torneoElegido={torneoElegido ?? null}
+          torneos={torneosRes.data ?? []}
+          torneoDefault={actual?.id ?? null}
         />
       </div>
     )
@@ -212,7 +238,7 @@ export default async function CobranzaPage({
           </Link>
         </header>
 
-        <Pestanas activa={activa} torneo={torneoElegido} />
+        <Pestanas activa={activa} torneo={torneoParam} />
 
         {colaRes.error && (
           <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">
@@ -239,11 +265,6 @@ export default async function CobranzaPage({
   ])
 
   const torneos = torneosRes.data ?? []
-  // `v_torneo_actual` y no `find(t => t.activo)`: «cuál es el actual» tiene UNA
-  // definición, en la base. La regla estaba copiada acá y en el tarifario, y las
-  // dos copias envejecían por separado.
-  const { data: actual } = await supabase.from('v_torneo_actual').select('id, nombre').maybeSingle()
-
   // La serie de cada equipo, para poder filtrar por ella. Sólo tiene sentido
   // con un torneo elegido: un equipo puede jugar en series distintas en cada
   // torneo, así que sin ese corte «serie B» no identifica a nadie.
@@ -328,11 +349,16 @@ export default async function CobranzaPage({
     {
       parametro: 'torneo',
       label: 'Torneo',
-      todos: 'Todos los torneos',
-      opciones: torneos.map((t) => ({
-        valor: t.id,
-        label: t.estado === 'en_curso' ? `${t.nombre} (en curso)` : t.nombre,
-      })),
+      // El corriente por default; «todos» con valor propio (ver arriba,
+      // donde se resuelve `torneoElegido`).
+      valorPorDefecto: actual?.id ?? 'todos',
+      opciones: [
+        { valor: 'todos', label: 'Todos los torneos' },
+        ...torneos.map((t) => ({
+          valor: t.id,
+          label: t.estado === 'en_curso' ? `${t.nombre} (en curso)` : t.nombre,
+        })),
+      ],
     },
     // El estado es el mismo que dibuja el badge: no hay una segunda definición.
     {
@@ -403,7 +429,7 @@ export default async function CobranzaPage({
         </Link>
       </header>
 
-      <Pestanas activa={activa} torneo={torneoElegido} />
+      <Pestanas activa={activa} torneo={torneoParam} />
 
       {error && (
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>

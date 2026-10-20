@@ -23,7 +23,6 @@ begin;
 -- ═══ Archivo 1 · cuentas ═══════════════════════════════════════════════════
 insert into cuenta (id, codigo, nombre, tipo, imputable, padre_id)
 values
-  (gen_random_uuid(), 'ING_DONACIONES', 'Donaciones',           'ingreso', true, null),
   (gen_random_uuid(), 'ING_SERVICIOS',  'Servicios a terceros', 'ingreso', true, null),
   (gen_random_uuid(), 'ING_OTROS',      'Otros ingresos',       'ingreso', true, null)
 on conflict (codigo) do nothing;
@@ -161,9 +160,8 @@ begin
     end if;
     v_cuenta_caja := 'CAJA_EFECTIVO';
   else
-    if p_predio_id is not null then
-      raise exception 'Solo el efectivo lleva predio. % es una caja global.', p_medio;
-    end if;
+    -- (revisión Facu 20/10) el predio con transferencia se acepta como
+    -- dimensión del ingreso; al asiento solo viaja con efectivo.
     v_cuenta_caja := 'CAJA_TRANSFERENCIA';
   end if;
 
@@ -185,7 +183,7 @@ begin
     p_descripcion => p_concepto,
     p_lineas      => v_lineas,
     p_torneo_id   => p_torneo_id,
-    p_predio_id   => p_predio_id,
+    p_predio_id   => case when p_medio = 'efectivo' then p_predio_id else null end,
     p_origen_id   => v_ingreso_id,
     p_created_by  => v_user_id
   );
@@ -278,7 +276,7 @@ declare
 begin
   v_ingreso_id := registrar_ingreso_extraordinario(
     50000, 'efectivo', current_date, 'Donación de prueba',
-    (select id from cuenta where codigo = 'ING_DONACIONES'),
+    (select id from cuenta where codigo = 'ING_SERVICIOS'),
     null, null, (select id from predio limit 1)
   );
 
@@ -302,7 +300,7 @@ begin
   raise notice 'OK caso 1: admin registra, asiento_id=%, 2 líneas balanceadas (50.000/50.000)', v_asiento_id;
 end $$;
 
--- ── Caso 2 · aparece en v_pl_mensual: 12 filas para ING_DONACIONES, y la
+-- ── Caso 2 · aparece en v_pl_mensual: 12 filas para ING_SERVICIOS, y la
 --    del mes de la fecha de hoy trae el monto. ───────────────────────────
 do $$
 declare
@@ -311,21 +309,21 @@ declare
 begin
   select count(*) into v_filas
     from v_pl_mensual
-   where codigo = 'ING_DONACIONES' and anio = extract(year from current_date);
+   where codigo = 'ING_SERVICIOS' and anio = extract(year from current_date);
   if v_filas <> 12 then
-    raise exception 'FALLÓ caso 2: v_pl_mensual tiene % filas para ING_DONACIONES, esperaba 12', v_filas;
+    raise exception 'FALLÓ caso 2: v_pl_mensual tiene % filas para ING_SERVICIOS, esperaba 12', v_filas;
   end if;
 
   select monto into v_monto
     from v_pl_mensual
-   where codigo = 'ING_DONACIONES'
+   where codigo = 'ING_SERVICIOS'
      and anio = extract(year from current_date)
      and mes = extract(month from current_date);
   if v_monto <> 50000 then
     raise exception 'FALLÓ caso 2: el mes de hoy muestra %, esperaba 50000', v_monto;
   end if;
 
-  raise notice 'OK caso 2: v_pl_mensual trae 12 filas para ING_DONACIONES y 50.000 en el mes de hoy';
+  raise notice 'OK caso 2: v_pl_mensual trae 12 filas para ING_SERVICIOS y 50.000 en el mes de hoy';
 end $$;
 
 -- ── Caso 3 · operador rechazado al registrar ────────────────────────────

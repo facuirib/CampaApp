@@ -69,6 +69,11 @@ export interface FormularioGastoProps {
   bajada?: string
   /** A dónde vuelve el «← Volver». */
   volverA?: { href: string; label: string }
+  /**
+   * Montado en el modal global (`GastoProvider`): reemplaza el «← Volver» y
+   * el link del éxito por «Cerrar». Mismo contrato que en `FormularioCobro`.
+   */
+  onCerrar?: () => void
 }
 
 export default function FormularioGasto({
@@ -76,6 +81,7 @@ export default function FormularioGasto({
   titulo = 'Cargar gasto',
   bajada,
   volverA = { href: '/gastos', label: '← Volver a gastos' },
+  onCerrar,
 }: FormularioGastoProps = {}) {
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
@@ -121,6 +127,7 @@ export default function FormularioGasto({
         { data: torneosData, error: errorTorneos },
         { data: activosData, error: errorActivos },
         { data: proveedoresData, error: errorProveedores },
+        { data: torneoActual },
       ] = await Promise.all([
         // 🔴 Sin las de inversión: comprar un activo no se carga acá.
         // Se carga en /activos/nuevo, con `comprar_activo`, que crea el activo
@@ -146,6 +153,9 @@ export default function FormularioGasto({
           .eq('estado', 'activo')
           .order('nombre'),
         supabase.from('proveedor').select('id, nombre').eq('activo', true).order('nombre'),
+        // El torneo en curso, para preseleccionarlo. Si falla o no hay, el
+        // campo queda en «Sin torneo…» — nunca bloquea el formulario.
+        supabase.from('v_torneo_actual').select('id').maybeSingle(),
       ])
 
       if (cancelado) return
@@ -169,6 +179,9 @@ export default function FormularioGasto({
       setTorneos(torneosData ?? [])
       setActivos(activosData ?? [])
       setProveedores(proveedoresData ?? [])
+      // El torneo corriente preseleccionado. «Sin torneo…» sigue ahí para el
+      // gasto de estructura permanente — esto elige el default, no obliga.
+      setTorneoId(torneoActual?.id ?? null)
       setCargando(false)
     }
 
@@ -408,9 +421,19 @@ export default function FormularioGasto({
 
   return (
     <div className="pb-10">
-      <Link href={volverA.href} className="text-[11px] font-semibold text-blue-d hover:underline">
-        {volverA.label}
-      </Link>
+      {onCerrar ? (
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="text-[11px] font-semibold text-blue-d hover:underline"
+        >
+          Cerrar
+        </button>
+      ) : (
+        <Link href={volverA.href} className="text-[11px] font-semibold text-blue-d hover:underline">
+          {volverA.label}
+        </Link>
+      )}
 
       <header className="mb-6 mt-2">
         <h1 className="text-xl font-extrabold tracking-[-.4px] text-ink">{titulo}</h1>
@@ -596,9 +619,15 @@ export default function FormularioGasto({
           {resultadoExito && (
             <p className="mb-4 rounded-md bg-okbg px-4 py-3 text-[11px] text-oktx">
               {resultadoExito}{' '}
-              <Link href={volverA.href} className="font-bold underline">
-                {volverA.label.replace('← ', '')}
-              </Link>
+              {onCerrar ? (
+                <button type="button" onClick={onCerrar} className="font-bold underline">
+                  Cerrar
+                </button>
+              ) : (
+                <Link href={volverA.href} className="font-bold underline">
+                  {volverA.label.replace('← ', '')}
+                </Link>
+              )}
             </p>
           )}
 

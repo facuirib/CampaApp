@@ -3,9 +3,12 @@
 import { createContext, useContext, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { Icon } from '@/components/ui'
+import { Button, Icon } from '@/components/ui'
+import { puede } from '@/lib/permisos'
+import type { Rol } from '@/lib/roles'
 import FormularioCobro from '@/app/equipos/[terceroId]/cobrar/FormularioCobro'
 import BuscadorEquipoCobro from './BuscadorEquipoCobro'
+import CobroSponsorPicker from './CobroSponsorPicker'
 
 interface AbrirOpciones {
   /** Con equipo ya elegido, el modal entra directo al formulario. */
@@ -17,6 +20,8 @@ interface AbrirOpciones {
 interface EstadoCobro {
   terceroId: string | null
   torneoId: string | null
+  /** La fase sponsor: el picker de pendientes, en el mismo modal. */
+  sponsor?: boolean
 }
 
 interface CobroContextValue {
@@ -67,7 +72,19 @@ export function useCobro(): CobroContextValue {
  * equipos con deuda ahí. Elegido el equipo, se completa el mismo estado y el
  * modal pasa a mostrar `FormularioCobro` — nunca dos componentes a la vez.
  */
-export default function CobroProvider({ children }: { children: React.ReactNode }) {
+export default function CobroProvider({
+  children,
+  rol = null,
+}: {
+  children: React.ReactNode
+  /**
+   * Para los accesos no-cuota del pie del buscador: qué ofrecer depende del
+   * rol (sponsor.cobrar · ingreso_extraordinario.registrar). El flujo de
+   * cuota no lo mira — su candado sigue siendo el de siempre, en los botones
+   * que llaman a `abrir` y en las funciones de la base.
+   */
+  rol?: Rol | null
+}) {
   const router = useRouter()
   const [estado, setEstado] = useState<EstadoCobro | null>(null)
 
@@ -90,13 +107,25 @@ export default function CobroProvider({ children }: { children: React.ReactNode 
   }
 
   function clicDeFondo() {
-    // Mientras se busca el equipo, el fondo cierra como cualquier modal
-    // liviano. Elegido el equipo —o si ya se abrió con uno— hay datos
-    // tipeados (monto, medio, cheque…) y un click fuera de foco no tiene
-    // que tirarlos.
+    // Mientras se busca el equipo —o se elige un sponsor—, el fondo cierra
+    // como cualquier modal liviano. Elegido el equipo hay datos tipeados
+    // (monto, medio, cheque…) y un click fuera de foco no tiene que tirarlos.
     if (estado?.terceroId) return
     cerrar()
   }
+
+  /**
+   * Cerrar y navegar: los accesos que NO son cuota de equipo salen del modal
+   * hacia su circuito de siempre. Sin `router.refresh()` — no se registró
+   * nada todavía, el destino carga lo suyo.
+   */
+  function irA(ruta: string) {
+    setEstado(null)
+    router.push(ruta)
+  }
+
+  const puedeSponsor = !!rol && puede(rol, 'sponsor.cobrar')
+  const puedeIngreso = !!rol && puede(rol, 'ingreso_extraordinario.registrar')
 
   const modal = estado && (
     <div
@@ -114,14 +143,52 @@ export default function CobroProvider({ children }: { children: React.ReactNode 
           </button>
         </div>
 
-        {estado.terceroId ? (
+        {estado.sponsor ? (
+          <CobroSponsorPicker onElegir={(id) => irA(`/sponsors/${id}/cobrar`)} />
+        ) : estado.terceroId ? (
           <FormularioCobro
             terceroId={estado.terceroId}
             torneoInicial={estado.torneoId}
             onCerrar={cerrar}
           />
         ) : (
-          <BuscadorEquipoCobro torneoInicial={estado.torneoId} onElegirEquipo={elegirEquipo} />
+          <>
+            <BuscadorEquipoCobro torneoInicial={estado.torneoId} onElegirEquipo={elegirEquipo} />
+
+            {/* Los otros ingresos, desde el mismo acceso (punto 2 de Facu).
+                Son ACCESOS, no flujos nuevos: sponsor abre el picker y de ahí
+                va a /sponsors/[id]/cobrar (registrar_cobro_sponsor);
+                estacionamiento y el resto van al «Nuevo ingreso» de
+                Comprobantes (registrar_ingreso_extraordinario), que abre
+                solo con ?nuevo=. El flujo de cuota de arriba no cambia. */}
+            {(puedeSponsor || puedeIngreso) && (
+              <div className="mt-6 border-t border-line pt-4">
+                <p className="mb-2 text-[11px] font-semibold text-muted">
+                  ¿No es una cuota de equipo?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {puedeSponsor && (
+                    <Button
+                      variant="tertiary"
+                      onClick={() => setEstado({ terceroId: null, torneoId: null, sponsor: true })}
+                    >
+                      Cobro de sponsor
+                    </Button>
+                  )}
+                  {puedeIngreso && (
+                    <>
+                      <Button variant="tertiary" onClick={() => irA('/comprobantes?nuevo=estacionamiento')}>
+                        Estacionamiento
+                      </Button>
+                      <Button variant="tertiary" onClick={() => irA('/comprobantes?nuevo=1')}>
+                        Otro ingreso (alquiler, servicio…)
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
