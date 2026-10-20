@@ -36,16 +36,22 @@ export default function NuevoIngreso({
   predios,
   torneos,
   torneoActualId,
+  abiertoInicial = false,
+  cuentaInicial,
 }: {
   cuentas: CuentaIngreso[]
   terceros: Opcion[]
   predios: Opcion[]
   torneos: Opcion[]
   torneoActualId: string | null
+  /** Arrancar con el formulario abierto (llegada con ?nuevo= — el acceso del modal de cobro). */
+  abiertoInicial?: boolean
+  /** La categoría ya elegida (id de cuenta) — ?nuevo=estacionamiento la trae puesta. */
+  cuentaInicial?: string
 }) {
   const router = useRouter()
-  const [abierto, setAbierto] = useState(false)
-  const [cuenta, setCuenta] = useState('')
+  const [abierto, setAbierto] = useState(abiertoInicial)
+  const [cuenta, setCuenta] = useState(cuentaInicial ?? '')
   const [concepto, setConcepto] = useState('')
   const [monto, setMonto] = useState(0)
   const [medio, setMedio] = useState<'efectivo' | 'transferencia'>('transferencia')

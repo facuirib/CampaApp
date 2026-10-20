@@ -278,6 +278,14 @@ export default async function ComprobantesPage({
               predios={prediosOpc}
               torneos={torneosOpc}
               torneoActualId={torneoActualId}
+              // ?nuevo= viene del acceso del modal de cobro: el formulario
+              // abre solo, y «estacionamiento» trae su categoría puesta.
+              abiertoInicial={params.nuevo === '1' || params.nuevo === 'estacionamiento'}
+              cuentaInicial={
+                params.nuevo === 'estacionamiento'
+                  ? cuentasIngreso.find((c) => c.codigo === 'ING_ESTACIONAMIENTO')?.id
+                  : undefined
+              }
             />
           )}
 

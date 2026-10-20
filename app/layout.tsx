@@ -66,7 +66,7 @@ export default async function RootLayout({
           // equipo —cualquier `children`—, y el modal que `CobroProvider`
           // monta por `createPortal` necesita un único ancestro común para
           // que no importe desde cuál de esas pantallas se abra.
-          <CobroProvider>
+          <CobroProvider rol={rol}>
           {/* `GastoProvider` anidado por el mismo motivo: el atajo del
               Sidebar y cualquier pantalla comparten un único modal. */}
           <GastoProvider>
