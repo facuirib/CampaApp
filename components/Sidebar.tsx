@@ -518,7 +518,7 @@ export default function Sidebar({ email, rol }: SidebarProps) {
                 type="button"
                 onClick={() => toggleColapso(grupo.titulo!)}
                 aria-expanded={!colapsado}
-                className="flex w-full items-center justify-between px-2.5 pb-1.5 text-[8.5px] font-bold uppercase tracking-[.07em] text-muted hover:text-ink"
+                className="flex w-full items-center justify-between px-2.5 pb-1.5 text-[11.5px] font-bold uppercase tracking-[.07em] text-muted hover:text-ink"
               >
                 {grupo.titulo}
                 <Icon
