@@ -355,7 +355,7 @@ export async function enviarAutomaticoComprobante(
 
     const { data: comp } = await supabase
       .from('comprobante')
-      .select('pago_id, cuota_cobro_sponsor_id')
+      .select('pago_id, cuota_cobro_sponsor_id, ingreso_extraordinario_id')
       .eq('id', comprobanteId)
       .maybeSingle()
     if (!comp) return { enviado: false, aviso: 'no se encontró el comprobante' }
@@ -368,6 +368,13 @@ export async function enviarAutomaticoComprobante(
         .eq('id', comp.pago_id)
         .maybeSingle()
       terceroId = pago?.tercero_id ?? null
+    } else if (comp.ingreso_extraordinario_id) {
+      const { data: ing } = await supabase
+        .from('ingreso_extraordinario')
+        .select('tercero_id')
+        .eq('id', comp.ingreso_extraordinario_id)
+        .maybeSingle()
+      terceroId = ing?.tercero_id ?? null
     } else if (comp.cuota_cobro_sponsor_id) {
       const { data: cuota } = await supabase
         .from('cuota_cobro_sponsor')

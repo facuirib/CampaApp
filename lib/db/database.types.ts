@@ -1355,6 +1355,7 @@ export type Database = {
       }
       comprobante: {
         Row: {
+          ingreso_extraordinario_id: string | null
           cae: string | null
           cae_vencimiento: string | null
           condicion_iva_receptor_id: number
@@ -1385,6 +1386,7 @@ export type Database = {
           tipo_comprobante: number
         }
         Insert: {
+          ingreso_extraordinario_id?: string | null
           cae?: string | null
           cae_vencimiento?: string | null
           condicion_iva_receptor_id: number
@@ -1415,6 +1417,7 @@ export type Database = {
           tipo_comprobante: number
         }
         Update: {
+          ingreso_extraordinario_id?: string | null
           cae?: string | null
           cae_vencimiento?: string | null
           condicion_iva_receptor_id?: number
@@ -6205,6 +6208,7 @@ export type Database = {
       }
       v_comprobante: {
         Row: {
+          ingreso_extraordinario_id: string | null
           anio: number | null
           cae: string | null
           cae_vencimiento: string | null
@@ -9887,6 +9891,7 @@ export type Database = {
           p_cuota_cobro_sponsor_id?: string
           p_detalle?: string
           p_emitida_por?: string
+          p_ingreso_extraordinario_id?: string
           p_fecha_emision?: string
           p_iva?: number
           p_monto: number

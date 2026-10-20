@@ -62,6 +62,8 @@ export interface DatosFactura {
   receptorDocNro: string
   pagoId?: string
   cuotaCobroSponsorId?: string
+  /** Tercera pata (20/10): la factura de un ingreso extraordinario. */
+  ingresoExtraordinarioId?: string
 }
 
 export interface ResultadoFactura {
@@ -114,6 +116,7 @@ export async function emitirFactura(
       p_receptor_doc_nro: datos.receptorDocNro,
       p_pago_id: datos.pagoId ?? null,
       p_cuota_cobro_sponsor_id: datos.cuotaCobroSponsorId ?? null,
+      p_ingreso_extraordinario_id: datos.ingresoExtraordinarioId ?? null,
       p_neto: impNeto,
       p_iva: impIva,
       p_ultimo_numero_arca: ultimoNumeroArca,
