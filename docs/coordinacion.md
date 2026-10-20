@@ -79,19 +79,19 @@ carril; un `onClick` que llama a una función, no.
   disparado desde el modal si la URL de fondo está protegida. Si el error
   reaparece con caché limpia, mirar la pestaña Network (request con header
   `Next-Action`: 307/302 vs 200).
-- Pagos de prueba a anular, si siguen vigentes: Acme $50.000 (pago
-  `8e4fc2dd-be16-4e9d-8346-619bde7ac2b7`) y el pago
-  `57637c96-20a6-4db3-b023-bfff8c43c508` (asiento `9927b6cc`). NO anular los
-  de agosto de Acme: el de $1 tiene factura ARCA emitida y `anular_pago` lo
-  rechaza.
+- Pagos de prueba generados en este testeo (Acme $50.000, pago
+  `8e4fc2dd-be16-4e9d-8346-619bde7ac2b7`; y el pago
+  `57637c96-20a6-4db3-b023-bfff8c43c508`, asiento `9927b6cc`): NO se anulan
+  sueltos — van en el borrado completo. Ver **F. Datos de prueba y borrado
+  final**.
 
 #### D. Decisiones que le tocan a Facu
 
 1. **Ingreso extraordinario**: revisar la entrada de abajo, correr el script
    y aplicar las 3 migraciones, SOLO después de que Horacio confirme con el
-   contador (a) los nombres de las tres cuentas, (b) si la venta de un
-   activo fijo va por baja de activo y no como ingreso, y (c) si el
-   estacionamiento es puntual o recurrente.
+   contador (a) los nombres de las tres cuentas y (b) si la venta de un
+   activo fijo va por baja de activo y no como ingreso. El estacionamiento
+   (c) ya está respondido por el cliente — ver la entrada de abajo.
 2. **Auditoría de seguridad de vistas**: ninguna vista usa
    `security_invoker=true`. Una vista sin ese flag evalúa RLS con los
    privilegios de su creador. Decidir si se revisa el conjunto (empezar por
@@ -124,16 +124,66 @@ carril; un `onClick` que llama a una función, no.
 #### E. Pendientes sin dueño asignado
 
 - Pantalla `/ingresos-extraordinarios` y su ítem de menú (admin/finanzas).
-- Migración opcional de `v_pl_mensual_item` (detalle del ingreso
-  extraordinario en Resultados), afuera a propósito.
+- Migración de `v_pl_mensual_item` (detalle del ingreso extraordinario en
+  Resultados) — ya no es opcional, ver la entrada de ingreso extraordinario
+  más abajo (`ING_SERVICIOS` mezcla conceptos distintos sin ella).
 - `gasto_planificado.estado='cancelado'` sin puerta; `plan_pago.estado='caido'`
   sin función ni pantalla.
-- Tarifario de "Prueba Apertura 2027": una cuota con un cero de menos (dato
-  de prueba).
+- Tarifario de "Prueba Apertura 2027" con una cuota con un cero de menos:
+  dato de prueba, NO se corrige suelto — va en el borrado completo. Ver **F.
+  Datos de prueba y borrado final**.
 - Integración con SOS Contador (API en Postman, `api.sos-contador.com`):
   idea futura, no investigada a fondo, sin diseño.
 - Cada commit con migración debe regenerar `database.types.ts` con `supabase
   gen types` (corre Horacio en su terminal).
+
+#### F. Datos de prueba y borrado final
+
+**Decisión de Horacio: todos los datos de prueba se borran COMPLETOS cuando
+termine el testeo de la app.** Por eso no se anula ningún pago suelto de
+prueba ni se corrige ningún dato de prueba (el tarifario de "Prueba Apertura
+2027" incluido) — las secciones C y E de arriba apuntan acá en vez de pedir
+esas correcciones una por una.
+
+**Cuidados para el borrado** (salvo el punto del seed, que Claude Code
+verificó leyendo los archivos, lo demás son decisiones de Horacio o datos
+que él no verificó — a confirmar por quien haga el borrado):
+
+- **El cobro de $1 de Acme (29/08) tiene factura fiscal real emitida en
+  ARCA (CAE `86350275109077`).** *No verificado por Horacio.* Borrar el
+  registro local deja esa factura sin respaldo en la app, y un hueco en la
+  numeración. Decidir si se conserva ese comprobante puntual o se
+  documenta el hueco antes de borrar.
+- **Qué borrar**: cobros, pagos, gastos, planes de pago y compromisos de
+  prueba, asientos, cuotas, torneos y equipos de prueba, ingresos
+  extraordinarios de prueba.
+  **Qué conservar**: plan de cuentas (incluidas las `ING_*` cuando se
+  apliquen), categorías de gasto, usuarios y roles, predios y cajas,
+  ejercicio, punto de venta y emisor, plantillas y configuración.
+- **El seed de limpieza, revisado** —
+  `supabase/seeds/99_datos_prueba_limpieza.sql`, leído completo—: **no
+  cubre las tablas nuevas.** Borra lo que marca `_prueba_marca` desde
+  `99_datos_prueba.sql` (`pago`, `equipo_torneo`, `gasto`, `activo`,
+  `devengo_socio`, `sueldo_socio`, `devengo_sponsor`, `cuota_cobro_sponsor`,
+  `contrato_sponsor`, `reclamo`, `contacto_tercero`, `presupuesto_linea`,
+  `presupuesto`, `usd_operacion`, `asiento`, `tercero_sponsor`) y nada más.
+  Dos huecos concretos:
+  - `99_apertura_2027_prueba.sql` SÍ marca `torneo`, `categoria`, `serie` y
+    `plan_tarifa` en `_prueba_marca` — pero el script de limpieza no tiene
+    ningún `delete` para esos cuatro tipos. Quedan sin borrar aunque estén
+    marcados.
+  - `plan_pago`, `compromiso`, `ingreso_extraordinario` y `comprobante` son
+    posteriores a este seed: no están marcados en absoluto, así que el
+    script ni los toca ni puede tocarlos tal como está.
+  **Conclusión: hay que ampliarlo** antes de confiar en él para el borrado
+  final — agregar los `delete` que faltan para `torneo`/`categoria`/
+  `serie`/`plan_tarifa`, y un marcador + `delete` nuevo para cada una de las
+  cuatro tablas que no existían cuando se escribió.
+- **El borrado lo hace UNA sola persona** (Horacio propone a Facu),
+  primero con `begin`/`rollback`, avisando en esta misma entrada antes de
+  correrlo de verdad — la base es compartida (regla 11). Esperar al cierre
+  de la demo y del testeo; no correrlo mientras alguien más pueda estar
+  probando algo.
 
 ---
 
@@ -217,18 +267,26 @@ El script completo —autocontenido, con su propio `begin`/`rollback`— está e
    verificada todavía.
 
 **Pendientes, fuera de esta tanda:**
-- Horacio confirma con el contador del cliente: (a) los nombres de las tres
-  cuentas (`ING_DONACIONES`, `ING_SERVICIOS`, `ING_OTROS` son provisorios),
+- Abiertas con el contador, sólo estas dos: (a) los nombres de las tres
+  cuentas (`ING_DONACIONES`, `ING_SERVICIOS`, `ING_OTROS` son provisorios) y
   (b) si la venta de un activo fijo va por baja de activo y no como
-  ingreso, y (c) si el estacionamiento es puntual o recurrente.
+  ingreso. El estacionamiento YA SE RESPONDIÓ (cliente): es puntual, va
+  como `ING_SERVICIOS` — si algún día pasa a ser mensual, conviene una
+  cuenta propia (`ING_ESTACIONAMIENTO`), no mezclarlo ahí.
 - Falta la pantalla `/ingresos-extraordinarios` y su ítem de menú (rol
   admin/finanzas). Mejora a anotar para cuando se construya: listar ahí las
   cuentas de ingreso imputables que no sean las 4 protegidas
   (`ING_INSCRIPCIONES`, `ING_PARTIDOS`, `ING_SPONSORS`, `ING_BAR`), en vez
   de las 3 fijas de esta migración — así una cuenta nueva que el contador
   pida más adelante aparece sola, sin tocar código.
-- Falta la migración opcional de `v_pl_mensual_item` (el detalle expandible
-  de Resultados) — queda afuera de esta tanda a propósito.
+- **Migración de `v_pl_mensual_item` — RECOMENDADA, no opcional.**
+  `ING_SERVICIOS` va a mezclar conceptos distintos (estacionamiento, uso de
+  instalaciones, un alquiler puntual): sin este cambio, Resultados los
+  muestra TODOS juntos como "Sin categoría" en el detalle expandible, que es
+  peor que no tener el detalle. Al escribirla, partir de `pg_get_viewdef`
+  sobre la vista tal como está en la base viva — no del archivo del repo,
+  por el mismo motivo que `asiento_origen_check` en el archivo 3: puede
+  haber cambiado desde la última migración que la tocó.
 
 ---
 
