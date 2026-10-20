@@ -8001,3 +8001,17 @@ modelo (tabla o columna), escritura (el upload en el formulario) y display
 key en el bundle del navegador, un bucket mal configurado deja las facturas del
 club —CUIT, razón social, montos— accesibles a cualquiera con la URL. **Va
 después de RLS**, o con bucket privado y URLs firmadas desde el servidor.
+
+---
+
+### 🧹 DATOS DE PRUEBA BORRADOS · 20/10 · Horacio · para Facu
+
+Se borraron los datos de prueba con un script ejecutado a mano en el SQL Editor (el script NO está en el repo).
+
+- **Quedó:** 304 equipos, Clausura 2026 con sus 28 inscriptos, series, calendario y tarifario; 3 sponsors y 2 socios (solo nombres); configuración (cuentas, categorías de gasto, predios, cajas, ejercicio, emisor, plantillas); presupuesto de Clausura.
+- **Se borró:** pagos, asientos, gastos, planes de pago, compromisos, comprobantes no ARCA, contratos y devengos de sponsors, sueldos de socios, proveedor, Prueba Apertura 2027, cuotas de Clausura anteriores a hoy y audit_log.
+- **Conservado a propósito:** las 2 facturas de $1 emitidas en ARCA, con su pago, asiento y cuota. La numeración sigue: puntos de venta 200 y 10 quedan en 407 y 1, las próximas salen 408 y 2.
+- **Efecto visible:** la cuota conservada tiene $1 pagado y figura como mora. Se puede condonar cuando se implemente ajustar_cuota.
+- **Respaldo:** esquema backup_20261020 con copia de las 60 tablas de public. PITR está desactivado. Borrarlo después de la demo: drop schema backup_20261020 cascade;
+- **Pendiente:** reabrir Clausura 2026 como admin (estaba cerrado); no verificado que haya quedado en curso.
+- **Para el arranque real:** cargar el estado de cada equipo desde los Excels, un cobro por cada cuota realmente pagada.
