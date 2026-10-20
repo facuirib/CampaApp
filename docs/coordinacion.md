@@ -18,6 +18,163 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🟡 PARA IMPLEMENTAR · excepción de cuota (ajustar y condonar) · para Facu
+
+**Nada de esto está aplicado ni implementado.** En `main` sólo hay tres
+cosas: la migración propuesta, el script de prueba y esta entrada. El
+código de pantalla vive aparte — ver el último punto.
+
+**Qué pidió el cliente.** Un admin necesita poder corregir una cuota
+impaga cuando hay un error humano (un monto mal cargado, un vencimiento mal
+puesto) o cuando el club decide no cobrar el saldo que queda (una
+condonación) — sin pasar por el circuito de cobro normal, que exige
+imputar el monto exacto y no tiene ningún concepto de "perdonar" una
+deuda.
+
+**Qué cubre:**
+- `ajustar_cuota(p_cuota_id, p_motivo, p_monto?, p_vence_at?, p_tipo?, p_created_by?)`:
+  admin edita monto y/o vencimiento de una cuota impaga, motivo
+  obligatorio, cuenta filas afectadas y falla si son 0.
+- Condonar NO es una función aparte: es el mismo `ajustar_cuota` con
+  `p_tipo='condonacion'` — el monto nuevo tiene que ser EXACTAMENTE lo ya
+  pagado (`pago_imputacion` + `anticipo_uso`) y no se toca el vencimiento.
+- Un ajuste normal que de casualidad coincida con lo ya pagado se rechaza
+  y pide usar "Condonar" — así `cuota_ajuste.tipo` nunca miente sobre qué
+  pasó.
+- Rechaza cambiar el vencimiento de una cuota de partido (`jornada_id not
+  null`) — esas vencen con su jornada, las mueve `mover_jornada()`.
+- Cuando el ajuste/condonación deja el saldo en 0, resuelve `pagado_at` con
+  la misma lógica que `sync_cuota_pagada` (fecha del último pago real, o
+  hoy si nunca se pagó nada) — para que la cuota quede consistente en las
+  vistas que miran `pagado_at`/`vence_at` en vez de `saldo`.
+- `cuota_ajuste`: historial con tipo, monto y vencimiento anterior/nuevo,
+  motivo, usuario y fecha. Select admin+finanzas, insert sólo admin.
+- Pantalla: botones "Ajustar" y "Condonar" separados en la cuenta
+  corriente del equipo (sólo admin), vencimiento deshabilitado en cuotas
+  de partido, etiqueta "Condonada" cuando el último ajuste fue condonación
+  Y la cuota sigue saldada hoy — si se reabrió (se anuló el pago que la
+  completaba), muestra el estado real, no la etiqueta.
+
+**Qué NO cubre:**
+- No genera asiento — la cuota nunca generó uno; el devengo del ingreso
+  sigue pasando en `registrar_cobro`, al cobrar.
+- No reemplaza `audit_log`: `trg_audit_cuota` ya audita automático cada
+  UPDATE de `cuota` (before/after, usuario, fecha); `cuota_ajuste` sólo
+  agrega el motivo y el tipo, que `audit_log` no tiene dónde guardar.
+- No permite ajustar una cuota ya pagada — eso es anular el cobro, otro
+  circuito.
+- No corrige la distorsión de `v_cobranza_kpi` (ver riesgos) ni el gap de
+  `v_estado_cuota` con `anticipo_uso` (preexistente, no causado por esto).
+- No construye una función "reabrir cuota": la reapertura ya la hace sola
+  `trg_sync_cuota_pagada` cuando se anula el pago que la completaba —
+  verificado con la prueba de reapertura del script.
+
+**Hechos verificados** (contra el código de las migraciones, no supuestos):
+1. Crear una cuota (`crear_equipo_torneo`, `generar_cuotas_ficha`) nunca
+   generó asiento — confirmado en el propio comentario de la función:
+   "con percibido puro el asiento nace del cobro".
+2. `cuota.monto` no tiene CHECK de positividad; `v_deuda_detalle` con
+   `monto=0` da `saldo=0` sin romper nada (`FormularioCobro` ya filtra
+   `saldo > 0`).
+3. `cuota_update_autenticado` (RLS) es `using(true)` a propósito — los
+   triggers de sync necesitan escribir sin pelearse con el rol que disparó
+   el UPDATE original. "Solo admin" vive adentro de la función, la RLS no
+   puede darlo.
+4. `audit_log` + `trg_audit_cuota` ya registran el before/after completo
+   de cada UPDATE de `cuota`, automático, con usuario y fecha.
+5. `v_estado_cuota` (distinto de `v_deuda_detalle`) no resta `anticipo_uso`
+   al calcular `saldo` — hallazgo preexistente, no causado por este
+   diseño. Su único consumidor SQL, `v_cashflow_comprometido`, tampoco
+   excluye `estado='pagada'`, así que una cuota saldada vía anticipo queda
+   proyectada como "comprometido" para siempre. No se tocó.
+6. `v_cobranza_etapa`/`v_cobranza_momento` (la mora real, las colas) usan
+   `v_deuda_detalle.saldo` filtrado `> 0` — una cuota llevada a saldo 0
+   sale de la mora sola, sin depender de que `pagado_at` esté bien puesto.
+7. `registrar_cobro` exige que la imputación sea exacta y rechaza
+   `monto > deuda_total` — cobrar de más o sin deuda ya es imposible hoy,
+   sin tocar nada de esto (quedó de un relevamiento aparte).
+8. `anular_pago` borra la `pago_imputacion` del pago anulado, lo que
+   dispara `trg_sync_cuota_pagada` y reabre la cuota sola — verificado con
+   la prueba de reapertura (condonar un remanente, anular el pago real,
+   confirmar `pagado_at` null y `saldo > 0`).
+9. `pago`: los NOT NULL son `tercero_id, fecha, monto, medio_pago,
+   registrado_por` — confirmado contra `001_schema.sql`, usado así en el
+   script de prueba.
+
+**Decisiones de diseño:**
+- `condonar_cuota` no es una función con motor propio: es `ajustar_cuota`
+  con `p_tipo='condonacion'`, para no duplicar validaciones en dos lugares.
+- `cuota_ajuste.tipo` lo valida la función, no el front: una condonación
+  tiene que ser exacta o se rechaza — la columna nunca puede mentir.
+- La guarda de rol vive en la función (SOLO_ADMIN), no en RLS — la policy
+  de `cuota` es permisiva a propósito, por los triggers.
+- `cuota_ajuste` select admin+finanzas (finanzas necesita conciliar
+  cobranza), insert sólo admin.
+- "Condonada" se decide en la pantalla cruzando el último
+  `cuota_ajuste.tipo` contra `pagado_at` ACTUAL — no una columna booleana
+  en `cuota`, que quedaría desincronizada apenas se reabre una cuota.
+
+**Riesgos:**
+- **`v_cobranza_kpi` se distorsiona con una condonación**, sin cambiar
+  nada todavía: `dias_promedio_cobro` (`avg(pagado_at - vence_at)`) cuenta
+  la cuota condonada como cobrada el día de `pagado_at` —que puede ser
+  "hoy", si nunca se pagó nada— inflando el promedio con una fecha que no
+  fue una cobranza real. Y `tasa_cobranza` (`imputado/monto`) sube porque
+  `monto` se achica a lo imputado al condonar: una condonación pasa a
+  contar como 100% cobrada. Decidir si se excluyen las condonadas de este
+  KPI — no se tocó nada de `v_cobranza_kpi` todavía.
+- El gap de `v_estado_cuota` con `anticipo_uso` (hecho 5) se vuelve más
+  visible con una condonación de una cuota que tenía anticipo —aunque el
+  diseño no lo causa, preexistía—.
+- El código de pantalla depende de `cuota_ajuste`/`ajustar_cuota`, que no
+  existen en la base — por eso vive en una rama aparte (ver abajo), no en
+  `main`, hasta que la migración se aplique.
+- Nada de esto corrió contra la base real todavía — sólo diseñado y leído
+  contra el esquema actual; el script de prueba está escrito, no corrido
+  desde el archivo.
+
+**El código de la app está en la rama `excepcion-cuota`, NO en `main`.**
+`AjustarCuota.tsx`, `CondonarCuota.tsx`, el diff de
+`app/equipos/[terceroId]/page.tsx`, `lib/permisos.ts` y
+`lib/domain/cobranza.ts` dependen de `cuota_ajuste`/`ajustar_cuota`, que
+hoy no existen en la base — por eso no están en `database.types.ts` y los
+tres puntos de llamada (`.rpc('ajustar_cuota', …)` x2, `.from('cuota_ajuste')`)
+llevan un `as any` marcado con un comentario "Sacar el cast..." para que
+`tsc` pasara igual mientras se diseñaba. En `main` sólo quedan la
+migración propuesta y el script de prueba — el código de pantalla espera
+en esa rama a que se aplique la migración y se regeneren los tipos, para
+sacar los casts de una.
+
+**Checklist para aplicar (orden):**
+1. Correr `scripts/tests/ajustar_cuota.sql` completo en el SQL Editor y
+   confirmar `'TODOS LOS CASOS OK'`.
+2. Decidir sobre el riesgo de `v_cobranza_kpi` (arriba) — antes de aplicar,
+   no después: cambia si hay que tocar esa vista en la misma tanda.
+3. Aplicar `supabase/migrations/20261020120000_ajustar_cuota.sql`.
+4. Regenerar `database.types.ts` (regla 11: toca la base, se avisa antes).
+5. Traer la rama `excepcion-cuota` a `main` y sacar los `as any` marcados.
+6. Catalogar `cuota.ajustar` en `lib/permisos.ts` ya está hecho en esa
+   rama — correr `npm run verificar:permisos` recién después del paso 3
+   (antes va a estar en rojo, es esperado: la función no existe todavía).
+
+**Pendientes aparte, fuera de esta tanda:**
+- `v_estado_cuota` no resta `anticipo_uso` (hecho 5) — auditoría de
+  consistencia entre vistas de cuota, no se arregla en esta tanda.
+- La exclusión (o no) de condonadas en `v_cobranza_kpi` — ver riesgos.
+
+**Preguntas para el cliente:**
+- ¿Condonar es sólo de admin, o finanzas debería poder proponerlo aunque
+  no ejecutarlo?
+- ¿Una condonación necesita un segundo nivel de aprobación además del
+  motivo, dado que perdona plata?
+- ¿Hace falta un tope — condonar más de cierto monto pide confirmación
+  extra o avisa a otro rol?
+- ¿`dias_promedio_cobro`/`tasa_cobranza` deben excluir las condonaciones,
+  o se acepta que las "ensucien" porque refleja la realidad (se cobró
+  menos de lo pactado)?
+
+---
+
 ### 📌 HALLAZGO · «contrato con proveedor existente» quedó a medias · 20/10 · para Horacio, no urgente
 
 Del punto 4 de Facu (nuevo contrato a sponsor existente). Lo que HAY funciona
