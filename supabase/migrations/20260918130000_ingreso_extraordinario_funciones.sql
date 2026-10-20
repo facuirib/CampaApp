@@ -1,6 +1,10 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- PROPUESTA, NO APLICAR — pendiente de revisión de Facu y de confirmar
--- cuentas con el contador del cliente.
+-- REVISADA Y APLICADA (20/10/2026), con un cambio de Facu sobre la propuesta:
+-- el predio se acepta TAMBIÉN con transferencia — el estacionamiento es «del
+-- predio X» aunque lo paguen por transferencia. El predio con transferencia
+-- es una DIMENSIÓN del ingreso (queda en la fila), no una caja: al asiento
+-- solo viaja con efectivo, porque trg_caja_predio exige que el predio del
+-- asiento acompañe movimientos de caja física y nada más.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Ingreso extraordinario (3/3) · asiento_origen_check + las dos funciones
@@ -110,9 +114,10 @@ begin
     end if;
     v_cuenta_caja := 'CAJA_EFECTIVO';
   else
-    if p_predio_id is not null then
-      raise exception 'Solo el efectivo lleva predio. % es una caja global.', p_medio;
-    end if;
+    -- El predio con transferencia SÍ se acepta (revisión de Facu): un
+    -- estacionamiento pagado por transferencia sigue siendo «del predio X».
+    -- Es dimensión de la fila — al asiento no viaja (ver crear_asiento abajo),
+    -- porque CAJA_TRANSFERENCIA es global y trg_caja_predio lo exige así.
     v_cuenta_caja := 'CAJA_TRANSFERENCIA';
   end if;
 
@@ -144,7 +149,10 @@ begin
     p_descripcion => p_concepto,
     p_lineas      => v_lineas,
     p_torneo_id   => p_torneo_id,
-    p_predio_id   => p_predio_id,
+    -- Solo con efectivo: el predio del asiento acompaña caja física
+    -- (trg_caja_predio). Con transferencia, el predio vive en la fila del
+    -- ingreso como dimensión y nada más.
+    p_predio_id   => case when p_medio = 'efectivo' then p_predio_id else null end,
     p_origen_id   => v_ingreso_id,
     p_created_by  => v_user_id
   );

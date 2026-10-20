@@ -1,6 +1,9 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- PROPUESTA, NO APLICAR — pendiente de revisión de Facu y de confirmar
--- cuentas con el contador del cliente.
+-- REVISADA Y APLICADA (20/10/2026). Revisión de Facu sobre la propuesta de
+-- Horacio: SIN ING_DONACIONES — no se pidió y no se necesita; si algún día
+-- hace falta, se crea entonces (una cuenta nueva aparece sola en el P&L).
+-- Los nombres de cuentas quedaron confirmados por Facu, sin esperar más
+-- rondas con el contador.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Ingreso extraordinario (1/3) · las cuentas
@@ -17,7 +20,6 @@
 -- docs/coordinacion.md, pendientes).
 insert into cuenta (id, codigo, nombre, tipo, imputable, padre_id)
 values
-  (gen_random_uuid(), 'ING_DONACIONES', 'Donaciones',           'ingreso', true, null),
-  (gen_random_uuid(), 'ING_SERVICIOS',  'Servicios a terceros', 'ingreso', true, null),
-  (gen_random_uuid(), 'ING_OTROS',      'Otros ingresos',       'ingreso', true, null)
+  (gen_random_uuid(), 'ING_SERVICIOS', 'Servicios a terceros', 'ingreso', true, null),
+  (gen_random_uuid(), 'ING_OTROS',     'Otros ingresos',       'ingreso', true, null)
 on conflict (codigo) do nothing;

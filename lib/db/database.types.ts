@@ -3424,6 +3424,51 @@ export type Database = {
           },
         ]
       }
+      ingreso_extraordinario: {
+        Row: {
+          asiento_id: string
+          concepto: string
+          created_at: string
+          created_by: string | null
+          cuenta_id: string
+          fecha: string
+          id: string
+          medio_pago: string
+          monto: number
+          predio_id: string | null
+          tercero_id: string | null
+          torneo_id: string | null
+        }
+        Insert: {
+          asiento_id: string
+          concepto: string
+          created_at?: string
+          created_by?: string | null
+          cuenta_id: string
+          fecha: string
+          id?: string
+          medio_pago: string
+          monto: number
+          predio_id?: string | null
+          tercero_id?: string | null
+          torneo_id?: string | null
+        }
+        Update: {
+          asiento_id?: string
+          concepto?: string
+          created_at?: string
+          created_by?: string | null
+          cuenta_id?: string
+          fecha?: string
+          id?: string
+          medio_pago?: string
+          monto?: number
+          predio_id?: string | null
+          tercero_id?: string | null
+          torneo_id?: string | null
+        }
+        Relationships: []
+      }
       jornada: {
         Row: {
           cantidad_esperada: number | null
@@ -7776,6 +7821,23 @@ export type Database = {
           },
         ]
       }
+      v_ingreso_extraordinario_detalle: {
+        Row: {
+          concepto: string | null
+          created_at: string | null
+          cuenta_codigo: string | null
+          cuenta_nombre: string | null
+          estado: string | null
+          fecha: string | null
+          id: string | null
+          medio_pago: string | null
+          monto: number | null
+          predio: string | null
+          tercero: string | null
+          torneo: string | null
+        }
+        Relationships: []
+      }
       v_libro_diario: {
         Row: {
           anio: number | null
@@ -9143,6 +9205,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      anular_ingreso_extraordinario: {
+        Args: { p_created_by?: string; p_ingreso_id: string; p_motivo: string }
+        Returns: string
+      }
       anular_pago: {
         Args: { p_created_by?: string; p_motivo: string; p_pago_id: string }
         Returns: string
@@ -9765,6 +9831,20 @@ export type Database = {
           p_jornada_id?: string
           p_predio_id?: string
           p_proveedor_id?: string
+          p_torneo_id?: string
+        }
+        Returns: string
+      }
+      registrar_ingreso_extraordinario: {
+        Args: {
+          p_concepto: string
+          p_created_by?: string
+          p_cuenta_ingreso: string
+          p_fecha: string
+          p_medio: string
+          p_monto: number
+          p_predio_id?: string
+          p_tercero_id?: string
           p_torneo_id?: string
         }
         Returns: string
