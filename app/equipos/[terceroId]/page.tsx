@@ -9,6 +9,8 @@ import { DataTable, KpiCard, type CeldaBadge, type ColumnDef } from '@/component
 import ArmarReclamo from './ArmarReclamo'
 import FichaCliente from './FichaCliente'
 import AplicarAnticipo from './AplicarAnticipo'
+import AjustarCuota from './AjustarCuota'
+import CondonarCuota from './CondonarCuota'
 import PagosEquipo from './PagosEquipo'
 import { PLANTILLA_POR_ETAPA, type EtapaCobranza } from '@/lib/reclamo/plantilla'
 import type { Database } from '@/lib/db/database.types'
@@ -37,6 +39,7 @@ interface FilaCuota {
   pagado: number | null
   saldo: number | null
   estado: CeldaBadge
+  accion: React.ReactNode
 }
 
 const COLUMNAS: ColumnDef<FilaCuota>[] = [
@@ -52,6 +55,7 @@ const COLUMNAS: ColumnDef<FilaCuota>[] = [
   { key: 'pagado', label: 'Pagado', format: 'money', width: 128 },
   { key: 'saldo', label: 'Saldo', format: 'money', width: 128 },
   { key: 'estado', label: 'Estado', format: 'badge' },
+  { key: 'accion', label: '', width: 160 },
 ]
 
 /** Las tres caras del equipo. `cuenta` es el default: es el uso diario. */
@@ -159,6 +163,7 @@ export default async function CuentaCorrientePage({
   const puedeCobrar = puede(rol, 'cobro.registrar')
   const puedeRegistrarAviso = puede(rol, 'reclamo.registrar')
   const puedeMail = puede(rol, 'reclamo.mail')
+  const puedeAjustarCuota = puede(rol, 'cuota.ajustar')
 
   // Todo lo de este equipo en una sola tanda. `v_deuda_detalle` se pedía TRES
   // veces para la misma pantalla —acá, en el formulario de cobro y otra vez
@@ -221,6 +226,48 @@ export default async function CuentaCorrientePage({
   const fichas = fichasRes.data ?? []
   const cuotas = cuotasRes.data ?? []
   const resumen = resumenRes.data
+
+  // ── Datos extra para el botón de ajuste, sólo si el rol lo puede usar ───
+  //
+  // `v_deuda_detalle` no trae `jornada_id` (sólo `jornada_suspendida`, que
+  // es otra cosa): para saber qué cuotas vencen con su jornada —y
+  // deshabilitarles el campo de vencimiento— hace falta leerlo de `cuota`
+  // directo. No amerita un view nuevo: es una bandera para la pantalla, no
+  // un número que calcular (regla 1).
+  //
+  // Para "Condonada" se necesita el ÚLTIMO ajuste de cada cuota, no
+  // cualquiera: una cuota puede tener un ajuste viejo de tipo 'ajuste' y
+  // haber sido condonada después, o condonada y luego REABIERTA (se anuló
+  // el pago que la completaba) — en ese caso ya no está saldada y tiene que
+  // volver a mostrar su estado real, no "Condonada". Por eso el cruce de
+  // abajo mira `pagado_at` AHORA, no sólo si alguna vez hubo una
+  // condonación.
+  const cuotaIds = cuotas.map((c) => c.cuota_id).filter((id): id is string => !!id)
+  const [cuotaJornadaRes, ajustesRes] = puedeAjustarCuota && cuotaIds.length > 0
+    ? await Promise.all([
+        supabase.from('cuota').select('id, jornada_id').in('id', cuotaIds),
+        // `as any`: cuota_ajuste todavía no está aplicada (migración
+        // propuesta sin aplicar), así que no existe en database.types.ts.
+        // Sacar el cast en el mismo commit que aplique la migración y
+        // regenere los tipos.
+        (supabase.from('cuota_ajuste' as any) as any)
+          .select('cuota_id, tipo, created_at')
+          .in('cuota_id', cuotaIds)
+          .order('created_at', { ascending: false }) as Promise<{
+            data: { cuota_id: string; tipo: string; created_at: string }[] | null
+          }>,
+      ])
+    : [{ data: null }, { data: null }]
+
+  const esDePartido = new Set(
+    (cuotaJornadaRes.data ?? []).filter((c) => c.jornada_id !== null).map((c) => c.id),
+  )
+  // Ordenado por created_at desc: la primera aparición de cada cuota_id YA
+  // es su ajuste más reciente.
+  const ultimoTipoAjuste = new Map<string, string>()
+  for (const a of ajustesRes.data ?? []) {
+    if (!ultimoTipoAjuste.has(a.cuota_id)) ultimoTipoAjuste.set(a.cuota_id, a.tipo)
+  }
   const historial = historialRes.data ?? []
   const etapa = (momentoRes.data?.etapa ?? null) as EtapaCobranza | null
 
@@ -413,17 +460,45 @@ export default async function CuentaCorrientePage({
         // fichas del equipo. Ningún número sale de acá.
         const suyas = cuotas.filter((c: CuotaRow) => c.equipo_torneo_id === ficha.equipo_torneo_id)
 
-        const filas: FilaCuota[] = suyas.map((c: CuotaRow) => ({
-          cuota_id: c.cuota_id!,
-          cuota_numero: c.cuota_numero,
-          concepto_label: c.concepto_label,
-          torneo: c.torneo,
-          vence_at: c.vence_at,
-          monto: c.monto,
-          pagado: c.pagado,
-          saldo: c.saldo,
-          estado: estadoCuota(c.estado),
-        }))
+        const filas: FilaCuota[] = suyas.map((c: CuotaRow) => {
+          // "Condonada" sólo si el ÚLTIMO ajuste fue una condonación Y la
+          // cuota sigue saldada hoy. Si se reabrió —se anuló el pago que la
+          // completaba—, pagado_at vuelve a null y esto da false solo: cae
+          // al estado real de v_deuda_detalle, sin bandera aparte que
+          // mantener sincronizada.
+          const condonada =
+            c.cuota_id != null &&
+            ultimoTipoAjuste.get(c.cuota_id) === 'condonacion' &&
+            c.pagado_at !== null
+
+          return {
+            cuota_id: c.cuota_id!,
+            cuota_numero: c.cuota_numero,
+            concepto_label: c.concepto_label,
+            torneo: c.torneo,
+            vence_at: c.vence_at,
+            monto: c.monto,
+            pagado: c.pagado,
+            saldo: c.saldo,
+            estado: condonada ? estadoCuota('condonada') : estadoCuota(c.estado),
+            accion:
+              puedeAjustarCuota && c.pagado_at === null && c.cuota_id && c.monto != null && c.vence_at ? (
+                <div className="flex gap-1.5">
+                  <AjustarCuota
+                    cuotaId={c.cuota_id}
+                    montoActual={c.monto}
+                    venceActual={c.vence_at}
+                    esDePartido={esDePartido.has(c.cuota_id)}
+                  />
+                  <CondonarCuota
+                    cuotaId={c.cuota_id}
+                    pagado={c.pagado ?? 0}
+                    saldo={c.saldo ?? 0}
+                  />
+                </div>
+              ) : null,
+          }
+        })
 
         const saldo = ficha.saldo ?? 0
 

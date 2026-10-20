@@ -238,6 +238,18 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['registrar_cobro', 'imputar_pago'] },
   },
+  'cuota.ajustar': {
+    // SOLO_ADMIN y no CON_FINANZAS: cambia lo que el equipo debe y para
+    // cuándo —monto o vencimiento— sin pasar por el tarifario ni por un
+    // cobro, condonar incluido. La RLS de `cuota` no filtra por rol
+    // (cuota_update_autenticado es using(true), porque los triggers de sync
+    // necesitan escribir sin pelearse con el rol que disparó el UPDATE
+    // original) — así que esta guarda, adentro de la función, es el único
+    // control real.
+    que: 'Ajustar o condonar manualmente una cuota impaga',
+    roles: SOLO_ADMIN,
+    donde: { fns: ['ajustar_cuota'] },
+  },
   'proveedor.crear': {
     // Dar de alta y editar proveedores: a quién se le compra.
     //
