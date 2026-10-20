@@ -56,32 +56,49 @@ export default function Inscripciones({
   inscripciones,
   filtros,
   torneoElegido,
+  torneos,
+  torneoDefault,
 }: {
   inscripciones: InscripcionRow[]
   filtros: { serie?: string; estado?: string; torneo?: string }
   torneoElegido: string | null
+  /** TODOS los torneos, para el filtro — no se deducen de lo ya filtrado. */
+  torneos: { id: string; nombre: string; estado: string }[]
+  /** El torneo en curso: lo que el filtro muestra cuando la URL está limpia. */
+  torneoDefault: string | null
 }) {
   const { serie, estado } = filtros
 
   const seriesMap = new Map<string, string>()
-  const torneosMap = new Map<string, string>()
   for (const i of inscripciones) {
     if (i.serie_id && i.serie_completa) seriesMap.set(i.serie_id, i.serie_completa)
-    if (i.torneo_id && i.torneo) torneosMap.set(i.torneo_id, i.torneo)
   }
 
   const opcionesSerie = [...seriesMap.entries()]
     .map(([valor, label]) => ({ valor, label }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 
-  const opcionesTorneo = [...torneosMap.entries()]
-    .map(([valor, label]) => ({ valor, label }))
-    .sort((a, b) => b.label.localeCompare(a.label, 'es'))
+  // De la tabla `torneo` (vía la página), no de las inscripciones: con el
+  // corriente filtrado por default las filas traen UN solo torneo, y un
+  // desplegable deducido de ahí no tendría cómo salir hacia los demás.
+  // «todos» con valor propio: la página lo resuelve como "sin filtro".
+  const opcionesTorneo = [
+    { valor: 'todos', label: 'Todos los torneos' },
+    ...torneos.map((t) => ({
+      valor: t.id,
+      label: t.estado === 'en_curso' ? `${t.nombre} (en curso)` : t.nombre,
+    })),
+  ]
 
   const FILTROS: FiltroUrl[] = [
     // El torneo primero: es el corte más grande. Con tres torneos cargados, las
     // 62 fichas de la lista son de todos a la vez y no se puede leer ninguna.
-    { parametro: 'torneo', label: 'Torneo', todos: 'Todos los torneos', opciones: opcionesTorneo },
+    {
+      parametro: 'torneo',
+      label: 'Torneo',
+      valorPorDefecto: torneoDefault ?? 'todos',
+      opciones: opcionesTorneo,
+    },
     { parametro: 'serie', label: 'Serie', todos: 'Todas las series', opciones: opcionesSerie },
     {
       parametro: 'estado',

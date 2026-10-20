@@ -98,10 +98,22 @@ export default async function CalendarioPage({
   // dedujeran de `jornadas`, un torneo SIN calendario no aparecería en la
   // lista — y ése es exactamente el que hay que ver: es el que va a hacer
   // fallar la confirmación.
-  const { data: torneosData } = await supabase
-    .from('v_torneo_lista')
-    .select('torneo_id, nombre, estado')
-    .order('anio', { ascending: false })
+  const [{ data: torneosData }, { data: actual }] = await Promise.all([
+    supabase.from('v_torneo_lista').select('torneo_id, nombre, estado').order('anio', { ascending: false }),
+    supabase.from('v_torneo_actual').select('id').maybeSingle(),
+  ])
+
+  // El torneo corriente por default: sin parámetro se mira el que está EN
+  // CURSO. «todos» es el escape explícito — FiltrosUrl borra el parámetro
+  // vacío de la URL, así que la opción necesita valor propio o el default
+  // volvería a ganar. Sin torneo en curso se cae a la lista completa de
+  // torneos, el estado de siempre — no un error.
+  //
+  // `desdeTorneo` contesta OTRA pregunta: si se LLEGÓ con ?torneo= explícito
+  // (la pestaña Calendario del detalle del torneo), para el link de vuelta y
+  // las pestañas. El default no cuenta como haber llegado desde ahí.
+  const torneoSel = torneo === 'todos' ? null : (torneo ?? actual?.id ?? null)
+  const desdeTorneo = torneo && torneo !== 'todos' ? torneo : null
 
   // El torneo primero: es el corte grande. Sin él, las series de todos los
   // torneos caen juntas en el desplegable —hoy 61— sin decir de cuál es cada
@@ -117,7 +129,7 @@ export default async function CalendarioPage({
   // un filtro que devuelve vacío y parece un error.
   const seriesMap = new Map<string, string>()
   for (const j of jornadas) {
-    if (torneo && j.torneo_id !== torneo) continue
+    if (torneoSel && j.torneo_id !== torneoSel) continue
     if (j.serie_id && j.serie_completa) seriesMap.set(j.serie_id, j.serie_completa)
   }
   const series = [...seriesMap.entries()]
@@ -125,7 +137,12 @@ export default async function CalendarioPage({
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 
   const FILTROS: FiltroUrl[] = [
-    { parametro: 'torneo', label: 'Torneo', todos: 'Todos los torneos', opciones: torneos },
+    {
+      parametro: 'torneo',
+      label: 'Torneo',
+      valorPorDefecto: actual?.id ?? 'todos',
+      opciones: [{ valor: 'todos', label: 'Todos los torneos' }, ...torneos],
+    },
     { parametro: 'serie', label: 'Serie', todos: 'Elegí una serie…', opciones: series },
   ]
 
@@ -157,9 +174,9 @@ export default async function CalendarioPage({
           pestañas — así nunca se salió del torneo, aunque la pantalla viva en
           /calendario. Sin el parámetro, es el módulo suelto de siempre. Lo
           encontró Facu: entraba por la pestaña y quedaba varado acá. */}
-      {torneo && (
-        <Link href={`/torneos/${torneo}`} className="text-[11px] font-semibold text-blue-d hover:underline">
-          ← {torneosMap.get(torneo) ?? 'Volver al torneo'}
+      {desdeTorneo && (
+        <Link href={`/torneos/${desdeTorneo}`} className="text-[11px] font-semibold text-blue-d hover:underline">
+          ← {torneosMap.get(desdeTorneo) ?? 'Volver al torneo'}
         </Link>
       )}
 
@@ -175,7 +192,7 @@ export default async function CalendarioPage({
         <p className="mb-6 rounded-md bg-errbg px-4 py-3 text-[11px] text-errtx">{error.message}</p>
       )}
 
-      {torneo && <PestanasTorneo activa="calendario" torneoId={torneo} />}
+      {desdeTorneo && <PestanasTorneo activa="calendario" torneoId={desdeTorneo} />}
 
       {!error && (
         <>
@@ -187,7 +204,7 @@ export default async function CalendarioPage({
               descubría (lo encontró Facu intentando editar un calendario).
               Ahora cada fila es un link: torneo → sus series → las jornadas,
               el mismo camino que los filtros, pero a la vista. */}
-          {!serie && !torneo && (
+          {!serie && !torneoSel && (
             <div className="rounded-md border border-line bg-white p-4">
               <p className="mb-3 text-[11px] text-muted">
                 Tocá un torneo para entrar a su calendario:
@@ -215,7 +232,7 @@ export default async function CalendarioPage({
             </div>
           )}
 
-          {!serie && torneo && (
+          {!serie && torneoSel && (
             <div className="rounded-md border border-line bg-white p-4">
               <p className="mb-3 text-[11px] text-muted">
                 {series.length > 0
@@ -228,7 +245,7 @@ export default async function CalendarioPage({
                   return (
                     <li key={s.valor}>
                       <Link
-                        href={`/calendario?torneo=${torneo}&serie=${s.valor}`}
+                        href={`/calendario?torneo=${torneoSel}&serie=${s.valor}`}
                         className="group flex items-center justify-between py-2 text-[12px]"
                       >
                         <span className="font-semibold text-ink group-hover:text-blue-d">
@@ -261,7 +278,7 @@ export default async function CalendarioPage({
                   </p>
                   {puedeEditar && (
                     <Link
-                      href={`/calendario/nueva?serie=${serie}${torneo ? `&torneo=${torneo}` : ''}`}
+                      href={`/calendario/nueva?serie=${serie}${desdeTorneo ? `&torneo=${desdeTorneo}` : ''}`}
                       className="text-[11px] font-semibold text-blue-d hover:underline"
                     >
                       + Agregar jornada

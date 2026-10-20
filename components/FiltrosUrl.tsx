@@ -8,8 +8,14 @@ export interface FiltroUrl {
   /** Nombre del parámetro en la query string. */
   parametro: string
   label: string
-  /** Texto de la opción vacía: el "sin filtrar". */
-  todos: string
+  /**
+   * Texto de la opción vacía: el "sin filtrar". Opcional: un filtro cuyo
+   * "todos" es una opción CON valor propio —el torneo corriente por default
+   * usa `{ valor: 'todos' }` como escape explícito— no ofrece la vacía,
+   * porque elegirla borra el parámetro de la URL y el default volvería a
+   * ganar: "todos" sería inalcanzable.
+   */
+  todos?: string
   opciones: { valor: string; label: string }[]
   /**
    * Qué mostrar cuando la URL no trae el parámetro.

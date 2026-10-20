@@ -121,6 +121,7 @@ export default function FormularioGasto({
         { data: torneosData, error: errorTorneos },
         { data: activosData, error: errorActivos },
         { data: proveedoresData, error: errorProveedores },
+        { data: torneoActual },
       ] = await Promise.all([
         // 🔴 Sin las de inversión: comprar un activo no se carga acá.
         // Se carga en /activos/nuevo, con `comprar_activo`, que crea el activo
@@ -146,6 +147,9 @@ export default function FormularioGasto({
           .eq('estado', 'activo')
           .order('nombre'),
         supabase.from('proveedor').select('id, nombre').eq('activo', true).order('nombre'),
+        // El torneo en curso, para preseleccionarlo. Si falla o no hay, el
+        // campo queda en «Sin torneo…» — nunca bloquea el formulario.
+        supabase.from('v_torneo_actual').select('id').maybeSingle(),
       ])
 
       if (cancelado) return
@@ -169,6 +173,9 @@ export default function FormularioGasto({
       setTorneos(torneosData ?? [])
       setActivos(activosData ?? [])
       setProveedores(proveedoresData ?? [])
+      // El torneo corriente preseleccionado. «Sin torneo…» sigue ahí para el
+      // gasto de estructura permanente — esto elige el default, no obliga.
+      setTorneoId(torneoActual?.id ?? null)
       setCargando(false)
     }
 
