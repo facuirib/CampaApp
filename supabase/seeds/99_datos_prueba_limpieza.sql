@@ -6,6 +6,27 @@
 -- ║  catálogo de gastos quedan intactos: el seed no los tocó.                ║
 -- ╚══════════════════════════════════════════════════════════════════════════╝
 --
+-- ── ⚠️ En la base HOSTED este seed quedó desarmado a propósito (21/10/26) ──
+--
+-- El borrado final de datos de prueba se hizo A MANO el 20/10 (ver
+-- coordinacion.md), conservando datos que el seed de prueba había creado y
+-- pasaron a ser REALES: las 28 fichas del Clausura 2026 con sus cuotas, los
+-- 3 sponsors, el presupuesto del torneo y contactos de equipos. Sus marcas
+-- seguían en `_prueba_marca`, así que correr ESTE script los habría borrado.
+--
+-- Por eso el 21/10 se vació `_prueba_marca` en la base hosted: todos los
+-- deletes de acá abajo filtran por esa tabla, así que hoy este script es
+-- un no-op ahí — probado corriéndolo completo en transacción revertida
+-- (fichas, cuotas, sponsors, presupuesto, pagos y asientos: intactos).
+--
+-- El seed SIGUE siendo válido para el circuito local/base limpia: sembrar
+-- `99_datos_prueba.sql` (que crea las marcas) y limpiar con éste. Lo que no
+-- hay que hacer nunca más es dejar marcas apuntando a datos promovidos a
+-- reales. Pendiente conocido (Horacio, coordinacion.md): ampliar este script
+-- con las tablas posteriores (plan_pago, compromiso, ingreso_extraordinario,
+-- comprobante) y los deletes de torneo/categoria/serie/plan_tarifa si el
+-- harness local los necesita.
+--
 -- ── El orden importa, y no es el intuitivo ──────────────────────────────────
 --
 -- `pago.asiento_id → asiento` es NO ACTION, así que un asiento no se puede

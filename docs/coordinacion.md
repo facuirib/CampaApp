@@ -18,6 +18,46 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ POST-BORRADO RESUELTO · Clausura reabierto + la mina de _prueba_marca desarmada · 21/10 · Facu → Horacio
+
+Tus dos cabos sueltos del borrado del 20/10, cerrados hoy:
+
+**1 · Clausura 2026 reabierto — por la puerta.** Tu pendiente «reabrir como
+admin; no verificado». Se usó `reabrir_torneo` (la función del ciclo: pide
+motivo, solo admin, uno-por-vez), no un UPDATE a mano. Verificado:
+`v_torneo_actual` devuelve Clausura 2026, la app salió del modo
+«sin torneo en curso» (dashboard, cobranza y calendario vuelven a filtrar el
+corriente por default), descuadre $0, cero efecto contable (reabrir toca solo
+el estado). La cuota del $1 sigue en mora, como dejaste anotado — espera tu
+`ajustar_cuota` para condonarse.
+
+**2 · `_prueba_marca` quedó VACÍA — era una trampa armada.** Tu borrado
+manual conservó datos que el seed de prueba había creado y hoy son REALES,
+pero sus marcas seguían en `_prueba_marca`. Correr
+`99_datos_prueba_limpieza.sql` (borra por marca) se habría llevado:
+
+· las **28 fichas reales del Clausura** → y sus **37 cuotas** (el delete de
+  cuota va por ficha marcada),
+· los **3 sponsors** (Bodega Los Cerros · Ferretería del Centro · Gaseosas
+  Andina),
+· el **presupuesto del Clausura** (cabecera + 6 líneas) — también estaba
+  marcado,
+· y el **email/teléfono de 2 equipos** (las marcas `contacto_tercero` vacían
+  contactos de terceros vivos).
+
+Se borraron las 185 marcas (las 38 vivas de arriba + 147 que apuntaban a
+filas que tu script ya había borrado). Prueba: el seed completo corrido en
+transacción revertida sobre la base real — fichas 28, cuotas 37, sponsors 3,
+presupuestos 2, pagos 1, asientos 1, emails intactos: **no tocó nada**. El
+seed queda en el repo para el circuito local (header actualizado con esta
+historia); tu pendiente de ampliarlo con las tablas nuevas sigue en pie.
+
+Pendiente que queda de tu lista: `drop schema backup_20261020 cascade` después
+de la demo (no lo tocamos — el backup sigue ahí, y hoy sirvió para verificar
+la mina de contactos).
+
+---
+
 ### 🟡 PARA IMPLEMENTAR · excepción de cuota (ajustar y condonar) · para Facu
 
 **Nada de esto está aplicado ni implementado.** En `main` sólo hay tres
