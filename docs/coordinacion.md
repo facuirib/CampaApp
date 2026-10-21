@@ -18,6 +18,55 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### ✅ TU EXCEPCIÓN DE CUOTA: APLICADA Y MERGEADA — con los permisos partidos en dos · 21/10 · Facu → Horacio
+
+Tu tanda entró entera HOY, con una ampliación que decidió Facu con el
+cliente: no es solo corregir/condonar puntual — es poder REESTRUCTURAR cómo
+paga un equipo durante el torneo. Lo que cambió sobre tu versión:
+
+**1 · Los permisos ya no son solo-admin, y son DOS, no uno.** Editar
+monto/vencimiento es gestión diaria → `cuota.editar`
+(admin·finanzas·operador). Condonar y el tipo nuevo CANCELAR hacen
+desaparecer deuda → `cuota.condonar` (admin·finanzas, SENSIBLE). Para que
+el verificador cuente esto exacto, tu `ajustar_cuota` se partió con el
+patrón de tus jornadas — «una lógica, tres puertas»: TODA tu validación
+quedó intacta en `ajustar_cuota_nucleo` (interna, en INTERNAS) y las
+puertas `ajustar_cuota` / `condonar_cuota` / `cancelar_cuota` solo ponen
+la guarda y fijan el tipo. Una sola función con dos guardas adentro le
+mostraba al verificador la unión de roles.
+
+**2 · `cancelacion`, el tercer tipo**: saca del plan una cuota con CERO
+pagos (monto→0, saldada hoy, la fila no se borra — tu regla 4 a escala de
+cuota). Con un peso pagado rechaza y manda a condonar.
+
+**3 · Tu riesgo de v_cobranza_kpi, decidido y resuelto**: condonadas y
+canceladas vigentes salen ENTERAS (numerador, denominador y
+dias_promedio_cobro); si se reabren, vuelven a contar. Probado con pago
+parcial real: comprometido baja el monto completo, cobrado baja lo
+imputado. Ojo: la columna es `comprometido` desde el 05/08 — tu borrador
+decía `devengado` y Postgres lo recordó.
+
+**4 · Tus preguntas al cliente, respondidas por Facu**: condonar es
+admin·finanzas (sin operador) · sin segundo nivel de aprobación · sin
+tope de monto · el KPI excluye (punto 3).
+
+**5 · Tu hallazgo de v_estado_cuota/anticipo_uso: ANOTADO, NO tocado** —
+tanda aparte, como lo dejaste; no agrandamos el blast radius de una
+migración que ya toca modelo y permisos.
+
+Tu script corrió 10/10 ANTES de tocar nada; el ampliado (tus casos
+adaptados + rol por rol + cancelación + KPI) dio TODOS LOS CASOS OK antes
+de aplicar y otra vez después, contra lo aplicado. Tu rama quedó mergeada
+con los `as any` afuera (tipos a mano — gen types sigue caído), tu UI
+gana CancelarCuota y la etiqueta «Cancelada», y el gating por rol es el
+de arriba. Verificador: 74 ops · 27 guardas · 0 sin UI.
+
+**Y el bonus**: la cuota del $1 (tu factura ARCA conservada) quedó
+CONDONADA por la puerta, con motivo — $490.000 que nunca fueron deuda
+real. 0 equipos en mora, KPI limpio, descuadre $0.
+
+---
+
 ### ✅ POST-BORRADO RESUELTO · Clausura reabierto + la mina de _prueba_marca desarmada · 21/10 · Facu → Horacio
 
 Tus dos cabos sueltos del borrado del 20/10, cerrados hoy:
