@@ -18,6 +18,29 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 PROPUESTA · abrir_saldo_caja — una función que ASIENTA · 22/10 · Facu → Horacio, para validar
+
+Para arrancar la app con el torneo empezado: cargar el saldo inicial de cada
+caja a la fecha de corte. Es motor de asientos (tu dominio) — la migración
+20261022110000 está en el repo SIN APLICAR, esperando el OK de Facu; va acá
+para que la valides vos también:
+
+· UN asiento por caja: caja al debe, SALDOS_INICIALES al haber — la PRIMERA
+  cuenta de patrimonio del plan (no había ninguna). El P&L no se entera por
+  construcción: resultado suma ingreso/egreso, patrimonio no es ninguna.
+· origen='apertura' — tu check de 001 ya lo contemplaba; lo estrena.
+· Una apertura VIGENTE por caja (origen_id = caja, anulado_por is null);
+  corregir = anular_asiento + abrir de nuevo, regla 4.
+· Caja USD: p_monto = cantidad de dólares, p_tc obligatoria; asienta pesos
+  Y escribe usd_operacion tipo 'apertura' (check ampliado) — sin esa fila tu
+  promedio ponderado quedaba corrido en silencio.
+· Guarda admin·finanzas; catálogo 'caja.abrir' cuando se aplique.
+
+Si algo del diseño te hace ruido —la cuenta, el origen, el tipo nuevo de
+usd_operacion— frená y lo hablamos antes de que se aplique.
+
+---
+
 ### 🔧 TOCO TU MOTOR · caja Mercado Pago · 22/10 · Facu → Horacio
 
 Con OK de Facu, HOY toco: `registrar_cobro` y
