@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
-import { Button, Field, Input, Select } from '@/components/ui'
+import { Button, Field, Input, InputMonto, Select } from '@/components/ui'
 
 export interface CuentaIngreso {
   id: string
@@ -38,6 +38,7 @@ export default function NuevoIngreso({
   torneoActualId,
   abiertoInicial = false,
   cuentaInicial,
+  onListo,
 }: {
   cuentas: CuentaIngreso[]
   terceros: Opcion[]
@@ -48,6 +49,8 @@ export default function NuevoIngreso({
   abiertoInicial?: boolean
   /** La categoría ya elegida (id de cuenta) — ?nuevo=estacionamiento la trae puesta. */
   cuentaInicial?: string
+  /** Montado en el modal de cobro: se llama al terminar o cancelar, en vez de colapsarse. */
+  onListo?: () => void
 }) {
   const router = useRouter()
   const [abierto, setAbierto] = useState(abiertoInicial)
@@ -93,7 +96,12 @@ export default function NuevoIngreso({
     if (facturar && recibo?.id) {
       // Para facturar hace falta el tercero con datos fiscales: el detalle
       // del recibo tiene el botón Emitir de siempre, con sus validaciones.
+      onListo?.() // si vive en el modal de cobro, que se cierre antes de navegar
       router.push(`/comprobantes/${recibo.id}`)
+      return
+    }
+    if (onListo) {
+      onListo()
       return
     }
     setExito(`Ingreso registrado. Recibo generado${recibo?.id ? '' : ' (no se encontró el recibo)'}.`)
@@ -142,7 +150,7 @@ export default function NuevoIngreso({
           <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Alquiler del predio Aeropuerto — evento 25/10" />
         </Field>
         <Field label="Monto" required>
-          <Input type="number" value={monto || ''} onChange={(e) => setMonto(Number(e.target.value))} />
+          <InputMonto value={monto} onChange={setMonto} />
         </Field>
         <Field label="Medio" required>
           <Select value={medio} onChange={(e) => setMedio(e.target.value as 'efectivo' | 'transferencia')}>
@@ -200,7 +208,7 @@ export default function NuevoIngreso({
         >
           Registrar ingreso
         </Button>
-        <Button variant="tertiary" disabled={ocupado} onClick={() => setAbierto(false)}>
+        <Button variant="tertiary" disabled={ocupado} onClick={() => (onListo ? onListo() : setAbierto(false))}>
           Cancelar
         </Button>
       </div>

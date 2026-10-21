@@ -9,6 +9,7 @@ import type { Rol } from '@/lib/roles'
 import FormularioCobro from '@/app/equipos/[terceroId]/cobrar/FormularioCobro'
 import BuscadorEquipoCobro from './BuscadorEquipoCobro'
 import CobroSponsorPicker from './CobroSponsorPicker'
+import NuevoIngresoModal from './NuevoIngresoModal'
 
 interface AbrirOpciones {
   /** Con equipo ya elegido, el modal entra directo al formulario. */
@@ -22,6 +23,8 @@ interface EstadoCobro {
   torneoId: string | null
   /** La fase sponsor: el picker de pendientes, en el mismo modal. */
   sponsor?: boolean
+  /** La fase ingreso: el formulario de Comprobantes, en el mismo modal. */
+  ingreso?: 'libre' | 'estacionamiento'
 }
 
 interface CobroContextValue {
@@ -143,7 +146,12 @@ export default function CobroProvider({
           </button>
         </div>
 
-        {estado.sponsor ? (
+        {estado.ingreso ? (
+          <NuevoIngresoModal
+            cuentaCodigo={estado.ingreso === 'estacionamiento' ? 'ING_ESTACIONAMIENTO' : undefined}
+            onListo={cerrar}
+          />
+        ) : estado.sponsor ? (
           <CobroSponsorPicker onElegir={(id) => irA(`/sponsors/${id}/cobrar`)} />
         ) : estado.terceroId ? (
           <FormularioCobro
@@ -177,10 +185,16 @@ export default function CobroProvider({
                   )}
                   {puedeIngreso && (
                     <>
-                      <Button variant="tertiary" onClick={() => irA('/comprobantes?nuevo=estacionamiento')}>
+                      <Button
+                        variant="tertiary"
+                        onClick={() => setEstado({ terceroId: null, torneoId: null, ingreso: 'estacionamiento' })}
+                      >
                         Estacionamiento
                       </Button>
-                      <Button variant="tertiary" onClick={() => irA('/comprobantes?nuevo=1')}>
+                      <Button
+                        variant="tertiary"
+                        onClick={() => setEstado({ terceroId: null, torneoId: null, ingreso: 'libre' })}
+                      >
                         Otro ingreso (alquiler, servicio…)
                       </Button>
                     </>

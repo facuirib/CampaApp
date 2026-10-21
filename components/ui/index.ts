@@ -31,6 +31,7 @@ export {
   type LineaAsiento,
 } from './AsientoPreview'
 export { default as Autor, tonoDeId, type AutorProps } from './Autor'
+export { default as InputMonto } from './InputMonto'
 export { default as Badge, type BadgeProps, type EstadoBadge } from './Badge'
 export { default as Button, type ButtonProps, type TamanoBoton, type VarianteBoton } from './Button'
 export { default as Card, type CardProps } from './Card'
