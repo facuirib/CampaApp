@@ -107,9 +107,14 @@ export default function BuscadorEquipoCobro({
     }
   }, [torneoId])
 
-  const filtrados = deudores.filter((d) =>
-    d.equipo.toLowerCase().includes(busqueda.trim().toLowerCase()),
-  )
+  // La lista YA NO se muestra entera: con 28 equipos con deuda el modal
+  // medía una pantalla. Los deudores se siguen cargando igual —la búsqueda
+  // es sobre esa lista— pero solo se RENDERIZAN los resultados de lo
+  // tipeado. La lógica de elegir y cobrar no cambia en nada.
+  const hayBusqueda = busqueda.trim() !== ''
+  const filtrados = hayBusqueda
+    ? deudores.filter((d) => d.equipo.toLowerCase().includes(busqueda.trim().toLowerCase()))
+    : []
 
   return (
     <div>
@@ -147,7 +152,9 @@ export default function BuscadorEquipoCobro({
         <p className="mt-3 text-[11px] text-muted">
           {deudores.length === 0
             ? 'Ningún equipo tiene deuda en este torneo.'
-            : 'Sin resultados para esa búsqueda.'}
+            : hayBusqueda
+              ? 'Sin resultados para esa búsqueda.'
+              : `Escribí para buscar entre los ${deudores.length} equipos con deuda de este torneo.`}
         </p>
       )}
 

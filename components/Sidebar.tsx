@@ -78,10 +78,10 @@ export interface ItemNav {
   /**
    * Con `hijos`, si además se puede contraer a mano con un chevron.
    *
-   * Sin esto los hijos se muestran siempre. Hoy los tres ítems con hijos
-   * (Cobranza y las dos configuraciones) son colapsables; la bandera sigue
-   * existiendo aparte porque mostrar-siempre es un default válido para un
-   * desplegable futuro de dos o tres hijos.
+   * Hoy NINGÚN ítem usa hijos: el menú es plano por decisión (21/10) — la
+   * navegación fina (pestañas, filtros, índices) vive DENTRO de cada
+   * pantalla, no en el menú. El mecanismo queda modelado por si algún
+   * dominio futuro de verdad lo necesita, pero el default es no usarlo.
    */
   colapsable?: boolean
 }
@@ -126,20 +126,11 @@ export const GRUPOS: GrupoNav[] = [
     // CUÁNTO.
     titulo: 'Operación',
     items: [
-      {
-        href: '/cobranza',
-        label: 'Cobranza',
-        icon: 'cobranza',
-        // Colapsable: sus tres hijos pueden pesar más de lo que hace falta
-        // ver todo el tiempo.
-        colapsable: true,
-        hijos: [
-          { href: '/cobranza', label: 'Cuenta corriente' },
-          { href: '/cobranza?vista=avisos', label: 'Avisos' },
-          // El redirect de /inscripciones sigue vivo para las URLs viejas.
-          { href: '/cobranza?vista=inscripciones', label: 'Inscripciones' },
-        ],
-      },
+      // Plano, sin hijos: las tres vistas (cuenta corriente, avisos,
+      // inscripciones) son PESTAÑAS dentro de /cobranza — la navegación fina
+      // vive en la pantalla, no en el menú. El redirect de /inscripciones
+      // sigue vivo para las URLs viejas.
+      { href: '/cobranza', label: 'Cobranza', icon: 'cobranza' },
       { href: '/equipos', label: 'Equipos', icon: 'equipos' },
       { href: '/gastos', label: 'Gastos', icon: 'gasto' },
       { href: '/proveedores', label: 'Proveedores', icon: 'proveedores' },
@@ -181,50 +172,27 @@ export const GRUPOS: GrupoNav[] = [
     ],
   },
   {
-    // Auditoría y las dos configuraciones. Son DOS desplegables con públicos
-    // distintos a propósito:
-    //
-    //   · «Configuración del sistema» — plantillas, emisor, categorías,
-    //     usuarios. OFICINA, salvo Usuarios (solo admin, y ése es el único
-    //     candado del menú que además es un permiso de verdad: middleware).
-    //   · «Configuración de torneo» — el torneo, su tarifario y sus fechas.
-    //     CONFIGURA (admin·operador): read-only mira números y bar carga su
-    //     caja, armar torneos no es trabajo de ninguno de los dos.
-    //
-    // 🔴 Las RUTAS no se movieron nunca: /torneos, /catalogos/tarifario y
-    // /calendario siguen donde estaban; cambió dónde aparecen en el menú.
-    // «Fechas del torneo» es la MISMA /calendario de siempre, renombrada en
-    // el menú para no chocar con «Calendario de pagos».
+    // Auditoría y las dos configuraciones, PLANAS — con públicos distintos:
+    // «del sistema» es OFICINA (adentro, Usuarios solo-admin lo corta el
+    // middleware); «de torneo» es CONFIGURA (admin·operador): read-only mira
+    // números y bar carga su caja, armar torneos no es trabajo de ninguno.
     titulo: 'Sistema',
     items: [
       { href: '/auditoria', label: 'Auditoría', icon: 'auditoria' },
-      {
-        href: '/configuracion',
-        label: 'Configuración del sistema',
-        icon: 'configuracion',
-        colapsable: true,
-        hijos: [
-          { href: '/configuracion/plantillas', label: 'Plantillas' },
-          { href: '/configuracion/emisor', label: 'Emisor y puntos de venta' },
-          { href: '/configuracion/categorias', label: 'Categorías de gasto' },
-          { href: '/configuracion/usuarios', label: 'Usuarios', roles: ['admin'] },
-        ],
-      },
-      {
-        // Mismo patrón que Cobranza, duplicado de href incluido: el padre
-        // navega a /torneos y el primer hijo también — es el desempate por
-        // longitud de hrefActivo el que marca bien la rama.
-        href: '/torneos',
-        label: 'Configuración de torneo',
-        icon: 'torneo',
-        roles: CONFIGURA,
-        colapsable: true,
-        hijos: [
-          { href: '/torneos', label: 'Torneos', roles: CONFIGURA },
-          { href: '/catalogos/tarifario', label: 'Tarifario', roles: CONFIGURA },
-          { href: '/calendario', label: 'Fechas del torneo', roles: CONFIGURA },
-        ],
-      },
+      // Plana: /configuracion ya ES el índice — plantillas, emisor,
+      // categorías y usuarios se eligen adentro. Usuarios sigue siendo solo
+      // de admin, pero eso lo cortan el middleware y la pantalla (el único
+      // candado del menú que además era permiso de verdad vive allá).
+      { href: '/configuracion', label: 'Configuración del sistema', icon: 'configuracion' },
+      // Plana: lleva a la LISTA de torneos, y el tarifario y las fechas se
+      // alcanzan entrando a UN torneo, por sus pestañas — que es como se
+      // piensa la configuración: de un torneo concreto, no en abstracto.
+      //
+      // 🔴 Las rutas /catalogos/tarifario y /calendario NO se borran aunque
+      // ya no estén en el menú: son el DESTINO de esas pestañas
+      // (PestanasTorneo navega a /catalogos/tarifario?torneo= y
+      // /calendario?torneo=). Borrarlas mataría el único acceso que queda.
+      { href: '/torneos', label: 'Configuración de torneo', icon: 'torneo', roles: CONFIGURA },
     ],
   },
 ]
