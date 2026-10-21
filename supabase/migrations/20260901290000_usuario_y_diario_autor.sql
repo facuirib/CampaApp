@@ -26,10 +26,13 @@
 -- auditoría quieren el nombre de MUCHOS usuarios a la vez, y una vista se
 -- cruza con ellos en la misma query.
 --
--- Es SECURITY INVOKER como cualquier vista, pero lee `auth.users`, que el rol
--- `authenticated` no alcanza. Por eso se apoya en la misma función SECURITY
--- DEFINER que ya existía y estaba aceptada: no se abre ninguna puerta nueva,
--- se usa la que había.
+-- ⚠️ CORREGIDO 21/10/26: acá decía "es SECURITY INVOKER como cualquier
+-- vista" — FALSO. En Postgres las vistas son DEFINER por default (el flag
+-- security_invoker existe desde PG15 y había que ponerlo); esta vista, como
+-- las otras 105, evaluaba RLS como postgres — y encima lee emails. La
+-- migración 20261021100000 les puso el flag a todas. Lo que sigue siendo
+-- cierto: lee `auth.users` apoyada en email_usuario (SECURITY DEFINER), la
+-- puerta que ya existía y estaba aceptada — no abre ninguna nueva.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Los ids que aparecen como autor en algún lado. No es «todos los usuarios»:
