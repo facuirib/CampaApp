@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
 import SelectorProveedor from '@/app/proveedores/SelectorProveedor'
 import { formatMoney } from '@/lib/format'
-import { Button, Field, Input, Select, LinkButton } from '@/components/ui'
+import { Button, Field, Input, Select, LinkButton, InputMonto } from '@/components/ui'
 
 const CATEGORIAS = [
   { valor: 'herramientas', label: 'Herramientas' },
@@ -247,12 +247,11 @@ export default function ActivoNuevoPage() {
             </Field>
 
             <Field label="Valor de origen" required error={valorOrigen !== 0 ? errorValor : null}>
-              <Input
-                type="number"
+              <InputMonto
                 min={0}
                 step={1000}
-                value={valorOrigen || ''}
-                onChange={(e) => setValorOrigen(Number(e.target.value))}
+                value={valorOrigen}
+                onChange={setValorOrigen}
               />
             </Field>
 

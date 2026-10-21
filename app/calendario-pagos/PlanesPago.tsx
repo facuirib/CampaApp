@@ -4,7 +4,7 @@ import { Fragment, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatDate, formatMoney } from '@/lib/format'
-import { Badge, Button, Field, Icon, Input, Select, type EstadoBadge } from '@/components/ui'
+import { Badge, Button, Field, Icon, Input, Select, type EstadoBadge, InputMonto } from '@/components/ui'
 import type { TorneoOpcion } from './GastosPlanificados'
 
 export interface ProximaCuota {
@@ -491,10 +491,9 @@ export default function PlanesPago({
               />
             </Field>
             <Field label="Monto por cuota" required>
-              <Input
-                type="number"
-                value={montoCuota || ''}
-                onChange={(e) => setMontoCuota(Number(e.target.value))}
+              <InputMonto
+                value={montoCuota}
+                onChange={setMontoCuota}
               />
             </Field>
             <Field label="Día de vencimiento" required hint="Entre 1 y 28.">

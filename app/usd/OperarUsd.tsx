@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney, formatUSD } from '@/lib/format'
-import { Badge, Button, Card, Field, Input, Select } from '@/components/ui'
+import { Badge, Button, Card, Field, Input, Select, InputMonto } from '@/components/ui'
 import { mediosPago } from '@/lib/domain/medio-pago'
 
 /**
@@ -169,22 +169,18 @@ export default function OperarUsd({
               required
               error={excede ? `Sólo hay ${formatUSD(tenencia)} en la reserva.` : null}
             >
-              <Input
-                type="number"
+              <InputMonto
                 min={0}
-                step="0.01"
-                value={cantidad}
-                onChange={(e) => setCantidad(e.target.value)}
+                value={Number(cantidad) || 0}
+                onChange={(n) => setCantidad(String(n))}
               />
             </Field>
 
             <Field label="Tipo de cambio" required hint="Pesos por dólar.">
-              <Input
-                type="number"
+              <InputMonto
                 min={0}
-                step="0.01"
-                value={tc}
-                onChange={(e) => setTc(e.target.value)}
+                value={Number(tc) || 0}
+                onChange={(n) => setTc(String(n))}
               />
             </Field>
 

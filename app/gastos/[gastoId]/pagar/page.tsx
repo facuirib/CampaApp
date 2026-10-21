@@ -51,6 +51,12 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
   const [predios, setPredios] = useState<Predio[]>([])
 
   const [medio, setMedio] = useState<Medio | ''>('')
+  // Los datos del cheque, que pagar_gasto EXIGE con medio cheque (número,
+  // banco y fecha de débito): el error existía, los campos no. El cheque de
+  // un pago es siempre PROPIO (emitido) — eso lo pone la función.
+  const [chequeNumero, setChequeNumero] = useState('')
+  const [chequeBanco, setChequeBanco] = useState('')
+  const [chequeDebito, setChequeDebito] = useState('')
   const [pagadoAt, setPagadoAt] = useState(hoyEnCordoba())
   const [predioId, setPredioId] = useState<string | null>(null)
 
@@ -149,6 +155,7 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
     !!medio &&
     !!pagadoAt &&
     (medio !== 'efectivo' || !!predioId) &&
+    (medio !== 'cheque' || (!!chequeNumero.trim() && !!chequeBanco.trim() && !!chequeDebito)) &&
     previewResultado?.balanceado === true
 
   async function confirmar() {
@@ -176,6 +183,13 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
       p_pagado_at: pagadoAt,
       p_predio_id: medio === 'efectivo' ? (predioId ?? undefined) : undefined,
       p_created_by: user.id,
+      ...(medio === 'cheque'
+        ? {
+            p_cheque_numero: chequeNumero.trim(),
+            p_cheque_banco: chequeBanco.trim(),
+            p_cheque_debito: chequeDebito,
+          }
+        : {}),
     })
 
     setRegistrando(false)
@@ -388,6 +402,41 @@ export default function PagarGastoPage({ params }: { params: Promise<{ gastoId: 
                       de ninguna caja de predio ahora: después se <strong className="font-bold">repone</strong>{' '}
                       desde Caja → Efectivo en tránsito, contra la caja que corresponda.
                     </p>
+                  )}
+
+                  {medio === 'cheque' && (
+                    <>
+                      <Field label="Número de cheque" required>
+                        <Input
+                          value={chequeNumero}
+                          onChange={(e) => setChequeNumero(e.target.value)}
+                          placeholder="00012345"
+                        />
+                      </Field>
+                      <Field label="Banco" required>
+                        <Input
+                          value={chequeBanco}
+                          onChange={(e) => setChequeBanco(e.target.value)}
+                          placeholder="Banco Nación"
+                        />
+                      </Field>
+                      <Field
+                        label="Fecha de débito esperada"
+                        required
+                        hint="Cuándo va a salir la plata — alimenta el cashflow."
+                      >
+                        <Input
+                          type="date"
+                          value={chequeDebito}
+                          onChange={(e) => setChequeDebito(e.target.value)}
+                        />
+                      </Field>
+                      <p className="rounded-md bg-panel px-3 py-2 text-[10.5px] leading-snug text-muted sm:col-span-2 lg:col-span-3">
+                        Cheque <strong className="font-semibold text-ink">propio</strong> (emitido
+                        por Campa). Queda en seguimiento en Tesorería → Cheques hasta que el banco
+                        lo debite.
+                      </p>
+                    </>
                   )}
 
                   {medio === 'efectivo' && (

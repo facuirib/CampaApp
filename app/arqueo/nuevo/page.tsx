@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
 import { formatDate, parsearMonto } from '@/lib/format'
-import { Button, Card, Field, Input, Money, Select } from '@/components/ui'
+import { Button, Card, Field, Input, Money, Select, InputMonto } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type DiaSinArquear = Database['public']['Views']['v_saldo_efectivo_dia_cancha']['Row']
@@ -268,12 +268,9 @@ export default function NuevoArqueoPage() {
               </Field>
 
               <Field label="Saldo contado" required hint="Los billetes que hay en el cajón.">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={saldoContado || ''}
-                  onChange={(e) => setSaldoContado(parsearMonto(e.target.value) ?? 0)}
+                <InputMonto
+                  value={saldoContado}
+                  onChange={setSaldoContado}
                 />
               </Field>
             </div>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatDate, parsearMonto } from '@/lib/format'
-import { Button, Card, Field, Input, Money, Select } from '@/components/ui'
+import { Button, Card, Field, Input, Money, Select, InputMonto } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 
 type DiaBar = Database['public']['Views']['v_dia_cancha_bar']['Row']
@@ -396,30 +396,21 @@ export default function NuevoCierreBarPage() {
           <Card title="Lo que se vendió" icon="monedas" className="mb-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Efectivo" hint="Al cajón del bar.">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={efectivo || ''}
-                  onChange={(e) => setEfectivo(parsearMonto(e.target.value) ?? 0)}
+                <InputMonto
+                  value={efectivo}
+                  onChange={setEfectivo}
                 />
               </Field>
               <Field label="Tarjeta">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={tarjeta || ''}
-                  onChange={(e) => setTarjeta(parsearMonto(e.target.value) ?? 0)}
+                <InputMonto
+                  value={tarjeta}
+                  onChange={setTarjeta}
                 />
               </Field>
               <Field label="Mercado Pago">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={mp || ''}
-                  onChange={(e) => setMp(parsearMonto(e.target.value) ?? 0)}
+                <InputMonto
+                  value={mp}
+                  onChange={setMp}
                 />
               </Field>
             </div>

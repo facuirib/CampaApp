@@ -14,8 +14,7 @@ import {
   LinkButton,
   Select,
   type CeldaBadge,
-  type ColumnDef,
-} from '@/components/ui'
+  type ColumnDef, InputMonto } from '@/components/ui'
 import type { Database, Json } from '@/lib/db/database.types'
 import { mediosPago } from '@/lib/domain/medio-pago'
 import { estadoCuota } from '@/lib/domain/cobranza'
@@ -528,12 +527,9 @@ export default function FormularioCobro({
               <div className="mb-4 rounded-md border border-line bg-white p-4">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Field label="Monto" required>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={monto || ''}
-                      onChange={(e) => setMonto(parsearMonto(e.target.value) ?? 0)}
+                    <InputMonto
+                      value={monto}
+                      onChange={setMonto}
                     />
                   </Field>
 

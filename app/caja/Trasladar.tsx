@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney } from '@/lib/format'
-import { Button, Card, Field, Input, Select } from '@/components/ui'
+import { Button, Card, Field, Input, Select, InputMonto } from '@/components/ui'
 
 export interface CajaOpcion {
   caja_id: string
@@ -169,12 +169,10 @@ export default function Trasladar({ cajas }: { cajas: CajaOpcion[] }) {
               required
               error={excede ? `${origen?.nombre} tiene ${formatMoney(origen?.saldo ?? 0)}.` : null}
             >
-              <Input
-                type="number"
+              <InputMonto
                 min={0}
-                step="0.01"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
+                value={Number(monto) || 0}
+                onChange={(n) => setMonto(String(n))}
               />
             </Field>
 

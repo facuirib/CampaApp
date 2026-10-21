@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatDate, parsearMonto } from '@/lib/format'
-import { Button, Card, Field, Input, Money, Select } from '@/components/ui'
+import { Button, Card, Field, Input, Money, Select, InputMonto } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 import AnularRetiro from '../AnularRetiro'
 
@@ -205,12 +205,9 @@ export default function RetiroBarPage() {
               </Field>
 
               <Field label="Monto" required>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={monto || ''}
-                  onChange={(e) => setMonto(parsearMonto(e.target.value) ?? 0)}
+                <InputMonto
+                  value={monto}
+                  onChange={setMonto}
                 />
               </Field>
 

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney } from '@/lib/format'
-import { Button, Card, Field, Input, Select } from '@/components/ui'
+import { Button, Card, Field, Input, Select, InputMonto } from '@/components/ui'
 import type { Database } from '@/lib/db/database.types'
 import { mediosPago } from '@/lib/domain/medio-pago'
 
@@ -137,12 +137,10 @@ export default function RegistrarRetiro({
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Monto" required>
-              <Input
-                type="number"
+              <InputMonto
                 min={0}
-                step="0.01"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
+                value={Number(monto) || 0}
+                onChange={(n) => setMonto(String(n))}
               />
             </Field>
 

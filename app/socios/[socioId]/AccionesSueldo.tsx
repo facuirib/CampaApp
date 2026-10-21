@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Badge, Button, Card, Field, Input, Select } from '@/components/ui'
+import { Badge, Button, Card, Field, Input, Select, InputMonto } from '@/components/ui'
 import { formatMoney } from '@/lib/format'
 import { ajustarSueldoDelMes, cambiarSueldoAcordado } from './acciones'
 
@@ -146,12 +146,10 @@ export default function AccionesSueldo({
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Field label="Sueldo mensual" required>
-              <Input
-                type="number"
+              <InputMonto
                 min={0}
-                step="0.01"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
+                value={Number(monto) || 0}
+                onChange={(n) => setMonto(String(n))}
               />
             </Field>
             <Field label="Rige desde" required hint="Los meses anteriores no se tocan.">
@@ -211,12 +209,10 @@ export default function AccionesSueldo({
               </Select>
             </Field>
             <Field label="Sueldo de ese mes" required hint="Cero significa que ese mes no cobra.">
-              <Input
-                type="number"
+              <InputMonto
                 min={0}
-                step="0.01"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
+                value={Number(monto) || 0}
+                onChange={(n) => setMonto(String(n))}
               />
             </Field>
             <Field

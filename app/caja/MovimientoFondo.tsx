@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatDate, formatMoney, parsearMonto } from '@/lib/format'
-import { Button, Field, Input, Select } from '@/components/ui'
+import { Button, Field, Input, Select, InputMonto } from '@/components/ui'
 
 /**
  * El fondo de inversión: rescate y colocación.
@@ -116,12 +116,9 @@ export default function MovimientoFondo({
               </Select>
             </Field>
             <Field label="Monto" required>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={monto || ''}
-                onChange={(e) => setMonto(parsearMonto(e.target.value) ?? 0)}
+              <InputMonto
+                value={monto}
+                onChange={setMonto}
               />
             </Field>
             <Field label="Motivo" required className="sm:col-span-2 lg:col-span-4">
