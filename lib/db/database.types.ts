@@ -2146,6 +2146,53 @@ export type Database = {
           },
         ]
       }
+      cuota_ajuste: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          cuota_id: string
+          id: string
+          monto_anterior: number
+          monto_nuevo: number
+          motivo: string
+          tipo: string
+          vence_at_anterior: string
+          vence_at_nuevo: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          cuota_id: string
+          id?: string
+          monto_anterior: number
+          monto_nuevo: number
+          motivo: string
+          tipo?: string
+          vence_at_anterior: string
+          vence_at_nuevo: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          cuota_id?: string
+          id?: string
+          monto_anterior?: number
+          monto_nuevo?: number
+          motivo?: string
+          tipo?: string
+          vence_at_anterior?: string
+          vence_at_nuevo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuota_ajuste_cuota_id_fkey"
+            columns: ["cuota_id"]
+            isOneToOne: false
+            referencedRelation: "cuota"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cuota_cobro_sponsor: {
         Row: {
           asiento_id: string | null
@@ -9177,6 +9224,27 @@ export type Database = {
         }
         Returns: string
       }
+      ajustar_cuota: {
+        Args: {
+          p_created_by?: string
+          p_cuota_id: string
+          p_monto?: number
+          p_motivo: string
+          p_vence_at?: string
+        }
+        Returns: string
+      }
+      ajustar_cuota_nucleo: {
+        Args: {
+          p_created_by: string
+          p_cuota_id: string
+          p_monto: number
+          p_motivo: string
+          p_tipo: string
+          p_vence_at: string
+        }
+        Returns: string
+      }
       anular_arqueo: {
         Args: {
           p_arqueo_id: string
@@ -9311,6 +9379,14 @@ export type Database = {
         Args: { p_cae: string; p_cae_vencimiento: string; p_id: string }
         Returns: undefined
       }
+      cancelar_cuota: {
+        Args: {
+          p_created_by?: string
+          p_cuota_id: string
+          p_motivo: string
+        }
+        Returns: string
+      }
       cerrar_periodo: {
         Args: {
           p_amortizacion_vista?: boolean
@@ -9361,6 +9437,15 @@ export type Database = {
           p_medio?: string
           p_motivo?: string
           p_tc: number
+        }
+        Returns: string
+      }
+      condonar_cuota: {
+        Args: {
+          p_created_by?: string
+          p_cuota_id: string
+          p_monto: number
+          p_motivo: string
         }
         Returns: string
       }

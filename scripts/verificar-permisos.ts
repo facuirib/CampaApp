@@ -248,6 +248,8 @@ const RPC_DE_LECTURA = new Set([
  * llame a una de éstas ES un error, y por eso más abajo se chequea.
  */
 const INTERNAS: Record<string, string> = {
+  ajustar_cuota_nucleo:
+    'El núcleo de ajustar/condonar/cancelar cuota: toda la validación, ninguna guarda. Las tres puertas lo llaman tras la suya',
   crear_asiento: 'La puerta del diario. La llaman todas las funciones que asientan, nunca el front',
   periodo_de_fecha: 'Resuelve el período de una fecha; la llama crear_asiento',
   aplicar_anticipo: 'Consume saldo a favor; la llama registrar_cobro dentro de su transacción',

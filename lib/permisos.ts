@@ -238,6 +238,26 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['registrar_cobro', 'imputar_pago'] },
   },
+  'cuota.editar': {
+    // CON_FINANZAS y no SOLO_ADMIN (cambio de Facu sobre el diseño de
+    // Horacio): reestructurar cómo paga un equipo —monto o vencimiento de
+    // una cuota impaga— es gestión diaria, del mismo rango que cobrar. La
+    // RLS de `cuota` no filtra por rol (cuota_update_autenticado es
+    // using(true), por los triggers de sync) — la guarda adentro de la
+    // función es el único control real.
+    que: 'Editar monto o vencimiento de una cuota impaga',
+    roles: CON_FINANZAS,
+    donde: { guarda: 'ajustar_cuota' },
+  },
+  'cuota.condonar': {
+    // SENSIBLE: condonar y cancelar hacen DESAPARECER deuda — el operador
+    // reestructura el plan, pero perdonarlo es otra decisión. Una lógica,
+    // tres puertas: toda la validación vive en ajustar_cuota_nucleo
+    // (interna) y estas dos solo ponen la guarda.
+    que: 'Condonar o cancelar una cuota impaga',
+    roles: SENSIBLE,
+    donde: { guarda: 'condonar_cuota · cancelar_cuota' },
+  },
   'proveedor.crear': {
     // Dar de alta y editar proveedores: a quién se le compra.
     //

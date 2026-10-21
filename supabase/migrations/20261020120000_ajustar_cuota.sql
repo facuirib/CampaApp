@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- PROPUESTA AMPLIADA — NO APLICAR SIN OK DE FACU
+-- APLICADA EL 21/10/2026, CON OK DE FACU (script de prueba: TODOS LOS CASOS OK)
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Diseño original de Horacio (20/10): ajustar_cuota con tipos ajuste y

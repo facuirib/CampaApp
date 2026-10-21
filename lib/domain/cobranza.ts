@@ -100,6 +100,16 @@ export const ESTADOS_CUOTA: Record<string, CeldaBadge> = {
   por_vencer: { estado: 'porVencer', label: 'Por vencer' },
   vencida: { estado: 'mora', label: 'Vencida' },
   parcial_vencida: { estado: 'mora', label: 'Parcial vencida' },
+  // No es un valor de v_deuda_detalle.estado —la vista sólo sabe decir
+  // 'pagada'—: lo decide la pantalla, cruzando el último cuota_ajuste de
+  // tipo 'condonacion' contra que la cuota siga saldada hoy (ver
+  // app/equipos/[terceroId]/page.tsx). Si se reabrió (se anuló el pago que
+  // la completaba), vuelve a su estado real y esta etiqueta no se usa.
+  condonada: { estado: 'ok', label: 'Condonada' },
+  // Mismo mecanismo que condonada, para el tipo cancelacion: la cuota se
+  // sacó del plan (monto 0). Neutra, no verde: no se cobró ni se perdonó un
+  // remanente — no debió estar.
+  cancelada: { estado: 'neutro', label: 'Cancelada' },
 }
 
 export function estadoCuota(codigo: string | null): CeldaBadge {
