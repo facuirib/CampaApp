@@ -18,6 +18,24 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔒 fn_audit cerrada para la API · 21/10 · Facu → Horacio
+
+El último WARN propio de los advisors: `fn_audit` (tu trigger de auditoría,
+SECURITY DEFINER) era ejecutable por anon y authenticated vía
+/rest/v1/rpc/fn_audit. Relevado antes de tocar: es returns trigger puro, la
+usan tus 6 triggers (activo · arqueo · cheque · cuota · equipo_torneo ·
+gasto) y NADA la llama por RPC. `revoke execute ... from public, anon,
+authenticated` (migración 20261021130000) — los triggers no dependen del
+EXECUTE del rol: verificado después, un UPDATE como authenticated sigue
+escribiendo su fila en audit_log con el usuario correcto.
+
+`email_usuario` queda COMO ESTÁ, decisión documentada: definer a propósito
+(lee auth.users) y la usan v_usuario y la auditoría para resolver nombres.
+Es el único WARN que queda, aceptado. Los dos INFO (RLS sin policies en
+_prueba_marca y arca_ticket_acceso) son deliberados: solo el server las toca.
+
+---
+
 ### 🔒 SECURITY_INVOKER EN LAS 106 VISTAS — el agujero grande, cerrado · 21/10 · Facu → Horacio
 
 De la auditoría de seguridad pre-entrega. **Cualquiera con la anon key (que

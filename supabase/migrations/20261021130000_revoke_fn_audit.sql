@@ -1,0 +1,21 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- HARDENING · fn_audit deja de ser llamable por la API
+-- APLICADA EL 21/10/2026 (cierre de advisors, OK de Facu)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- `fn_audit` es la función de los 6 triggers de auditoría (activo, arqueo,
+-- cheque, cuota, equipo_torneo, gasto): returns trigger, sin argumentos,
+-- SECURITY DEFINER. Nadie la llama por RPC —relevado en el código: cero
+-- llamadas— pero el grant de EXECUTE a anon/authenticated la dejaba expuesta
+-- en /rest/v1/rpc/fn_audit (dos WARN de los advisors).
+--
+-- El revoke NO toca los triggers: un trigger lo dispara el MOTOR al escribir
+-- la fila, no una llamada del rol — el EXECUTE del rol no participa.
+-- Verificado después de aplicar: un UPDATE como authenticated sigue
+-- escribiendo su fila en audit_log.
+--
+-- `email_usuario` NO se toca — decisión documentada: es SECURITY DEFINER a
+-- propósito (lee auth.users, que authenticated no alcanza) y la usan
+-- v_usuario y las pantallas de auditoría para resolver nombres. Su WARN
+-- queda aceptado.
+revoke execute on function public.fn_audit() from public, anon, authenticated;
