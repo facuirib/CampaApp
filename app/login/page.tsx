@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
 import { Button, Field, Input } from '@/components/ui'
 
@@ -81,7 +82,9 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-[10.5px] leading-snug text-muted">
-        ¿Olvidaste la contraseña? Pedile a quien administra el sistema que la reponga.
+        <Link href="/recuperar" className="font-semibold text-blue-d hover:underline">
+          ¿Olvidaste tu contraseña?
+        </Link>
       </p>
     </main>
   )

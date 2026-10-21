@@ -38,11 +38,19 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const enLogin = request.nextUrl.pathname.startsWith('/login')
+  // El circuito de recuperar contraseña también se ve sin sesión: /recuperar
+  // pide el mail, y /nueva-contrasena es adonde aterriza el LINK del mail con
+  // su código de un solo uso (?code=) — rebotarla al login se comería el
+  // código. Y a diferencia de /login, CON sesión no se rebota: el canje del
+  // código deja una sesión de recuperación y la pantalla se usa así.
+  const enRecuperacion =
+    request.nextUrl.pathname.startsWith('/recuperar') ||
+    request.nextUrl.pathname.startsWith('/nueva-contrasena')
 
   // /login se excluye acá y NO en el matcher: si estuviera fuera del middleware,
   // el redirect inverso —el de alguien logueado que vuelve al login— no podría
   // ocurrir, y quedaría mirando un formulario que no necesita.
-  if (!user && !enLogin) {
+  if (!user && !enLogin && !enRecuperacion) {
     const destino = request.nextUrl.clone()
     destino.pathname = '/login'
     destino.search = ''
