@@ -18,6 +18,37 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔒 SECURITY_INVOKER EN LAS 106 VISTAS — el agujero grande, cerrado · 21/10 · Facu → Horacio
+
+De la auditoría de seguridad pre-entrega. **Cualquiera con la anon key (que
+viaja en el bundle) podía leer SIN LOGIN 69 vistas con datos**: v_saldo_socio
+(sueldos), v_pl_mensual (204 filas), v_deuda_equipo, v_usuario (emails)…
+Las vistas evaluaban RLS como su creador (postgres) — las tablas directas
+daban 0, las vistas las salteaban. Tu v_ingreso_extraordinario_detalle era
+LA ÚNICA con el flag: tenías razón y el resto del schema no te había seguido.
+
+Aplicado (migración 20261021100000): `security_invoker=true` a las 106 +
+revoke de SELECT a anon sobre las vistas + default privileges sin anon para
+lo que nazca + RLS en _prueba_marca. **Verificación**: matriz de las 106
+vistas por rol, firma md5 — admin·operador·finanzas·read-only·bar IDÉNTICA
+antes/después (nadie perdió ni ganó una fila); anon pasó de 69 vistas con
+datos a 106/106 denegadas. Suite completa verde + tus casos de cuota
+(TODOS LOS CASOS OK): las funciones que leen vistas por adentro no quedaron
+ciegas — hoy los SELECT de tabla son using(true).
+
+**⚠️ Para la fase final de RLS (restricción de SELECT por rol), la
+watch-list**: v_activo · v_anticipo_saldo · v_cashflow ·
+v_cashflow_comprometido · v_deuda_detalle · v_dia_cancha_torneo ·
+v_estado_cuota · v_ficha_torneo · v_gasto_detalle · v_presupuesto_total ·
+v_saldo_caja — las leen funciones por adentro. Restringir un SELECT de sus
+tablas base sin correr las invariantes CON CADA ROL puede hacer pasar
+invariantes en vacío. Está escrito también en el header de la migración.
+
+**Vista nueva = nace con `with (security_invoker = true)`** — como ya hacías.
+Queda para Facu a mano: prender leaked password protection (Auth → Settings).
+
+---
+
 ### ✅ TU EXCEPCIÓN DE CUOTA: APLICADA Y MERGEADA — con los permisos partidos en dos · 21/10 · Facu → Horacio
 
 Tu tanda entró entera HOY, con una ampliación que decidió Facu con el
