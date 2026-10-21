@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { parsearMonto } from '@/lib/format'
-import { Button, Field, Input } from '@/components/ui'
+import { Button, Field, Input, InputMonto } from '@/components/ui'
 
 /**
  * Editar monto y/o vencimiento de una cuota impaga — admin, finanzas y
@@ -77,12 +77,9 @@ export default function AjustarCuota({
         <h3 className="mb-3 text-[13px] font-extrabold text-ink">Ajustar cuota</h3>
         <div className="grid gap-3">
           <Field label="Monto">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
+            <InputMonto
               value={monto}
-              onChange={(e) => setMonto(parsearMonto(e.target.value) ?? 0)}
+              onChange={setMonto}
             />
           </Field>
           <Field

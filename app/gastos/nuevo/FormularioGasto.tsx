@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/db/client'
 import SelectorProveedor from '@/app/proveedores/SelectorProveedor'
 import { formatMoney, parsearMonto } from '@/lib/format'
-import { AsientoPreview, Button, Card, Field, Input, Select } from '@/components/ui'
+import { AsientoPreview, Button, Card, Field, Input, Select, InputMonto } from '@/components/ui'
 import { ERROR_PREVIEW_INESPERADO, leerPreviewAsiento, type PreviewAsiento } from '@/lib/db/preview'
 import type { Database } from '@/lib/db/database.types'
 
@@ -498,13 +498,7 @@ export default function FormularioGasto({
               )}
 
               <Field label="Arancel" required>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={arancel || ''}
-                  onChange={(e) => setArancel(parsearMonto(e.target.value) ?? 0)}
-                />
+                <InputMonto value={arancel} onChange={setArancel} />
               </Field>
 
               <Field label="Cantidad" required>

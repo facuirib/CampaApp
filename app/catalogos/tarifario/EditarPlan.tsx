@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
-import { Badge, Button, Field, Input, Select } from '@/components/ui'
+import { Badge, Button, Field, Input, InputMonto, Select } from '@/components/ui'
 import { formatMoney } from '@/lib/format'
 import type { Database } from '@/lib/db/database.types'
 
@@ -239,10 +239,10 @@ export default function EditarPlan({
                   </Select>
                 </Field>
                 <Field label="Efectivo">
-                  <Input type="number" value={nEfec} onChange={(e) => setNEfec(Number(e.target.value))} />
+                  <InputMonto value={nEfec} onChange={setNEfec} />
                 </Field>
                 <Field label="Transferencia">
-                  <Input type="number" value={nTransf} onChange={(e) => setNTransf(Number(e.target.value))} />
+                  <InputMonto value={nTransf} onChange={setNTransf} />
                 </Field>
                 {FORMAS[nForma].ref && (
                   <Field label="Vence" className="col-span-2">

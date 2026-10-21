@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney } from '@/lib/format'
-import { Badge, Button, Card, Field, Input, KpiCard, Select } from '@/components/ui'
+import { Badge, Button, Card, Field, Input, InputMonto, KpiCard, Select } from '@/components/ui'
 
 /**
  * El presupuesto: lo MUESTRA y lo edita.
@@ -354,10 +354,9 @@ export default function EditorPresupuesto({
                             {enEdicion ? (
                               <>
                                 <td className="px-3 py-1.5" style={{ width: 130 }}>
-                                  <Input
-                                    type="number"
+                                  <InputMonto
                                     value={base}
-                                    onChange={(e) => setBase(Number(e.target.value))}
+                                    onChange={setBase}
                                   />
                                 </td>
                                 <td className="px-3 py-1.5" style={{ width: 90 }}>
@@ -481,10 +480,9 @@ export default function EditorPresupuesto({
                       </Select>
                     </Field>
                     <Field label="Base" required>
-                      <Input
-                        type="number"
+                      <InputMonto
                         value={nuevaBase}
-                        onChange={(e) => setNuevaBase(Number(e.target.value))}
+                        onChange={setNuevaBase}
                       />
                     </Field>
                     <Field label="Cantidad" required>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatMoney } from '@/lib/format'
-import { Button, Field, Input } from '@/components/ui'
+import { Button, Field, Input, InputMonto } from '@/components/ui'
 
 interface FilaCuota {
   fecha: string
@@ -74,7 +74,7 @@ export default function NuevoContrato({ sponsorId }: { sponsorId: string }) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Monto total" required>
-          <Input type="number" value={monto || ''} onChange={(e) => setMonto(Number(e.target.value))} />
+          <InputMonto value={monto} onChange={setMonto} />
         </Field>
         <Field label="Vigente desde" required>
           <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />

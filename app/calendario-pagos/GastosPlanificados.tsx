@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/db/client'
 import { formatDate, formatMoney } from '@/lib/format'
-import { Badge, Button, Field, Input, Select } from '@/components/ui'
+import { Badge, Button, Field, Input, InputMonto, Select } from '@/components/ui'
 
 export interface PlanificadoFila {
   id: string
@@ -231,7 +231,7 @@ export default function GastosPlanificados({
               </Select>
             </Field>
             <Field label="Monto" required>
-              <Input type="number" value={monto || ''} onChange={(e) => setMonto(Number(e.target.value))} />
+              <InputMonto value={monto} onChange={setMonto} />
             </Field>
             <Field label="Fecha esperada" required hint="Cuándo proyecta en la curva.">
               <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
