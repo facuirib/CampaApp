@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- PROPUESTA — NO APLICAR SIN OK DE FACU (regla 11) · avisado a Horacio
--- (coordinacion.md): función nueva que GENERA ASIENTOS — su dominio.
+-- APLICADA EL 22/10/2026 CON OK DE FACU · avisado a Horacio (coordinacion.md):
+-- función nueva que GENERA ASIENTOS — su dominio; diseño validado por Facu.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- APERTURA DE CAJA: poner la app en marcha con el torneo ya empezado — cargar
@@ -44,6 +44,17 @@ comment on column cuenta.tipo is
 alter table usd_operacion drop constraint usd_operacion_tipo_check;
 alter table usd_operacion add constraint usd_operacion_tipo_check
   check (tipo in ('compra', 'venta', 'revaluacion', 'apertura'));
+
+-- Y su check de signo (compra > 0, venta < 0): la apertura entra positiva —
+-- es tenencia que ya existía, nunca una salida. El primer intento de la
+-- prueba en rollback lo encontró: este check no estaba en el borrador.
+alter table usd_operacion drop constraint usd_operacion_signo_check;
+alter table usd_operacion add constraint usd_operacion_signo_check
+  check (
+    (tipo = 'compra'   and cantidad > 0) or
+    (tipo = 'venta'    and cantidad < 0) or
+    (tipo = 'apertura' and cantidad > 0)
+  );
 
 -- 3 · La puerta.
 create or replace function public.abrir_saldo_caja(

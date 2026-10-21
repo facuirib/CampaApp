@@ -18,12 +18,14 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
-### 🔧 PROPUESTA · abrir_saldo_caja — una función que ASIENTA · 22/10 · Facu → Horacio, para validar
+### 🔧 APLICADA · abrir_saldo_caja — una función que ASIENTA · 22/10 · Facu → Horacio
 
 Para arrancar la app con el torneo empezado: cargar el saldo inicial de cada
 caja a la fecha de corte. Es motor de asientos (tu dominio) — la migración
-20261022110000 está en el repo SIN APLICAR, esperando el OK de Facu; va acá
-para que la valides vos también:
+20261022110000 quedó APLICADA con OK de Facu (diseño validado punto por
+punto); el detalle, para que lo revises vos también. La prueba en rollback
+encontró tu check de SIGNO de usd_operacion (compra>0, venta<0) — se amplió
+con (apertura>0). UI: «Apertura de caja» en /caja, marca las que ya están.
 
 · UN asiento por caja: caja al debe, SALDOS_INICIALES al haber — la PRIMERA
   cuenta de patrimonio del plan (no había ninguna). El P&L no se entera por

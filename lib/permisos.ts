@@ -564,6 +564,14 @@ export const PERMISOS = {
     roles: CON_FINANZAS,
     donde: { fns: ['registrar_cobro_sponsor'] },
   },
+  'caja.abrir': {
+    // SENSIBLE: escribe PATRIMONIO (SALDOS_INICIALES) — el saldo inicial de
+    // una caja a la fecha de corte, para arrancar con el torneo empezado.
+    // Una apertura vigente por caja; corregir = anular + abrir (regla 4).
+    que: 'Cargar el saldo inicial de una caja (apertura)',
+    roles: SENSIBLE,
+    donde: { guarda: 'abrir_saldo_caja' },
+  },
   'caja.trasladar': {
     // Mover plata entre cajas propias del club.
     //

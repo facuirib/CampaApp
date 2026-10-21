@@ -9212,6 +9212,16 @@ export type Database = {
       }
     }
     Functions: {
+      abrir_saldo_caja: {
+        Args: {
+          p_caja_id: string
+          p_created_by?: string
+          p_fecha: string
+          p_monto: number
+          p_tc?: number
+        }
+        Returns: string
+      }
       agregar_linea_presupuesto: {
         Args: {
           p_base: number

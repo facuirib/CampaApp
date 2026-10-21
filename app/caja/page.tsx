@@ -3,6 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { formatMoney } from '@/lib/format'
 import { puede } from '@/lib/permisos'
 import { rolActual } from '@/lib/rol-actual'
+import AperturaCaja from './AperturaCaja'
 import Trasladar from './Trasladar'
 import TransitoAcciones from './TransitoAcciones'
 import { formatDate } from '@/lib/format'
@@ -102,6 +103,17 @@ export default async function CajaPage() {
   const error = errorCajas ?? errorTotal
   const rol = await rolActual()
   const puedeTrasladar = puede(rol, 'caja.trasladar')
+  const puedeAbrir = puede(rol, 'caja.abrir')
+
+  // Las cajas con su apertura VIGENTE (no anulada), para que la pantalla de
+  // apertura marque cuáles ya están y ofrezca solo las pendientes.
+  const { data: cajasAbribles } = puedeAbrir
+    ? await supabase.from('caja').select('id, nombre, tipo, activo').eq('activo', true).order('nombre')
+    : { data: null }
+  const { data: aperturas } = puedeAbrir
+    ? await supabase.from('asiento').select('origen_id').eq('origen', 'apertura').is('anulado_por', null)
+    : { data: null }
+  const abiertas = new Set((aperturas ?? []).map((a) => a.origen_id))
   const puedeFondo = puede(rol, 'fondo.movimiento')
 
   const filas = (cajas ?? []) as FilaCaja[]
@@ -131,6 +143,17 @@ export default async function CajaPage() {
               { titulo: 'CAJAS', valor: total?.cajas ?? null, formato: 'entero' },
             ]}
           />
+
+          {puedeAbrir && (
+            <AperturaCaja
+              cajas={(cajasAbribles ?? []).map((c) => ({
+                id: c.id,
+                nombre: c.nombre,
+                tipo: c.tipo,
+                abierta: abiertas.has(c.id),
+              }))}
+            />
+          )}
 
           {puedeTrasladar && (
             <Trasladar
