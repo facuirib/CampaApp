@@ -21,6 +21,7 @@ export interface MedioPago {
 export const MEDIOS_PAGO: readonly MedioPago[] = [
   { clave: 'efectivo', label: 'Efectivo' },
   { clave: 'transferencia', label: 'Transferencia' },
+  { clave: 'mercado_pago', label: 'Mercado Pago' },
   { clave: 'cheque', label: 'Cheque' },
   { clave: 'efectivo_transito', label: 'Efectivo en tránsito' },
   { clave: 'central', label: 'Caja central' },

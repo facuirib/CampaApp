@@ -535,7 +535,7 @@ export default function FormularioCobro({
 
                   <Field label="Medio">
                     <Select value={medio} onChange={(e) => setMedio(e.target.value as Medio)}>
-{mediosPago(['efectivo', 'transferencia', 'cheque', 'efectivo_transito']).map((m) => (
+{mediosPago(['efectivo', 'transferencia', 'mercado_pago', 'cheque', 'efectivo_transito']).map((m) => (
                         <option key={m.clave} value={m.clave}>
                           {m.label}
                         </option>

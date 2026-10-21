@@ -57,7 +57,7 @@ export default function NuevoIngreso({
   const [cuenta, setCuenta] = useState(cuentaInicial ?? '')
   const [concepto, setConcepto] = useState('')
   const [monto, setMonto] = useState(0)
-  const [medio, setMedio] = useState<'efectivo' | 'transferencia'>('transferencia')
+  const [medio, setMedio] = useState<'efectivo' | 'transferencia' | 'mercado_pago'>('transferencia')
   const [fecha, setFecha] = useState('')
   const [tercero, setTercero] = useState('')
   const [predio, setPredio] = useState('')
@@ -153,8 +153,9 @@ export default function NuevoIngreso({
           <InputMonto value={monto} onChange={setMonto} />
         </Field>
         <Field label="Medio" required>
-          <Select value={medio} onChange={(e) => setMedio(e.target.value as 'efectivo' | 'transferencia')}>
+          <Select value={medio} onChange={(e) => setMedio(e.target.value as 'efectivo' | 'transferencia' | 'mercado_pago')}>
             <option value="transferencia">Transferencia</option>
+            <option value="mercado_pago">Mercado Pago</option>
             <option value="efectivo">Efectivo</option>
           </Select>
         </Field>

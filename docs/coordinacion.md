@@ -18,6 +18,22 @@ carril; un `onClick` que llama a una función, no.
 
 ## Avisos abiertos
 
+### 🔧 TOCO TU MOTOR · caja Mercado Pago · 22/10 · Facu → Horacio
+
+Con OK de Facu, HOY toco: `registrar_cobro` y
+`registrar_ingreso_extraordinario` (create or replace partiendo del cuerpo
+VIGENTE vía pg_get_functiondef — tu eslabón cheque-pago del 16-17/08 queda
+INTACTO: parámetros de cheque, alta `recibido`, VALORES_A_DEPOSITAR), la
+tabla `caja` (check de tipo + fila mercado_pago, global sin predio) y los
+checks de `medio_pago` en `pago` e `ingreso_extraordinario`. Migración
+20261022100000. Si estás por tocar algo de eso, frená y hablamos.
+
+MP se reconcilia como Transferencia (saldo del diario, sin arqueo físico) —
+decisión de Facu. De paso: tu motor de cobro con cheque gana la UI que le
+faltaba (número/banco/fecha inline en el formulario de cobro).
+
+---
+
 ### 🔒 fn_audit cerrada para la API · 21/10 · Facu → Horacio
 
 El último WARN propio de los advisors: `fn_audit` (tu trigger de auditoría,
